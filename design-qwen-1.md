@@ -349,3 +349,345 @@ This blueprint provides the regulatory backbone and the avant-garde aesthetic di
 3.  Shall we prioritize the **Peppol e-invoicing** integration in Phase 1, or defer it to Phase 2 to focus on core GST logic first?
 
 Awaiting your validation to commence the **Implementation Phase**.
+
+---
+
+# Executive Summary
+
+I have conducted a forensic analysis of your draft blueprint against my previous **LedgerSG** architecture. Your research into the **2026 IRAS regulatory landscape** (specifically BCRS, Transfer Pricing thresholds, and InvoiceNow mandates) is exceptional and significantly deepens the functional requirements.
+
+However, from an **Avant-Garde UI** and **Frontend Architecture** perspective, your draft leans slightly towards "Safe Enterprise SaaS" (Off-white backgrounds, standard Indigo). To meet our **Anti-Generic Pledge**, we must push the aesthetic further into **"Neo-Brutalist Fintech"**—high contrast, dark-mode native, and typographically driven.
+
+Technically, I have identified critical refinements regarding **Django version stability** (6.0 is unreleased), **Authentication security** (Cookies vs. JWT), and **Peppol integration strategy** (API vs. Building Transport).
+
+Below is the **Merged Architectural Blueprint**. It combines your regulatory depth with my structural rigor and aesthetic boldness.
+
+---
+
+# Phase 1: Critical Analysis & Comparative Critique
+
+Before merging, we must validate the divergences. This transparency ensures no technical debt is inherited.
+
+### 1.1 Technical Stack Validation
+| Component | Your Draft | My Critique & Correction | Decision |
+| :--- | :--- | :--- | :--- |
+| **Django** | **6.0** (Future) | **Risk:** Django 6.0 is not yet stable (Current LTS is 5.1). Building on unreleased software for financial apps is negligent. | **Django 5.1 LTS** (Architecture ready for 6.0 upgrade). |
+| **Auth** | **JWT** | **Risk:** JWT stored in localStorage is vulnerable to XSS. Financial apps require higher security. | **HttpOnly Cookies** + Django Session Auth (proxied via Next.js). |
+| **Peppol** | **Build Direct** | **Risk:** Becoming a Peppol Access Point requires licensing & AS4 infrastructure. High overhead. | **Integrate Certified APP API** (e.g., DigiHub/E-Invoicing SG) for transport. |
+| **Design** | **Off-White/Indigo** | **Risk:** Feels like "Xero Clone". Violates **Anti-Generic** pledge. | **Dark-First "Neo-Brutalist"**. High contrast, mono fonts, distinct hierarchy. |
+| **DB Logic** | **Stored Procs** | **Risk:** Harder to test/version control than ORM logic. | **Hybrid**: ORM for business logic, DB Generated Columns for computed totals. |
+
+### 1.2 Regulatory Depth Assessment
+*   **BCRS (Beverage Container Return Scheme):** Your inclusion is vital. Most systems miss this. We must ensure the deposit is treated as a **Liability**, not Income.
+*   **Transfer Pricing (TP):** The S$2M threshold flagging is a killer feature. We will automate this detection in the `Transaction` model.
+*   **InvoiceNow:** The "Fatal Error" validation logic must be embedded in the API serializers, not just the frontend.
+
+---
+
+# Phase 2: Merged Architectural Blueprint (v2.0)
+
+## 2.1 Design System: "Neo-Brutalist Fintech"
+We reject the "safe" light mode default. Accountants work long hours; dark mode reduces eye strain. We use **whitespace as a structural element**, not just padding.
+
+*   **Color Palette:**
+    *   **Background:** `#050505` (Void Black)
+    *   **Surface:** `#121212` (Carbon) with `1px solid #2A2A2A` borders.
+    *   **Primary:** `#FFFFFF` (Pure White) for primary actions/text.
+    *   **Accent:** `#00FF94` (SG Green) for Positive Cashflow/Compliance OK.
+    *   **Alert:** `#FF3333` (IRAS Red) for Fatal Errors/Underpayment.
+*   **Typography:**
+    *   **Headings:** `Space Grotesk` (Geometric, distinctive).
+    *   **Data/Numbers:** `JetBrains Mono` (Tabular nums, zero slashed).
+    *   **UI:** `Inter` (High legibility).
+*   **Visual Language:**
+    *   **No Shadows:** Use borders and contrast for depth.
+    *   **Visible Grids:** Subtle grid lines on data tables to emphasize precision.
+    *   **Micro-interactions:** Magnetic buttons, instant validation states (no spinners, use skeleton loaders).
+
+## 2.2 Technical Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Client (Next.js 15)"
+        A[App Router (RSC)]
+        B[Server Actions]
+        C[Shadcn-UI Components]
+        D[Tailwind 4 Engine]
+    end
+    subgraph "Security Layer"
+        E[Next.js Middleware]
+        F[HttpOnly Cookie Auth]
+    end
+    subgraph "API (Django 5.1 LTS)"
+        G[DRF ViewSets]
+        H[Compliance Engine]
+        I[Peppol Connector]
+    end
+    subgraph "Data (PostgreSQL 16)"
+        J[(Tables)]
+        K[Generated Columns]
+        L[Audit Logs]
+    end
+    subgraph "External"
+        M[IRAS/Peppol API]
+        N[Bank Feeds]
+    end
+    
+    A --> E
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+    I --> M
+    G --> J
+    J --> K
+    G --> L
+```
+
+## 2.3 Database Schema Refinements (PostgreSQL 16)
+
+We incorporate your BCRS and TP requirements into the schema with strict typing.
+
+```python
+# apps/core/models.py
+from django.db import models
+from decimal import Decimal
+import uuid
+
+class Organization(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uen = models.CharField(max_length=20, unique=True, db_index=True)
+    gst_registration_no = models.CharField(max_length=20, blank=True)
+    is_peppol_registered = models.BooleanField(default=False)
+    
+    # Transfer Pricing Threshold Monitor
+    related_party_transaction_total = models.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal('0.00'), editable=False
+    )
+    tp_documentation_required = models.BooleanField(default=False)
+
+class Product(models.Model):
+    # ... standard fields ...
+    is_subject_to_bcrs = models.BooleanField(default=False)
+    bcrs_deposit_amount = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('0.10')
+    )
+    # Deposit is a Liability, not Income
+    deposit_liability_account = models.ForeignKey('Account', on_delete=models.PROTECT)
+
+class Invoice(models.Model):
+    # IRAS Fatal Error Prevention
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    peppol_invoice_id = models.CharField(max_length=100, unique=True, blank=True)
+    
+    # Financials
+    subtotal = models.DecimalField(max_digits=12, decimal_places=4)
+    gst_amount = models.DecimalField(max_digits=12, decimal_places=4)
+    bcrs_deposit_total = models.DecimalField(max_digits=12, decimal_places=4, default=Decimal('0'))
+    total_amount = models.DecimalField(max_digits=12, decimal_places=4)
+    
+    # Compliance Status
+    peppol_status = models.CharField(
+        max_length=20, 
+        choices=[('PENDING', 'Pending'), ('SENT', 'Sent'), ('REJECTED', 'Rejected')],
+        default='PENDING'
+    )
+    rejection_reason = models.TextField(blank=True) # Stores IRAS Fatal Error details
+    
+    # Audit
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        # Prevent deletion, enforce soft delete via manager
+        constraints = [
+            models.CheckConstraint(check=models.Q(gst_amount__gte=0), name='gst_non_negative')
+        ]
+```
+
+## 2.4 The Compliance Engine (Django Service Layer)
+
+This is the brain. It handles the logic for BCRS, GST, and TP.
+
+```python
+# apps/compliance/services/engine.py
+from decimal import Decimal, ROUND_HALF_UP
+from django.db import transaction
+
+class ComplianceEngine:
+    GST_RATE = Decimal('0.09')
+    TP_THRESHOLD = Decimal('2000000.00')
+    BCRS_DEPOSIT = Decimal('0.10')
+
+    @classmethod
+    @transaction.atomic
+    def finalize_invoice(cls, invoice):
+        """
+        Calculates totals, checks TP thresholds, and prepares Peppol payload.
+        """
+        subtotal = Decimal('0.00')
+        gst_total = Decimal('0.00')
+        bcrs_total = Decimal('0.00')
+        related_party_amount = Decimal('0.00')
+
+        for line in invoice.lines.all():
+            # 1. BCRS Logic
+            if line.product.is_subject_to_bcrs:
+                bcrs_total += line.quantity * cls.BCRS_DEPOSIT
+            
+            # 2. GST Logic (Exclude BCRS deposit from taxable base)
+            taxable_amount = line.subtotal
+            line_gst = (taxable_amount * cls.GST_RATE).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            gst_total += line_gst
+            subtotal += taxable_amount
+
+            # 3. Transfer Pricing Logic
+            if line.customer.is_related_party:
+                related_party_amount += line.subtotal
+
+        # 4. Update Invoice
+        invoice.subtotal = subtotal
+        invoice.gst_amount = gst_total
+        invoice.bcrs_deposit_total = bcrs_total
+        invoice.total_amount = subtotal + gst_total + bcrs_total
+        invoice.save()
+
+        # 5. Update Org TP Threshold
+        org = invoice.organization
+        org.related_party_transaction_total += related_party_amount
+        if org.related_party_transaction_total > cls.TP_THRESHOLD:
+            org.tp_documentation_required = True
+        org.save()
+
+        # 6. Trigger Peppol Validation
+        cls.validate_peppol_readiness(invoice)
+
+    @classmethod
+    def validate_peppol_readiness(cls, invoice):
+        """
+        Pre-flight check to prevent IRAS Fatal Errors.
+        """
+        errors = []
+        if not invoice.organization.uen:
+            errors.append("Missing UEN")
+        if not invoice.uuid:
+            errors.append("Missing UUID")
+        # Add more IRAS specific checks here
+        
+        if errors:
+            raise ValueError(f"Peppol Validation Failed: {', '.join(errors)}")
+```
+
+## 2.5 Frontend Implementation Strategy (Next.js 15 + Tailwind 4)
+
+### 2.5.1 Tailwind 4 Configuration (CSS-First)
+Tailwind 4 removes `tailwind.config.js` in favor of CSS variables. We will define our "Neo-Brutalist" theme directly in CSS.
+
+```css
+/* app/globals.css */
+@import "tailwindcss";
+
+@theme {
+  --color-void: #050505;
+  --color-carbon: #121212;
+  --color-border: #2A2A2A;
+  --color-accent: #00FF94;
+  --color-alert: #FF3333;
+  
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --radius-lg: 0px; /* Brutalist square corners */
+}
+
+body {
+  background-color: var(--color-void);
+  color: #FFFFFF;
+  font-family: var(--font-display);
+}
+
+/* Utility for Tabular Nums */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+```
+
+### 2.5.2 Component Discipline (Shadcn-UI)
+We will not rebuild primitives. We will style Shadcn components to match the aesthetic.
+
+*   **Button:** No gradients. Solid white background, black text. Hover: Invert colors.
+*   **Input:** No rounded borders. 1px border. Focus: Green glow (`box-shadow`).
+*   **Table:** Visible grid lines. Sticky header with blur backdrop (`backdrop-blur-md`).
+
+### 2.5.3 Server Actions for Mutations
+We will use Next.js Server Actions to mutate data directly, ensuring type safety end-to-end.
+
+```typescript
+// app/actions/invoice.ts
+'use server'
+
+import { db } from "@/lib/db";
+import { ComplianceEngine } from "@/lib/compliance"; // Hypothetical shared logic or API call
+
+export async function createInvoice(formData: FormData) {
+  // 1. Validate Zod Schema
+  // 2. Call Django API via internal fetch or direct DB if monorepo
+  // 3. Return structured result
+}
+```
+
+---
+
+# Phase 3: Implementation Plan & Validation
+
+## 3.1 Refined Phases
+
+| Phase | Objective | Key Deliverable | Validation Checkpoint |
+| :--- | :--- | :--- | :--- |
+| **1. Core** | Django 5.1 Setup, Auth, Org Model | Secure HttpOnly Auth Flow | Login/Logout works; Cookies are HttpOnly. |
+| **2. Ledger** | Double-Entry, COA, Journal | `ComplianceEngine` Service | Create invoice → Check Journal Entries match. |
+| **3. Compliance** | BCRS, TP, GST Logic | TP Threshold Alert | Create S$2M related party tx → Alert triggers. |
+| **4. Peppol** | InvoiceNow Integration | Peppol API Connector | Send test invoice → Receive "Accepted" ID. |
+| **5. UI** | Next.js 15, Tailwind 4, Shadcn | "Neo-Brutalist" Dashboard | Lighthouse Perf > 90; WCAG AA Contrast. |
+| **6. Hardening** | Security, Audit, Load Test | Audit Log Immutable | Attempt DB delete → Fails (Soft delete only). |
+
+## 3.2 Validation Criteria (The "IRAS Proof" Test)
+1.  **The "Fatal Error" Test:** Attempt to submit an invoice without a UUID. System must block submission *before* reaching Peppol API.
+2.  **The "BCRS" Test:** Invoice a $10 drink + $0.10 deposit. GST must be calculated on $10.00 ONLY. Total = $10.90.
+3.  **The "TP" Test:** Accumulate $2,000,001 in related party transactions. System must flag `tp_documentation_required = True`.
+4.  **The "Rounding" Test:** Create 10,000 invoices with $0.01 amounts. Sum must match ledger exactly (no float drift).
+
+---
+
+# Phase 4: Risk Mitigation & Security
+
+### 4.1 Security Hardening
+*   **CSRF Protection:** Django's CSRF middleware must be integrated with Next.js middleware.
+*   **Rate Limiting:** Implement `django-ratelimit` on API endpoints to prevent brute-force on login.
+*   **Data Encryption:** PostgreSQL `pgcrypto` for sensitive fields (e.g., Bank Account Numbers).
+
+### 4.2 Regulatory Risk
+*   **IRAS Schema Changes:** We will version the Peppol XML generator (`v1.0`, `v1.1`). If IRAS updates PINT-SG, we deploy `v1.2` without breaking existing invoices.
+*   **Audit Trail:** We will use `django-simple-history` to track every change to `Invoice` and `JournalEntry`.
+
+---
+
+# Phase 5: Deliverables & Knowledge Transfer
+
+Upon completion of Phase 1 (Foundation), I will deliver:
+1.  **Repository:** Monorepo structure (Turborepo) containing `apps/backend` (Django) and `apps/web` (Next.js).
+2.  **Design System:** A `ui-kit` storybook documenting all "Neo-Brutalist" components.
+3.  **Compliance Doc:** A markdown file mapping every code module to the specific IRAS regulation it satisfies (e.g., `engine.py` → "IRAS GST Guide Section 5.2").
+4.  **Runbook:** Instructions for rotating Peppol certificates and updating GST rates if laws change again.
+
+---
+
+# Validation Request
+
+This merged blueprint corrects the Django version risk, hardens security, and elevates the design to meet our **Anti-Generic** pledge while fully integrating your superior regulatory research.
+
+**Please confirm:**
+1.  Do you agree to switch to **Django 5.1 LTS** for stability, with a path to 6.0?
+2.  Do you approve the **"Neo-Brutalist Dark"** aesthetic over the "Off-White" proposal?
+3.  Shall we proceed with **HttpOnly Cookie Auth** instead of JWT for maximum security?
+
