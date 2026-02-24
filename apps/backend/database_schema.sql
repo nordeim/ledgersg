@@ -3,7 +3,7 @@
 -- ║   LEDGERSG — COMPLETE POSTGRESQL 16 DATABASE SCHEMA                        ║
 -- ║   Enterprise-Grade Accounting Software for Singapore SMBs                  ║
 -- ║                                                                            ║
--- ║   Version:    1.0.0                                                        ║
+-- ║   Version:    1.0.1                                                        ║
 -- ║   DB Engine:  PostgreSQL 16+                                               ║
 -- ║   Precision:  NUMERIC(10,4) for all monetary values                        ║
 -- ║   Encoding:   UTF-8                                                        ║
@@ -359,6 +359,13 @@ CREATE TABLE core.fiscal_period (
     end_date            DATE NOT NULL,
     is_open             BOOLEAN NOT NULL DEFAULT TRUE,    -- Only open periods accept entries
     is_adjustment       BOOLEAN NOT NULL DEFAULT FALSE,   -- Period 13: year-end adjustments only
+
+    -- Locking / Closing Audit Trail
+    locked_at           TIMESTAMPTZ,                      -- When period was locked (preliminary close)
+    locked_by           UUID REFERENCES core.app_user(id),
+    closed_at           TIMESTAMPTZ,                      -- When period was finally closed
+    closed_by           UUID REFERENCES core.app_user(id),
+
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT chk_period_number CHECK (period_number BETWEEN 1 AND 13),
@@ -369,6 +376,14 @@ CREATE TABLE core.fiscal_period (
 
 COMMENT ON TABLE core.fiscal_period
     IS 'Monthly periods within a fiscal year. Period 13 is for year-end adjustments.';
+COMMENT ON COLUMN core.fiscal_period.locked_at
+    IS 'Timestamp when the period was locked for editing (preliminary close).';
+COMMENT ON COLUMN core.fiscal_period.locked_by
+    IS 'User who locked the period.';
+COMMENT ON COLUMN core.fiscal_period.closed_at
+    IS 'Timestamp when the period was finally closed.';
+COMMENT ON COLUMN core.fiscal_period.closed_by
+    IS 'User who performed the final period close.';
 
 
 -- ──────────────────────────────────────────────
@@ -690,6 +705,44 @@ CREATE TRIGGER trg_gst_return_updated_at
 
 
 -- ──────────────────────────────────────────────
+-- 5c. Peppol Transmission Log (InvoiceNow)
+-- ──────────────────────────────────────────────
+-- Immutable log of InvoiceNow/Peppol transmission attempts.
+-- Enables retry tracking and audit trail for e-invoicing.
+
+CREATE TABLE gst.peppol_transmission_log (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id              UUID NOT NULL REFERENCES core.organisation(id) ON DELETE CASCADE,
+    document_id         UUID NOT NULL REFERENCES invoicing.document(id) ON DELETE CASCADE,
+    attempt_number      SMALLINT NOT NULL DEFAULT 1,
+    status              VARCHAR(20) NOT NULL
+        CHECK (status IN ('PENDING', 'TRANSMITTING', 'DELIVERED', 'FAILED', 'REJECTED')),
+    peppol_message_id   UUID,
+    access_point_id     VARCHAR(100),
+    request_hash        VARCHAR(64),                        -- SHA-256 of XML payload
+    response_code       VARCHAR(20),
+    error_code          VARCHAR(50),
+    error_message       TEXT,
+    transmitted_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    response_at         TIMESTAMPTZ,
+
+    CONSTRAINT chk_attempt_positive CHECK (attempt_number > 0)
+);
+
+COMMENT ON TABLE gst.peppol_transmission_log
+    IS 'Immutable log of InvoiceNow/Peppol transmission attempts. Each row = one attempt. Enables retry tracking and audit trail.';
+
+-- Performance indexes
+CREATE INDEX idx_peppol_log_doc ON gst.peppol_transmission_log(document_id, attempt_number);
+CREATE INDEX idx_peppol_log_org ON gst.peppol_transmission_log(org_id, transmitted_at DESC);
+CREATE INDEX idx_peppol_log_status ON gst.peppol_transmission_log(status)
+    WHERE status IN ('PENDING', 'FAILED');
+
+-- Grant app access
+GRANT SELECT, INSERT, UPDATE ON gst.peppol_transmission_log TO ledgersg_app;
+
+
+-- ──────────────────────────────────────────────
 -- 5c. GST Threshold Monitor (for Non-Registered Businesses)
 -- ──────────────────────────────────────────────
 -- Tracks rolling 12-month taxable turnover to alert when nearing S$1M.
@@ -938,7 +991,7 @@ CREATE TABLE invoicing.document (
     total_gst           NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Sum of line GST amounts
     total_amount        NUMERIC(10,4) NOT NULL DEFAULT 0,  -- subtotal + total_gst
     amount_paid         NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Running total of payments received
-    amount_due          NUMERIC(10,4) NOT NULL DEFAULT 0,  -- total_amount - amount_paid
+    amount_due          NUMERIC(10,4) GENERATED ALWAYS AS (total_amount - amount_paid) STORED  -- Auto-computed
 
     -- Base currency equivalents (for multi-currency reporting)
     base_subtotal       NUMERIC(10,4) NOT NULL DEFAULT 0,
@@ -989,7 +1042,8 @@ CREATE TABLE invoicing.document (
     CONSTRAINT chk_amounts_non_negative CHECK (
         subtotal >= 0 AND total_gst >= 0 AND total_amount >= 0 AND amount_paid >= 0
     ),
-    CONSTRAINT chk_amount_due CHECK (amount_due = total_amount - amount_paid),
+    -- NOTE: amount_due is GENERATED ALWAYS AS (total_amount - amount_paid) STORED
+    -- No CHECK constraint needed — PostgreSQL computes it automatically
     CONSTRAINT chk_void_reason CHECK (
         (status != 'VOID') OR (status = 'VOID' AND void_reason IS NOT NULL)
     )
@@ -1045,6 +1099,9 @@ CREATE TABLE invoicing.document_line (
     base_gst_amount     NUMERIC(10,4) NOT NULL DEFAULT 0,
     base_total_amount   NUMERIC(10,4) NOT NULL DEFAULT 0,
 
+    -- BCRS Deposit (effective 1 Apr 2026 — Singapore Beverage Container Recycling Scheme)
+    is_bcrs_deposit     BOOLEAN NOT NULL DEFAULT FALSE,     -- TRUE if S$0.10 container deposit
+
     -- Optional: inventory item reference (future module)
     item_id             UUID,
     item_code           VARCHAR(30),
@@ -1063,6 +1120,8 @@ COMMENT ON TABLE invoicing.document_line
     IS 'Individual line items on an invoice. GST computed per line per IRAS requirements.';
 COMMENT ON COLUMN invoicing.document_line.tax_rate
     IS 'Snapshot of the GST rate at the time this line was created. Preserved for audit/historical accuracy.';
+COMMENT ON COLUMN invoicing.document_line.is_bcrs_deposit
+    IS 'BCRS deposit flag (S$0.10 per container). BCRS deposits are NOT subject to GST and must NOT appear in GST F5 returns. Per IRAS: "A BCRS deposit is not payment received for a supply of goods or services."';
 
 
 -- ──────────────────────────────────────────────
@@ -1297,9 +1356,27 @@ CREATE INDEX idx_audit_user ON audit.event_log (user_id, created_at DESC);
 CREATE INDEX idx_audit_action ON audit.event_log (action, created_at DESC);
 
 
+-- ──────────────────────────────────────────────
+-- 9b. Org-Scoped Audit View (for normal users)
+-- ──────────────────────────────────────────────
+-- Normal users see only their org's events via this view.
+-- Platform auditors query the base table directly with a privileged role.
+
+CREATE OR REPLACE VIEW audit.org_event_log AS
+    SELECT *
+    FROM audit.event_log
+    WHERE org_id = core.current_org_id();
+
+COMMENT ON VIEW audit.org_event_log
+    IS 'Org-scoped audit view. Normal users use this view (filtered by session org_id). '
+       'Platform auditors use audit.event_log directly with a privileged role.';
+
+
 -- ============================================================================
 -- §10  STORED PROCEDURES
 -- ============================================================================
+-- NOTE: Functions querying tables must be marked STABLE, not IMMUTABLE
+-- per PostgreSQL documentation on function volatility categories.
 
 -- ──────────────────────────────────────────────
 -- 10a. GST Calculation Engine
@@ -1320,7 +1397,7 @@ RETURNS TABLE (
     applied_rate        NUMERIC(5,4)
 )
 LANGUAGE plpgsql
-IMMUTABLE
+STABLE                  -- ← FIXED: Was IMMUTABLE; queries gst.tax_code table
 PARALLEL SAFE
 AS $$
 DECLARE
@@ -1369,7 +1446,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION gst.calculate
-    IS 'Core GST calculation. Returns net, GST, and gross amounts at NUMERIC(10,4) precision.';
+    IS 'Core GST calculation. STABLE (not IMMUTABLE) because it queries gst.tax_code for rate lookup. Returns net, GST, and gross amounts at NUMERIC(10,4) precision.';
 
 
 -- ──────────────────────────────────────────────
@@ -1391,7 +1468,7 @@ RETURNS TABLE (
     applied_rate        NUMERIC(5,4)
 )
 LANGUAGE plpgsql
-IMMUTABLE
+STABLE                  -- ← FIXED: Delegates to gst.calculate() which is STABLE
 PARALLEL SAFE
 AS $$
 DECLARE
@@ -1419,7 +1496,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION gst.calculate_line
-    IS 'Calculates GST for an invoice line item (qty × price - discount, then apply tax code).';
+    IS 'Calculates GST for an invoice line item. STABLE: delegates to gst.calculate() which queries rate table.';
 
 
 -- ──────────────────────────────────────────────
@@ -1508,6 +1585,26 @@ COMMENT ON FUNCTION journal.validate_balance
 
 
 -- ──────────────────────────────────────────────
+-- 10d-ext. Journal Balance Validation Trigger (DEFERRED)
+-- ──────────────────────────────────────────────
+-- Uses CONSTRAINT TRIGGER with DEFERRABLE INITIALLY DEFERRED so that
+-- balance is checked at COMMIT time, after all lines are inserted.
+
+CREATE OR REPLACE FUNCTION journal.validate_entry_balance_on_line()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM journal.validate_balance(NEW.entry_id);
+    RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION journal.validate_entry_balance_on_line()
+    IS 'Deferred trigger function: validates journal entry balance after all lines are inserted.';
+
+
+-- ──────────────────────────────────────────────
 -- 10e. Compute GST F5 Return from Journal Data
 -- ──────────────────────────────────────────────
 
@@ -1527,12 +1624,22 @@ DECLARE
     v_box5          NUMERIC(10,4) := 0;
     v_box6          NUMERIC(10,4) := 0;
     v_box7          NUMERIC(10,4) := 0;
+    v_box9          NUMERIC(10,4) := 0;
+    v_box10         NUMERIC(10,4) := 0;
+    v_box11         NUMERIC(10,4) := 0;
+    v_box12         NUMERIC(10,4) := 0;
     v_box13         NUMERIC(10,4) := 0;
     v_box14         NUMERIC(10,4) := 0;
+    v_box15         NUMERIC(10,4) := 0;
     v_filing_due    DATE;
 BEGIN
     -- Filing due date: one month after period end
     v_filing_due := (p_period_end + INTERVAL '1 month')::DATE;
+
+    -- ═══════════════════════════════════════════
+    -- NOTE: ALL queries below exclude BCRS deposit lines
+    -- BCRS deposits are NOT supplies and must NOT appear in any F5 box
+    -- ═══════════════════════════════════════════
 
     -- ═══════════════════════════════════════════
     -- SALES DOCUMENTS (Invoices + Debit Notes, minus Credit Notes)
@@ -1556,7 +1663,8 @@ BEGIN
         AND d.document_date BETWEEN p_period_start AND p_period_end
         AND d.status NOT IN ('DRAFT', 'VOID')
         AND d.document_type IN ('SALES_INVOICE', 'SALES_DEBIT_NOTE', 'SALES_CREDIT_NOTE')
-        AND tc.f5_supply_box = 1;
+        AND tc.f5_supply_box = 1
+        AND dl.is_bcrs_deposit = FALSE;           -- ← BCRS exclusion
 
     -- Box 2: Zero-rated supplies
     SELECT COALESCE(SUM(
@@ -1576,7 +1684,8 @@ BEGIN
         AND d.document_date BETWEEN p_period_start AND p_period_end
         AND d.status NOT IN ('DRAFT', 'VOID')
         AND d.document_type IN ('SALES_INVOICE', 'SALES_DEBIT_NOTE', 'SALES_CREDIT_NOTE')
-        AND tc.f5_supply_box = 2;
+        AND tc.f5_supply_box = 2
+        AND dl.is_bcrs_deposit = FALSE;
 
     -- Box 3: Exempt supplies
     SELECT COALESCE(SUM(
@@ -1596,7 +1705,8 @@ BEGIN
         AND d.document_date BETWEEN p_period_start AND p_period_end
         AND d.status NOT IN ('DRAFT', 'VOID')
         AND d.document_type IN ('SALES_INVOICE', 'SALES_DEBIT_NOTE', 'SALES_CREDIT_NOTE')
-        AND tc.f5_supply_box = 3;
+        AND tc.f5_supply_box = 3
+        AND dl.is_bcrs_deposit = FALSE;
 
     -- ═══════════════════════════════════════════
     -- PURCHASE DOCUMENTS
@@ -1620,7 +1730,8 @@ BEGIN
         AND d.document_date BETWEEN p_period_start AND p_period_end
         AND d.status NOT IN ('DRAFT', 'VOID')
         AND d.document_type IN ('PURCHASE_INVOICE', 'PURCHASE_DEBIT_NOTE', 'PURCHASE_CREDIT_NOTE')
-        AND tc.f5_purchase_box = 5;
+        AND tc.f5_purchase_box = 5
+        AND dl.is_bcrs_deposit = FALSE;
 
     -- ═══════════════════════════════════════════
     -- TAX AMOUNTS
@@ -1644,7 +1755,8 @@ BEGIN
         AND d.document_date BETWEEN p_period_start AND p_period_end
         AND d.status NOT IN ('DRAFT', 'VOID')
         AND d.document_type IN ('SALES_INVOICE', 'SALES_DEBIT_NOTE', 'SALES_CREDIT_NOTE')
-        AND tc.f5_tax_box = 6;
+        AND tc.f5_tax_box = 6
+        AND dl.is_bcrs_deposit = FALSE;
 
     -- Box 7: Input tax claimable (only claimable codes, exclude blocked)
     SELECT COALESCE(SUM(
@@ -1665,7 +1777,35 @@ BEGIN
         AND d.status NOT IN ('DRAFT', 'VOID')
         AND d.document_type IN ('PURCHASE_INVOICE', 'PURCHASE_DEBIT_NOTE', 'PURCHASE_CREDIT_NOTE')
         AND tc.f5_tax_box = 7
-        AND tc.is_claimable = TRUE;
+        AND tc.is_claimable = TRUE
+        AND dl.is_bcrs_deposit = FALSE;
+
+    -- ═══════════════════════════════════════════
+    -- SPECIAL SCHEME BOXES (9-12, 15)
+    -- For eligible businesses. Most SMBs will have these as 0.
+    -- ═══════════════════════════════════════════
+
+    -- Box 9: Goods imported under MES / 3PL / other approved schemes
+    SELECT COALESCE(SUM(dl.base_line_amount), 0)
+    INTO v_box9
+    FROM invoicing.document d
+    JOIN invoicing.document_line dl ON dl.document_id = d.id
+    JOIN gst.tax_code tc ON tc.id = dl.tax_code_id
+    WHERE d.org_id = p_org_id
+        AND d.document_date BETWEEN p_period_start AND p_period_end
+        AND d.status NOT IN ('DRAFT', 'VOID')
+        AND d.document_type IN ('PURCHASE_INVOICE', 'PURCHASE_DEBIT_NOTE')
+        AND tc.code = 'ZP'  -- Zero-rated purchase
+        AND dl.is_bcrs_deposit = FALSE;
+
+    -- Box 10: Tourist refund scheme — populated via manual entries
+    -- v_box10 remains 0 unless manual journal entries exist
+
+    -- Box 11: Bad debt relief claimed — populated via manual entries
+    -- v_box11 remains 0 unless manual entries exist
+
+    -- Box 12: Pre-registration input tax claimed — one-time claim
+    -- v_box12 remains 0 unless manual entries exist
 
     -- ═══════════════════════════════════════════
     -- Box 13: Total revenue (all supply types including out-of-scope)
@@ -1686,7 +1826,8 @@ BEGIN
     WHERE d.org_id = p_org_id
         AND d.document_date BETWEEN p_period_start AND p_period_end
         AND d.status NOT IN ('DRAFT', 'VOID')
-        AND d.document_type IN ('SALES_INVOICE', 'SALES_DEBIT_NOTE', 'SALES_CREDIT_NOTE');
+        AND d.document_type IN ('SALES_INVOICE', 'SALES_DEBIT_NOTE', 'SALES_CREDIT_NOTE')
+        AND dl.is_bcrs_deposit = FALSE;            -- ← BCRS is NOT revenue
 
     -- Box 14: Reverse charge supplies
     SELECT COALESCE(SUM(dl.base_line_amount), 0)
@@ -1697,10 +1838,14 @@ BEGIN
     WHERE d.org_id = p_org_id
         AND d.document_date BETWEEN p_period_start AND p_period_end
         AND d.status NOT IN ('DRAFT', 'VOID')
-        AND tc.is_reverse_charge = TRUE;
+        AND tc.is_reverse_charge = TRUE
+        AND dl.is_bcrs_deposit = FALSE;
+
+    -- Box 15: Supplies made under electronic marketplace provisions
+    -- v_box15 remains 0 for most SMBs (marketplace operator obligation)
 
     -- ═══════════════════════════════════════════
-    -- INSERT THE RETURN
+    -- INSERT THE RETURN (all 15 boxes)
     -- ═══════════════════════════════════════════
 
     INSERT INTO gst.return (
@@ -1713,8 +1858,13 @@ BEGIN
         box6_output_tax,
         box7_input_tax_claimable,
         box8_net_gst,
+        box9_imports_under_schemes,
+        box10_tourist_refund,
+        box11_bad_debt_relief,
+        box12_pre_reg_input_tax,
         box13_total_revenue,
         box14_reverse_charge_supplies,
+        box15_electronic_marketplace,
         status,
         computed_at
     ) VALUES (
@@ -1722,13 +1872,18 @@ BEGIN
         v_box1,
         v_box2,
         v_box3,
-        v_box1 + v_box2 + v_box3,                         -- Box 4 = sum of 1+2+3
+        v_box1 + v_box2 + v_box3,               -- Box 4 = 1+2+3
         v_box5,
         v_box6,
         v_box7,
-        v_box6 - v_box7,                                   -- Box 8 = Box 6 - Box 7
+        v_box6 - v_box7,                         -- Box 8 = 6-7
+        v_box9,
+        v_box10,
+        v_box11,
+        v_box12,
         v_box13,
         v_box14,
+        v_box15,
         'COMPUTED',
         NOW()
     )
@@ -1739,7 +1894,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION gst.compute_f5_return
-    IS 'Auto-computes a GST F5 return from invoicing data for a given period. Populates all box values.';
+    IS 'Computes all 15 boxes of GST F5 return. Excludes BCRS deposit lines. Boxes 10-12, 15 default to 0 (populated via manual entries for special schemes).';
 
 
 -- ──────────────────────────────────────────────
@@ -1983,6 +2138,13 @@ CREATE TRIGGER trg_journal_line_immutable
     BEFORE UPDATE OR DELETE ON journal.line
     FOR EACH ROW EXECUTE FUNCTION journal.prevent_line_mutation();
 
+-- Balance check constraint trigger (DEFERRABLE — fires at transaction commit)
+CREATE CONSTRAINT TRIGGER trg_journal_line_balance_check
+    AFTER INSERT ON journal.line
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW
+    EXECUTE FUNCTION journal.validate_entry_balance_on_line();
+
 
 -- ============================================================================
 -- §12  ROW-LEVEL SECURITY POLICIES
@@ -2015,6 +2177,7 @@ BEGIN
             ('coa', 'account'),
             ('gst', 'return'),
             ('gst', 'threshold_snapshot'),
+            ('gst', 'peppol_transmission_log'),
             ('journal', 'entry'),
             ('journal', 'line'),
             ('invoicing', 'contact'),
@@ -2746,6 +2909,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA
 
 -- AUDIT: Append-only — NO UPDATE or DELETE
 GRANT SELECT, INSERT ON audit.event_log TO ledgersg_app;
+GRANT SELECT ON audit.org_event_log TO ledgersg_app;
 -- Explicitly revoke UPDATE/DELETE on audit log
 REVOKE UPDATE, DELETE ON audit.event_log FROM ledgersg_app;
 
@@ -2821,7 +2985,34 @@ BEGIN
 END $$;
 
 
+-- ============================================================================
+-- VERSION CHANGELOG
+-- ============================================================================
+
+-- v1.0.1 (2026-02-24) — Post-Validation Remediation
+-- ---------------------------------------------------
+-- 1. CRITICAL: Changed gst.calculate() and gst.calculate_line() from IMMUTABLE
+--    to STABLE (they query gst.tax_code table, not truly immutable)
+-- 2. CRITICAL: Added is_bcrs_deposit BOOLEAN to invoicing.document_line
+--    (Beverage Container Recycling Scheme support, effective Apr 2026)
+-- 3. CRITICAL: Added journal balance constraint trigger (trg_journal_line_balance_check)
+--    DEFERRABLE INITIALLY DEFERRED — validates balance at transaction commit
+-- 4. HIGH: Updated gst.compute_f5_return() to:
+--    - Exclude BCRS deposit lines from all F5 boxes
+--    - Compute all 15 boxes (added 9-12, 15 for special schemes)
+-- 5. HIGH: Converted invoicing.document.amount_due to GENERATED ALWAYS AS
+--    (total_amount - amount_paid) STORED — eliminates atomicity risk
+-- 6. MEDIUM: Added audit.org_event_log view for org-scoped audit access
+-- 7. MEDIUM: Added gst.peppol_transmission_log table for InvoiceNow retry tracking
+-- 8. LOW: Added locked_at, locked_by, closed_at, closed_by to core.fiscal_period
+
+-- v1.0.0 (Initial Release)
+-- -------------------------
+-- Initial schema with core, coa, gst, journal, invoicing, banking, audit schemas
+-- Full RLS implementation, double-entry integrity, GST F5 support (boxes 1-8, 13-14)
+
+
 -- ╔══════════════════════════════════════════════════════════════════════════════╗
 -- ║  END OF SCHEMA SCRIPT                                                      ║
--- ║  LedgerSG v1.0.0 — PostgreSQL 16 Database Initialization                  ║
+-- ║  LedgerSG v1.0.1 — PostgreSQL 16 Database Initialization                  ║
 -- ╚══════════════════════════════════════════════════════════════════════════════╝
