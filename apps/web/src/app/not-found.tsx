@@ -1,13 +1,13 @@
+"use client";
+
 import { FileQuestion, Home, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-
-export const metadata = {
-  title: "Page Not Found — LedgerSG",
-  description: "The requested page could not be found.",
-};
+import { useRouter } from "next/navigation";
 
 export default function NotFound() {
+  const router = useRouter();
+  
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-8 bg-void">
       <div className="max-w-md w-full border border-border bg-carbon p-8 relative overflow-hidden">
@@ -53,7 +53,7 @@ export default function NotFound() {
 
           <Button
             variant="outline"
-            onClick={() => window.history.back()}
+            onClick={() => router.back()}
             className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />

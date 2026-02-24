@@ -234,5 +234,6 @@ export function formatCurrency(amount: string | number | Decimal): string {
  */
 export function getGSTRatePercentage(taxCode: TaxCode): string {
   const rate = GST_RATES[taxCode];
+  if (!rate) return "0%";
   return `${rate.mul(100).toFixed(0)}%`;
 }
