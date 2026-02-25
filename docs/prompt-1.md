@@ -24,3 +24,6 @@ Awesome job on your meticulous analysis, planning and execution. Please keep up 
 
 Awesome job on your meticulous research, analysis and planning. Please keep up the good work on your rigorous and meticulous approach going forward. Now, please meticulously plan and then proceed with the next phase.
 
+---
+
+please meticulously review @README.md , @ACCOMPLISHMENTS.md , @BACKEND_STATUS.md and @BACKEND_EXECUTION_PLAN.md to have a deep understanding of the project and its codebase design and architecture, then meticulously validate your deep understanding against the codebase.
