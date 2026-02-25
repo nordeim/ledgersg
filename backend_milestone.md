@@ -315,3 +315,253 @@ Key Features Implemented
 
 The middleware already sets request.org_id and request.org_role for org-scoped requests, enabling RLS and permission checks.
 
+---
+
+• 📋 Phase 2: Chart of Accounts (CoA) Module - Planning
+
+Executive Summary
+
+Building the Chart of Accounts management system - the backbone of LedgerSG's double-entry accounting. Users need to view the auto-seeded accounts, create custom accounts, and manage the account hierarchy.
+
+Requirements Analysis
+
+Explicit Requirements:
+
+• List all accounts for an organisation
+• View account details with balance
+• Create custom accounts (non-system)
+• Update account settings (name, description, active status)
+• Archive (soft delete) custom accounts
+• Account hierarchy (parent-child relationships)
+
+Implicit Requirements:
+
+• System accounts (seeded) should be protected from deletion
+• Account codes must be unique within org
+• Account type determines financial statement placement
+• Balance calculation from journal lines
+• Search/filter accounts by type, code, name
+
+Technical Constraints:
+
+• RLS-enforced (middleware sets org context)
+• Permission-based (CanManageCoA for modifications)
+• DDL-managed schema (managed = False)
+
+Architecture Decisions
+
+ Decision              Choice                   Rationale
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Balance Calculation   Database view + cached   Real-time via account_balance view, cached for performance
+ Hierarchy Depth       3 levels max             Balance sheet clarity, prevents excessive nesting
+ Account Codes         Numeric 4-6 digits       Singapore accounting standard (1xxx=Assets, 2xxx=Liabilities, etc.)
+ System Protection     is_system flag           Prevents deletion of seeded accounts
+
+Execution Plan
+
+Phase 2A: CoA Service Layer
+
+• [ ] Account listing with filters
+• [ ] Account creation with validation
+• [ ] Account update (non-system only)
+• [ ] Account archival (soft delete)
+• [ ] Balance retrieval
+• [ ] Hierarchy validation
+
+Phase 2B: CoA Views & Serializers
+
+• [ ] AccountListView (GET /api/v1/{org_id}/accounts/)
+• [ ] AccountCreateView (POST)
+• [ ] AccountDetailView (GET/PATCH/DELETE)
+• [ ] AccountHierarchyView (GET tree structure)
+• [ ] AccountBalanceView (GET current balance)
+
+Phase 2C: URL Routing & Integration
+
+• [ ] Update apps/coa/urls.py
+• [ ] Add to config/urls.py
+• [ ] Test full request flow
+
+Success Criteria
+
+• [ ] Can list all accounts for an org
+• [ ] Can create custom accounts with validation
+• [ ] System accounts protected from modification
+• [ ] Balance calculations accurate
+• [ ] Hierarchy endpoints working
+• [ ] All endpoints RLS-protected
+• [ ] Permission checks enforced
+
+---
+Ready to proceed with Phase 2A (CoA Service)? Confirm to begin implementation.
+
+---
+
+• ✅ Phase 2A: CoA Service Layer - Complete
+
+Files Created
+
+ File                      Lines   Purpose
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ apps/coa/services.py      500     AccountService with CRUD, validation, balance, hierarchy
+ apps/coa/serializers.py   175     Serializers for Account, hierarchy, trial balance
+ apps/coa/views.py         328     API views for all CoA endpoints
+ apps/coa/urls.py          42      URL routing for CoA module
+
+Key Features Implemented
+
+AccountService Business Logic:
+
+• list_accounts() - Filter by type, status, parent, search
+• create_account() - Validation for code format, uniqueness, type prefix, hierarchy depth
+• update_account() - System account protection (only description/GST/active can change)
+• archive_account() - Soft delete with transaction and children checks
+• get_account_balance() - Uses coa.account_balance view with caching
+• get_account_hierarchy() - Tree structure with up to 3 levels depth
+• get_trial_balance() - Full trial balance with totals
+
+Validation Rules:
+
+• Account codes must be 4-10 digits, matching type prefix (1xxx=Assets, 2xxx=Liabilities, etc.)
+• Code uniqueness within organisation
+• Hierarchy max 3 levels deep
+• System accounts protected from deletion/code changes
+• Archives only allowed with zero balance and no children
+
+API Endpoints:
+
+ Method      Endpoint                   Description                Permission
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GET/POST    /accounts/                 List/Create accounts       IsOrgMember / CanManageCoA
+ GET         /accounts/search/          Quick search               IsOrgMember
+ GET         /accounts/types/           List valid account types   IsAuthenticated
+ GET         /accounts/hierarchy/       Account tree               IsOrgMember
+ GET         /accounts/trial-balance/   Trial balance              IsOrgMember + CanViewReports
+ GET/PATCH   /accounts/{id}/            Get/Update                 IsOrgMember / CanManageCoA
+ DELETE      /accounts/{id}/            Archive                    CanManageCoA
+ GET         /accounts/{id}/balance/    Balance                    IsOrgMember + CanViewReports
+
+Account Type Groups (Singapore Standard):
+
+• ASSET_* (1xxx): Current, Fixed, Other assets
+• LIABILITY_* (2xxx): Current, Long-term liabilities
+• EQUITY (3xxx): Equity accounts
+• REVENUE* (4xxx): Revenue, Other income
+• COS (5xxx): Cost of sales
+• EXPENSE_* (6xxx-7xxx): Admin, Selling, Other expenses
+• TAX (8xxx): Taxation
+
+---
+
+• 📋 Phase 2B: GST Module - Planning
+
+Executive Summary
+
+Building the GST (Goods and Services Tax) module for Singapore compliance. This includes tax code management, GST return tracking, and IRAS F5 form generation with all 15 boxes pre-calculated.
+
+Requirements Analysis
+
+Explicit Requirements:
+
+• Tax code management (Standard-rated 9%, Zero-rated, Exempt, Out-of-scope)
+• GST registration/deregistration workflow
+• GST return period tracking (monthly/quarterly)
+• F5 form with all 15 boxes per IRAS specification
+• Line-level GST calculation with BCRS deposit exemption
+• Audit trail for GST adjustments
+
+Implicit Requirements:
+
+• Tax codes are org-specific but seeded with defaults
+• GST calculations use 9% rate (Singapore standard)
+• BCRS deposits (beverage container deposits) are GST-exempt per Singapore law
+• Box 6 (Total amount subject to GST) excludes BCRS deposits
+• F5 Box 13 (Revenue) includes all taxable supplies
+• Input tax claims follow 6-month rule
+
+Technical Constraints:
+
+• RLS-enforced
+• Permission: CanFileGST for returns
+• Decimal precision: 4dp internal, 2dp display
+• Read-only tax codes for seeded entries
+
+Architecture Decisions
+
+ Decision         Choice                                Rationale
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Tax Code Model   Controlled vocabulary                 IRAS-defined codes (SR, ZR, ES, OS) prevent errors
+ GST Rate         Database-stored with effective date   Supports future rate changes (current 9%)
+ F5 Calculation   Database function + service layer     Complex box interdependencies need SQL
+ BCRS Handling    is_bcrs_exempt flag on lines          Singapore-specific beverage container scheme
+ Return Period    Monthly/Quarterly enum                IRAS filing frequencies
+
+Singapore Tax Codes Reference
+
+ Code   Name             Rate   GST Treatment   Usage
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ SR     Standard-Rated   9%     Taxable         Local supplies
+ ZR     Zero-Rated       0%     Taxable         Exports, international services
+ ES     Exempt           -      Exempt          Financial services, residential rent
+ OS     Out-of-scope     -      N/A             Sales of assets, private transactions
+ IM     Import           9%     Taxable         Imported goods
+ ME     Metered          9%     Taxable         Utilities with special rules
+
+F5 Form Boxes (IRAS Compliance)
+
+Box 1: Total value of standard-rated supplies (excl GST)
+Box 2: Total value of zero-rated supplies
+Box 3: Total value of exempt supplies
+Box 4: Total value of (Box 1 + Box 2 + Box 3)
+Box 5: Total output tax due (Box 1 × 9%)
+Box 6: Total value of taxable purchases (excl GST)
+Box 7: Total input tax claims (Box 6 × 9%)
+Box 8: Net GST (Box 5 - Box 7)
+Box 9: Total value of goods imported
+Box 10: GST on imports under MG/IGDS schemes
+Box 11: Total value of service imports (reverse charge)
+Box 12: Output tax on reverse charge
+Box 13: Total revenue (from P&L)
+Box 14: Total value of exempt supplies (Box 3 repeated)
+Box 15: Imports/exports indicator
+
+Execution Plan
+
+Phase 2B-1: Tax Code Service
+
+• [ ] Tax code listing (seeded + custom)
+• [ ] Tax code creation (custom only)
+• [ ] Tax validation for invoices
+• [ ] Rate retrieval with effective date
+
+Phase 2B-2: GST Calculation Service
+
+• [ ] Line-level GST calculation
+• [ ] BCRS deposit exemption logic
+• [ ] Rounding to 2dp per IRAS
+• [ ] Multi-line document totals
+
+Phase 2B-3: GST Return Service
+
+• [ ] Return period generation
+• [ ] F5 box calculations (all 15 boxes)
+• [ ] Return status workflow (draft → filed → paid)
+• [ ] Adjustment journal creation
+
+Phase 2B-4: Views & URLs
+
+• [ ] Tax code CRUD endpoints
+• [ ] GST calculation endpoint
+• [ ] F5 generation endpoint
+• [ ] Return status endpoints
+
+Success Criteria
+
+• [ ] All 6 tax codes available after org creation
+• [ ] GST calculations match IRAS calculator
+• [ ] BCRS deposits excluded from Box 6
+• [ ] F5 form generates all 15 boxes correctly
+• [ ] Return workflow supports draft → filed → paid
+• [ ] Audit trail for adjustments
+• [ ] Permission checks on filing
+

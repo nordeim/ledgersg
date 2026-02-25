@@ -67,6 +67,7 @@ org_scoped_urlpatterns = []
 
 # Try to include app URLs if they exist
 try:
+    from apps.coa import urls as coa_urls
     org_scoped_urlpatterns.append(path("accounts/", include("apps.coa.urls")))
 except ImportError:
     pass
