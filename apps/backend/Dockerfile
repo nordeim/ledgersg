@@ -1,5 +1,5 @@
 # LedgerSG API Dockerfile
-FROM python:3.13-slim-bookworm
+FROM python:3.13-slim-trixie
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1

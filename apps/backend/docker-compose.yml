@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: ledgersg_dev
       POSTGRES_USER: ledgersg
-      POSTGRES_PASSWORD: ledgersg
+      POSTGRES_PASSWORD: ledgersg_secret_to_change
     ports:
       - "5432:5432"
     volumes:
