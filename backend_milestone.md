@@ -260,4 +260,58 @@ Then Phases 2-9
 
 Ready to continue with Organisation service and views?
 
+---
+
+• ✅ Phase 1 Organisation Module - Implementation Complete
+
+Files Created/Modified
+
+ File                            Lines   Purpose
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ organisation_service.py         331     Business logic for org creation with CoA seeding, fiscal year generation
+ permissions.py                  124     DRF permission classes (IsOrgMember, HasOrgPermission, CanManageOrg, etc.)
+ organisations.py (views)        262     API endpoints for org CRUD, GST registration, fiscal years, summary
+ organisation.py (serializers)   153     Serializers for Organisation, FiscalYear, Role, UserOrganisation
+ core/urls.py                    62      URL routing for auth + organisation endpoints
+ config/urls.py                  -       Updated to use consolidated core URLs
+
+API Endpoints
+
+Non-org-scoped:
+
+• POST /api/v1/auth/register/ - User registration
+• POST /api/v1/auth/login/ - User login
+• POST /api/v1/auth/logout/ - User logout
+• POST /api/v1/auth/refresh/ - Token refresh
+• GET /api/v1/auth/profile/ - User profile
+• POST /api/v1/auth/change-password/ - Password change
+• GET/POST /api/v1/organisations/ - List/create organisations
+
+Org-scoped:
+
+• GET/PATCH/DELETE /api/v1/{org_id}/ - Org details/update/deactivate
+• POST/DELETE /api/v1/{org_id}/gst/ - GST registration/deregistration
+• GET /api/v1/{org_id}/fiscal-years/ - List fiscal years
+• GET /api/v1/{org_id}/summary/ - Org dashboard summary
+
+Key Features Implemented
+
+1. Organisation Creation Flow:
+  • Creates organisation record
+  • Seeds Chart of Accounts via PostgreSQL core.seed_default_chart_of_accounts()
+  • Creates document sequences (INVOICE, CREDIT_NOTE, etc.)
+  • Generates fiscal year with 12 monthly periods
+  • Assigns creator as Owner role
+2. Permission System:
+  • IsOrgMember - Verifies user belongs to org
+  • HasOrgPermission - Checks specific role permissions
+  • Permission classes for each operation (CanManageOrg, CanCreateInvoices, etc.)
+3. GST Registration:
+  • Toggle GST status with validation
+  • Auto-seeds GST accounts when registering
+4. Fiscal Year Generation:
+  • Supports calendar year (Jan-Dec) or custom start month
+  • Auto-creates 12 monthly periods
+
+The middleware already sets request.org_id and request.org_role for org-scoped requests, enabling RLS and permission checks.
 

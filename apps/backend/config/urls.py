@@ -62,6 +62,31 @@ def api_root(request):
     })
 
 
+# Org-scoped URLs - will be expanded as modules are built
+org_scoped_urlpatterns = []
+
+# Try to include app URLs if they exist
+try:
+    org_scoped_urlpatterns.append(path("accounts/", include("apps.coa.urls")))
+except ImportError:
+    pass
+
+try:
+    org_scoped_urlpatterns.append(path("journal-entries/", include("apps.journal.urls")))
+except ImportError:
+    pass
+
+try:
+    org_scoped_urlpatterns.append(path("peppol/", include("apps.peppol.urls")))
+except ImportError:
+    pass
+
+try:
+    org_scoped_urlpatterns.append(path("reports/", include("apps.reporting.urls")))
+except ImportError:
+    pass
+
+
 urlpatterns = [
     # Health check
     path("health/", health_check, name="health"),
@@ -70,44 +95,11 @@ urlpatterns = [
     path("api/v1/", api_root, name="api-root"),
     path("api/v1/health/", health_check, name="api-health"),
     
-    # Auth module
-    path("api/v1/auth/", include("apps.core.urls.auth")),
-    
-    # Organisation module (non-org-scoped)
-    path("api/v1/organisations/", include("apps.core.urls.organisation")),
+    # Core module (auth + organisations)
+    path("api/v1/", include("apps.core.urls")),
     
     # Org-scoped modules (handled by tenant middleware)
-    path("api/v1/<uuid:org_id>/", include([
-        # Core
-        path("users/", include("apps.core.urls.user")),
-        path("fiscal/", include("apps.core.urls.fiscal")),
-        path("settings/", include("apps.core.urls.settings")),
-        
-        # COA
-        path("accounts/", include("apps.coa.urls")),
-        
-        # GST
-        path("tax-codes/", include("apps.gst.urls.tax_code")),
-        path("gst-returns/", include("apps.gst.urls.return")),
-        
-        # Journal
-        path("journal-entries/", include("apps.journal.urls")),
-        
-        # Invoicing
-        path("contacts/", include("apps.invoicing.urls.contact")),
-        path("invoices/", include("apps.invoicing.urls.document")),
-        path("quotes/", include("apps.invoicing.urls.quote")),
-        
-        # Banking
-        path("bank-accounts/", include("apps.banking.urls.account")),
-        path("payments/", include("apps.banking.urls.payment")),
-        
-        # Peppol
-        path("peppol/", include("apps.peppol.urls")),
-        
-        # Reporting
-        path("reports/", include("apps.reporting.urls")),
-    ])),
+    path("api/v1/<uuid:org_id>/", include(org_scoped_urlpatterns)),
     
     # Admin (development only in production)
     path("admin/", admin.site.urls),
