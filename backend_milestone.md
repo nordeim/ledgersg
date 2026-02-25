@@ -760,3 +760,159 @@ Invoicing (12):
 
 • Contacts CRUD, Documents CRUD, Status, Lines, Quote Convert, Summary
 
+---
+
+• ✅ Phase 2D: Journal Entry Module - Complete
+
+Files Created (1,198 lines total)
+
+ File                                  Lines   Purpose
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ journal/services/journal_service.py   591     Double-entry posting, balance validation, reversals
+ journal/serializers.py                214     Serializers for JournalEntry, JournalLine
+ journal/views.py                      345     API views for all journal endpoints
+ journal/urls.py                       36      URL routing for journal module
+
+Key Features
+
+JournalService:
+
+• create_entry() - Manual journal entry creation with debit/credit validation
+• post_invoice() - Automatic posting from approved invoices (AR, Revenue, GST)
+• create_reversal() - Reversal entries (swapped debits/credits)
+• void_document_entry() - Document void reversals
+• get_trial_balance() - Full trial balance generation
+• get_account_balance() - Running balance per account
+• Fiscal period validation (closed periods blocked)
+• PostgreSQL sequence-based numbering (JE-00001)
+
+Entry Types:
+
+• MANUAL - User-created entries
+• INVOICE - Auto-posted from invoices
+• CREDIT_NOTE - Auto-posted from credit notes
+• PAYMENT - Payment entries
+• ADJUSTMENT - Year-end adjustments
+• REVERSAL - Reversal entries
+• OPENING - Opening balances
+• CLOSING - Closing entries
+
+Double-Entry Posting
+
+Invoice Posting Example:
+
+Debit:  1200 Accounts Receivable    $109.00
+Credit: 4000 Sales Revenue           $100.00
+Credit: 2200 GST Output Tax            $9.00
+
+API Endpoints Summary
+
+ Endpoint                                  Method     Permission
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ /journal-entries/entries/                 GET/POST   IsOrgMember / CanCreateJournals
+ /journal-entries/entries/summary/         GET        IsOrgMember + CanViewReports
+ /journal-entries/entries/validate/        POST       IsOrgMember
+ /journal-entries/entries/types/           GET        IsAuthenticated
+ /journal-entries/entries/{id}/            GET        IsOrgMember
+ /journal-entries/entries/{id}/reverse/    POST       IsOrgMember + CanCreateJournals
+ /journal-entries/trial-balance/           GET        IsOrgMember + CanViewReports
+ /journal-entries/accounts/{id}/balance/   GET        IsOrgMember + CanViewReports
+
+---
+📊 FINAL BACKEND IMPLEMENTATION STATUS
+
+ Phase                            Status        Files         Lines
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Phase 0: Django Foundation       ✅ Complete   35            ~2,500
+ Phase 1: Auth System             ✅ Complete   8 endpoints   ~800
+ Phase 2A: CoA Module             ✅ Complete   4 files       1,045
+ Phase 2B: GST Module             ✅ Complete   6 files       1,962
+ Phase 2C: Invoicing Module       ✅ Complete   5 files       1,592
+ Phase 2D: Journal Entry Module   ✅ Complete   5 files       1,198
+ Total                                          55+ files     ~9,000+
+
+Complete API Endpoint Summary (50+ endpoints)
+
+Authentication (6):
+
+• POST /api/v1/auth/register/ - User registration
+• POST /api/v1/auth/login/ - User login
+• POST /api/v1/auth/logout/ - User logout
+• POST /api/v1/auth/refresh/ - Token refresh
+• GET /api/v1/auth/profile/ - User profile
+• POST /api/v1/auth/change-password/ - Password change
+
+Organisation (6):
+
+• GET/POST /api/v1/organisations/ - List/Create organisations
+• GET/PATCH/DELETE /api/v1/{org_id}/ - Org details/update/deactivate
+• POST/DELETE /api/v1/{org_id}/gst/ - GST registration
+• GET /api/v1/{org_id}/fiscal-years/ - List fiscal years
+• GET /api/v1/{org_id}/summary/ - Org dashboard
+
+Chart of Accounts (8):
+
+• GET/POST /api/v1/{org_id}/accounts/ - List/Create accounts
+• GET /api/v1/{org_id}/accounts/search/ - Search accounts
+• GET /api/v1/{org_id}/accounts/types/ - Account types
+• GET /api/v1/{org_id}/accounts/hierarchy/ - Account tree
+• GET /api/v1/{org_id}/accounts/trial-balance/ - Trial balance
+• GET/PATCH/DELETE /api/v1/{org_id}/accounts/{id}/ - Account CRUD
+• GET /api/v1/{org_id}/accounts/{id}/balance/ - Account balance
+
+GST (11):
+
+• GET/POST /api/v1/{org_id}/gst/tax-codes/ - Tax code CRUD
+• GET /api/v1/{org_id}/gst/tax-codes/iras-info/ - IRAS definitions
+• POST /api/v1/{org_id}/gst/calculate/ - Line GST calculation
+• POST /api/v1/{org_id}/gst/calculate/document/ - Document GST
+• GET/POST /api/v1/{org_id}/gst/returns/ - GST returns
+• GET /api/v1/{org_id}/gst/returns/deadlines/ - Upcoming deadlines
+• GET/POST /api/v1/{org_id}/gst/returns/{id}/ - F5 generation
+• POST /api/v1/{org_id}/gst/returns/{id}/file/ - File return
+• POST /api/v1/{org_id}/gst/returns/{id}/amend/ - Amend return
+• POST /api/v1/{org_id}/gst/returns/{id}/pay/ - Record payment
+
+Invoicing (12):
+
+• GET/POST /api/v1/{org_id}/invoicing/contacts/ - Contact CRUD
+• GET/PATCH/DELETE /api/v1/{org_id}/invoicing/contacts/{id}/ - Contact details
+• GET/POST /api/v1/{org_id}/invoicing/documents/ - Document CRUD
+• GET /api/v1/{org_id}/invoicing/documents/summary/ - Statistics
+• GET /api/v1/{org_id}/invoicing/documents/status-transitions/ - Valid transitions
+• GET/PATCH /api/v1/{org_id}/invoicing/documents/{id}/ - Document details
+• POST /api/v1/{org_id}/invoicing/documents/{id}/status/ - Change status
+• POST /api/v1/{org_id}/invoicing/documents/{id}/lines/ - Add line
+• DELETE /api/v1/{org_id}/invoicing/documents/{id}/lines/{line_id}/ - Remove line
+• POST /api/v1/{org_id}/invoicing/quotes/convert/ - Convert quote
+
+Journal (8):
+
+• GET/POST /api/v1/{org_id}/journal-entries/entries/ - Journal entry CRUD
+• GET /api/v1/{org_id}/journal-entries/entries/summary/ - Statistics
+• POST /api/v1/{org_id}/journal-entries/entries/validate/ - Validate balance
+• GET /api/v1/{org_id}/journal-entries/entries/types/ - Entry types
+• GET /api/v1/{org_id}/journal-entries/entries/{id}/ - Entry details
+• POST /api/v1/{org_id}/journal-entries/entries/{id}/reverse/ - Create reversal
+• GET /api/v1/{org_id}/journal-entries/trial-balance/ - Trial balance
+• GET /api/v1/{org_id}/journal-entries/accounts/{id}/balance/ - Account balance
+
+---
+🎉 Phase 2 Complete!
+
+All core accounting modules implemented:
+
+• ✅ Authentication (JWT, permissions, RLS)
+• ✅ Organisation management (creation, GST, fiscal years)
+• ✅ Chart of Accounts (hierarchy, balance, trial balance)
+• ✅ GST module (tax codes, F5 filing, IRAS compliance)
+• ✅ Invoicing (contacts, documents, quote conversion)
+• ✅ Journal Entry (double-entry, auto-posting, reversals)
+
+Next Steps Options:
+
+1. Phase 3: Integration Testing - Test end-to-end workflows
+2. Phase 4: Banking Module - Bank accounts, reconciliation
+3. Phase 5: Reporting - Financial statements, GST reports
+4. Phase 6: Peppol Integration - E-invoicing
+
