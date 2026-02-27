@@ -36,6 +36,7 @@
 - [Recommendations & Roadmap](#-recommendations--roadmap)
 - [Deployment](#-deployment)
 - [Testing](#-testing)
+- [Backend Service Control](#-backend-service-control)
 - [Compliance](#-compliance)
 - [Security](#-security)
 - [Contributing](#-contributing)
@@ -141,6 +142,236 @@ pytest --reuse-db --no-migrations
 
 # Frontend unit tests (Vitest)
 cd apps/web && npm test
+```
+
+---
+
+## 🚀 Backend Service Control
+
+LedgerSG includes a comprehensive **Backend API Service Management Script** for production-ready deployment and development workflows.
+
+### Quick Start
+
+```bash
+# Navigate to backend directory
+cd apps/backend
+
+# Make script executable (first time only)
+chmod +x backend_api_service.sh
+
+# Start the service
+./backend_api_service.sh start
+
+# Check service status
+./backend_api_service.sh status
+```
+
+### Service Management Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| **`start [HOST] [PORT] [WORKERS]`** | Start API service | `./backend_api_service.sh start 0.0.0.0 8000 4` |
+| **`stop`** | Stop API service gracefully | `./backend_api_service.sh stop` |
+| **`restart [HOST] [PORT] [WORKERS]`** | Restart service | `./backend_api_service.sh restart 127.0.0.1 8000 2` |
+| **`status`** | Show detailed service status | `./backend_api_service.sh status` |
+| **`logs [LINES]`** | View service logs | `./backend_api_service.sh logs 50` |
+| **`help`** | Show usage documentation | `./backend_api_service.sh help` |
+
+### Deployment Modes
+
+#### Development Mode (Single Worker)
+```bash
+./backend_api_service.sh start 127.0.0.1 8000 1
+```
+- Uses Django development server
+- Auto-reload on code changes
+- Debug logging enabled
+- Ideal for local development
+
+#### Production Mode (Multiple Workers)
+```bash
+./backend_api_service.sh start 0.0.0.0 8000 4
+```
+- Uses Gunicorn WSGI server
+- Multiple worker processes
+- Production-optimized settings
+- Suitable for staging/production
+
+#### External Access Mode
+```bash
+./backend_api_service.sh start 0.0.0.0 8000 2
+```
+- Binds to all network interfaces
+- Accessible from other machines
+- Useful for Docker/network deployment
+
+### Service Status Information
+
+The status command provides comprehensive service information:
+
+```bash
+$ ./backend_api_service.sh status
+
+============================================
+LEDGERSG API SERVICE STATUS
+============================================
+● Service is running
+  PID: 1250655
+  Command: gunicorn
+  Started: Fri Feb 27 14:39:07 2026
+  PID File: /home/user/.ledgersg/ledgersg-api.pid
+  Log Directory: /home/user/.ledgersg/logs
+
+[INFO] Service Details:
+  Project: LedgerSG API
+  Framework: Django 6.0.2
+  Database: PostgreSQL
+
+[SUCCESS] Health check: ✅ PASS
+
+Configuration:
+  Service Name: ledgersg-api
+  Default Host: 127.0.0.1
+  Default Port: 8000
+  Backend Directory: /home/project/Ledger-SG/apps/backend
+  Virtual Environment: /opt/venv
+```
+
+### Health Monitoring
+
+The service includes automatic health monitoring:
+
+```bash
+# Health endpoint
+curl http://localhost:8000/api/v1/health/
+
+# Response
+{
+  "status": "healthy",
+  "database": "connected",
+  "version": "1.0.0"
+}
+```
+
+### Log Management
+
+View real-time and historical logs:
+
+```bash
+# Show last 50 lines
+./backend_api_service.sh logs
+
+# Show last 100 lines
+./backend_api_service.sh logs 100
+
+# View live logs (manual)
+tail -f ~/.ledgersg/logs/api_service.log
+
+# View Gunicorn logs (production mode)
+tail -f ~/.ledgersg/logs/error.log
+```
+
+### Configuration Files
+
+The script uses specialized settings for service mode:
+
+- **`config/settings/service.py`** - Service-optimized Django settings
+- **`~/.ledgersg/`** - Runtime directory (PID files, logs)
+- **`/opt/venv`** - Virtual environment (configurable)
+
+### Prerequisites & Requirements
+
+**System Requirements:**
+- Python 3.12+ with virtual environment
+- PostgreSQL database running
+- LedgerSG backend code installed
+
+**Environment Setup:**
+```bash
+# Virtual environment (if not exists)
+python3 -m venv /opt/venv
+source /opt/venv/bin/activate
+pip install -e apps/backend/[dev]
+
+# Database setup
+psql -h localhost -U ledgersg -d ledgersg_dev -f database_schema.sql
+```
+
+### Production Deployment
+
+For production deployment:
+
+```bash
+# 1. Create production environment
+python3 -m venv /opt/ledgersg-venv
+source /opt/ledgersg-venv/bin/activate
+pip install -e apps/backend/[prod]
+
+# 2. Configure environment variables
+cp apps/backend/.env.example apps/backend/.env
+# Edit .env with production settings
+
+# 3. Start production service
+./backend_api_service.sh start 0.0.0.0 8000 8
+
+# 4. Verify service health
+curl https://your-domain.com/api/v1/health/
+```
+
+### Troubleshooting
+
+**Service won't start:**
+```bash
+# Check database connection
+./backend_api_service.sh status
+
+# View error logs
+./backend_api_service.sh logs 20
+
+# Check port availability
+netstat -tulpn | grep :8000
+```
+
+**Service not responding:**
+```bash
+# Check health endpoint
+curl -v http://localhost:8000/api/v1/health/
+
+# Restart service
+./backend_api_service.sh restart
+```
+
+**Permission issues:**
+```bash
+# Ensure script is executable
+chmod +x backend_api_service.sh
+
+# Check log directory permissions
+ls -la ~/.ledgersg/
+```
+
+### Advanced Usage
+
+**Custom Configuration:**
+```bash
+# Edit script configuration
+vim backend_api_service.sh
+
+# Key variables to modify:
+# - VENV_PATH="/opt/venv"
+# - DEFAULT_HOST="127.0.0.1"
+# - DEFAULT_PORT="8000"
+# - DEFAULT_WORKERS="4"
+```
+
+**Process Management:**
+```bash
+# Find service process
+ps aux | grep ledgersg-api
+
+# Manual cleanup (if needed)
+pkill -f ledgersg-api
+rm -f ~/.ledgersg/ledgersg-api.pid
 ```
 
 ---
