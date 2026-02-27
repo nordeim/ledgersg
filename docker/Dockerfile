@@ -65,7 +65,6 @@ RUN cd /usr/bin && \
 # ──────────────────────────────────────────────────────────────────────────────
 # Create virtual environment for the application
 RUN python3 -m venv /opt/venv && \
-    chown -R user:user /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip
 
 # Install Python dependencies in virtual environment
@@ -91,7 +90,7 @@ RUN groupadd -g 1000 user && \
     echo "user ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/user && \
     chmod 0440 /etc/sudoers.d/user && \
     mkdir -p ${XDG_RUNTIME_DIR} /data /app /var/run/postgresql /data/postgresql && \
-    chown -R user:user ${XDG_RUNTIME_DIR} /data /app /var/run/postgresql /var/lib/postgresql && \
+    chown -R user:user ${XDG_RUNTIME_DIR} /opt/venv /data /app /var/run/postgresql /var/lib/postgresql && \
     chmod 700 /data/postgresql
 
 # ──────────────────────────────────────────────────────────────────────────────
