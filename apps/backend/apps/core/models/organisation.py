@@ -36,18 +36,21 @@ class Organisation(BaseModel):
         db_column="uen",
         verbose_name="UEN (Unique Entity Number)",
     )
+    # SQL CHECK constraint values
+    ENTITY_TYPES = [
+        ("SOLE_PROPRIETORSHIP", "Sole Proprietorship"),
+        ("PARTNERSHIP", "Partnership"),
+        ("PRIVATE_LIMITED", "Private Limited Company"),
+        ("LIMITED_LIABILITY_PARTNERSHIP", "Limited Liability Partnership"),
+        ("PUBLIC_LIMITED", "Public Limited Company"),
+        ("NON_PROFIT", "Non-Profit Organisation"),
+        ("OTHER", "Other"),
+    ]
     entity_type = models.CharField(
         max_length=50,
         default="PRIVATE_LIMITED",
         db_column="entity_type",
-        choices=[
-            ("SOLE_PROPRIETORSHIP", "Sole Proprietorship"),
-            ("PARTNERSHIP", "Partnership"),
-            ("PRIVATE_LIMITED", "Private Limited Company"),
-            ("PUBLIC_LIMITED", "Public Limited Company"),
-            ("LIMITED_LIABILITY_PARTNERSHIP", "Limited Liability Partnership"),
-            ("NON_PROFIT", "Non-Profit Organisation"),
-        ],
+        choices=ENTITY_TYPES,
     )
     
     # GST registration
@@ -65,41 +68,61 @@ class Organisation(BaseModel):
         blank=True,
         db_column="gst_reg_date",
     )
+    # CRITICAL FIX: Match SQL CHECK constraint values (both cases accepted)
+    GST_SCHEMES = [
+        ("STANDARD", "Standard GST"),
+        ("standard", "Standard GST (legacy)"),
+        ("CASH", "Cash Accounting"),
+        ("cash", "Cash Accounting (legacy)"),
+        ("MARGIN", "Margin Scheme"),
+        ("margin", "Margin Scheme (legacy)"),
+    ]
     gst_scheme = models.CharField(
-        max_length=50,
+        max_length=30,
         default="STANDARD",
         db_column="gst_scheme",
-        choices=[
-            ("STANDARD", "Standard GST"),
-            ("CASH_ACCOUNTING", "Cash Accounting"),
-            ("SECOND_HAND", "Second-Hand Goods"),
-            ("TOURIST_REFUND", "Tourist Refund"),
-        ],
+        choices=GST_SCHEMES,
     )
+    # CRITICAL FIX: Match SQL CHECK constraint values (both cases accepted)
+    GST_FILING_FREQUENCIES = [
+        ("MONTHLY", "Monthly"),
+        ("monthly", "Monthly (legacy)"),
+        ("QUARTERLY", "Quarterly"),
+        ("quarterly", "Quarterly (legacy)"),
+        ("SEMI_ANNUAL", "Semi-Annual"),
+        ("semi_annual", "Semi-Annual (legacy)"),
+    ]
     gst_filing_frequency = models.CharField(
-        max_length=20,
+        max_length=15,
         default="QUARTERLY",
         db_column="gst_filing_frequency",
-        choices=[
-            ("MONTHLY", "Monthly"),
-            ("QUARTERLY", "Quarterly"),
-            ("SEMI_ANNUAL", "Semi-Annual"),
-        ],
+        choices=GST_FILING_FREQUENCIES,
     )
     
     # InvoiceNow / Peppol
     peppol_participant_id = models.CharField(
-        max_length=100,
+        max_length=64,
         blank=True,
         db_column="peppol_participant_id",
+    )
+    peppol_scheme_id = models.CharField(
+        max_length=10,
+        default="0195",
+        blank=True,
+        db_column="peppol_scheme_id",
     )
     invoicenow_enabled = models.BooleanField(
         default=False,
         db_column="invoicenow_enabled",
     )
+    invoicenow_ap_id = models.CharField(
+        max_length=100,
+        blank=True,
+        db_column="invoicenow_ap_id",
+    )
     
     # Fiscal settings
-    fy_start_month = models.IntegerField(
+    fy_start_month = models.SmallIntegerField(
         default=1,
         db_column="fy_start_month",
         help_text="Month when fiscal year starts (1-12)",
@@ -113,6 +136,11 @@ class Organisation(BaseModel):
         max_length=50,
         default="Asia/Singapore",
         db_column="timezone",
+    )
+    date_format = models.CharField(
+        max_length=20,
+        default="DD/MM/YYYY",
+        db_column="date_format",
     )
     
     # Address
@@ -131,6 +159,11 @@ class Organisation(BaseModel):
         blank=True,
         db_column="city",
     )
+    state = models.CharField(
+        max_length=100,
+        blank=True,
+        db_column="state",
+    )
     postal_code = models.CharField(
         max_length=20,
         blank=True,
@@ -143,6 +176,15 @@ class Organisation(BaseModel):
     )
     
     # Contact
+    phone = models.CharField(
+        max_length=30,
+        blank=True,
+        db_column="phone",
+    )
+    email = models.EmailField(
+        blank=True,
+        db_column="email",
+    )
     contact_email = models.EmailField(
         blank=True,
         db_column="contact_email",
@@ -151,6 +193,16 @@ class Organisation(BaseModel):
         max_length=50,
         blank=True,
         db_column="contact_phone",
+    )
+    website = models.CharField(
+        max_length=255,
+        blank=True,
+        db_column="website",
+    )
+    logo_url = models.CharField(
+        max_length=500,
+        blank=True,
+        db_column="logo_url",
     )
     
     # Status
@@ -165,10 +217,14 @@ class Organisation(BaseModel):
         blank=True,
         db_column="deleted_at",
     )
-    deleted_by = models.UUIDField(
+    # CRITICAL FIX: Changed from UUIDField to ForeignKey
+    deleted_by = models.ForeignKey(
+        "AppUser",
         null=True,
         blank=True,
+        on_delete=models.SET_NULL,
         db_column="deleted_by",
+        related_name="deleted_organisations",
     )
     
     class Meta:
@@ -199,7 +255,10 @@ class Organisation(BaseModel):
         """Return number of GST filing periods per year."""
         mapping = {
             "MONTHLY": 12,
+            "monthly": 12,
             "QUARTERLY": 4,
+            "quarterly": 4,
             "SEMI_ANNUAL": 2,
+            "semi_annual": 2,
         }
         return mapping.get(self.gst_filing_frequency, 4)

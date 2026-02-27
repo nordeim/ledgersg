@@ -1,0 +1,413 @@
+{
+  "report_metadata": {
+    "generated_at": "2026-02-27T21:35:00+08:00",
+    "sql_schema_version": "1.0.1",
+    "sql_schema_file": "/home/project/Ledger-SG/apps/backend/database_schema.sql",
+    "models_directory": "/home/project/Ledger-SG/apps/backend/apps/core/models/",
+    "total_sql_tables": 28,
+    "total_django_models": 15
+  },
+  "summary": {
+    "tables_with_full_alignment": 4,
+    "tables_with_partial_alignment": 9,
+    "tables_missing_django_models": 15,
+    "critical_issues": 8,
+    "high_priority_issues": 14,
+    "medium_priority_issues": 6
+  },
+  "alignment_matrix": {
+    "green_full_alignment": [
+      {
+        "sql_table": "core.app_user",
+        "django_model": "AppUser",
+        "status": "FULLY_ALIGNED",
+        "notes": "All critical fields mapped correctly"
+      },
+      {
+        "sql_table": "core.role",
+        "django_model": "Role",
+        "status": "FULLY_ALIGNED",
+        "notes": "All permission flags and fields present"
+      },
+      {
+        "sql_table": "journal.line",
+        "django_model": "JournalLine",
+        "status": "FULLY_ALIGNED",
+        "notes": "All monetary and foreign key fields mapped"
+      },
+      {
+        "sql_table": "invoicing.document_line",
+        "django_model": "InvoiceLine",
+        "status": "FULLY_ALIGNED",
+        "notes": "Complete field mapping including BCRS fields"
+      }
+    ],
+    "yellow_partial_alignment": [
+      {
+        "sql_table": "invoicing.document",
+        "django_model": "InvoiceDocument",
+        "status": "PARTIALLY_ALIGNED",
+        "priority": "P0",
+        "issues": [
+          "ENUM values mismatch: SQL has 8 doc types (SALES_INVOICE, SALES_CREDIT_NOTE, SALES_DEBIT_NOTE, PURCHASE_INVOICE, PURCHASE_CREDIT_NOTE, PURCHASE_DEBIT_NOTE, PURCHASE_ORDER, SALES_QUOTE), Django only has 3 (SALES_INVOICE, SALES_QUOTE, SALES_CREDIT_NOTE)",
+          "Missing SQL fields: currency, exchange_rate, total_discount, amount_paid, amount_due (generated), base_subtotal, base_total_gst, base_total_amount, internal_notes, is_tax_invoice, tax_invoice_label, peppol_message_id, invoicenow_status, invoicenow_sent_at, invoicenow_error, journal_entry_id, related_document_id, approved_at, approved_by, voided_at, voided_by, void_reason",
+          "ON DELETE mismatch: contact has CASCADE in Django but RESTRICT in SQL",
+          "STATUS_CHOICES mismatch: Django missing OVERDUE status from SQL"
+        ]
+      },
+      {
+        "sql_table": "invoicing.contact",
+        "django_model": "Contact",
+        "status": "PARTIALLY_ALIGNED",
+        "priority": "P1",
+        "issues": [
+          "Missing SQL fields: contact_type, legal_name, uen, gst_reg_number, is_gst_registered, tax_code_default, fax, website, address_line_1, address_line_2, city, state_province, postal_code, country, default_currency, credit_limit, receivable_account_id, payable_account_id, peppol_id, peppol_scheme_id, notes",
+          "is_customer default mismatch: Django=False, SQL=True"
+        ]
+      },
+      {
+        "sql_table": "gst.tax_code",
+        "django_model": "TaxCode",
+        "status": "PARTIALLY_ALIGNED",
+        "priority": "P1",
+        "issues": [
+          "Missing SQL fields: description, is_input, is_output, is_claimable, is_reverse_charge, f5_supply_box, f5_purchase_box, f5_tax_box, display_order",
+          "Field 'box_mapping' in Django does not exist in SQL schema",
+          "SQL has composite unique (org_id, code, effective_from), Django only has (org, code)"
+        ]
+      },
+      {
+        "sql_table": "gst.return",
+        "django_model": "GSTReturn",
+        "status": "PARTIALLY_ALIGNED",
+        "priority": "P1",
+        "issues": [
+          "Missing SQL fields: box11_bad_debt_relief, box12_pre_reg_input_tax, box13_total_revenue, box14_reverse_charge_supplies, box15_electronic_marketplace, computed_at, reviewed_at, reviewed_by, iras_confirmation, notes",
+          "Django field 'filing_reference' does not exist in SQL (SQL has 'iras_confirmation')"
+        ]
+      },
+      {
+        "sql_table": "coa.account",
+        "django_model": "Account",
+        "status": "PARTIALLY_ALIGNED",
+        "priority": "P1",
+        "issues": [
+          "Missing SQL fields: account_type_id, account_sub_type_id, currency, tax_code_default, is_header, is_bank, is_control",
+          "SQL has unique constraint on (org_id, code), Django has on (org, code) - org vs org_id naming"
+        ]
+      },
+      {
+        "sql_table": "core.organisation",
+        "django_model": "Organisation",
+        "status": "PARTIALLY_ALIGNED",
+        "priority": "P0",
+        "issues": [
+          "CRITICAL: Django gst_scheme choices don't match SQL CHECK constraint",
+          "SQL accepts: 'standard', 'cash', 'margin', 'STANDARD', 'CASH', 'MARGIN'",
+          "Django has: 'STANDARD', 'CASH_ACCOUNTING', 'SECOND_HAND', 'TOURIST_REFUND'",
+          "Missing SQL fields: peppol_scheme_id, invoicenow_ap_id, date_format, address_line_1, address_line_2, state, logo_url, email, phone",
+          "Django has 'contact_email' and 'contact_phone' correctly mapped",
+          "deleted_by is UUIDField in Django but should be FK to AppUser"
+        ]
+      },
+      {
+        "sql_table": "core.user_organisation",
+        "django_model": "UserOrganisation",
+        "status": "PARTIALLY_ALIGNED",
+        "priority": "P2",
+        "issues": [
+          "ON DELETE mismatch: role has PROTECT in Django but RESTRICT in SQL (similar but not identical)",
+          "invited_at has auto_now_add=True in Django but SQL has no default",
+          "invited_by is UUIDField in Django but should be FK to AppUser",
+          "Missing SQL fields: accepted_by, revoked_at, revoked_by"
+        ]
+      },
+      {
+        "sql_table": "journal.entry",
+        "django_model": "JournalEntry",
+        "status": "PARTIALLY_ALIGNED",
+        "priority": "P1",
+        "issues": [
+          "posted_at has auto_now_add=True in Django which may conflict with SQL DEFAULT NOW()",
+          "Missing SQL fields: reversed_by_id (Django has reversed_by), reversal_of_id (Django has reversal_of_entry)",
+          "Related name mismatch: Django uses 'reversal_of' and 'reversal_entry'"
+        ]
+      },
+      {
+        "sql_table": "core.fiscal_period",
+        "django_model": "FiscalPeriod",
+        "status": "PARTIALLY_ALIGNED",
+        "priority": "P2",
+        "issues": [
+          "Missing SQL fields: is_adjustment, closed_at, closed_by"
+        ]
+      }
+    ],
+    "red_missing_models": [
+      {
+        "sql_table": "core.fiscal_year",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P1",
+        "notes": "Model exists but missing is_locked field in SQL comparison"
+      },
+      {
+        "sql_table": "coa.account_type",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P2",
+        "notes": "Reference table with 8 account type classifications"
+      },
+      {
+        "sql_table": "coa.account_sub_type",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P2",
+        "notes": "Reference table with account sub-classifications"
+      },
+      {
+        "sql_table": "core.currency",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P2",
+        "notes": "Reference table with 20 currencies"
+      },
+      {
+        "sql_table": "core.exchange_rate",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P2",
+        "notes": "Multi-currency exchange rate storage"
+      },
+      {
+        "sql_table": "core.document_sequence",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P1",
+        "notes": "Auto-numbering for documents - critical for document generation"
+      },
+      {
+        "sql_table": "core.organisation_setting",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P3",
+        "notes": "Key-value settings store"
+      },
+      {
+        "sql_table": "gst.threshold_snapshot",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P3",
+        "notes": "GST threshold monitoring for non-registered businesses"
+      },
+      {
+        "sql_table": "gst.peppol_transmission_log",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P2",
+        "notes": "InvoiceNow/Peppol transmission tracking"
+      },
+      {
+        "sql_table": "invoicing.document_attachment",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P2",
+        "notes": "File attachments for documents"
+      },
+      {
+        "sql_table": "banking.bank_account",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P1",
+        "notes": "Bank account management - critical for payments"
+      },
+      {
+        "sql_table": "banking.payment",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P1",
+        "notes": "Payment records - critical for AR/AP"
+      },
+      {
+        "sql_table": "banking.payment_allocation",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P1",
+        "notes": "Payment-to-document matching - critical for AR/AP"
+      },
+      {
+        "sql_table": "banking.bank_transaction",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P2",
+        "notes": "Imported bank feed transactions"
+      },
+      {
+        "sql_table": "audit.event_log",
+        "django_model": null,
+        "status": "MISSING_MODEL",
+        "priority": "P2",
+        "notes": "Immutable audit trail - IRAS compliance requirement"
+      }
+    ]
+  },
+  "critical_naming_mismatches": [
+    {
+      "severity": "CRITICAL",
+      "sql_column": "invoicing.document.document_number",
+      "django_field": "sequence_number",
+      "issue": "Field name mismatch - SQL uses 'document_number', Django uses 'sequence_number' but maps to correct db_column"
+    },
+    {
+      "severity": "CRITICAL",
+      "sql_column": "invoicing.document.document_date",
+      "django_field": "issue_date",
+      "issue": "Field name mismatch - SQL uses 'document_date', Django uses 'issue_date' but maps to correct db_column"
+    },
+    {
+      "severity": "CRITICAL",
+      "sql_column": "invoicing.document.subtotal",
+      "django_field": "total_excl",
+      "issue": "Field name mismatch - SQL uses 'subtotal', Django uses 'total_excl' but maps to correct db_column"
+    },
+    {
+      "severity": "CRITICAL",
+      "sql_column": "invoicing.document.total_amount",
+      "django_field": "total_incl",
+      "issue": "Field name mismatch - SQL uses 'total_amount', Django uses 'total_incl' but maps to correct db_column"
+    },
+    {
+      "severity": "HIGH",
+      "sql_column": "invoicing.document.customer_notes",
+      "django_field": "notes",
+      "issue": "Field name mismatch - Django maps correctly but semantic difference"
+    },
+    {
+      "severity": "HIGH",
+      "sql_enum": "invoicing.doc_type",
+      "django_choices": "InvoiceDocument.DOCUMENT_TYPES",
+      "issue": "ENUM mismatch - SQL has 8 values, Django only has 3. Missing: SALES_DEBIT_NOTE, PURCHASE_INVOICE, PURCHASE_CREDIT_NOTE, PURCHASE_DEBIT_NOTE, PURCHASE_ORDER"
+    },
+    {
+      "severity": "HIGH",
+      "sql_enum": "invoicing.doc_status",
+      "django_choices": "InvoiceDocument.STATUS_CHOICES",
+      "issue": "ENUM mismatch - SQL has OVERDUE status, Django doesn't. Order differs."
+    },
+    {
+      "severity": "HIGH",
+      "sql_column": "core.organisation.gst_scheme",
+      "django_field": "gst_scheme",
+      "issue": "Choice values mismatch - SQL: 'standard'/'cash'/'margin', Django: 'STANDARD'/'CASH_ACCOUNTING'/'SECOND_HAND'/'TOURIST_REFUND'"
+    }
+  ],
+  "foreign_key_on_delete_mismatches": [
+    {
+      "table": "invoicing.document",
+      "column": "contact_id",
+      "sql_on_delete": "RESTRICT",
+      "django_on_delete": "CASCADE",
+      "severity": "HIGH",
+      "impact": "Deleting a contact in Django will cascade delete documents, but SQL would prevent deletion if documents exist"
+    },
+    {
+      "table": "core.user_organisation",
+      "column": "role_id",
+      "sql_on_delete": "RESTRICT",
+      "django_on_delete": "PROTECT",
+      "severity": "MEDIUM",
+      "impact": "Similar behavior but technically different - PROTECT raises ProtectedError, RESTRICT raises IntegrityError at DB level"
+    },
+    {
+      "table": "journal.entry",
+      "column": "posted_by",
+      "sql_on_delete": "CASCADE (implied)",
+      "django_on_delete": "CASCADE",
+      "severity": "LOW",
+      "notes": "Both use CASCADE but user deletion would delete journal entries which may be undesirable for audit"
+    }
+  ],
+  "missing_fields_analysis": {
+    "InvoiceDocument": {
+      "model": "InvoiceDocument",
+      "total_sql_fields": 38,
+      "mapped_fields": 10,
+      "missing_fields": 28,
+      "critical_missing": [
+        "currency", "exchange_rate", "amount_paid", "amount_due",
+        "journal_entry_id", "approved_by", "voided_by"
+      ]
+    },
+    "Contact": {
+      "model": "Contact",
+      "total_sql_fields": 28,
+      "mapped_fields": 7,
+      "missing_fields": 21,
+      "critical_missing": [
+        "contact_type", "country", "default_currency",
+        "receivable_account_id", "payable_account_id"
+      ]
+    },
+    "TaxCode": {
+      "model": "TaxCode",
+      "total_sql_fields": 20,
+      "mapped_fields": 7,
+      "missing_fields": 13,
+      "critical_missing": [
+        "is_input", "is_output", "is_claimable",
+        "f5_supply_box", "f5_purchase_box", "f5_tax_box"
+      ]
+    },
+    "Account": {
+      "model": "Account",
+      "total_sql_fields": 17,
+      "mapped_fields": 6,
+      "missing_fields": 11,
+      "critical_missing": [
+        "account_type_id", "account_sub_type_id",
+        "currency", "tax_code_default"
+      ]
+    },
+    "Organisation": {
+      "model": "Organisation",
+      "total_sql_fields": 32,
+      "mapped_fields": 21,
+      "missing_fields": 11,
+      "critical_missing": [
+        "peppol_scheme_id", "invoicenow_ap_id", "country"
+      ]
+    }
+  },
+  "recommendations": {
+    "P0_critical_fixes": [
+      "Fix InvoiceDocument DOCUMENT_TYPES to include all 8 SQL ENUM values",
+      "Fix InvoiceDocument STATUS_CHOICES to match SQL ENUM order and include OVERDUE",
+      "Fix Organisation gst_scheme choices to match SQL CHECK constraint values",
+      "Change InvoiceDocument contact FK from CASCADE to RESTRICT to match SQL",
+      "Add all missing InvoiceDocument fields for multi-currency and workflow support"
+    ],
+    "P1_high_priority": [
+      "Create Django models for banking schema tables (bank_account, payment, payment_allocation)",
+      "Create Django model for document_sequence (critical for document numbering)",
+      "Add missing Contact fields for complete customer/supplier management",
+      "Add missing TaxCode fields for GST F5 reporting",
+      "Add missing GSTReturn boxes 11-15 for complete F5 support",
+      "Add missing Account fields for proper CoA hierarchy",
+      "Create model for audit.event_log (IRAS compliance requirement)"
+    ],
+    "P2_medium_priority": [
+      "Create models for account_type and account_sub_type reference tables",
+      "Create model for currency reference table",
+      "Create model for exchange_rate multi-currency support",
+      "Create model for gst.peppol_transmission_log (InvoiceNow tracking)",
+      "Create model for invoicing.document_attachment",
+      "Add is_adjustment field to FiscalPeriod model"
+    ],
+    "P3_low_priority": [
+      "Create model for core.organisation_setting (key-value config)",
+      "Create model for gst.threshold_snapshot",
+      "Create model for banking.bank_transaction",
+      "Add accepted_by, revoked_at, revoked_by to UserOrganisation"
+    ]
+  }
+}
