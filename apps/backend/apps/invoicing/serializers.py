@@ -30,7 +30,7 @@ class ContactDetailSerializer(serializers.ModelSerializer):
         model = Contact
         fields = [
             "id", "name", "company_name", "email", "phone",
-            "address_line1", "address_line2", "city", "postal_code", "country",
+            "address_line_1", "address_line_2", "city", "postal_code", "country",
             "full_address",
             "uen", "peppol_id",
             "is_customer", "is_supplier", "is_active",
@@ -42,8 +42,8 @@ class ContactDetailSerializer(serializers.ModelSerializer):
     def get_full_address(self, obj: Contact) -> str:
         """Get formatted full address."""
         parts = [
-            obj.address_line1,
-            obj.address_line2,
+            obj.address_line_1,
+            obj.address_line_2,
             obj.city,
             obj.postal_code,
             obj.country
@@ -58,8 +58,8 @@ class ContactCreateSerializer(serializers.Serializer):
     company_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
     phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    address_line1 = serializers.CharField(max_length=255, required=False, allow_blank=True)
-    address_line2 = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    address_line_1 = serializers.CharField(max_length=255, required=False, allow_blank=True, source="address_line_1")
+    address_line_2 = serializers.CharField(max_length=255, required=False, allow_blank=True, source="address_line_2")
     city = serializers.CharField(max_length=100, required=False, allow_blank=True)
     postal_code = serializers.CharField(max_length=20, required=False, allow_blank=True)
     country = serializers.CharField(max_length=2, default="SG")
@@ -201,7 +201,10 @@ class InvoiceDocumentDetailSerializer(serializers.ModelSerializer):
 class InvoiceDocumentCreateSerializer(serializers.Serializer):
     """Serializer for creating invoice documents."""
     
-    document_type = serializers.ChoiceField(choices=["INVOICE", "QUOTE", "CREDIT_NOTE", "DEBIT_NOTE"])
+    document_type = serializers.ChoiceField(choices=[
+        "SALES_INVOICE", "SALES_QUOTE", "SALES_CREDIT_NOTE", "SALES_DEBIT_NOTE",
+        "PURCHASE_INVOICE", "PURCHASE_QUOTE", "PURCHASE_CREDIT_NOTE", "PURCHASE_DEBIT_NOTE", "PURCHASE_ORDER"
+    ])
     contact_id = serializers.UUIDField()
     issue_date = serializers.DateField()
     due_date = serializers.DateField(required=False, allow_null=True)
@@ -222,7 +225,7 @@ class StatusTransitionSerializer(serializers.Serializer):
     """Serializer for status transitions."""
     
     status = serializers.ChoiceField(choices=[
-        "DRAFT", "SENT", "APPROVED", "PAID_PARTIAL", "PAID", "VOIDED"
+        "DRAFT", "SENT", "APPROVED", "PARTIALLY_PAID", "PAID", "OVERDUE", "VOID"
     ])
 
 

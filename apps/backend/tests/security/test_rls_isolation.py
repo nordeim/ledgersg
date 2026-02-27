@@ -88,6 +88,7 @@ def test_cross_org_data_access_blocked(auth_client, test_organisation, test_user
     
     other_contact = Contact.objects.create(
         org=other_org,
+        contact_type="CUSTOMER",
         name="Other Contact",
         is_customer=True,
         is_active=True,

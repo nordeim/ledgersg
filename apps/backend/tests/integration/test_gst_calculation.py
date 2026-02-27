@@ -168,15 +168,13 @@ def test_gst_f5_generation(auth_client, test_organisation, test_fiscal_period, t
     from apps.core.models import GSTReturn
     from apps.gst.services import GSTReturnService
     
-    # Create a GST return period
+    # Create a GST return period - using correct field names per model
     gst_return = GSTReturn.objects.create(
         org=test_organisation,
-        fiscal_period=test_fiscal_period,
+        return_type="F5",
         period_start=test_fiscal_period.start_date,
         period_end=test_fiscal_period.end_date,
-        due_date=test_fiscal_period.end_date,
-        filing_frequency="MONTHLY",
-        label="Jan 2024",
+        filing_due_date=test_fiscal_period.end_date,
         status="DRAFT",
     )
     
@@ -208,15 +206,13 @@ def test_gst_deadlines(auth_client, test_organisation, test_fiscal_period):
     """Test upcoming GST filing deadlines."""
     from apps.core.models import GSTReturn
     
-    # Create a return with upcoming deadline
+    # Create a return with upcoming deadline - using correct field names
     GSTReturn.objects.create(
         org=test_organisation,
-        fiscal_period=test_fiscal_period,
+        return_type="F5",
         period_start=test_fiscal_period.start_date,
         period_end=test_fiscal_period.end_date,
-        due_date=test_fiscal_period.end_date,
-        filing_frequency="MONTHLY",
-        label="Jan 2024",
+        filing_due_date=test_fiscal_period.end_date,
         status="DRAFT",
     )
     

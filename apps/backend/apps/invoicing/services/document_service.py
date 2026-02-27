@@ -27,22 +27,27 @@ from common.exceptions import ValidationError, DuplicateResource, ResourceNotFou
 from common.decimal_utils import money, sum_money
 
 
-# Document type definitions
+# Document type definitions - matches SQL ENUM invoicing.doc_type
 DOCUMENT_TYPES = {
-    "INVOICE": {"prefix": "INV", "next_status": "SENT"},
-    "CREDIT_NOTE": {"prefix": "CN", "next_status": "APPROVED"},
-    "DEBIT_NOTE": {"prefix": "DN", "next_status": "APPROVED"},
-    "QUOTE": {"prefix": "QUO", "next_status": "SENT"},
+    "SALES_INVOICE": {"prefix": "INV", "next_status": "SENT"},
+    "SALES_CREDIT_NOTE": {"prefix": "CN", "next_status": "APPROVED"},
+    "SALES_DEBIT_NOTE": {"prefix": "DN", "next_status": "APPROVED"},
+    "SALES_QUOTE": {"prefix": "QUO", "next_status": "SENT"},
+    "PURCHASE_INVOICE": {"prefix": "PINV", "next_status": "APPROVED"},
+    "PURCHASE_CREDIT_NOTE": {"prefix": "PCN", "next_status": "APPROVED"},
+    "PURCHASE_DEBIT_NOTE": {"prefix": "PDN", "next_status": "APPROVED"},
+    "PURCHASE_ORDER": {"prefix": "PO", "next_status": "SENT"},
 }
 
-# Valid status transitions
+# Valid status transitions - matches SQL ENUM invoicing.doc_status
 STATUS_TRANSITIONS = {
-    "DRAFT": ["SENT", "VOIDED"],
-    "SENT": ["APPROVED", "VOIDED"],
-    "APPROVED": ["PAID_PARTIAL", "PAID", "VOIDED"],
-    "PAID_PARTIAL": ["PAID", "VOIDED"],
-    "PAID": ["VOIDED"],
-    "VOIDED": [],
+    "DRAFT": ["SENT", "VOID"],
+    "SENT": ["APPROVED", "VOID"],
+    "APPROVED": ["PARTIALLY_PAID", "PAID", "VOID"],
+    "PARTIALLY_PAID": ["PAID", "VOID"],
+    "PAID": ["VOID"],
+    "VOID": [],
+    "OVERDUE": ["PAID", "VOID"],
 }
 
 
@@ -172,8 +177,8 @@ class DocumentService:
                     "email": contact.email,
                     "phone": contact.phone,
                     "address": {
-                        "line1": contact.address_line1,
-                        "line2": contact.address_line2,
+                        "line1": contact.address_line_1,
+                        "line2": contact.address_line_2,
                         "city": contact.city,
                         "postal_code": contact.postal_code,
                         "country": contact.country,
@@ -265,6 +270,10 @@ class DocumentService:
         except Account.DoesNotExist:
             raise ResourceNotFound(f"Account {account_id} not found")
 
+        # Get next line number
+        last_line = document.lines.order_by('-line_number').first()
+        line_number = (last_line.line_number + 1) if last_line else 1
+
         # Calculate line totals
         quantity = Decimal(str(quantity))
         unit_price = money(unit_price)
@@ -276,15 +285,24 @@ class DocumentService:
             amount=amount, rate=tax_code.rate or Decimal("0.00"), is_bcrs_deposit=is_bcrs_deposit
         )
 
+        # Calculate line amounts
+        line_amount = quantity * unit_price
+        gst_amount = gst_result["gst_amount"]
+        total_amount = line_amount + gst_amount
+        
         line = InvoiceLine.objects.create(
-            invoice=document,
+            org_id=org_id,
+            document=document,
+            line_number=line_number,
             account=account,
             description=description.strip(),
             quantity=quantity,
             unit_price=unit_price,
-            amount=amount,
+            line_amount=line_amount,
+            gst_amount=gst_amount,
+            total_amount=total_amount,
             tax_code=tax_code,
-            gst_amount=gst_result["gst_amount"],
+            tax_rate=tax_code.rate or Decimal("0.00"),
             is_bcrs_deposit=is_bcrs_deposit,
             **kwargs,
         )
@@ -354,10 +372,10 @@ class DocumentService:
                 document.approved_by_id = user_id
 
                 # Post journal entry (for invoices/credit notes)
-                if document.document_type in ["INVOICE", "CREDIT_NOTE", "DEBIT_NOTE"]:
+                if document.document_type in ["SALES_INVOICE", "SALES_CREDIT_NOTE", "SALES_DEBIT_NOTE", "PURCHASE_INVOICE", "PURCHASE_CREDIT_NOTE", "PURCHASE_DEBIT_NOTE"]:
                     DocumentService._post_journal_entry(org_id, document)
 
-            elif new_status == "VOIDED":
+            elif new_status == "VOID":
                 document.voided_at = timezone.now()
                 document.voided_by_id = user_id
 
@@ -386,7 +404,7 @@ class DocumentService:
         """
         quote = DocumentService.get_document(org_id, quote_id)
 
-        if quote.document_type != "QUOTE":
+        if quote.document_type != "SALES_QUOTE":
             raise ValidationError("Only quotes can be converted to invoices.")
 
         if quote.status not in ["DRAFT", "SENT"]:
@@ -395,7 +413,7 @@ class DocumentService:
         with transaction.atomic():
             # Get lines from quote
             lines = []
-            for line in quote.lines.filter(is_voided=False):
+            for line in quote.lines.all():
                 lines.append(
                     {
                         "account_id": line.account_id,
@@ -410,7 +428,7 @@ class DocumentService:
             # Create invoice
             invoice = DocumentService.create_document(
                 org_id=org_id,
-                document_type="INVOICE",
+                document_type="SALES_INVOICE",
                 contact_id=quote.contact_id,
                 issue_date=date.today(),
                 due_date=date.today() + timedelta(days=quote.contact.payment_terms_days),
@@ -420,8 +438,8 @@ class DocumentService:
                 user_id=user_id,
             )
 
-            # Mark quote as converted
-            quote.status = "CONVERTED"
+            # Mark quote as approved (converted) - use valid status from SQL enum
+            quote.status = "APPROVED"
             quote.converted_to_id = invoice.id
             quote.save()
 
@@ -483,15 +501,15 @@ class DocumentService:
         Args:
             document: InvoiceDocument instance
         """
-        lines = document.lines.filter(is_voided=False)
+        lines = document.lines.all()
 
-        subtotal = sum_money(line.amount for line in lines)
+        subtotal = sum_money(line.line_amount for line in lines)
         gst_total = sum_money(line.gst_amount for line in lines)
         total = subtotal + gst_total
 
-        document.subtotal = subtotal
+        document.total_excl = subtotal
         document.gst_total = gst_total
-        document.total = total
+        document.total_incl = total
         document.save()
 
     @staticmethod

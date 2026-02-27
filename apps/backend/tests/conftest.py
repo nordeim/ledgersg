@@ -119,22 +119,31 @@ def test_tax_codes(test_organisation) -> dict:
     """Create standard tax codes for the organisation."""
     codes = {}
     
+    # Tax code data matching SQL schema fields
+    # NOTE: SQL schema has NOT NULL constraint on rate, so use 0.0000 instead of None
+    # NOTE: SQL chk_io_flag requires is_input=TRUE OR is_output=TRUE OR code='NA'
     tax_code_data = [
-        ("SR", "Standard-Rated", Decimal("0.09"), True, "box1"),
-        ("ZR", "Zero-Rated", Decimal("0.00"), True, "box2"),
-        ("ES", "Exempt", None, False, "box3"),
-        ("OS", "Out-of-Scope", None, False, None),
+        ("SR", "Standard-Rated", "Standard-Rated Supply", Decimal("0.09"), True, False, True, 1, None, 6),
+        ("ZR", "Zero-Rated", "Zero-Rated Supply", Decimal("0.00"), True, False, True, 2, None, 6),
+        ("ES", "Exempt", "Exempt Supply", Decimal("0.00"), False, True, True, 3, None, None),
+        ("OS", "Out-of-Scope", "Out of Scope Supply", Decimal("0.00"), False, True, False, None, None, None),
+        ("TX", "Taxable Purchase", "Taxable Purchase", Decimal("0.09"), False, True, True, None, 5, 7),
     ]
     
-    for code, name, rate, is_gst_charged, box_mapping in tax_code_data:
+    for code, name, description, rate, is_gst_charged, is_input, is_output, f5_supply_box, f5_purchase_box, f5_tax_box in tax_code_data:
         tc = TaxCode.objects.create(
             org=test_organisation,
             code=code,
             name=name,
+            description=description,
             rate=rate,
             is_gst_charged=is_gst_charged,
-            box_mapping=box_mapping,
-            is_system=True,
+            is_input=is_input,
+            is_output=is_output,
+            is_claimable=True,
+            f5_supply_box=f5_supply_box,
+            f5_purchase_box=f5_purchase_box,
+            f5_tax_box=f5_tax_box,
             is_active=True,
             effective_from=date(2024, 1, 1),
         )
@@ -218,6 +227,7 @@ def create_test_contact(org: Organisation, **kwargs) -> "Contact":
     from apps.core.models import Contact
     
     defaults = {
+        "contact_type": "CUSTOMER",  # Required field per SQL CHECK constraint
         "name": "Test Contact",
         "company_name": "Test Company",
         "email": "contact@example.com",

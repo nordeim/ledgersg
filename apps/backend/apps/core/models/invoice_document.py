@@ -5,10 +5,10 @@ Maps to invoicing.document table.
 """
 
 from django.db import models
-from common.models import TenantModel, SequenceModel
+from common.models import TenantModel
 
 
-class InvoiceDocument(TenantModel, SequenceModel):
+class InvoiceDocument(TenantModel):
     """Invoice document model."""
     
     # SQL ENUM: invoicing.doc_type
@@ -31,14 +31,15 @@ class InvoiceDocument(TenantModel, SequenceModel):
         ("PARTIALLY_PAID", "Partially Paid"),
         ("PAID", "Paid"),
         ("OVERDUE", "Overdue"),
-        ("VOID", "Void"),
+        ("VOID", "Void"),  # SQL uses "VOID" not "VOIDED"
     ]
     
     document_type = models.CharField(
         max_length=20, db_column="document_type",
         choices=DOCUMENT_TYPES
     )
-    sequence_number = models.CharField(
+    # Document number (sequence)
+    document_number = models.CharField(
         max_length=50, db_column="document_number"
     )
     # CRITICAL FIX: Changed from CASCADE to RESTRICT to match SQL
@@ -154,6 +155,16 @@ class InvoiceDocument(TenantModel, SequenceModel):
         related_name="voided_documents"
     )
     void_reason = models.TextField(blank=True, db_column="void_reason")
+    
+    # JSON snapshot of contact at time of creation (IRAS audit requirement)
+    contact_snapshot = models.JSONField(default=dict, db_column="contact_snapshot")
+    
+    # Created by
+    created_by = models.ForeignKey(
+        "AppUser", null=True, blank=True,
+        on_delete=models.SET_NULL, db_column="created_by",
+        related_name="created_documents"
+    )
     
     class Meta:
         managed = False

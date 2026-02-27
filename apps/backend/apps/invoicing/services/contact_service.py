@@ -85,8 +85,8 @@ class ContactService:
         company_name: str = "",
         email: str = "",
         phone: str = "",
-        address_line1: str = "",
-        address_line2: str = "",
+        address_line_1: str = "",
+        address_line_2: str = "",
         city: str = "",
         postal_code: str = "",
         country: str = "SG",
@@ -106,8 +106,8 @@ class ContactService:
             company_name: Company name
             email: Email address
             phone: Phone number
-            address_line1: Street address line 1
-            address_line2: Street address line 2
+            address_line_1: Street address line 1
+            address_line_2: Street address line 2
             city: City
             postal_code: Postal code
             country: Country code (default: SG)
@@ -148,8 +148,8 @@ class ContactService:
             company_name=company_name.strip(),
             email=email.strip().lower(),
             phone=phone.strip(),
-            address_line1=address_line1.strip(),
-            address_line2=address_line2.strip(),
+            address_line_1=address_line_1.strip(),
+            address_line_2=address_line_2.strip(),
             city=city.strip(),
             postal_code=postal_code.strip(),
             country=country.upper(),

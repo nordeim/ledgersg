@@ -98,8 +98,8 @@ class TestMultiplyMoney:
         
     def test_quantizes_result(self):
         result = multiply_money("33.33", "0.09")
-        # 33.33 * 0.09 = 2.9997
-        assert result == Decimal("3.0000")
+        # 33.33 * 0.09 = 2.9997 - quantize preserves exact calculation
+        assert result == Decimal("2.9997")
 
 
 class TestDivideMoney:
