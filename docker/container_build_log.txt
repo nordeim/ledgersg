@@ -1,15 +1,17 @@
-===== Build Queued at 2026-02-27 11:46:44 / Commit SHA: 196feb7 =====
+===== Build Queued at 2026-02-27 13:12:39 / Commit SHA: 51ba7b5 =====
 
 --> FROM docker.io/library/python:3.13-trixie@sha256:f971a51b2c61cf67a0947aab0c89a66d11e2dfcd774471aa30e7a1e8c7b2ed5a
-DONE 4.7s
+DONE 0.0s
 
-DONE 10.3s
+DONE 3.4s
 
-DONE 10.7s
+DONE 7.8s
 
-DONE 11.4s
+DONE 7.9s
 
-DONE 11.4s
+DONE 8.3s
+
+DONE 8.3s
 
 --> RUN apt-get update && apt-get install -y     bash coreutils ca-certificates cron curl wget git less procps sudo vim tar zip unzip tmux openssh-client rsync     build-essential gcc gnupg cmake pkg-config     libpq-dev libjson-c-dev libssl-dev libwebsockets-dev     libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libffi-dev libjpeg-dev libopenjp2-7-dev     postgresql postgresql-contrib redis-server     && apt-get clean && rm -rf /var/lib/apt/lists/*     && if [ ! -d "/usr/lib/postgresql/17" ]; then echo "ERROR: PostgreSQL 17 not installed" && exit 1; fi     && echo "✓ PostgreSQL 17 verified at build time"
 Hit:1 http://deb.debian.org/debian trixie InRelease
@@ -18,7 +20,7 @@ Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
 Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9670 kB]
 Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [5412 B]
 Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [113 kB]
-Fetched 9879 kB in 1s (11.7 MB/s)
+Fetched 9879 kB in 1s (13.3 MB/s)
 Reading package lists...
 Reading package lists...
 Building dependency tree...
@@ -189,8 +191,8 @@ Get:89 http://deb.debian.org/debian trixie/main amd64 vim amd64 2:9.1.1230-2 [16
 Get:90 http://deb.debian.org/debian trixie/main amd64 xxd amd64 2:9.1.1230-2 [98.8 kB]
 Get:91 http://deb.debian.org/debian trixie/main amd64 zip amd64 3.0-15 [235 kB]
 Preconfiguring packages ...
-/var/cache/debconf/tmp.ci/postgresql.config.YC1pOP: 12: pg_lsclusters: not found
-Fetched 101 MB in 0s (237 MB/s)
+/var/cache/debconf/tmp.ci/postgresql.config.tG5gBS: 12: pg_lsclusters: not found
+Fetched 101 MB in 0s (308 MB/s)
 Selecting previously unselected package libsystemd-shared:amd64.
 (Reading database ... 
 (Reading database ... 5%
@@ -743,17 +745,17 @@ Processing triggers for hicolor-icon-theme (0.18-2) ...
 Processing triggers for libc-bin (2.41-12+deb13u1) ...
 Processing triggers for systemd (257.9-1~deb13u1) ...
 ✓ PostgreSQL 17 verified at build time
-DONE 22.8s
+DONE 18.2s
 
 --> RUN cd /usr/bin &&     wget -q https://github.com/nordeim/HF-Space/raw/refs/heads/main/bun &&     wget -q https://github.com/nordeim/HF-Space/raw/refs/heads/main/uv &&     wget -q https://github.com/nordeim/HF-Space/raw/refs/heads/main/uvx &&     chmod a+x /usr/bin/bun /usr/bin/uv*
-DONE 2.5s
+DONE 3.2s
 
---> RUN pip install --upgrade pip &&     pip install django-celery-beat &&     pip install -U django djangorestframework djangorestframework-simplejwt django-cors-headers django-filter &&     pip install psycopg[binary] celery[redis] redis py-moneyed pydantic weasyprint lxml python-decouple whitenoise gunicorn structlog sentry-sdk[django] pytest pytest-django pytest-cov pytest-xdist model-bakery factory-boy faker httpx ruff mypy django-stubs djangorestframework-stubs pre-commit ipython django-debug-toolbar django-extensions &&     pip install fastapi uvicorn httpx pydantic python-multipart sqlalchemy alembic aiofiles jinja2
+--> RUN pip install --upgrade pip &&     pip install django-celery-beat &&     pip install -U django djangorestframework djangorestframework-simplejwt django-cors-headers django-filter &&     pip install psycopg[binary] celery[redis] redis py-moneyed pydantic weasyprint lxml python-decouple whitenoise gunicorn structlog sentry-sdk[django] argon2-cffi pytest pytest-django pytest-cov pytest-xdist model-bakery factory-boy faker httpx ruff mypy django-stubs djangorestframework-stubs pre-commit ipython django-debug-toolbar django-extensions &&     pip install fastapi uvicorn httpx pydantic python-multipart sqlalchemy alembic aiofiles jinja2 gunicorn
 Requirement already satisfied: pip in /usr/local/lib/python3.13/site-packages (25.3)
 Collecting pip
   Downloading pip-26.0.1-py3-none-any.whl.metadata (4.7 kB)
 Downloading pip-26.0.1-py3-none-any.whl (1.8 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 120.8 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 105.9 MB/s  0:00:00
 Installing collected packages: pip
   Attempting uninstall: pip
     Found existing installation: pip 25.3
@@ -814,7 +816,7 @@ Downloading celery-5.6.2-py3-none-any.whl (445 kB)
 Downloading billiard-4.2.4-py3-none-any.whl (87 kB)
 Downloading click-8.3.1-py3-none-any.whl (108 kB)
 Downloading django-5.2.11-py3-none-any.whl (8.3 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.3/8.3 MB 481.2 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.3/8.3 MB 275.1 MB/s  0:00:00
 Downloading vine-5.1.0-py3-none-any.whl (9.6 kB)
 Downloading asgiref-3.11.1-py3-none-any.whl (24 kB)
 Downloading click_didyoumean-0.3.1-py3-none-any.whl (3.6 kB)
@@ -854,9 +856,9 @@ Requirement already satisfied: sqlparse>=0.5.0 in ./usr/local/lib/python3.13/sit
 Collecting pyjwt>=1.7.1 (from djangorestframework-simplejwt)
   Downloading pyjwt-2.11.0-py3-none-any.whl.metadata (4.0 kB)
 Downloading django-6.0.2-py3-none-any.whl (8.3 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.3/8.3 MB 196.5 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.3/8.3 MB 171.3 MB/s  0:00:00
 Downloading djangorestframework-3.16.1-py3-none-any.whl (1.1 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.1/1.1 MB 585.1 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.1/1.1 MB 433.7 MB/s  0:00:00
 Downloading djangorestframework_simplejwt-5.5.1-py3-none-any.whl (107 kB)
 Downloading django_cors_headers-4.9.0-py3-none-any.whl (12 kB)
 Downloading django_filter-25.2-py3-none-any.whl (94 kB)
@@ -889,6 +891,8 @@ Collecting gunicorn
   Downloading gunicorn-25.1.0-py3-none-any.whl.metadata (5.5 kB)
 Collecting structlog
   Downloading structlog-25.5.0-py3-none-any.whl.metadata (9.5 kB)
+Collecting argon2-cffi
+  Downloading argon2_cffi-25.1.0-py3-none-any.whl.metadata (4.1 kB)
 Collecting pytest
   Downloading pytest-9.0.2-py3-none-any.whl.metadata (7.6 kB)
 Collecting pytest-django
@@ -968,6 +972,8 @@ Collecting urllib3>=1.26.11 (from sentry-sdk[django])
 Collecting certifi (from sentry-sdk[django])
   Downloading certifi-2026.2.25-py3-none-any.whl.metadata (2.5 kB)
 Requirement already satisfied: django>=1.8 in ./usr/local/lib/python3.13/site-packages (from sentry-sdk[django]) (6.0.2)
+Collecting argon2-cffi-bindings (from argon2-cffi)
+  Downloading argon2_cffi_bindings-25.1.0-cp39-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl.metadata (7.4 kB)
 Collecting iniconfig>=1.0.1 (from pytest)
   Downloading iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
 Collecting pluggy<2,>=1.5 (from pytest)
@@ -1057,19 +1063,20 @@ Collecting redis
   Downloading redis-6.4.0-py3-none-any.whl.metadata (10 kB)
 Downloading psycopg-3.3.3-py3-none-any.whl (212 kB)
 Downloading psycopg_binary-3.3.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.2/5.2 MB 107.1 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.2/5.2 MB 202.5 MB/s  0:00:00
 Downloading py_moneyed-3.0-py3-none-any.whl (11 kB)
 Downloading pydantic-2.12.5-py3-none-any.whl (463 kB)
 Downloading pydantic_core-2.41.5-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 176.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 364.9 MB/s  0:00:00
 Downloading weasyprint-68.1-py3-none-any.whl (319 kB)
 Downloading lxml-6.0.2-cp313-cp313-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (5.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.2/5.2 MB 273.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.2/5.2 MB 190.0 MB/s  0:00:00
 Downloading python_decouple-3.8-py3-none-any.whl (9.9 kB)
 Downloading whitenoise-6.12.0-py3-none-any.whl (20 kB)
 Downloading gunicorn-25.1.0-py3-none-any.whl (197 kB)
 Downloading structlog-25.5.0-py3-none-any.whl (72 kB)
 Downloading sentry_sdk-2.53.0-py2.py3-none-any.whl (437 kB)
+Downloading argon2_cffi-25.1.0-py3-none-any.whl (14 kB)
 Downloading pytest-9.0.2-py3-none-any.whl (374 kB)
 Downloading pluggy-1.6.0-py3-none-any.whl (20 kB)
 Downloading pytest_django-4.12.0-py3-none-any.whl (26 kB)
@@ -1078,23 +1085,23 @@ Downloading pytest_xdist-3.8.0-py3-none-any.whl (46 kB)
 Downloading model_bakery-1.23.3-py3-none-any.whl (25 kB)
 Downloading factory_boy-3.3.3-py2.py3-none-any.whl (37 kB)
 Downloading faker-40.5.1-py3-none-any.whl (2.0 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 111.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 542.8 MB/s  0:00:00
 Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
 Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
 Downloading ruff-0.15.4-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (11.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.2/11.2 MB 235.0 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.2/11.2 MB 508.9 MB/s  0:00:00
 Downloading mypy-1.19.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (13.6 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.6/13.6 MB 194.8 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.6/13.6 MB 175.2 MB/s  0:00:00
 Downloading django_stubs-5.2.9-py3-none-any.whl (508 kB)
 Downloading djangorestframework_stubs-3.16.8-py3-none-any.whl (56 kB)
 Downloading pre_commit-4.5.1-py2.py3-none-any.whl (226 kB)
 Downloading ipython-9.10.0-py3-none-any.whl (622 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 622.8/622.8 kB 205.6 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 622.8/622.8 kB 611.9 MB/s  0:00:00
 Downloading django_debug_toolbar-6.2.0-py3-none-any.whl (271 kB)
 Downloading django_extensions-4.1-py3-none-any.whl (232 kB)
 Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
 Downloading babel-2.18.0-py3-none-any.whl (10.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.2/10.2 MB 250.6 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.2/10.2 MB 493.7 MB/s  0:00:00
 Downloading cffi-2.0.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (219 kB)
 Downloading cfgv-3.5.0-py2.py3-none-any.whl (7.4 kB)
 Downloading coverage-7.13.4-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (253 kB)
@@ -1103,15 +1110,15 @@ Downloading decorator-5.2.1-py3-none-any.whl (9.2 kB)
 Downloading django_stubs_ext-5.2.9-py3-none-any.whl (10.0 kB)
 Downloading execnet-2.1.2-py3-none-any.whl (40 kB)
 Downloading fonttools-4.61.1-cp313-cp313-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl (4.9 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.9/4.9 MB 122.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.9/4.9 MB 257.6 MB/s  0:00:00
 Downloading brotli-1.2.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.4 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 72.4 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 100.2 MB/s  0:00:00
 Downloading h11-0.16.0-py3-none-any.whl (37 kB)
 Downloading identify-2.6.16-py2.py3-none-any.whl (99 kB)
 Downloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
 Downloading ipython_pygments_lexers-1.1.1-py3-none-any.whl (8.1 kB)
 Downloading jedi-0.19.2-py2.py3-none-any.whl (1.6 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.6/1.6 MB 262.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.6/1.6 MB 532.2 MB/s  0:00:00
 Downloading parso-0.8.6-py2.py3-none-any.whl (106 kB)
 Downloading librt-0.8.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (224 kB)
 Downloading matplotlib_inline-0.2.1-py3-none-any.whl (9.5 kB)
@@ -1120,15 +1127,15 @@ Downloading nodeenv-1.10.0-py2.py3-none-any.whl (23 kB)
 Downloading pathspec-1.0.4-py3-none-any.whl (55 kB)
 Downloading pexpect-4.9.0-py2.py3-none-any.whl (63 kB)
 Downloading pillow-12.1.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (7.0 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.0/7.0 MB 260.2 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.0/7.0 MB 350.7 MB/s  0:00:00
 Downloading ptyprocess-0.7.0-py2.py3-none-any.whl (13 kB)
 Downloading pydyf-0.12.1-py3-none-any.whl (8.0 kB)
 Downloading pygments-2.19.2-py3-none-any.whl (1.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 304.2 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 489.2 MB/s  0:00:00
 Downloading pyphen-0.17.2-py3-none-any.whl (2.1 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 127.0 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 496.8 MB/s  0:00:00
 Downloading pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (801 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 801.6/801.6 kB 292.6 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 801.6/801.6 kB 844.6 MB/s  0:00:00
 Downloading stack_data-0.6.3-py3-none-any.whl (24 kB)
 Downloading asttokens-3.0.1-py3-none-any.whl (27 kB)
 Downloading executing-2.2.1-py2.py3-none-any.whl (28 kB)
@@ -1138,24 +1145,25 @@ Downloading traitlets-5.14.3-py3-none-any.whl (85 kB)
 Downloading typing_inspection-0.4.2-py3-none-any.whl (14 kB)
 Downloading urllib3-2.6.3-py3-none-any.whl (131 kB)
 Downloading virtualenv-21.1.0-py3-none-any.whl (5.8 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.8/5.8 MB 282.4 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.8/5.8 MB 490.8 MB/s  0:00:00
 Downloading distlib-0.4.0-py2.py3-none-any.whl (469 kB)
 Downloading filelock-3.24.3-py3-none-any.whl (24 kB)
 Downloading platformdirs-4.9.2-py3-none-any.whl (21 kB)
 Downloading python_discovery-1.1.0-py3-none-any.whl (30 kB)
 Downloading webencodings-0.5.1-py2.py3-none-any.whl (11 kB)
 Downloading zopfli-0.4.1-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (829 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 829.4/829.4 kB 239.9 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 829.4/829.4 kB 541.7 MB/s  0:00:00
 Downloading anyio-4.12.1-py3-none-any.whl (113 kB)
 Downloading idna-3.11-py3-none-any.whl (71 kB)
+Downloading argon2_cffi_bindings-25.1.0-cp39-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (87 kB)
 Downloading certifi-2026.2.25-py3-none-any.whl (153 kB)
 Downloading redis-6.4.0-py3-none-any.whl (279 kB)
 Downloading pure_eval-0.2.3-py3-none-any.whl (11 kB)
 Downloading pycparser-3.0-py3-none-any.whl (48 kB)
 Downloading types_pyyaml-6.0.12.20250915-py3-none-any.whl (20 kB)
-Installing collected packages: webencodings, python-decouple, pure-eval, ptyprocess, distlib, brotli, zopfli, whitenoise, urllib3, typing-inspection, types-pyyaml, traitlets, tinyhtml5, tinycss2, structlog, ruff, redis, pyyaml, Pyphen, pygments, pydyf, pydantic-core, pycparser, psycopg-binary, psycopg, pluggy, platformdirs, Pillow, pexpect, pathspec, parso, nodeenv, mypy_extensions, lxml, librt, iniconfig, idna, identify, h11, gunicorn, fonttools, filelock, faker, executing, execnet, decorator, coverage, cfgv, certifi, babel, asttokens, annotated-types, stack_data, sentry-sdk, python-discovery, pytest, pydantic, py-moneyed, mypy, model-bakery, matplotlib-inline, jedi, ipython-pygments-lexers, httpcore, factory-boy, django-stubs-ext, django-extensions, django-debug-toolbar, cssselect2, cffi, anyio, weasyprint, virtualenv, pytest-xdist, pytest-django, pytest-cov, ipython, httpx, django-stubs, pre-commit, djangorestframework-stubs
+Installing collected packages: webencodings, python-decouple, pure-eval, ptyprocess, distlib, brotli, zopfli, whitenoise, urllib3, typing-inspection, types-pyyaml, traitlets, tinyhtml5, tinycss2, structlog, ruff, redis, pyyaml, Pyphen, pygments, pydyf, pydantic-core, pycparser, psycopg-binary, psycopg, pluggy, platformdirs, Pillow, pexpect, pathspec, parso, nodeenv, mypy_extensions, lxml, librt, iniconfig, idna, identify, h11, gunicorn, fonttools, filelock, faker, executing, execnet, decorator, coverage, cfgv, certifi, babel, asttokens, annotated-types, stack_data, sentry-sdk, python-discovery, pytest, pydantic, py-moneyed, mypy, model-bakery, matplotlib-inline, jedi, ipython-pygments-lexers, httpcore, factory-boy, django-stubs-ext, django-extensions, django-debug-toolbar, cssselect2, cffi, anyio, weasyprint, virtualenv, pytest-xdist, pytest-django, pytest-cov, ipython, httpx, django-stubs, argon2-cffi-bindings, pre-commit, djangorestframework-stubs, argon2-cffi
 
-Successfully installed Pillow-12.1.1 Pyphen-0.17.2 annotated-types-0.7.0 anyio-4.12.1 asttokens-3.0.1 babel-2.18.0 brotli-1.2.0 certifi-2026.2.25 cffi-2.0.0 cfgv-3.5.0 coverage-7.13.4 cssselect2-0.9.0 decorator-5.2.1 distlib-0.4.0 django-debug-toolbar-6.2.0 django-extensions-4.1 django-stubs-5.2.9 django-stubs-ext-5.2.9 djangorestframework-stubs-3.16.8 execnet-2.1.2 executing-2.2.1 factory-boy-3.3.3 faker-40.5.1 filelock-3.24.3 fonttools-4.61.1 gunicorn-25.1.0 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 identify-2.6.16 idna-3.11 iniconfig-2.3.0 ipython-9.10.0 ipython-pygments-lexers-1.1.1 jedi-0.19.2 librt-0.8.1 lxml-6.0.2 matplotlib-inline-0.2.1 model-bakery-1.23.3 mypy-1.19.1 mypy_extensions-1.1.0 nodeenv-1.10.0 parso-0.8.6 pathspec-1.0.4 pexpect-4.9.0 platformdirs-4.9.2 pluggy-1.6.0 pre-commit-4.5.1 psycopg-3.3.3 psycopg-binary-3.3.3 ptyprocess-0.7.0 pure-eval-0.2.3 py-moneyed-3.0 pycparser-3.0 pydantic-2.12.5 pydantic-core-2.41.5 pydyf-0.12.1 pygments-2.19.2 pytest-9.0.2 pytest-cov-7.0.0 pytest-django-4.12.0 pytest-xdist-3.8.0 python-decouple-3.8 python-discovery-1.1.0 pyyaml-6.0.3 redis-6.4.0 ruff-0.15.4 sentry-sdk-2.53.0 stack_data-0.6.3 structlog-25.5.0 tinycss2-1.5.1 tinyhtml5-2.0.0 traitlets-5.14.3 types-pyyaml-6.0.12.20250915 typing-inspection-0.4.2 urllib3-2.6.3 virtualenv-21.1.0 weasyprint-68.1 webencodings-0.5.1 whitenoise-6.12.0 zopfli-0.4.1
+Successfully installed Pillow-12.1.1 Pyphen-0.17.2 annotated-types-0.7.0 anyio-4.12.1 argon2-cffi-25.1.0 argon2-cffi-bindings-25.1.0 asttokens-3.0.1 babel-2.18.0 brotli-1.2.0 certifi-2026.2.25 cffi-2.0.0 cfgv-3.5.0 coverage-7.13.4 cssselect2-0.9.0 decorator-5.2.1 distlib-0.4.0 django-debug-toolbar-6.2.0 django-extensions-4.1 django-stubs-5.2.9 django-stubs-ext-5.2.9 djangorestframework-stubs-3.16.8 execnet-2.1.2 executing-2.2.1 factory-boy-3.3.3 faker-40.5.1 filelock-3.24.3 fonttools-4.61.1 gunicorn-25.1.0 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 identify-2.6.16 idna-3.11 iniconfig-2.3.0 ipython-9.10.0 ipython-pygments-lexers-1.1.1 jedi-0.19.2 librt-0.8.1 lxml-6.0.2 matplotlib-inline-0.2.1 model-bakery-1.23.3 mypy-1.19.1 mypy_extensions-1.1.0 nodeenv-1.10.0 parso-0.8.6 pathspec-1.0.4 pexpect-4.9.0 platformdirs-4.9.2 pluggy-1.6.0 pre-commit-4.5.1 psycopg-3.3.3 psycopg-binary-3.3.3 ptyprocess-0.7.0 pure-eval-0.2.3 py-moneyed-3.0 pycparser-3.0 pydantic-2.12.5 pydantic-core-2.41.5 pydyf-0.12.1 pygments-2.19.2 pytest-9.0.2 pytest-cov-7.0.0 pytest-django-4.12.0 pytest-xdist-3.8.0 python-decouple-3.8 python-discovery-1.1.0 pyyaml-6.0.3 redis-6.4.0 ruff-0.15.4 sentry-sdk-2.53.0 stack_data-0.6.3 structlog-25.5.0 tinycss2-1.5.1 tinyhtml5-2.0.0 traitlets-5.14.3 types-pyyaml-6.0.12.20250915 typing-inspection-0.4.2 urllib3-2.6.3 virtualenv-21.1.0 weasyprint-68.1 webencodings-0.5.1 whitenoise-6.12.0 zopfli-0.4.1
 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
 Collecting fastapi
   Downloading fastapi-0.133.1-py3-none-any.whl.metadata (30 kB)
@@ -1173,6 +1181,7 @@ Collecting aiofiles
   Downloading aiofiles-25.1.0-py3-none-any.whl.metadata (6.3 kB)
 Collecting jinja2
   Downloading jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+Requirement already satisfied: gunicorn in ./usr/local/lib/python3.13/site-packages (25.1.0)
 Collecting starlette>=0.40.0 (from fastapi)
   Downloading starlette-0.52.1-py3-none-any.whl.metadata (6.3 kB)
 Requirement already satisfied: typing-extensions>=4.8.0 in ./usr/local/lib/python3.13/site-packages (from fastapi) (4.15.0)
@@ -1193,17 +1202,18 @@ Collecting Mako (from alembic)
   Downloading mako-1.3.10-py3-none-any.whl.metadata (2.9 kB)
 Collecting MarkupSafe>=2.0 (from jinja2)
   Downloading markupsafe-3.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.7 kB)
+Requirement already satisfied: packaging in ./usr/local/lib/python3.13/site-packages (from gunicorn) (26.0)
 Downloading fastapi-0.133.1-py3-none-any.whl (109 kB)
 Downloading uvicorn-0.41.0-py3-none-any.whl (68 kB)
 Downloading python_multipart-0.0.22-py3-none-any.whl (24 kB)
 Downloading sqlalchemy-2.0.47-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (3.3 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.3/3.3 MB 218.0 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.3/3.3 MB 489.4 MB/s  0:00:00
 Downloading alembic-1.18.4-py3-none-any.whl (263 kB)
 Downloading aiofiles-25.1.0-py3-none-any.whl (14 kB)
 Downloading jinja2-3.1.6-py3-none-any.whl (134 kB)
 Downloading annotated_doc-0.0.4-py3-none-any.whl (5.3 kB)
 Downloading greenlet-3.3.2-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (616 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 616.8/616.8 kB 457.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 616.8/616.8 kB 895.6 MB/s  0:00:00
 Downloading markupsafe-3.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
 Downloading starlette-0.52.1-py3-none-any.whl (74 kB)
 Downloading mako-1.3.10-py3-none-any.whl (78 kB)
@@ -1211,10 +1221,10 @@ Installing collected packages: uvicorn, python-multipart, MarkupSafe, greenlet, 
 
 Successfully installed Mako-1.3.10 MarkupSafe-3.0.3 aiofiles-25.1.0 alembic-1.18.4 annotated-doc-0.0.4 fastapi-0.133.1 greenlet-3.3.2 jinja2-3.1.6 python-multipart-0.0.22 sqlalchemy-2.0.47 starlette-0.52.1 uvicorn-0.41.0
 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
-DONE 41.7s
+DONE 29.3s
 
 --> RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - &&     apt-get install -y nodejs &&     rm -rf /var/lib/apt/lists/* &&     node --version &&     npm --version
-2026-02-27 11:48:09 - Installing pre-requisites
+2026-02-27 13:13:44 - Installing pre-requisites
 
 WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
 
@@ -1224,7 +1234,7 @@ Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
 Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9670 kB]
 Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [5412 B]
 Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [113 kB]
-Fetched 10.0 MB in 1s (10.5 MB/s)
+Fetched 10.0 MB in 1s (11.9 MB/s)
 Reading package lists...
 Building dependency tree...
 Reading state information...
@@ -1244,10 +1254,10 @@ Installing:
 Summary:
   Upgrading: 0, Installing: 1, Removing: 0, Not Upgrading: 0
   Download size: 38.6 kB
-  Space needed: 49.2 kB / 909 GB available
+  Space needed: 49.2 kB / 930 GB available
 
 Get:1 http://deb.debian.org/debian trixie/main amd64 apt-transport-https all 3.0.3 [38.6 kB]
-Fetched 38.6 kB in 0s (1086 kB/s)
+Fetched 38.6 kB in 0s (2581 kB/s)
 Selecting previously unselected package apt-transport-https.
 (Reading database ... 
 (Reading database ... 5%
@@ -1282,15 +1292,15 @@ Hit:2 http://deb.debian.org/debian trixie-updates InRelease
 Hit:3 http://deb.debian.org/debian-security trixie-security InRelease
 Get:4 https://deb.nodesource.com/node_24.x nodistro InRelease [12.1 kB]
 Get:5 https://deb.nodesource.com/node_24.x nodistro/main amd64 Packages [5680 B]
-Fetched 17.8 kB in 0s (143 kB/s)
+Fetched 17.8 kB in 0s (167 kB/s)
 Reading package lists...
 Building dependency tree...
 Reading state information...
 All packages are up to date.
-2026-02-27 11:48:15 - Repository configured successfully.
-2026-02-27 11:48:15 - To install Node.js, run: apt install nodejs -y
-2026-02-27 11:48:15 - You can use N|solid Runtime as a node.js alternative
-2026-02-27 11:48:15 - To install N|solid Runtime, run: apt install nsolid -y 
+2026-02-27 13:13:49 - Repository configured successfully.
+2026-02-27 13:13:49 - To install Node.js, run: apt install nodejs -y
+2026-02-27 13:13:49 - You can use N|solid Runtime as a node.js alternative
+2026-02-27 13:13:49 - To install N|solid Runtime, run: apt install nsolid -y 
 
 Reading package lists...
 Building dependency tree...
@@ -1301,7 +1311,7 @@ The following NEW packages will be installed:
 Need to get 38.2 MB of archives.
 After this operation, 234 MB of additional disk space will be used.
 Get:1 https://deb.nodesource.com/node_24.x nodistro/main amd64 nodejs amd64 24.14.0-1nodesource1 [38.2 MB]
-Fetched 38.2 MB in 0s (98.7 MB/s)
+Fetched 38.2 MB in 0s (115 MB/s)
 Selecting previously unselected package nodejs.
 (Reading database ... 
 (Reading database ... 5%
@@ -1330,14 +1340,14 @@ Unpacking nodejs (24.14.0-1nodesource1) ...
 Setting up nodejs (24.14.0-1nodesource1) ...
 v24.14.0
 11.9.0
-DONE 10.9s
+DONE 9.0s
 
 --> RUN groupadd -g 1000 user &&     useradd -m -u 1000 -g user -d /home/user user &&     echo "user ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/user &&     chmod 0440 /etc/sudoers.d/user &&     mkdir -p /tmp/runtime-user /data /app /var/run/postgresql /data/postgresql &&     chown -R user:user /tmp/runtime-user /data /app /var/run/postgresql /var/lib/postgresql &&     chmod 700 /data/postgresql
-DONE 0.4s
+DONE 0.7s
 
 --> RUN npm install -g --omit=dev pnpm@latest vite@latest vitest@latest serve &&     npx playwright install chromium &&     npx playwright install-deps chromium
 
-added 131 packages in 8s
+added 131 packages in 5s
 
 40 packages are looking for funding
   run `npm fund` for details
@@ -1528,7 +1538,7 @@ Get:59 http://deb.debian.org/debian trixie/main amd64 xfonts-utils amd64 1:7.7+7
 Get:60 http://deb.debian.org/debian trixie/main amd64 xfonts-scalable all 1:1.0.3-1.3 [306 kB]
 Get:61 http://deb.debian.org/debian trixie/main amd64 xserver-common all 2:21.1.16-1.3+deb13u1 [2410 kB]
 Get:62 http://deb.debian.org/debian trixie/main amd64 xvfb amd64 2:21.1.16-1.3+deb13u1 [3197 kB]
-Fetched 52.8 MB in 0s (175 MB/s)
+Fetched 52.8 MB in 0s (229 MB/s)
 Selecting previously unselected package fonts-ipafont-gothic.
 (Reading database ... 
 (Reading database ... 5%
@@ -1802,15 +1812,15 @@ Setting up libgl1:amd64 (1.7.0-1+b2) ...
 Setting up xvfb (2:21.1.16-1.3+deb13u1) ...
 Processing triggers for fontconfig (2.15.0-2.3) ...
 Processing triggers for libc-bin (2.41-12+deb13u1) ...
-DONE 36.7s
+DONE 26.6s
 
 --> RUN cd /app &&     git clone https://github.com/nordeim/ledgersg.git ledgersg_src &&     mv ledgersg_src/* . &&     mv ledgersg_src/.* . 2>/dev/null || true &&     rm -rf ledgersg_src &&     chown -R user:user /app
 Cloning into 'ledgersg_src'...
-DONE 0.7s
+DONE 0.6s
 
 --> RUN cd /app/apps/web &&     npm install &&     npm run build &&     chown -R user:user /app/apps/web
 
-added 652 packages, and audited 653 packages in 17s
+added 652 packages, and audited 653 packages in 13s
 
 201 packages are looking for funding
   run `npm fund` for details
@@ -1836,14 +1846,14 @@ https://nextjs.org/telemetry
 ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
   Creating an optimized production build ...
 ⚠ Specified "headers" will not automatically work with "output: export". See more info here: https://nextjs.org/docs/messages/export-no-custom-routes
-✓ Compiled successfully in 7.7s
+✓ Compiled successfully in 7.4s
   Running TypeScript ...
   Collecting page data using 15 workers ...
   Generating static pages using 15 workers (0/18) ...
   Generating static pages using 15 workers (4/18) 
   Generating static pages using 15 workers (8/18) 
   Generating static pages using 15 workers (13/18) 
-✓ Generating static pages using 15 workers (18/18) in 797.6ms
+✓ Generating static pages using 15 workers (18/18) in 759.7ms
   Finalizing page optimization ...
 ⚠ rewrites, redirects, and headers are not applied when exporting your application, detected (headers). See more info here: https://nextjs.org/docs/messages/export-no-custom-routes
 ⚠ Statically exporting a Next.js application via `next export` disables API routes and middleware.
@@ -1877,29 +1887,28 @@ Route (app)
 ○  (Static)  prerendered as static content
 ●  (SSG)     prerendered as static HTML (uses generateStaticParams)
 
-DONE 36.1s
+DONE 31.4s
 
 --> RUN mkdir -p /app/core /app/scripts &&     chown -R user:user /app
-DONE 18.7s
+DONE 11.7s
 
 --> COPY <<EOF /app/core/boot.py
-DONE 0.3s
+DONE 0.2s
 
 --> COPY <<EOF /usr/local/bin/entrypoint.sh
 DONE 0.0s
 
 --> RUN chmod +x /usr/local/bin/entrypoint.sh &&     chown -R user:user /app/core /app/scripts
-DONE 1.7s
+DONE 0.3s
 
 --> WORKDIR /app
-DONE 0.8s
+DONE 0.0s
 
 --> RUN touch /app/.env && chown user:user /app/.env
 DONE 0.1s
 
 --> Pushing image
-DONE 15.4s
+DONE 15.1s
 
 --> Exporting cache
 DONE 0.2s
-
