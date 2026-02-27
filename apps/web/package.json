@@ -62,9 +62,7 @@
     "uuid": "^13.0.0",
     "zod": "^4.3.6",
     "typescript": "^5.9.3",
-    "zustand": "^5.0.11"
-  },
-  "devDependencies": {
+    "zustand": "^5.0.11",
     "@axe-core/playwright": "^4.11.1",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
