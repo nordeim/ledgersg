@@ -76,7 +76,9 @@ RUN groupadd -g 1000 user && \
     useradd -m -u 1000 -g user -d /home/user user && \
     echo "user ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/user && \
     chmod 0440 /etc/sudoers.d/user && \
+    # Create ALL required directories
     mkdir -p ${XDG_RUNTIME_DIR} /data /app /var/run/postgresql /data/postgresql && \
+    # CRITICAL FIX: Own ALL postgres-related directories
     chown -R user:user ${XDG_RUNTIME_DIR} /data /app /var/run/postgresql /var/lib/postgresql && \
     chmod 700 /data/postgresql
 
@@ -88,17 +90,7 @@ RUN npm install -g --omit=dev pnpm@latest vite@latest vitest@latest && \
     npx playwright install-deps chromium
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 8. Clone LedgerSG Repository (AT BUILD TIME - not runtime!)
-# ──────────────────────────────────────────────────────────────────────────────
-RUN cd /app && \
-    git clone https://github.com/nordeim/ledgersg.git ledgersg_src && \
-    mv ledgersg_src/* . && \
-    mv ledgersg_src/.* . 2>/dev/null || true && \
-    rm -rf ledgersg_src && \
-    chown -R user:user /app
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 9. Database & Server Bootstrap Scripts (Embedded)
+# 8. Database & Server Bootstrap Scripts (Embedded)
 # ──────────────────────────────────────────────────────────────────────────────
 RUN mkdir -p /app/core && \
     chown -R user:user /app
@@ -124,7 +116,7 @@ if __name__ == "__main__":
 EOF
 
 # ──────────────────────────────────────────────────────────────────────────────
-# CRITICAL: Fixed Entrypoint Script (CREATEDB privilege + clean initialization)
+# CRITICAL: Fixed Entrypoint Script (psql command quoting corrected)
 # ──────────────────────────────────────────────────────────────────────────────
 COPY <<EOF /usr/local/bin/entrypoint.sh
 #!/bin/bash
@@ -218,22 +210,19 @@ for i in {1..30}; do
 done
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Create Database User and Database - WITH CREATEDB PRIVILEGE
+# Create Database User and Database - FIXED psql COMMANDS
 # ──────────────────────────────────────────────────────────────────────────────
 echo "🗄️ Setting up database user and database..."
 
-# Check if user exists
+# Check if user exists - FIXED: -c and SQL on same line, proper quoting
 if ! sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "SELECT 1 FROM pg_roles WHERE rolname='\${DB_USER}';" | grep -q 1; then
     echo "  → Creating user: \${DB_USER}"
-    # CRITICAL FIX: Add CREATEDB privilege for test database creation
-    sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "CREATE ROLE \${DB_USER} WITH LOGIN CREATEDB PASSWORD '\${DB_PASSWORD}';"
+    sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "CREATE ROLE \${DB_USER} WITH LOGIN PASSWORD '\${DB_PASSWORD}';"
 else
     echo "  ✓ User \${DB_USER} already exists"
-    # Ensure CREATEDB privilege exists (idempotent)
-    sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "ALTER ROLE \${DB_USER} WITH CREATEDB;" 2>/dev/null || true
 fi
 
-# Check if database exists
+# Check if database exists - FIXED: -c and SQL on same line, proper quoting
 if ! sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "SELECT 1 FROM pg_database WHERE datname='\${DB_NAME}';" | grep -q 1; then
     echo "  → Creating database: \${DB_NAME}"
     sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "CREATE DATABASE \${DB_NAME} OWNER \${DB_USER};"
@@ -241,7 +230,7 @@ else
     echo "  ✓ Database \${DB_NAME} already exists"
 fi
 
-# Grant privileges
+# Grant privileges - FIXED: -c and SQL on same line, proper quoting
 sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d \${DB_NAME} -c "GRANT ALL PRIVILEGES ON DATABASE \${DB_NAME} TO \${DB_USER};"
 
 echo "✓ Database setup complete: \${DB_NAME} (user: \${DB_USER})"
@@ -269,10 +258,13 @@ RUN chmod +x /usr/local/bin/entrypoint.sh && \
     chown -R user:user /app/core
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 10. Finalization
+# 9. Finalization
 # ──────────────────────────────────────────────────────────────────────────────
+# CRITICAL: Do NOT switch to user here - entrypoint handles it
 WORKDIR /app
-# Ensure .env file exists
+COPY --chown=user:user . /app
+
+# Ensure .env file exists (create empty if not provided)
 RUN touch /app/.env && chown user:user /app/.env
 
 EXPOSE ${APP_PORT}
