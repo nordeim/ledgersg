@@ -379,4 +379,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Use Entrypoint to start DBs, then run the boot.py server
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["python", "/app/core/boot.py"]
+CMD ["/opt/venv/bin/python", "/app/core/boot.py"]
