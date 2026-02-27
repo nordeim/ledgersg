@@ -58,8 +58,8 @@ RUN cd /usr/bin && \
 RUN pip install --upgrade pip && \
     pip install django-celery-beat && \
     pip install -U django djangorestframework djangorestframework-simplejwt django-cors-headers django-filter && \
-    pip install psycopg[binary] celery[redis] redis py-moneyed pydantic weasyprint lxml python-decouple whitenoise gunicorn structlog sentry-sdk[django] pytest pytest-django pytest-cov pytest-xdist model-bakery factory-boy faker httpx ruff mypy django-stubs djangorestframework-stubs pre-commit ipython django-debug-toolbar django-extensions && \
-    pip install fastapi uvicorn httpx pydantic python-multipart sqlalchemy alembic aiofiles jinja2
+    pip install psycopg[binary] celery[redis] redis py-moneyed pydantic weasyprint lxml python-decouple whitenoise gunicorn structlog sentry-sdk[django] argon2-cffi pytest pytest-django pytest-cov pytest-xdist model-bakery factory-boy faker httpx ruff mypy django-stubs djangorestframework-stubs pre-commit ipython django-debug-toolbar django-extensions && \
+    pip install fastapi uvicorn httpx pydantic python-multipart sqlalchemy alembic aiofiles jinja2 gunicorn 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 5. Node.js Installation (LTS 24.x)
@@ -261,6 +261,9 @@ else
     echo "✗ Redis failed to start"
     exit 1
 fi
+
+# Start Backend API Service
+cd /app/apps/backend && grep DB_ .env && chmod +x backend_api_service_docker.sh && ./backend_api_service_docker.sh start 0.0.0.0 8000 2
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Start Frontend (AT RUNTIME - not build time!)
