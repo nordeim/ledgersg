@@ -1,7 +1,7 @@
-===== Application Startup at 2026-02-27 08:52:36 =====
+===== Application Startup =====
 
 === LedgerSG Development Space Starting ===
-🕐 Startup time: 2026-02-27T08:52:52+00:00
+🕐 Startup time: 2026-02-27T11:50:37+00:00
 🔍 Detecting PostgreSQL installation...
 ✓ PostgreSQL version: 17
 ✓ Binary path: /usr/lib/postgresql/17/bin
@@ -33,12 +33,12 @@ performing post-bootstrap initialization ... ok
 syncing data to disk ... ok
 
 
-initdb: warning: enabling "trust" authentication for local connections
-initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
 Success. You can now start the database server using:
 
     /usr/lib/postgresql/17/bin/pg_ctl -D /data/postgresql -l logfile start
 
+initdb: warning: enabling "trust" authentication for local connections
+initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
 🔐 Configuring PostgreSQL authentication...
 ✓ PostgreSQL configuration complete
 🚀 Starting Redis on port 6379...
@@ -54,12 +54,296 @@ CREATE ROLE
 CREATE DATABASE
 GRANT
 ✓ Database setup complete: ledgersg_dev (user: ledgersg)
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+DO
+psql:/app/apps/backend/database_schema.sql:78: NOTICE:  schema "audit" does not exist, skipping
+DROP SCHEMA
+psql:/app/apps/backend/database_schema.sql:79: NOTICE:  schema "banking" does not exist, skipping
+psql:/app/apps/backend/database_schema.sql:80: NOTICE:  schema "invoicing" does not exist, skipping
+DROP SCHEMA
+DROP SCHEMA
+psql:/app/apps/backend/database_schema.sql:81: NOTICE:  schema "journal" does not exist, skipping
+DROP SCHEMA
+psql:/app/apps/backend/database_schema.sql:82: NOTICE:  schema "gst" does not exist, skipping
+DROP SCHEMA
+psql:/app/apps/backend/database_schema.sql:83: NOTICE:  schema "coa" does not exist, skipping
+DROP SCHEMA
+psql:/app/apps/backend/database_schema.sql:84: NOTICE:  schema "core" does not exist, skipping
+DROP SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+ALTER TABLE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TYPE
+CREATE TYPE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE VIEW
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE TRIGGER
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on core.fiscal_year
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on core.fiscal_period
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on core.exchange_rate
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on core.document_sequence
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on core.organisation_setting
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on coa.account
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on gst.return
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on gst.threshold_snapshot
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on gst.peppol_transmission_log
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on journal.entry
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on journal.line
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on invoicing.contact
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on invoicing.document
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on invoicing.document_line
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on invoicing.document_attachment
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on banking.bank_account
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on banking.payment
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on banking.payment_allocation
+psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on banking.bank_transaction
+DO
+psql:/app/apps/backend/database_schema.sql:2300: NOTICE:  policy "rls_select_organisation" for relation "core.organisation" does not exist, skipping
+DROP POLICY
+psql:/app/apps/backend/database_schema.sql:2301: NOTICE:  policy "rls_insert_organisation" for relation "core.organisation" does not exist, skipping
+DROP POLICY
+psql:/app/apps/backend/database_schema.sql:2302: NOTICE:  policy "rls_update_organisation" for relation "core.organisation" does not exist, skipping
+DROP POLICY
+psql:/app/apps/backend/database_schema.sql:2303: NOTICE:  policy "rls_delete_organisation" for relation "core.organisation" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+INSERT 0 5
+INSERT 0 8
+INSERT 0 29
+INSERT 0 20
+INSERT 0 4
+INSERT 0 7
+INSERT 0 1
+INSERT 0 2
+INSERT 0 2
+CREATE FUNCTION
+COMMENT
+DO
+GRANT
+GRANT
+GRANT
+GRANT
+REVOKE
+GRANT
+GRANT
+ALTER DEFAULT PRIVILEGES
+ALTER DEFAULT PRIVILEGES
+ALTER DEFAULT PRIVILEGES
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:  
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:  ══════════════════════════════════════════════════════════════
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    LEDGERSG DATABASE SCHEMA — INSTALLATION COMPLETE
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:  ══════════════════════════════════════════════════════════════
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    Schemas created:        7
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    Tables created:         28
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    Functions created:       14
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    GST tax codes seeded:    16 (incl. historical rates)
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    Currencies seeded:       20
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    System roles seeded:     5
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:  ══════════════════════════════════════════════════════════════
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    Next steps:
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:      1. Change ledgersg_owner and ledgersg_app passwords
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:      2. Create your first organisation via Django admin
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:      3. The system will auto-seed CoA via
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:         core.seed_default_chart_of_accounts(org_id, gst_registered)
+DO
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:  ══════════════════════════════════════════════════════════════
+psql:/app/apps/backend/database_schema.sql:3049: NOTICE:  
 🔍 Verifying Redis connection...
 ✓ Redis is ready on localhost:6379
+🚀 Starting Frontend on port 3000...
+✓ Frontend PID: 81
+✓ Frontend is ready (attempt 2)
 === Starting Web Server on port 7860 ===
 ✅ All services initialized successfully
-INFO:     Started server process [78]
+
+📋 Service Status:
+  • PostgreSQL: localhost:5432
+  • Redis:      localhost:6379
+  • Frontend:   http://localhost:3000
+  • Backend:    http://localhost:7860
+
+INFO:     Started server process [112]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:7860 (Press CTRL+C to quit)
-INFO:     10.16.43.133:62868 - "GET /?logs=container&__sign=eyJhbGciOiJFZERTQSJ9.eyJyZWFkIjp0cnVlLCJwZXJtaXNzaW9ucyI6eyJyZXBvLmNvbnRlbnQucmVhZCI6dHJ1ZX0sIm9uQmVoYWxmT2YiOnsia2luZCI6InVzZXIiLCJfaWQiOiI2OTlmOTRmNGNjNWUxNDFmMzFkN2ZhZmMiLCJ1c2VyIjoiY3Vyc29ydW5saW0iLCJzZXNzaW9uSWQiOiI2OTlmOTRmNGNjNWUxNDFmMzFkN2ZiMDYifSwiaWF0IjoxNzcyMTgyMzg5LCJzdWIiOiIvc3BhY2VzL2N1cnNvcnVubGltL2xlZGdlci1zZyIsImV4cCI6MTc3MjI2ODc4OSwiaXNzIjoiaHR0cHM6Ly9odWdnaW5nZmFjZS5jbyJ9.2I7SA5jRR88-NMoPkxXmDlFsYi-NAmTsVCF1UO-5JbSRnAaHjQj8r06wAH34f_yw1fmHYk9MEjKAt1cOPushCg HTTP/1.1" 200 OK

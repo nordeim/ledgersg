@@ -12,7 +12,6 @@ ENV PIP_NO_CACHE_DIR=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV DEBIAN_FRONTEND=noninteractive
 ENV APP_PORT=7860
-ENV FRONTEND_PORT=3000
 ENV XDG_RUNTIME_DIR=/tmp/runtime-user
 ENV PATH="/home/user/.local/bin:/usr/local/bin:${PATH}"
 
@@ -84,12 +83,12 @@ RUN groupadd -g 1000 user && \
 # ──────────────────────────────────────────────────────────────────────────────
 # 7. Global NPM & Playwright
 # ──────────────────────────────────────────────────────────────────────────────
-RUN npm install -g --omit=dev pnpm@latest vite@latest vitest@latest serve && \
+RUN npm install -g --omit=dev pnpm@latest vite@latest vitest@latest && \
     npx playwright install chromium && \
     npx playwright install-deps chromium
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 8. Clone LedgerSG Repository (AT BUILD TIME)
+# 8. Clone LedgerSG Repository (AT BUILD TIME - not runtime!)
 # ──────────────────────────────────────────────────────────────────────────────
 RUN cd /app && \
     git clone https://github.com/nordeim/ledgersg.git ledgersg_src && \
@@ -99,18 +98,9 @@ RUN cd /app && \
     chown -R user:user /app
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 9. Frontend Build (AT BUILD TIME - NO SERVER)
+# 9. Database & Server Bootstrap Scripts (Embedded)
 # ──────────────────────────────────────────────────────────────────────────────
-RUN cd /app/apps/web && \
-    npm install && \
-    npm run build && \
-    # CRITICAL: Do NOT run serve here - only build static files
-    chown -R user:user /app/apps/web
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 10. Database & Server Bootstrap Scripts (Embedded)
-# ──────────────────────────────────────────────────────────────────────────────
-RUN mkdir -p /app/core /app/scripts && \
+RUN mkdir -p /app/core && \
     chown -R user:user /app
 
 COPY <<EOF /app/core/boot.py
@@ -134,7 +124,7 @@ if __name__ == "__main__":
 EOF
 
 # ──────────────────────────────────────────────────────────────────────────────
-# CRITICAL: Fixed Entrypoint Script (ALL services start at RUNTIME)
+# CRITICAL: Fixed Entrypoint Script (CREATEDB privilege + clean initialization)
 # ──────────────────────────────────────────────────────────────────────────────
 COPY <<EOF /usr/local/bin/entrypoint.sh
 #!/bin/bash
@@ -232,14 +222,18 @@ done
 # ──────────────────────────────────────────────────────────────────────────────
 echo "🗄️ Setting up database user and database..."
 
+# Check if user exists
 if ! sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "SELECT 1 FROM pg_roles WHERE rolname='\${DB_USER}';" | grep -q 1; then
     echo "  → Creating user: \${DB_USER}"
+    # CRITICAL FIX: Add CREATEDB privilege for test database creation
     sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "CREATE ROLE \${DB_USER} WITH LOGIN CREATEDB PASSWORD '\${DB_PASSWORD}';"
 else
     echo "  ✓ User \${DB_USER} already exists"
+    # Ensure CREATEDB privilege exists (idempotent)
     sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "ALTER ROLE \${DB_USER} WITH CREATEDB;" 2>/dev/null || true
 fi
 
+# Check if database exists
 if ! sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "SELECT 1 FROM pg_database WHERE datname='\${DB_NAME}';" | grep -q 1; then
     echo "  → Creating database: \${DB_NAME}"
     sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "CREATE DATABASE \${DB_NAME} OWNER \${DB_USER};"
@@ -247,9 +241,10 @@ else
     echo "  ✓ Database \${DB_NAME} already exists"
 fi
 
+# Grant privileges
 sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d \${DB_NAME} -c "GRANT ALL PRIVILEGES ON DATABASE \${DB_NAME} TO \${DB_USER};"
+
 echo "✓ Database setup complete: \${DB_NAME} (user: \${DB_USER})"
-sudo -u user \${PG_BIN}/psql -h localhost -p 5432 -d \${DB_NAME} -f /app/apps/backend/database_schema.sql
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Verify Redis
@@ -263,54 +258,24 @@ else
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Start Frontend (AT RUNTIME - not build time!)
-# ──────────────────────────────────────────────────────────────────────────────
-echo "🚀 Starting Frontend on port \${FRONTEND_PORT}..."
-cd /app/apps/web
-sudo -u user nohup npx serve dist -l \${FRONTEND_PORT} > /tmp/frontend.log 2>&1 &
-FRONTEND_PID=\$!
-echo "✓ Frontend PID: \${FRONTEND_PID}"
-
-# Wait for frontend to be ready
-for i in {1..30}; do
-    if curl -s http://localhost:\${FRONTEND_PORT} > /dev/null 2>&1; then
-        echo "✓ Frontend is ready (attempt \$i)"
-        break
-    fi
-    if [ \$i -eq 30 ]; then
-        echo "⚠ Frontend may not be ready yet (continuing anyway)"
-    fi
-    sleep 1
-done
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Start Web Server (CMD)
+# Start Web Server
 # ──────────────────────────────────────────────────────────────────────────────
 echo "=== Starting Web Server on port \$APP_PORT ==="
 echo "✅ All services initialized successfully"
-echo ""
-echo "📋 Service Status:"
-echo "  • PostgreSQL: localhost:5432"
-echo "  • Redis:      localhost:6379"
-echo "  • Frontend:   http://localhost:\${FRONTEND_PORT}"
-echo "  • Backend:    http://localhost:\$APP_PORT"
-echo ""
-
-# Execute the main command (Web Server) AS USER
 exec sudo -u user "\$@"
 EOF
 
 RUN chmod +x /usr/local/bin/entrypoint.sh && \
-    chown -R user:user /app/core /app/scripts
+    chown -R user:user /app/core
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 11. Finalization
+# 10. Finalization
 # ──────────────────────────────────────────────────────────────────────────────
 WORKDIR /app
 # Ensure .env file exists
 RUN touch /app/.env && chown user:user /app/.env
 
-EXPOSE ${APP_PORT} ${FRONTEND_PORT}
+EXPOSE ${APP_PORT}
 
 # Healthcheck against the boot.py server
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
