@@ -1,7 +1,7 @@
-===== Application Startup at 2026-02-27 13:15:23 =====
+===== Application Startup at 2026-02-28 01:23:05 =====
 
 === LedgerSG Development Space Starting ===
-🕐 Startup time: 2026-02-27T13:15:47+00:00
+🕐 Startup time: 2026-02-28T01:23:43+00:00
 🔍 Detecting PostgreSQL installation...
 ✓ PostgreSQL version: 17
 ✓ Binary path: /usr/lib/postgresql/17/bin
@@ -60,18 +60,18 @@ CREATE EXTENSION
 DO
 psql:/app/apps/backend/database_schema.sql:78: NOTICE:  schema "audit" does not exist, skipping
 DROP SCHEMA
-DROP SCHEMA
 psql:/app/apps/backend/database_schema.sql:79: NOTICE:  schema "banking" does not exist, skipping
+DROP SCHEMA
 psql:/app/apps/backend/database_schema.sql:80: NOTICE:  schema "invoicing" does not exist, skipping
+DROP SCHEMA
 DROP SCHEMA
 psql:/app/apps/backend/database_schema.sql:81: NOTICE:  schema "journal" does not exist, skipping
 DROP SCHEMA
 psql:/app/apps/backend/database_schema.sql:82: NOTICE:  schema "gst" does not exist, skipping
-DROP SCHEMA
-DROP SCHEMA
 psql:/app/apps/backend/database_schema.sql:83: NOTICE:  schema "coa" does not exist, skipping
 DROP SCHEMA
 psql:/app/apps/backend/database_schema.sql:84: NOTICE:  schema "core" does not exist, skipping
+DROP SCHEMA
 CREATE SCHEMA
 CREATE SCHEMA
 CREATE SCHEMA
@@ -245,8 +245,8 @@ psql:/app/apps/backend/database_schema.sql:2300: NOTICE:  policy "rls_select_org
 DROP POLICY
 psql:/app/apps/backend/database_schema.sql:2301: NOTICE:  policy "rls_insert_organisation" for relation "core.organisation" does not exist, skipping
 DROP POLICY
-DROP POLICY
 psql:/app/apps/backend/database_schema.sql:2302: NOTICE:  policy "rls_update_organisation" for relation "core.organisation" does not exist, skipping
+DROP POLICY
 psql:/app/apps/backend/database_schema.sql:2303: NOTICE:  policy "rls_delete_organisation" for relation "core.organisation" does not exist, skipping
 DROP POLICY
 CREATE POLICY
@@ -320,7 +320,6 @@ psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    Functions created:  
 psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    GST tax codes seeded:    16 (incl. historical rates)
 psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    Currencies seeded:       20
 psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    System roles seeded:     5
-DO
 psql:/app/apps/backend/database_schema.sql:3049: NOTICE:  ══════════════════════════════════════════════════════════════
 psql:/app/apps/backend/database_schema.sql:3049: NOTICE:    Next steps:
 psql:/app/apps/backend/database_schema.sql:3049: NOTICE:      1. Change ledgersg_owner and ledgersg_app passwords
@@ -329,46 +328,33 @@ psql:/app/apps/backend/database_schema.sql:3049: NOTICE:      3. The system will
 psql:/app/apps/backend/database_schema.sql:3049: NOTICE:         core.seed_default_chart_of_accounts(org_id, gst_registered)
 psql:/app/apps/backend/database_schema.sql:3049: NOTICE:  ══════════════════════════════════════════════════════════════
 psql:/app/apps/backend/database_schema.sql:3049: NOTICE:  
+DO
 🔍 Verifying Redis connection...
 ✓ Redis is ready on localhost:6379
-DB_NAME=ledgersg_dev
-DB_USER=ledgersg
-DB_PASSWORD=ledgersg_secret_to_change
-DB_HOST=localhost
-DB_PORT=5432
-============================================
-STARTING LEDGERSG API SERVICE
-============================================
-[INFO] Checking database connection...
-Database connection: OK
-[SUCCESS] Database connection is OK
-[INFO] Starting Django development server...
-[INFO] Host: 0.0.0.0
-[INFO] Port: 8000
-[INFO] Workers: 2
-[INFO] Log Level: info
-[INFO] Using gunicorn with 2 workers
-[INFO] Service started with PID: 
-[INFO] Waiting for service to start on 0.0.0.0:8000...
-[SUCCESS] Service is ready!
-[SUCCESS] LedgerSG API service is running!
-[INFO] API URL: http://0.0.0.0:8000/api/v1/
-[INFO] Health Check: http://0.0.0.0:8000/api/v1/health/
-[INFO] Admin Panel: http://0.0.0.0:8000/admin/
-[INFO] Logs: /root/.ledgersg/logs/api_service.log
+🚀 Starting Backend API on port 8000...
+✓ Backend PID: 82
+✓ Backend API is ready (attempt 6)
 🚀 Starting Frontend on port 3000...
-✓ Frontend PID: 160
-✓ Frontend is ready (attempt 2)
+✓ Frontend PID: 163
+✓ Frontend mode: Standalone (with backend API integration)
+▲ Next.js 16.1.6
+- Local:         http://localhost:3000
+- Network:       http://0.0.0.0:3000
+
+✓ Starting...
+✓ Ready in 72ms
+<!DOCTYPE html><!--lYGpgoy_3_rEKV60fg694--><html id="__next_error__"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/d59f830a2b8e768c.js"/><script src="/_next/static/chunks/914f3bc6de5d7120.js" async=""></script><script src="/_next/static/chunks/22a521c5c03db2e1.js" async=""></script><script src="/_next/static/chunks/f2f58a7e93290fbb.js" async=""></script><script src="/_next/static/chunks/68a088aa49e6124a.js" async=""></script><script src="/_next/static/chunks/turbopack-2e774dccb0fb9bc2.js" async=""></script><script src="/_next/static/chunks/ff1a16fafef87110.js" async=""></script><script src="/_next/static/chunks/a2dfb6fc5208ab9b.js" async=""></script><script src="/_next/static/chunks/99106ca86f0c200f.js" async=""></script><link rel="preload" href="/_next/static/chunks/0364fcc98cc711b2.css" as="style"/><meta name="theme-color" content="#050505"/><title>LedgerSG — IRAS-Compliant Accounting for Singapore SMBs</title><meta name="description" content="Enterprise-grade double-entry accounting platform purpose-built for Singapore SMBs. IRAS compliant, InvoiceNow ready, GST-native."/><meta name="author" content="LedgerSG"/><meta name="keywords" content="accounting,Singapore,IRAS,GST,InvoiceNow,Peppol,SMB"/><meta name="robots" content="index, follow"/><link rel="icon" href="/favicon.ico?favicon.0b3bf435.ico" sizes="256x256" type="image/x-icon"/><script src="/_next/static/chunks/a6dad97d9634a72d.js" noModule=""></script></head><body><div hidden=""><!--$--><!--/$--></div><script src="/_next/static/chunks/d59f830a2b8e768c.js" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[46039,[\"/_next/static/chunks/400b4b25993a722a.js\",\"/_next/static/chunks/40d4f4ad47b67d09.js\",\"/_next/static/chunks/1e9f768250e0891c.js\"],\"Providers\"]\n3:I[39756,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"default\"]\n4:I[58298,[\"/_next/static/chunks/400b4b25993a722a.js\",\"/_next/static/chunks/40d4f4ad47b67d09.js\",\"/_next/static/chunks/1e9f768250e0891c.js\",\"/_next/static/chunks/b60829c8d75be4c6.js\"],\"default\"]\n5:I[37457,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"default\"]\n6:I[29306,[\"/_next/static/chunks/400b4b25993a722a.js\",\"/_next/static/chunks/40d4f4ad47b67d09.js\",\"/_next/static/chunks/1e9f768250e0891c.js\",\"/_next/static/chunks/e0b2ef6c038449fd.js\"],\"default\"]\n8:I[97367,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"OutletBoundary\"]\n9:\"$Sreact.suspense\"\nb:I[97367,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"ViewportBoundary\"]\nd:I[97367,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"MetadataBoundary\"]\nf:I[63491,[\"/_next/static/chunks/99106ca86f0c200f.js\"],\"default\"]\n:HL[\"/_next/static/chunks/0364fcc98cc711b2.css\",\"style\"]\n:HL[\"/_next/static/media/0c89a48fa5027cee-s.p.4564287c.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n:HL[\"/_next/static/media/70bc3e132a0a741e-s.p.15008bfb.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n:HL[\"/_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n"])</script><script>self.__next_f.push([1,"0:{\"P\":null,\"b\":\"lYGpgoy-3-rEKV60fg694\",\"c\":[\"\",\"\"],\"q\":\"\",\"i\":false,\"f\":[[[\"\",{\"children\":[\"__PAGE__\",{}]},\"$undefined\",\"$undefined\",true],[[\"$\",\"$1\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/_next/static/chunks/0364fcc98cc711b2.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}],[\"$\",\"script\",\"script-0\",{\"src\":\"/_next/static/chunks/400b4b25993a722a.js\",\"async\":true,\"nonce\":\"$undefined\"}],[\"$\",\"script\",\"script-1\",{\"src\":\"/_next/static/chunks/40d4f4ad47b67d09.js\",\"async\":true,\"nonce\":\"$undefined\"}],[\"$\",\"script\",\"script-2\",{\"src\":\"/_next/static/chunks/1e9f768250e0891c.js\",\"async\":true,\"nonce\":\"$undefined\"}]],[\"$\",\"html\",null,{\"lang\":\"en\",\"className\":\"dark\",\"children\":[\"$\",\"body\",null,{\"className\":\"inter_ed4bac32-module__-2Pd1W__variable space_grotesk_d2a0d2ea-module__1nEfJq__variable jetbrains_mono_9a2f2d6c-module__wsyXyG__variable antialiased\",\"children\":[\"$\",\"$L2\",null,{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$4\",\"errorStyles\":[],\"errorScripts\":[[\"$\",\"script\",\"script-0\",{\"src\":\"/_next/static/chunks/b60829c8d75be4c6.js\",\"async\":true}]],\"template\":[\"$\",\"$L5\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[\"$\",\"$L6\",null,{}],[]],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]}]}]}]]}],{\"children\":[[\"$\",\"$1\",\"c\",{\"children\":[\"$L7\",null,[\"$\",\"$L8\",null,{\"children\":[\"$\",\"$9\",null,{\"name\":\"Next.MetadataOutlet\",\"children\":\"$@a\"}]}]]}],{},null,false,false]},null,false,false],[\"$\",\"$1\",\"h\",{\"children\":[null,[\"$\",\"$Lb\",null,{\"children\":\"$Lc\"}],[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$Ld\",null,{\"children\":[\"$\",\"$9\",null,{\"name\":\"Next.Metadata\",\"children\":\"$Le\"}]}]}],[\"$\",\"meta\",null,{\"name\":\"next-size-adjust\",\"content\":\"\"}]]}],false]],\"m\":\"$undefined\",\"G\":[\"$f\",[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/_next/static/chunks/0364fcc98cc711b2.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}]]],\"S\":true}\n"])</script><script>self.__next_f.push([1,"7:E{\"digest\":\"NEXT_REDIRECT;replace;/dashboard;307;\"}\n"])</script><script>self.__next_f.push([1,"c:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"}],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}],[\"$\",\"meta\",\"2\",{\"name\":\"theme-color\",\"content\":\"#050505\"}]]\n"])</script><script>self.__next_f.push([1,"10:I[27201,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"IconMark\"]\na:null\ne:[[\"$\",\"title\",\"0\",{\"children\":\"LedgerSG — IRAS-Compliant Accounting for Singapore SMBs\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"Enterprise-grade double-entry accounting platform purpose-built for Singapore SMBs. IRAS compliant, InvoiceNow ready, GST-native.\"}],[\"$\",\"meta\",\"2\",{\"name\":\"author\",\"content\":\"LedgerSG\"}],[\"$\",\"meta\",\"3\",{\"name\":\"keywords\",\"content\":\"accounting,Singapore,IRAS,GST,InvoiceNow,Peppol,SMB\"}],[\"$\",\"meta\",\"4\",{\"name\":\"robots\",\"content\":\"index, follow\"}],[\"$\",\"link\",\"5\",{\"rel\":\"icon\",\"href\":\"/favicon.ico?favicon.0b3bf435.ico\",\"sizes\":\"256x256\",\"type\":\"image/x-icon\"}],[\"$\",\"$L10\",\"6\",{}]]\n"])</script></body></html>✓ Frontend is ready (attempt 2)
 === Starting Web Server on port 7860 ===
 ✅ All services initialized successfully
 
 📋 Service Status:
   • PostgreSQL: localhost:5432
   • Redis:      localhost:6379
-  • Frontend:   http://localhost:3000
-  • Backend:    http://localhost:7860
+  • Backend:    http://localhost:8000 (Django API)
+  • Frontend:   http://localhost:3000 (Next.js with API)
+  • Web Server: http://localhost:7860
 
-INFO:     Started server process [191]
+INFO:     Started server process [181]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:7860 (Press CTRL+C to quit)
