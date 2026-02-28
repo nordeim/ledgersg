@@ -4,6 +4,7 @@
 # Database: PostgreSQL 17 + Redis (localhost:6379)
 # Frontend: Next.js Standalone Mode
 # Backend: Django + Gunicorn (Production WSGI)
+
 FROM python:3.13-trixie
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -44,7 +45,7 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 2. System Dependencies (Database + Dev Tools)
+# 2. System Dependencies (Database + Dev Tools + netcat for port checking)
 # ═══════════════════════════════════════════════════════════════════════════════
 RUN apt-get update && apt-get install -y \
     bash coreutils ca-certificates cron curl wget git less procps sudo vim tar zip unzip tmux openssh-client rsync \
@@ -165,6 +166,7 @@ from datetime import datetime
 
 app = FastAPI(title="LedgerSG Space Monitor")
 
+
 def check_service(url: str, timeout: int = 2) -> dict:
     """Check if a service is responding"""
     try:
@@ -187,6 +189,7 @@ def check_service(url: str, timeout: int = 2) -> dict:
             "url": url
         }
 
+
 @app.get("/")
 def read_root():
     """Complete service status overview"""
@@ -206,10 +209,12 @@ def read_root():
         }
     }
 
+
 @app.get("/health")
 def health():
     """Simple health check for container orchestration"""
     return {"status": "healthy", "service": "ledgersg-boot"}
+
 
 @app.get("/logs/{service}")
 def get_logs(service: str, lines: int = 50):
@@ -221,6 +226,7 @@ def get_logs(service: str, lines: int = 50):
         "frontend": "/tmp/frontend.log",
         "postgres": "/tmp/postgres.log"
     }
+    
     if service not in log_files:
         return JSONResponse(
             status_code=404,
@@ -229,7 +235,9 @@ def get_logs(service: str, lines: int = 50):
                 "available_services": list(log_files.keys())
             }
         )
+    
     log_path = log_files[service]
+    
     try:
         result = subprocess.run(
             ["tail", f"-{lines}", log_path],
@@ -255,6 +263,7 @@ def get_logs(service: str, lines: int = 50):
             content={"error": str(e)}
         )
 
+
 @app.get("/env")
 def show_env():
     """Show relevant environment variables (safe for debugging)"""
@@ -269,6 +278,7 @@ def show_env():
         "NODE_ENV": os.getenv("NODE_ENV")
     }
 
+
 if __name__ == "__main__":
     port = int(os.getenv("APP_PORT", 7860))
     print(f"Starting LedgerSG boot server on port {port}")
@@ -279,6 +289,146 @@ BOOTEOF
 # 12. Entrypoint Script (Runtime Service Orchestration)
 # ═══════════════════════════════════════════════════════════════════════════════
 COPY <<'ENTRYEOF' /usr/local/bin/entrypoint.sh
+#!/bin/bash
+set -e
+
+echo "════════════════════════════════════════════════════════════════"
+echo "   LedgerSG HF Space Starting"
+echo "════════════════════════════════════════════════════════════════"
+echo "🕐 Startup time: $(date -Iseconds)"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PostgreSQL Detection & Setup
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "🔍 Configuring PostgreSQL..."
+PG_VERSION="17"
+PG_BIN="/usr/lib/postgresql/${PG_VERSION}/bin"
+
+if [ ! -d "/usr/lib/postgresql/${PG_VERSION}" ]; then
+    echo "✗ ERROR: PostgreSQL ${PG_VERSION} not found"
+    ls -la /usr/lib/postgresql/ 2>&1 || echo "  (directory not accessible)"
+    exit 1
+fi
+
+echo "✓ PostgreSQL ${PG_VERSION} at ${PG_BIN}"
+
+# Verify binaries
+for cmd in initdb pg_ctl psql pg_isready; do
+    if [ ! -x "${PG_BIN}/${cmd}" ]; then
+        echo "✗ ERROR: ${cmd} not found"
+        exit 1
+    fi
+done
+echo "✓ All PostgreSQL binaries verified"
+
+# Environment setup
+mkdir -p $PGDATA
+chown -R user:user $PGDATA
+chmod 700 $PGDATA
+mkdir -p /var/run/postgresql
+chown -R user:user /var/run/postgresql
+chmod 777 /var/run/postgresql
+
+# Initialize PostgreSQL if needed
+if [ ! -f "$PGDATA/PG_VERSION" ]; then
+    echo "📦 Initializing PostgreSQL cluster..."
+    sudo -u user ${PG_BIN}/initdb -D $PGDATA
+    
+    cat >> $PGDATA/pg_hba.conf << 'PGHBA'
+local   all             all                                     trust
+host    all             all             127.0.0.1/32            md5
+host    all             all             ::1/128                 md5
+PGHBA
+    
+    echo "listen_addresses = 'localhost'" >> $PGDATA/postgresql.conf
+    echo "port = 5432" >> $PGDATA/postgresql.conf
+    echo "✓ PostgreSQL initialized"
+else
+    echo "✓ PostgreSQL cluster exists"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Start Redis
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "🚀 Starting Redis on port 6379..."
+redis-server --daemonize yes
+sleep 1
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Start PostgreSQL
+# ═══════════════════════════════════════════════════════════════════════════════
+echo "🚀 Starting PostgreSQL on port 5432..."
+sudo -u user ${PG_BIN}/pg_ctl -D $PGDATA -l /tmp/postgres.log start
+
+echo "⏳ Waiting for PostgreSQL..."
+for i in {1..30}; do
+    if sudo -u user ${PG_BIN}/pg_isready -h localhost -p 5432 > /dev/null 2>&1; then
+        echo "✓ PostgreSQL ready (attempt $i)"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo "✗ PostgreSQL failed to start"
+        cat /tmp/postgres.log 2>/dev/null || echo "  (log not available)"
+        exit 1
+    fi
+    sleep 1
+done
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Create Database User and Database
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "🗄️  Setting up database..."
+
+if ! sudo -u user ${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}';" | grep -q 1; then
+    echo "  → Creating user: ${DB_USER}"
+    sudo -u user ${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "CREATE ROLE ${DB_USER} WITH LOGIN CREATEDB PASSWORD '${DB_PASSWORD}';"
+else
+    echo "  ✓ User ${DB_USER} exists"
+fi
+
+if ! sudo -u user ${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" | grep -q 1; then
+    echo "  → Creating database: ${DB_NAME}"
+    sudo -u user ${PG_BIN}/psql -h localhost -p 5432 -d postgres -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
+else
+    echo "  ✓ Database ${DB_NAME} exists"
+fi
+
+sudo -u user ${PG_BIN}/psql -h localhost -p 5432 -d ${DB_NAME} -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
+echo "✓ Database setup complete"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Apply Schema ONLY if tables don't exist (IDEMPOTENT - CRITICAL FIX)
+# ═══════════════════════════════════════════════════════════════════════════════
+echo "  → Checking database schema..."
+
+# Count tables in all schemas
+TABLE_COUNT=$(sudo -u user ${PG_BIN}/psql -h localhost -p 5432 -d ${DB_NAME} -t -c \
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema IN ('core','coa','gst','journal','invoicing','banking','audit');" 2>/dev/null | tr -d ' ' || echo "0")
+
+if [ -z "$TABLE_COUNT" ] || [ "$TABLE_COUNT" -eq "0" ]; then
+    echo "  → Applying database schema (first run)..."
+    sudo -u user ${PG_BIN}/psql -h localhost -p 5432 -d ${DB_NAME} -f /app/apps/backend/database_schema.sql
+    echo "  ✓ Schema applied"
+else
+    echo "  ✓ Database schema already exists ($TABLE_COUNT tables found)"
+    echo "  ℹ️  Skipping schema application to preserve data"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Verify Redis
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "🔍 Verifying Redis..."
+if redis-cli ping > /dev/null 2>&1; then
+    echo "✓ Redis ready on localhost:6379"
+else
+    echo "✗ Redis failed to start"
+    exit 1
+fi
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Start Backend API (Django + Gunicorn - Production Ready)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -286,11 +436,12 @@ echo ""
 echo "🚀 Starting Backend API (Gunicorn) on port ${BACKEND_PORT}..."
 cd /app/apps/backend
 
-# Create log directories (CRITICAL FIX)
+# Create backend log directory (CRITICAL FIX for Django logging)
+echo "  → Creating backend log directory..."
 mkdir -p /tmp/backend_logs
 chown user:user /tmp/backend_logs
 chmod 755 /tmp/backend_logs
-echo "✓ Backend log directory created"
+echo "  ✓ Log directory created: /tmp/backend_logs"
 
 # Create .env file for backend
 cat > .env << ENVEOF
@@ -308,31 +459,32 @@ LOG_LEVEL=INFO
 ENVEOF
 
 # Start Django with Gunicorn (production WSGI)
+# Using /tmp/backend_logs for all logs (guaranteed writable)
 sudo -u user nohup bash -c "
-source /opt/venv/bin/activate &&
-cd /app/apps/backend &&
-gunicorn config.wsgi:application \
--b 0.0.0.0:${BACKEND_PORT} \
---workers 2 \
---threads 2 \
---worker-class gthread \
---timeout 60 \
---keep-alive 5 \
---max-requests 1000 \
---max-requests-jitter 50 \
---access-logfile /tmp/backend_logs/access.log \
---error-logfile /tmp/backend_logs/error.log \
---capture-output \
---enable-stdio-inheritance
+    source /opt/venv/bin/activate && 
+    cd /app/apps/backend && 
+    gunicorn config.wsgi:application \
+        -b 0.0.0.0:${BACKEND_PORT} \
+        --workers 2 \
+        --threads 2 \
+        --worker-class gthread \
+        --timeout 60 \
+        --keep-alive 5 \
+        --max-requests 1000 \
+        --max-requests-jitter 50 \
+        --access-logfile /tmp/backend_logs/access.log \
+        --error-logfile /tmp/backend_logs/error.log \
+        --capture-output \
+        --enable-stdio-inheritance
 " > /tmp/backend_logs/gunicorn.log 2>&1 &
 BACKEND_PID=$!
 echo "✓ Backend PID: ${BACKEND_PID} (Gunicorn: 2 workers, 2 threads)"
 
-# Wait for backend with improved health check
+# Wait for backend with improved health check (CRITICAL FIX)
 echo "⏳ Waiting for Backend API..."
 BACKEND_READY=false
 for i in {1..60}; do
-    # Check if Gunicorn process is still running
+    # Check if Gunicorn process died (CRITICAL FIX)
     if ! pgrep -f "gunicorn.*config.wsgi" > /dev/null 2>&1; then
         echo "✗ Backend Gunicorn process died (attempt $i)"
         echo "📋 Backend error log:"
@@ -347,6 +499,12 @@ for i in {1..60}; do
         break
     fi
     
+    # Fallback: check if port is listening (CRITICAL FIX - uses netcat)
+    if nc -z localhost ${BACKEND_PORT} 2>/dev/null; then
+        echo "✓ Backend port listening (attempt $i)"
+        break
+    fi
+    
     if [ $i -eq 30 ]; then
         echo "⚠ Backend not ready after 30s, checking logs..."
         tail -30 /tmp/backend_logs/error.log 2>/dev/null || true
@@ -356,10 +514,105 @@ for i in {1..60}; do
 done
 
 if [ "$BACKEND_READY" = false ]; then
-    echo "✗ Backend API failed to start"
-    echo "📋 Last 50 lines of backend error log:"
+    echo "⚠ Backend API may not be fully ready (continuing)"
+    echo "📋 Last 50 lines of error log:"
     tail -50 /tmp/backend_logs/error.log 2>/dev/null || echo "  (log not available)"
 fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Start Frontend (Next.js Standalone)
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "🚀 Starting Frontend on port ${FRONTEND_PORT}..."
+cd /app/apps/web
+
+# Verify build integrity
+if [ ! -f ".next/standalone/server.js" ]; then
+    echo "✗ ERROR: Frontend standalone build missing!"
+    exit 1
+fi
+
+sudo -u user nohup bash -c "
+    export NODE_ENV=production
+    export PORT=${FRONTEND_PORT}
+    export HOSTNAME=0.0.0.0
+    export NEXT_PUBLIC_API_URL=http://localhost:8000
+    node .next/standalone/server.js
+" > /tmp/frontend.log 2>&1 &
+FRONTEND_PID=$!
+echo "✓ Frontend PID: ${FRONTEND_PID}"
+
+# Wait for frontend
+for i in {1..30}; do
+    if curl -s http://localhost:${FRONTEND_PORT} > /dev/null 2>&1; then
+        echo "✓ Frontend ready (attempt $i)"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo "⚠ Frontend may not be ready (continuing)"
+        tail -20 /tmp/frontend.log 2>/dev/null || true
+    fi
+    sleep 1
+done
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Final Service Status
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════════════════════════════════════════════════════════════════"
+echo "   Service Status Summary"
+echo "════════════════════════════════════════════════════════════════"
+echo "🕐 Ready at: $(date -Iseconds)"
+echo ""
+
+SERVICES_READY=true
+
+if [ "$BACKEND_READY" = true ]; then
+    echo "  ✅ Backend API:    http://localhost:${BACKEND_PORT} (Gunicorn)"
+else
+    echo "  ⚠️  Backend API:    Not responding (check logs with: curl http://localhost:${APP_PORT}/logs/backend)"
+    SERVICES_READY=false
+fi
+
+if curl -s http://localhost:${FRONTEND_PORT} > /dev/null 2>&1; then
+    echo "  ✅ Frontend:       http://localhost:${FRONTEND_PORT}"
+else
+    echo "  ⚠️  Frontend:       Not responding"
+    SERVICES_READY=false
+fi
+
+if redis-cli ping > /dev/null 2>&1; then
+    echo "  ✅ Redis:          localhost:6379"
+else
+    echo "  ⚠️  Redis:          Not responding"
+fi
+
+if sudo -u user ${PG_BIN}/pg_isready -h localhost -p 5432 > /dev/null 2>&1; then
+    echo "  ✅ PostgreSQL:     localhost:5432"
+else
+    echo "  ⚠️  PostgreSQL:     Not responding"
+fi
+
+echo "  ℹ️  Monitor:        http://localhost:${APP_PORT} (boot.py)"
+echo ""
+
+if [ "$SERVICES_READY" = true ]; then
+    echo "🎉 All critical services are ready!"
+else
+    echo "⚠️  Some services still starting... Check logs at: http://localhost:${APP_PORT}/logs/{service}"
+fi
+
+echo ""
+echo "📖 Debug commands:"
+echo "  • Full status:  curl http://localhost:${APP_PORT}/"
+echo "  • Health:       curl http://localhost:${APP_PORT}/health"
+echo "  • Logs:         curl http://localhost:${APP_PORT}/logs/backend"
+echo "  • Frontend:     curl http://localhost:${APP_PORT}/logs/frontend"
+echo ""
+echo "════════════════════════════════════════════════════════════════"
+
+# Execute the main command (boot.py keep-alive server)
+exec sudo -u user "$@"
 ENTRYEOF
 
 RUN chmod +x /usr/local/bin/entrypoint.sh && \
@@ -372,9 +625,11 @@ WORKDIR /app
 RUN touch /app/.env && chown user:user /app/.env
 
 # Expose ALL ports for flexible HF Space URL mapping
+# HF Space can map its URL to any of these ports via settings
 EXPOSE ${APP_PORT} ${FRONTEND_PORT} ${BACKEND_PORT}
 
 # Health check - flexible for any exposed port
+# HF Space will configure which port the URL maps to
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${FRONTEND_PORT} 2>/dev/null || \
         curl -f http://localhost:${APP_PORT}/health 2>/dev/null || \
