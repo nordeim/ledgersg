@@ -1,17 +1,14 @@
-===== Application Startup at 2026-02-28 01:23:05 =====
+===== Application Startup at 2026-02-28 05:45:07 =====
 
-=== LedgerSG Development Space Starting ===
-🕐 Startup time: 2026-02-28T01:23:43+00:00
-🔍 Detecting PostgreSQL installation...
-✓ PostgreSQL version: 17
-✓ Binary path: /usr/lib/postgresql/17/bin
-🔍 Verifying PostgreSQL binaries...
-  ✓ initdb verified
-  ✓ pg_ctl verified
-  ✓ psql verified
-  ✓ pg_isready verified
-🔧 Configuring environment...
-📦 Initializing PostgreSQL cluster at /data/postgresql...
+════════════════════════════════════════════════════════════════
+   LedgerSG HF Space Starting
+════════════════════════════════════════════════════════════════
+🕐 Startup time: 2026-02-28T05:45:35+00:00
+
+🔍 Configuring PostgreSQL...
+✓ PostgreSQL 17 at /usr/lib/postgresql/17/bin
+✓ All PostgreSQL binaries verified
+📦 Initializing PostgreSQL cluster...
 The files belonging to this database system will be owned by user "user".
 This user must also own the server process.
 
@@ -35,41 +32,44 @@ syncing data to disk ... ok
 
 Success. You can now start the database server using:
 
-    /usr/lib/postgresql/17/bin/pg_ctl -D /data/postgresql -l logfile start
-
 initdb: warning: enabling "trust" authentication for local connections
 initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
-🔐 Configuring PostgreSQL authentication...
-✓ PostgreSQL configuration complete
+    /usr/lib/postgresql/17/bin/pg_ctl -D /data/postgresql -l logfile start
+
+✓ PostgreSQL initialized
+
 🚀 Starting Redis on port 6379...
 🚀 Starting PostgreSQL on port 5432...
 waiting for server to start.... done
 server started
-⏳ Waiting for PostgreSQL to accept connections...
-✓ PostgreSQL is ready (attempt 1)
-🗄️ Setting up database user and database...
+⏳ Waiting for PostgreSQL...
+✓ PostgreSQL ready (attempt 1)
+
+🗄️  Setting up database...
   → Creating user: ledgersg
 CREATE ROLE
   → Creating database: ledgersg_dev
 CREATE DATABASE
 GRANT
-✓ Database setup complete: ledgersg_dev (user: ledgersg)
+✓ Database setup complete
+  → Checking database schema...
+  → Applying database schema (first run)...
 CREATE EXTENSION
 CREATE EXTENSION
 CREATE EXTENSION
 DO
+DROP SCHEMA
 psql:/app/apps/backend/database_schema.sql:78: NOTICE:  schema "audit" does not exist, skipping
 DROP SCHEMA
 psql:/app/apps/backend/database_schema.sql:79: NOTICE:  schema "banking" does not exist, skipping
-DROP SCHEMA
 psql:/app/apps/backend/database_schema.sql:80: NOTICE:  schema "invoicing" does not exist, skipping
 DROP SCHEMA
 DROP SCHEMA
 psql:/app/apps/backend/database_schema.sql:81: NOTICE:  schema "journal" does not exist, skipping
 DROP SCHEMA
 psql:/app/apps/backend/database_schema.sql:82: NOTICE:  schema "gst" does not exist, skipping
-psql:/app/apps/backend/database_schema.sql:83: NOTICE:  schema "coa" does not exist, skipping
 DROP SCHEMA
+psql:/app/apps/backend/database_schema.sql:83: NOTICE:  schema "coa" does not exist, skipping
 psql:/app/apps/backend/database_schema.sql:84: NOTICE:  schema "core" does not exist, skipping
 DROP SCHEMA
 CREATE SCHEMA
@@ -243,8 +243,8 @@ psql:/app/apps/backend/database_schema.sql:2295: NOTICE:  RLS enabled on banking
 DO
 psql:/app/apps/backend/database_schema.sql:2300: NOTICE:  policy "rls_select_organisation" for relation "core.organisation" does not exist, skipping
 DROP POLICY
-psql:/app/apps/backend/database_schema.sql:2301: NOTICE:  policy "rls_insert_organisation" for relation "core.organisation" does not exist, skipping
 DROP POLICY
+psql:/app/apps/backend/database_schema.sql:2301: NOTICE:  policy "rls_insert_organisation" for relation "core.organisation" does not exist, skipping
 psql:/app/apps/backend/database_schema.sql:2302: NOTICE:  policy "rls_update_organisation" for relation "core.organisation" does not exist, skipping
 DROP POLICY
 psql:/app/apps/backend/database_schema.sql:2303: NOTICE:  policy "rls_delete_organisation" for relation "core.organisation" does not exist, skipping
@@ -329,32 +329,146 @@ psql:/app/apps/backend/database_schema.sql:3049: NOTICE:         core.seed_defau
 psql:/app/apps/backend/database_schema.sql:3049: NOTICE:  ══════════════════════════════════════════════════════════════
 psql:/app/apps/backend/database_schema.sql:3049: NOTICE:  
 DO
-🔍 Verifying Redis connection...
-✓ Redis is ready on localhost:6379
-🚀 Starting Backend API on port 8000...
-✓ Backend PID: 82
-✓ Backend API is ready (attempt 6)
+  ✓ Schema applied
+
+🔍 Verifying Redis...
+✓ Redis ready on localhost:6379
+
+🚀 Starting Backend API (Gunicorn) on port 8000...
+  → Creating backend log directory...
+  ✓ Log directory created: /tmp/backend_logs
+✓ Backend PID: 92 (Gunicorn: 2 workers, 2 threads)
+⏳ Waiting for Backend API...
+✗ Backend Gunicorn process died (attempt 3)
+📋 Backend error log:
+    ~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/workers/base.py", line 136, in init_process
+    self.load_wsgi()
+    ~~~~~~~~~~~~~~^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/workers/base.py", line 148, in load_wsgi
+    self.wsgi = self.app.wsgi()
+                ~~~~~~~~~~~~~^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/app/base.py", line 66, in wsgi
+    self.callable = self.load()
+                    ~~~~~~~~~^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/app/wsgiapp.py", line 57, in load
+    return self.load_wsgiapp()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/app/wsgiapp.py", line 47, in load_wsgiapp
+    return util.import_app(self.app_uri)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/util.py", line 377, in import_app
+    mod = importlib.import_module(module)
+  File "/usr/local/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/app/apps/backend/config/wsgi.py", line 16, in <module>
+    application = get_wsgi_application()
+  File "/opt/venv/lib/python3.13/site-packages/django/core/wsgi.py", line 12, in get_wsgi_application
+    django.setup(set_prefix=False)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.13/site-packages/django/__init__.py", line 19, in setup
+    configure_logging(settings.LOGGING_CONFIG, settings.LOGGING)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.13/site-packages/django/utils/log.py", line 76, in configure_logging
+    logging_config_func(logging_settings)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.13/logging/config.py", line 935, in dictConfig
+    dictConfigClass(config).configure()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/local/lib/python3.13/logging/config.py", line 611, in configure
+    raise ValueError('Unable to configure handler '
+                     '%r' % name) from e
+ValueError: Unable to configure handler 'file'
+Unable to configure handler 'file'
+[2026-02-28 13:45:41 +0800] [102] [INFO] Worker exiting (pid: 102)
+[2026-02-28 05:45:41 +0000] [95] [ERROR] Worker (pid:102) exited with code 3.
+[2026-02-28 05:46:11 +0000] [95] [ERROR] Shutting down: Master
+[2026-02-28 05:46:11 +0000] [95] [ERROR] Reason: Worker failed to boot.
+⚠ Backend API may not be fully ready (continuing)
+📋 Last 50 lines of error log:
+    ~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/workers/base.py", line 136, in init_process
+    self.load_wsgi()
+    ~~~~~~~~~~~~~~^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/workers/base.py", line 148, in load_wsgi
+    self.wsgi = self.app.wsgi()
+                ~~~~~~~~~~~~~^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/app/base.py", line 66, in wsgi
+    self.callable = self.load()
+                    ~~~~~~~~~^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/app/wsgiapp.py", line 57, in load
+    return self.load_wsgiapp()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/app/wsgiapp.py", line 47, in load_wsgiapp
+    return util.import_app(self.app_uri)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.13/site-packages/gunicorn/util.py", line 377, in import_app
+    mod = importlib.import_module(module)
+  File "/usr/local/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/app/apps/backend/config/wsgi.py", line 16, in <module>
+    application = get_wsgi_application()
+  File "/opt/venv/lib/python3.13/site-packages/django/core/wsgi.py", line 12, in get_wsgi_application
+    django.setup(set_prefix=False)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.13/site-packages/django/__init__.py", line 19, in setup
+    configure_logging(settings.LOGGING_CONFIG, settings.LOGGING)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.13/site-packages/django/utils/log.py", line 76, in configure_logging
+    logging_config_func(logging_settings)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.13/logging/config.py", line 935, in dictConfig
+    dictConfigClass(config).configure()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/local/lib/python3.13/logging/config.py", line 611, in configure
+    raise ValueError('Unable to configure handler '
+                     '%r' % name) from e
+ValueError: Unable to configure handler 'file'
+Unable to configure handler 'file'
+[2026-02-28 13:45:41 +0800] [102] [INFO] Worker exiting (pid: 102)
+[2026-02-28 05:45:41 +0000] [95] [ERROR] Worker (pid:102) exited with code 3.
+[2026-02-28 05:46:11 +0000] [95] [ERROR] Shutting down: Master
+[2026-02-28 05:46:11 +0000] [95] [ERROR] Reason: Worker failed to boot.
+
 🚀 Starting Frontend on port 3000...
-✓ Frontend PID: 163
-✓ Frontend mode: Standalone (with backend API integration)
-▲ Next.js 16.1.6
-- Local:         http://localhost:3000
-- Network:       http://0.0.0.0:3000
+✓ Frontend PID: 110
+✓ Frontend ready (attempt 2)
 
-✓ Starting...
-✓ Ready in 72ms
-<!DOCTYPE html><!--lYGpgoy_3_rEKV60fg694--><html id="__next_error__"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/d59f830a2b8e768c.js"/><script src="/_next/static/chunks/914f3bc6de5d7120.js" async=""></script><script src="/_next/static/chunks/22a521c5c03db2e1.js" async=""></script><script src="/_next/static/chunks/f2f58a7e93290fbb.js" async=""></script><script src="/_next/static/chunks/68a088aa49e6124a.js" async=""></script><script src="/_next/static/chunks/turbopack-2e774dccb0fb9bc2.js" async=""></script><script src="/_next/static/chunks/ff1a16fafef87110.js" async=""></script><script src="/_next/static/chunks/a2dfb6fc5208ab9b.js" async=""></script><script src="/_next/static/chunks/99106ca86f0c200f.js" async=""></script><link rel="preload" href="/_next/static/chunks/0364fcc98cc711b2.css" as="style"/><meta name="theme-color" content="#050505"/><title>LedgerSG — IRAS-Compliant Accounting for Singapore SMBs</title><meta name="description" content="Enterprise-grade double-entry accounting platform purpose-built for Singapore SMBs. IRAS compliant, InvoiceNow ready, GST-native."/><meta name="author" content="LedgerSG"/><meta name="keywords" content="accounting,Singapore,IRAS,GST,InvoiceNow,Peppol,SMB"/><meta name="robots" content="index, follow"/><link rel="icon" href="/favicon.ico?favicon.0b3bf435.ico" sizes="256x256" type="image/x-icon"/><script src="/_next/static/chunks/a6dad97d9634a72d.js" noModule=""></script></head><body><div hidden=""><!--$--><!--/$--></div><script src="/_next/static/chunks/d59f830a2b8e768c.js" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[46039,[\"/_next/static/chunks/400b4b25993a722a.js\",\"/_next/static/chunks/40d4f4ad47b67d09.js\",\"/_next/static/chunks/1e9f768250e0891c.js\"],\"Providers\"]\n3:I[39756,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"default\"]\n4:I[58298,[\"/_next/static/chunks/400b4b25993a722a.js\",\"/_next/static/chunks/40d4f4ad47b67d09.js\",\"/_next/static/chunks/1e9f768250e0891c.js\",\"/_next/static/chunks/b60829c8d75be4c6.js\"],\"default\"]\n5:I[37457,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"default\"]\n6:I[29306,[\"/_next/static/chunks/400b4b25993a722a.js\",\"/_next/static/chunks/40d4f4ad47b67d09.js\",\"/_next/static/chunks/1e9f768250e0891c.js\",\"/_next/static/chunks/e0b2ef6c038449fd.js\"],\"default\"]\n8:I[97367,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"OutletBoundary\"]\n9:\"$Sreact.suspense\"\nb:I[97367,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"ViewportBoundary\"]\nd:I[97367,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"MetadataBoundary\"]\nf:I[63491,[\"/_next/static/chunks/99106ca86f0c200f.js\"],\"default\"]\n:HL[\"/_next/static/chunks/0364fcc98cc711b2.css\",\"style\"]\n:HL[\"/_next/static/media/0c89a48fa5027cee-s.p.4564287c.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n:HL[\"/_next/static/media/70bc3e132a0a741e-s.p.15008bfb.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n:HL[\"/_next/static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n"])</script><script>self.__next_f.push([1,"0:{\"P\":null,\"b\":\"lYGpgoy-3-rEKV60fg694\",\"c\":[\"\",\"\"],\"q\":\"\",\"i\":false,\"f\":[[[\"\",{\"children\":[\"__PAGE__\",{}]},\"$undefined\",\"$undefined\",true],[[\"$\",\"$1\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/_next/static/chunks/0364fcc98cc711b2.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}],[\"$\",\"script\",\"script-0\",{\"src\":\"/_next/static/chunks/400b4b25993a722a.js\",\"async\":true,\"nonce\":\"$undefined\"}],[\"$\",\"script\",\"script-1\",{\"src\":\"/_next/static/chunks/40d4f4ad47b67d09.js\",\"async\":true,\"nonce\":\"$undefined\"}],[\"$\",\"script\",\"script-2\",{\"src\":\"/_next/static/chunks/1e9f768250e0891c.js\",\"async\":true,\"nonce\":\"$undefined\"}]],[\"$\",\"html\",null,{\"lang\":\"en\",\"className\":\"dark\",\"children\":[\"$\",\"body\",null,{\"className\":\"inter_ed4bac32-module__-2Pd1W__variable space_grotesk_d2a0d2ea-module__1nEfJq__variable jetbrains_mono_9a2f2d6c-module__wsyXyG__variable antialiased\",\"children\":[\"$\",\"$L2\",null,{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$4\",\"errorStyles\":[],\"errorScripts\":[[\"$\",\"script\",\"script-0\",{\"src\":\"/_next/static/chunks/b60829c8d75be4c6.js\",\"async\":true}]],\"template\":[\"$\",\"$L5\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[\"$\",\"$L6\",null,{}],[]],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]}]}]}]]}],{\"children\":[[\"$\",\"$1\",\"c\",{\"children\":[\"$L7\",null,[\"$\",\"$L8\",null,{\"children\":[\"$\",\"$9\",null,{\"name\":\"Next.MetadataOutlet\",\"children\":\"$@a\"}]}]]}],{},null,false,false]},null,false,false],[\"$\",\"$1\",\"h\",{\"children\":[null,[\"$\",\"$Lb\",null,{\"children\":\"$Lc\"}],[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$Ld\",null,{\"children\":[\"$\",\"$9\",null,{\"name\":\"Next.Metadata\",\"children\":\"$Le\"}]}]}],[\"$\",\"meta\",null,{\"name\":\"next-size-adjust\",\"content\":\"\"}]]}],false]],\"m\":\"$undefined\",\"G\":[\"$f\",[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/_next/static/chunks/0364fcc98cc711b2.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}]]],\"S\":true}\n"])</script><script>self.__next_f.push([1,"7:E{\"digest\":\"NEXT_REDIRECT;replace;/dashboard;307;\"}\n"])</script><script>self.__next_f.push([1,"c:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"}],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}],[\"$\",\"meta\",\"2\",{\"name\":\"theme-color\",\"content\":\"#050505\"}]]\n"])</script><script>self.__next_f.push([1,"10:I[27201,[\"/_next/static/chunks/ff1a16fafef87110.js\",\"/_next/static/chunks/a2dfb6fc5208ab9b.js\"],\"IconMark\"]\na:null\ne:[[\"$\",\"title\",\"0\",{\"children\":\"LedgerSG — IRAS-Compliant Accounting for Singapore SMBs\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"Enterprise-grade double-entry accounting platform purpose-built for Singapore SMBs. IRAS compliant, InvoiceNow ready, GST-native.\"}],[\"$\",\"meta\",\"2\",{\"name\":\"author\",\"content\":\"LedgerSG\"}],[\"$\",\"meta\",\"3\",{\"name\":\"keywords\",\"content\":\"accounting,Singapore,IRAS,GST,InvoiceNow,Peppol,SMB\"}],[\"$\",\"meta\",\"4\",{\"name\":\"robots\",\"content\":\"index, follow\"}],[\"$\",\"link\",\"5\",{\"rel\":\"icon\",\"href\":\"/favicon.ico?favicon.0b3bf435.ico\",\"sizes\":\"256x256\",\"type\":\"image/x-icon\"}],[\"$\",\"$L10\",\"6\",{}]]\n"])</script></body></html>✓ Frontend is ready (attempt 2)
-=== Starting Web Server on port 7860 ===
-✅ All services initialized successfully
+════════════════════════════════════════════════════════════════
+   Service Status Summary
+════════════════════════════════════════════════════════════════
+🕐 Ready at: 2026-02-28T05:46:13+00:00
 
-📋 Service Status:
-  • PostgreSQL: localhost:5432
-  • Redis:      localhost:6379
-  • Backend:    http://localhost:8000 (Django API)
-  • Frontend:   http://localhost:3000 (Next.js with API)
-  • Web Server: http://localhost:7860
+  ⚠️  Backend API:    Not responding (check logs with: curl http://localhost:7860/logs/backend)
+  ✅ Frontend:       http://localhost:3000
+  ✅ Redis:          localhost:6379
+  ✅ PostgreSQL:     localhost:5432
+  ℹ️  Monitor:        http://localhost:7860 (boot.py)
 
-INFO:     Started server process [181]
+⚠️  Some services still starting... Check logs at: http://localhost:7860/logs/{service}
+
+📖 Debug commands:
+  • Full status:  curl http://localhost:7860/
+  • Health:       curl http://localhost:7860/health
+  • Logs:         curl http://localhost:7860/logs/backend
+  • Frontend:     curl http://localhost:7860/logs/frontend
+
+════════════════════════════════════════════════════════════════
+INFO:     Started server process [135]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:7860 (Press CTRL+C to quit)
