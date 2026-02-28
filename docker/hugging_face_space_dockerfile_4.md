@@ -795,6 +795,7 @@ CMD ["/opt/venv/bin/python", "/app/core/boot.py"]
 
 **Answer: NO** - When using `<<'ENTRYEOF'` (quoted delimiter), escaping `$` is **NOT necessary** and actually **redundant**. The quoted heredoc delimiter preserves all content literally, so variables like `$PGDATA` will remain as `$PGDATA` in the script and expand at **runtime**.
 
+# https://chat.qwen.ai/s/45c614b3-6930-4765-9cb4-397bb7356a45?fev=0.2.9
 **Use `\$` escaping ONLY when:**
 - Using `<<EOF` (unquoted delimiter) AND
 - You want to prevent build-time expansion
