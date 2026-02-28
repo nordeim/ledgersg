@@ -44,11 +44,6 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': '/tmp/ledgersg_api.log',
-            'formatter': 'verbose',
-        },
     },
     'root': {
         'handlers': ['console'],

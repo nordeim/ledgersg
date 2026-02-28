@@ -436,13 +436,6 @@ echo ""
 echo "🚀 Starting Backend API (Gunicorn) on port ${BACKEND_PORT}..."
 cd /app/apps/backend
 
-# Create backend log directory (CRITICAL FIX for Django logging)
-echo "  → Creating backend log directory..."
-mkdir -p /tmp/backend_logs
-chown user:user /tmp/backend_logs
-chmod 755 /tmp/backend_logs
-echo "  ✓ Log directory created: /tmp/backend_logs"
-
 # Create .env file for backend
 cat > .env << ENVEOF
 DEBUG=False
@@ -459,7 +452,7 @@ LOG_LEVEL=INFO
 ENVEOF
 
 # Start Django with Gunicorn (production WSGI)
-# Using /tmp/backend_logs for all logs (guaranteed writable)
+# Using stdout/stderr for logs (container best practice)
 sudo -u user nohup bash -c "
     source /opt/venv/bin/activate && 
     cd /app/apps/backend && 
@@ -472,11 +465,11 @@ sudo -u user nohup bash -c "
         --keep-alive 5 \
         --max-requests 1000 \
         --max-requests-jitter 50 \
-        --access-logfile /tmp/backend_logs/access.log \
-        --error-logfile /tmp/backend_logs/error.log \
+        --access-logfile - \
+        --error-logfile - \
         --capture-output \
         --enable-stdio-inheritance
-" > /tmp/backend_logs/gunicorn.log 2>&1 &
+" > /tmp/backend.log 2>&1 &
 BACKEND_PID=$!
 echo "✓ Backend PID: ${BACKEND_PID} (Gunicorn: 2 workers, 2 threads)"
 
@@ -488,7 +481,7 @@ for i in {1..60}; do
     if ! pgrep -f "gunicorn.*config.wsgi" > /dev/null 2>&1; then
         echo "✗ Backend Gunicorn process died (attempt $i)"
         echo "📋 Backend error log:"
-        tail -50 /tmp/backend_logs/error.log 2>/dev/null || echo "  (log not available)"
+        tail -50 /tmp/backend.log 2>/dev/null || echo "  (log not available)"
         break
     fi
     
@@ -507,7 +500,7 @@ for i in {1..60}; do
     
     if [ $i -eq 30 ]; then
         echo "⚠ Backend not ready after 30s, checking logs..."
-        tail -30 /tmp/backend_logs/error.log 2>/dev/null || true
+        tail -30 /tmp/backend.log 2>/dev/null || true
     fi
     
     sleep 1
