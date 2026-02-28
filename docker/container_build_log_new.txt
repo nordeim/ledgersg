@@ -1,0 +1,109 @@
+--> RUN cd /app &&     git clone https://github.com/nordeim/ledgersg.git ledgersg_src &&     mv ledgersg_src/* . &&     mv ledgersg_src/.* . 2>/dev/null || true &&     rm -rf ledgersg_src &&     chown -R user:user /app
+Cloning into 'ledgersg_src'...
+DONE 0.5s
+
+--> RUN cd /app/apps/web &&     npm install &&     npm run clean &&     NEXT_OUTPUT_MODE=standalone NEXT_PUBLIC_API_URL=http://localhost:8000 npm run build:server &&     ls -la .next/standalone/ &&     chown -R user:user /app/apps/web
+
+added 652 packages, and audited 653 packages in 12s
+
+201 packages are looking for funding
+  run `npm fund` for details
+
+4 vulnerabilities (1 moderate, 3 high)
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+> web@0.1.0 clean
+> rm -rf .next dist
+
+
+> web@0.1.0 build:server
+> NEXT_OUTPUT_MODE=standalone next build && cp -r .next/static .next/standalone/.next/
+
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 9.0s
+  Running TypeScript ...
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/18) ...
+  Generating static pages using 15 workers (4/18) 
+  Generating static pages using 15 workers (8/18) 
+  Generating static pages using 15 workers (13/18) 
+✓ Generating static pages using 15 workers (18/18) in 652.0ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /dashboard
+├ ○ /invoices
+├ ● /invoices/[id]
+│ ├ /invoices/INV-2024-0001
+│ ├ /invoices/INV-2024-0002
+│ └ /invoices/INV-2024-0003
+├ ● /invoices/[id]/edit
+│ ├ /invoices/INV-2024-0001/edit
+│ ├ /invoices/INV-2024-0002/edit
+│ └ /invoices/INV-2024-0003/edit
+├ ○ /invoices/new
+├ ○ /ledger
+├ ○ /login
+├ ○ /quotes
+├ ○ /reports
+└ ○ /settings
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+
+total 20
+drwxr-sr-x.  4 root user   76 Feb 28 07:53 .
+drwxr-sr-x.  9 root user 4096 Feb 28 07:53 ..
+drwxr-sr-x.  4 root user 4096 Feb 28 07:53 .next
+drwxr-sr-x. 13 root user  172 Feb 28 07:53 node_modules
+-rw-r--r--.  1 root user 3489 Feb 28 07:53 package.json
+-rw-r--r--.  1 root user 6594 Feb 28 07:53 server.js
+DONE 30.6s
+
+--> RUN cd /app/apps/web &&     echo "Verifying standalone build..." &&     if [ ! -f ".next/standalone/server.js" ]; then         echo "ERROR: Frontend standalone build missing!";         ls -la .next/ 2>&1 || true;         exit 1;     fi &&     if [ ! -d ".next/standalone/.next/static" ]; then         echo "WARNING: Static files not in standalone folder, copying...";         cp -r .next/static .next/standalone/.next/ || {             echo "ERROR: Failed to copy static files";             exit 1;         };     fi &&     STATIC_COUNT=$(ls .next/standalone/.next/static/chunks/*.js 2>/dev/null | wc -l) &&     if [ "$STATIC_COUNT" -lt 20 ]; then         echo "ERROR: Only $STATIC_COUNT JS chunks found. Expected 20+";         exit 1;     fi &&     echo "✓ Standalone build verified: $STATIC_COUNT JS chunks" &&     chown -R user:user /app/apps/web
+Verifying standalone build...
+✓ Standalone build verified: 27 JS chunks
+DONE 30.4s
+
+--> RUN mkdir -p /app/core /app/scripts &&     chown -R user:user /app
+DONE 17.9s
+
+--> COPY <<BOOTEOF /app/core/boot.py
+DONE 0.2s
+
+--> COPY <<ENTRYEOF /usr/local/bin/entrypoint.sh
+DONE 0.0s
+
+--> RUN chmod +x /usr/local/bin/entrypoint.sh &&     chown -R user:user /app/core /app/scripts
+DONE 0.0s
+
+--> WORKDIR /app
+DONE 0.0s
+
+--> RUN touch /app/.env && chown user:user /app/.env
+DONE 0.0s
+
+--> Pushing image
+DONE 15.3s
+
+--> Exporting cache
+DONE 0.2s
