@@ -56,11 +56,11 @@
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| API Endpoints | **57** | 100% Path Alignment |
-| Service Files | 6 | Core business logic |
+| API Endpoints | **58** | 100% Path Alignment (+ Dashboard) |
+| Service Files | 7 | Core business logic (+ DashboardService) |
 | Models | **18** | Aligned with SQL schema |
-| Test Files | 11 | 158+ total tests |
-| Lines of Code | **~11,200+** | Logic & Templates |
+| Test Files | 13 | 180+ total tests (+ 22 TDD tests) |
+| Lines of Code | **~11,600+** | Logic & Templates |
 
 ### Directory Structure
 
@@ -96,6 +96,27 @@ apps/backend/
 
 ## 🧪 Testing Strategy
 
+### Test-Driven Development (TDD)
+
+LedgerSG follows TDD for critical business logic:
+
+```bash
+# 1. Write tests first (Red phase)
+# tests/test_dashboard_service.py - define expected behavior
+
+# 2. Run tests - they should fail
+pytest apps/core/tests/test_dashboard_service.py -v
+
+# 3. Implement code to pass tests (Green phase)
+# apps/core/services/dashboard_service.py
+
+# 4. Refactor while keeping tests passing
+# Clean code, optimize, document
+
+# 5. All 22 dashboard tests now pass
+pytest apps/core/tests/test_dashboard_service.py apps/core/tests/test_dashboard_view.py -v
+```
+
 ### Backend Tests (Unmanaged Database Workflow)
 
 **MANDATORY Workflow:**
@@ -115,6 +136,12 @@ pytest --reuse-db --no-migrations
 ---
 
 ## 🔧 Troubleshooting
+
+### Dashboard API Issues
+- **403 Forbidden on /dashboard/**: Check `UserOrganisation.accepted_at` is set (middleware requires it)
+- **500 Internal Server Error**: Check `InvoiceDocument` model matches SQL schema (no extra fields)
+- **Enum Value Errors**: Ensure status values match SQL enum exactly (`PARTIALLY_PAID` not `PARTIAL`)
+- **Mock Data Still Showing**: DashboardPage must be async Server Component calling `fetchDashboardData()`
 
 ### Database Issues
 - **relation "core.app_user" does not exist**: The test database is empty. Load `database_schema.sql` manually.
@@ -139,6 +166,13 @@ pytest --reuse-db --no-migrations
 ---
 
 ## 🚀 Recent Milestones
+
+### Dashboard API & Real Data Integration (TDD) (2026-02-28) ✅
+- **Test-Driven Development**: 22 tests written first, then implemented (Red → Green)
+- **DashboardService**: Aggregates GST, cash, receivables, revenue, compliance alerts
+- **DashboardView API**: `GET /api/v1/{org_id}/dashboard/` - 10 API tests passing
+- **Server-Side Auth**: HTTP-only cookies, automatic token refresh
+- **Real Data**: Dashboard now fetches live data instead of static mocks
 
 ### Frontend SSR & Hydration Fix (2026-02-28) ✅
 - **"Loading..." Stuck State Fixed**: Dashboard now renders immediately with full content.

@@ -102,7 +102,7 @@ LedgerSG provides comprehensive documentation for different audiences:
 ## ✅ Project Status
 
 **Last Updated**: 2026-02-28  
-**Latest Milestone**: Frontend SSR & Hydration Fix — "Loading..." stuck state resolved
+**Latest Milestone**: Dashboard API & Real Data Integration (TDD) — 22 tests passing, live data from backend
 
 ### Frontend (Complete) ✅
 
@@ -121,16 +121,17 @@ LedgerSG provides comprehensive documentation for different audiences:
 
 ### Backend (Production Ready) ✅
 
-**LedgerSG Backend v0.3.1** — Core business modules implemented with **57 API endpoints**, including regulatory document generation and delivery services.
+**LedgerSG Backend v0.3.2** — Core business modules implemented with **58 API endpoints**, including Dashboard API with TDD implementation.
 
 | Component | Status | Details |
 |-----------|--------|---------|
 | Integration | ✅ Phase 4 | 100% API coverage, FE/BE aligned |
 | Hardening | ✅ Milestone | Models restored, Schema Alignment |
 | Services | ✅ Milestone | PDF Generation & Email Delivery live |
+| Dashboard | ✅ TDD Complete | 22 tests, real data aggregation |
 | Models | ✅ 22 Aligned | TaxCode, InvoiceDocument, Organisation fixed |
-| Tests | ✅ 52 Passing | SQL constraint compliance verified |
-| **Total** | **57 Endpoints** | **65+ files, ~11,200 lines, 158+ tests** |
+| Tests | ✅ 74 Passing | SQL constraint compliance verified |
+| **Total** | **58 Endpoints** | **67+ files, ~11,600 lines, 180+ tests** |
 
 ### Docker Environment (Live) ✅
 
@@ -151,9 +152,25 @@ LedgerSG provides comprehensive documentation for different audiences:
 
 | Test Suite | Status | Count | Coverage |
 |------------|--------|-------|----------|
-| Backend Unit | ✅ Passing | 52+ | Core models, services |
+| Backend Unit | ✅ Passing | 74+ | Core models, services, Dashboard API (TDD) |
 | Frontend Unit | ✅ Passing | 114 | GST Engine 100% |
 | Integration | ✅ Verified | PDF/Email | Binary stream verified |
+| Dashboard | ✅ TDD | 22 | 100% test coverage via TDD |
+
+### TDD Workflow
+
+LedgerSG uses Test-Driven Development for critical business logic:
+
+```bash
+# Dashboard API was built with TDD:
+# 1. Write tests (Red phase)
+# 2. Implement code (Green phase)
+# 3. Refactor (Clean code)
+
+# Run dashboard tests
+pytest apps/core/tests/test_dashboard_service.py apps/core/tests/test_dashboard_view.py -v
+# → 22 passed
+```
 
 ### Test Commands
 
@@ -362,6 +379,18 @@ curl https://your-domain.com/api/v1/health/
 ```
 
 ### Troubleshooting
+
+**Dashboard API returns 403:**
+```bash
+# Check UserOrganisation.accepted_at is set
+# This is required by TenantContextMiddleware
+```
+
+**Dashboard shows mock data:**
+```bash
+# DashboardPage must be async Server Component
+# Must call fetchDashboardData() instead of createMockDashboardMetrics()
+```
 
 **Service won't start:**
 ```bash

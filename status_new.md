@@ -445,4 +445,47 @@ Test Results:
 
 The LedgerSG application is now fully operational with both frontend and backend integrated!
 
+---
+
+• ✅ Documentation Update Complete!
+
+All four project documentation files have been meticulously updated with the TDD milestone achievements:
+
+Summary of Updates
+
+ Document             Key Updates
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ README.md            Updated latest milestone, backend metrics (58 endpoints, 180+ tests), TDD workflow section, troubleshooting guide
+ CLAUDE.md            Added Dashboard API milestone, updated backend metrics, TDD testing strategy, troubleshooting for dashboard issues
+ AGENT_BRIEF.md       Added TDD milestone section, updated status table (v0.3.2), recommended next steps
+ ACCOMPLISHMENTS.md   Added v0.9.0 milestone section, lessons learned (TDD, model alignment, enums), troubleshooting guide, blockers solved
+
+New Content Added
+
+1. Major Milestone: Dashboard API & Real Data Integration (TDD) ✅
+  • 22 TDD tests (12 service + 10 API)
+  • DashboardService aggregation logic
+  • Server-side authentication
+  • Real data integration
+2. Lessons Learned
+  • Test-Driven Development workflow benefits
+  • Django Model-Schema alignment importance
+  • SQL Enum value alignment
+  • Server-side authentication security
+3. Troubleshooting Guide Additions
+  • Dashboard API 403 errors (accepted_at constraint)
+  • Model-schema mismatch errors
+  • Enum value errors
+  • Mock data vs real data issues
+4. Blockers Solved
+  • InvoiceDocument model-schema mismatch
+  • SQL enum value mismatch (PARTIAL → PARTIALLY_PAID)
+  • UserOrganisation accepted_at constraint
+5. Recommended Next Steps
+  • Organization context (dynamic org selection)
+  • Error handling and retry logic
+  • Real-time updates (SSE/polling)
+  • Redis caching
+
+
 

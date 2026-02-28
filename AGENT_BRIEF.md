@@ -32,11 +32,11 @@
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.1.0 | ✅ Production Ready | 18 static pages, 114 tests |
-| **Backend** | v0.3.1 | ✅ Production Ready | **57 API endpoints**, 22 models aligned |
+| **Backend** | v0.3.2 | ✅ Production Ready | **58 API endpoints**, 22 TDD tests added |
 | **Database** | v1.0.2 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
 | **Integration** | v0.4.0 | ✅ Complete | All API paths aligned, Docker live |
-| **Testing** | — | ✅ 52+ Passing | Backend tests SQL-compliant |
-| **Overall** | — | ✅ **Platform Ready** | **158+ tests**, WCAG AAA, IRAS Compliant |
+| **Testing** | — | ✅ 74+ Passing | Backend tests SQL-compliant, TDD workflow |
+| **Overall** | — | ✅ **Platform Ready** | **180+ tests**, WCAG AAA, IRAS Compliant |
 
 ### Recent Milestone: Django Model Remediation ✅
 **Date**: 2026-02-27  
@@ -71,6 +71,27 @@
 | **.env.local** | API URL configuration for development |
 | **Dockerfile** | Multi-service container with live integration |
 | **CORS** | Configured for localhost:3000 ↔ localhost:8000 |
+
+### Recent Milestone: Dashboard API & Real Data Integration (TDD) ✅
+**Date**: 2026-02-28  
+**Status**: Complete - 22 TDD tests passing, live data integration
+
+| Component | Implementation |
+|-----------|----------------|
+| **DashboardService** | Aggregates GST, cash, receivables, revenue, compliance alerts |
+| **DashboardView** | `GET /api/v1/{org_id}/dashboard/` - 10 API tests |
+| **TDD Tests** | 22 tests (Red → Green → Refactor) |
+| **Server-Side Auth** | HTTP-only cookies, automatic token refresh |
+| **Frontend Integration** | Async Server Component fetching real data |
+
+**Key Files**:
+- `apps/core/services/dashboard_service.py` - 360 lines
+- `apps/core/views/dashboard.py` - API endpoint
+- `apps/core/tests/test_dashboard_service.py` - 12 tests
+- `apps/core/tests/test_dashboard_view.py` - 10 tests
+- `src/lib/server/api-client.ts` - Server-side auth client
+
+---
 
 ### Recent Milestone: Frontend SSR & Hydration Fix ✅
 **Date**: 2026-02-28  
@@ -196,6 +217,19 @@ pytest --reuse-db --no-migrations
 
 ## 🔧 Troubleshooting
 
+### Dashboard API
+**Problem**: Dashboard API returns 403 Forbidden.  
+**Cause**: `UserOrganisation.accepted_at` is null (TenantContextMiddleware requires it).  
+**Solution**: Ensure test fixtures set `accepted_at=datetime.now()`.
+
+**Problem**: `ProgrammingError: column "contact_snapshot" of relation "document" does not exist`.  
+**Cause**: Model has fields not in SQL schema.  
+**Solution**: Remove invalid fields from `InvoiceDocument` model.
+
+**Problem**: `DataError: invalid input value for enum doc_status: "PARTIAL"`.  
+**Cause**: Using wrong enum value.  
+**Solution**: Use `PARTIALLY_PAID` (matches SQL enum).
+
 ### Unmanaged Models & Testing
 **Problem**: Tests fail with `relation "core.app_user" does not exist`.  
 **Cause**: `pytest-django` skips migrations for unmanaged models, resulting in an empty test database.  
@@ -262,9 +296,21 @@ pytest --reuse-db --no-migrations
 ## 🚀 Recommended Next Steps
 
 ### Immediate (High Priority)
-1. **Testing**: Verify all 18 pages render correctly without hydration errors
-2. **Dashboard Real Data**: Replace mock data with actual API calls to backend
-3. **Error Tracking**: Add Sentry or similar for client-side error monitoring
+1. **Organization Context**: Replace hardcoded `DEFAULT_ORG_ID` with dynamic org selection
+2. **Error Handling**: Add retry logic and fallback UI for dashboard API failures
+3. **Real-time Updates**: Implement SSE or polling for live dashboard updates
+4. **Caching**: Add Redis caching for dashboard data
+
+### Short-term (Medium Priority)
+5. **Testing**: Add end-to-end tests for dashboard data flow
+6. **Error Tracking**: Add Sentry for API failures and client-side errors
+7. **Banking Module**: Replace stub logic with actual bank reconciliation
+
+### Long-term (Low Priority)
+8. **Analytics**: Add dashboard analytics tracking
+9. **Export**: Add dashboard data export (PDF, Excel)
+10. **Mobile**: Optimize dashboard layout for mobile
+11. **InvoiceNow**: Finalize Peppol transmission integration
 
 ### Short-term (Medium Priority)
 4. **Banking Module**: Replace placeholder views in `banking/views.py` with actual bank reconciliation logic

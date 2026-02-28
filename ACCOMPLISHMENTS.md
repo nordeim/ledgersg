@@ -6,11 +6,12 @@ This document records the completed work on the LedgerSG platform, aligned with 
 
 **Project Status**:
 - ✅ Frontend: v0.1.0 — Production Ready (All 6 Milestones Complete, Docker Live)
-- ✅ Backend: v0.3.1 — Production Ready (22 Models Aligned, 52+ Tests Passing)
+- ✅ Backend: v0.3.2 — Production Ready (58 API endpoints, 22 TDD Tests Added)
 - ✅ Database: v1.0.2 — Hardened & Aligned (SQL Constraints Enforced)
 - ✅ Integration: v0.4.0 — All API paths aligned (CORS Configured)
-- ✅ Testing: v0.7.0 — Backend & Frontend Tests Verified
+- ✅ Testing: v0.8.0 — Backend & Frontend Tests Verified (180+ total tests)
 - ✅ Docker: v1.0.0 — Multi-Service Container with Live Integration
+- ✅ Dashboard API: v0.9.0 — Real Data Integration (TDD)
 
 ---
 
@@ -249,6 +250,79 @@ Fixed critical frontend rendering issues causing "Loading..." stuck state and UI
 
 ---
 
+# Major Milestone: Dashboard API & Real Data Integration (TDD) ✅ COMPLETE (2026-02-28)
+
+## Executive Summary
+Implemented comprehensive Dashboard API following Test-Driven Development (TDD) principles, enabling real-time financial data aggregation from multiple backend sources. Frontend now fetches live data via secure server-side authentication.
+
+### Key Achievements
+- **Test-Driven Development**: 22 tests written first (Red phase), then implemented code to pass all tests (Green phase)
+- **DashboardService**: Aggregates GST, cash, receivables, revenue, compliance alerts from multiple sources
+- **DashboardView API**: `GET /api/v1/{org_id}/dashboard/` returns comprehensive metrics
+- **Server-Side Auth**: HTTP-only cookies, automatic token refresh, zero JWT exposure in browser
+- **Real Data Integration**: Dashboard now displays live data instead of static mock values
+
+### Technical Implementation
+
+#### Backend (TDD Approach)
+| Phase | Action | Result |
+|-------|--------|--------|
+| **Red** | Wrote 22 tests for DashboardService and DashboardView | All tests initially failed |
+| **Green** | Implemented DashboardService with aggregation logic | All 12 service tests pass |
+| **Green** | Implemented DashboardView API endpoint | All 10 API tests pass |
+| **Refactor** | Fixed model-schema alignment issues | Clean, maintainable code |
+
+#### New Backend Files
+| File | Purpose | Lines |
+|------|---------|-------|
+| `apps/core/services/dashboard_service.py` | Aggregates dashboard metrics from invoices, accounts, fiscal periods | 360 |
+| `apps/core/views/dashboard.py` | API endpoint for dashboard data | 45 |
+| `apps/core/tests/test_dashboard_service.py` | 12 TDD tests for service layer | 280 |
+| `apps/core/tests/test_dashboard_view.py` | 10 TDD tests for API endpoint | 260 |
+
+#### Modified Backend Files
+| File | Change |
+|------|--------|
+| `apps/core/urls/__init__.py` | Added `/dashboard/` route |
+| `apps/core/models/invoice_document.py` | Fixed schema alignment (removed `contact_snapshot`, `created_by`) |
+
+#### New Frontend Files
+| File | Purpose | Lines |
+|------|---------|-------|
+| `src/lib/server/api-client.ts` | Server-side API client with auth handling | 220 |
+
+#### Modified Frontend Files
+| File | Change |
+|------|--------|
+| `src/app/(dashboard)/dashboard/page.tsx` | Async Server Component fetching real data from backend |
+
+### API Response Format
+```json
+{
+  "gst_payable": "3300.0000",
+  "gst_payable_display": "3,300.00",
+  "outstanding_receivables": "50,500.00",
+  "cash_on_hand": "145,000.00",
+  "revenue_mtd": "12,500.00",
+  "revenue_ytd": "145,000.00",
+  "gst_threshold_status": "WARNING",
+  "gst_threshold_utilization": 78,
+  "compliance_alerts": [...],
+  "invoices_pending": 5,
+  "invoices_overdue": 3,
+  "current_gst_period": {...},
+  "last_updated": "2026-02-28T10:15:30.123456"
+}
+```
+
+### Security Architecture
+- **HTTP-Only Cookies**: JWT tokens never accessible to JavaScript
+- **Server-Side Fetching**: Data fetched server-to-server (faster, more secure)
+- **Automatic Token Refresh**: Handles 401 responses transparently
+- **XSS Protection**: Even if XSS occurs, tokens cannot be stolen
+
+---
+
 # Major Milestone: Next.js Standalone Build Fix ✅ COMPLETE (2026-02-28)
 
 ## Executive Summary
@@ -286,6 +360,28 @@ ls .next/standalone/.next/static/chunks/*.js | wc -l
 
 ## Lessons Learned
 
+### Test-Driven Development (TDD)
+- **Discovery**: Writing tests first forces clear API design and catches edge cases early
+- **Process**: Red (write failing tests) → Green (implement to pass) → Refactor (clean code)
+- **Benefit**: 22 comprehensive tests ensure dashboard data accuracy and API contract adherence
+- **Key Insight**: TDD is especially valuable for data aggregation where calculations must be precise
+
+### Django Model-Schema Alignment
+- **Discovery**: InvoiceDocument model had fields (`contact_snapshot`, `created_by`) not in SQL schema
+- **Solution**: Removed invalid fields from model to match database schema
+- **Key Insight**: SQL-first architecture requires models strictly follow DDL-defined columns
+
+### Enum Value Alignment
+- **Discovery**: Model used `PARTIAL` status but SQL enum is `PARTIALLY_PAID`
+- **Solution**: Updated DashboardService to use correct SQL enum values
+- **Key Insight**: Must verify enum values match exactly between code and database schema
+
+### Server-Side Authentication
+- **Discovery**: Client-side JWT storage is vulnerable to XSS attacks
+- **Solution**: Server Components fetch data server-side using HTTP-only cookies
+- **Benefit**: Tokens never exposed to browser JavaScript, automatic refresh handling
+- **Key Insight**: Next.js Server Components enable secure, authenticated data fetching
+
 ### Next.js Standalone Mode
 - **Discovery**: `output: 'standalone'` doesn't automatically include `.next/static/` folder
 - **Solution**: Must manually copy `cp -r .next/static .next/standalone/.next/`
@@ -308,6 +404,21 @@ ls .next/standalone/.next/static/chunks/*.js | wc -l
 ---
 
 ## Troubleshooting Guide (Updated)
+
+### Dashboard API Returns 403 Forbidden
+- **Issue**: Dashboard API returns `{"error": {"code": "unauthorized_org_access"}}`
+- **Cause**: User's `UserOrganisation` record missing `accepted_at` timestamp
+- **Solution**: Ensure fixtures set `accepted_at=datetime.now()` when creating memberships
+
+### Dashboard API Returns 500 Error
+- **Issue**: Internal server error when fetching dashboard data
+- **Cause**: `InvoiceDocument` model has fields not in SQL schema
+- **Solution**: Remove invalid fields from model (e.g., `contact_snapshot`, `created_by`)
+
+### Dashboard Shows Mock Data Instead of Real Data
+- **Issue**: Browser displays static values like "S$ 12,450.00"
+- **Cause**: DashboardPage still using `createMockDashboardMetrics()`
+- **Solution**: Convert to async Server Component and call `fetchDashboardData(orgId)`
 
 ### Frontend "Loading..." Stuck
 - **Issue**: Page shows "Loading..." indefinitely
@@ -336,6 +447,24 @@ ls .next/standalone/.next/static/chunks/*.js | wc -l
 
 ## Blockers Encountered
 
+### ✅ SOLVED: InvoiceDocument Model-Schema Mismatch
+- **Status**: SOLVED (2026-02-28)
+- **Problem**: Model had `contact_snapshot`, `created_by` fields not in SQL schema
+- **Solution**: Removed invalid fields from InvoiceDocument model
+- **Impact**: DashboardService can now query invoices without SQL errors
+
+### ✅ SOLVED: SQL Enum Value Mismatch
+- **Status**: SOLVED (2026-02-28)
+- **Problem**: Code used `PARTIAL` status, SQL enum is `PARTIALLY_PAID`
+- **Solution**: Updated DashboardService to use correct enum values
+- **Impact**: Invoice status filtering now works correctly
+
+### ✅ SOLVED: UserOrganisation accepted_at Constraint
+- **Status**: SOLVED (2026-02-28)
+- **Problem**: TenantContextMiddleware requires `accepted_at__isnull=False`
+- **Solution**: Updated test fixtures to set `accepted_at` timestamp
+- **Impact**: Dashboard API authentication works correctly
+
 ### ✅ SOLVED: Static Files Not Served
 - **Status**: SOLVED (2026-02-28)
 - **Solution**: Updated `package.json` build:server script to auto-copy static files
@@ -353,9 +482,22 @@ ls .next/standalone/.next/static/chunks/*.js | wc -l
 ## Recommended Next Steps
 
 ### Immediate (High Priority)
-1. **Testing**: Verify all 18 pages render correctly without hydration errors
-2. **Performance**: Implement React.lazy() for heavy chart components
-3. **Monitoring**: Add error tracking for client-side hydration failures
+1. **Organization Context**: Replace hardcoded `DEFAULT_ORG_ID` with dynamic org selection from user context
+2. **Error Handling**: Add retry logic and fallback UI for dashboard API failures
+3. **Real-time Updates**: Implement Server-Sent Events or polling for live dashboard updates
+4. **Caching**: Add Redis caching for dashboard data to reduce database load
+
+### Short-term (Medium Priority)
+5. **Testing**: Add end-to-end tests for dashboard data flow (frontend → backend → database)
+6. **Performance**: Implement React.lazy() for heavy chart components
+7. **Monitoring**: Add error tracking (Sentry) for API failures and client-side errors
+8. **Banking Module**: Replace stub logic with actual bank reconciliation
+
+### Long-term (Low Priority)
+9. **Analytics**: Add dashboard analytics tracking (page views, feature usage)
+10. **Export**: Add dashboard data export (PDF report, Excel download)
+11. **Mobile**: Optimize dashboard layout for mobile devices
+12. **InvoiceNow**: Finalize Peppol transmission integration with dashboard status
 
 ### Short-term (Medium Priority)
 4. **Optimization**: Convert more pages to Server Components where possible
@@ -367,6 +509,13 @@ ls .next/standalone/.next/static/chunks/*.js | wc -l
 8. **Documentation**: Create component usage guidelines (Server vs Client)
 
 ---
+
+### v0.9.0 (2026-02-28) — Dashboard API & Real Data Integration (TDD)
+- **Milestone**: Full TDD implementation of Dashboard API with real-time data aggregation
+- **Backend**: DashboardService with 12 comprehensive tests, DashboardView API with 10 tests
+- **Frontend**: Server-side API client with HTTP-only cookie auth, Dashboard fetches live data
+- **Security**: JWT tokens never exposed to client, automatic token refresh
+- **Tests**: 22 new tests (100% pass rate), TDD workflow (Red → Green → Refactor)
 
 ### v0.8.0 (2026-02-28) — Frontend SSR & Hydration Fix
 - **Milestone**: Fixed "Loading..." stuck state and hydration mismatches
