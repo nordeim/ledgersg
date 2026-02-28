@@ -137,10 +137,17 @@ RUN cd /app/apps/web && \
     fi && \
     if [ ! -d ".next/standalone/.next/static" ]; then \
         echo "WARNING: Static files not in standalone folder, copying..."; \
-        cp -r .next/static .next/standalone/.next/ 2>/dev/null || true; \
+        cp -r .next/static .next/standalone/.next/ || { \
+            echo "ERROR: Failed to copy static files"; \
+            exit 1; \
+        }; \
     fi && \
     STATIC_COUNT=$(ls .next/standalone/.next/static/chunks/*.js 2>/dev/null | wc -l) && \
-    echo "✓ Standalone build verified: $STATIC_COUNT JS chunks" && \
+    if [ "$STATIC_COUNT" -lt 10 ]; then \
+        echo "ERROR: Only $STATIC_COUNT JS chunks found. Expected 20+"; \
+        exit 1; \
+    fi && \
+    echo "✓ Standalone build verified: $STATIC_COUNT JS chunks" && 
     chown -R user:user /app/apps/web
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -408,11 +415,20 @@ TABLE_COUNT=$(sudo -u user ${PG_BIN}/psql -h localhost -p 5432 -d ${DB_NAME} -t 
 
 if [ -z "$TABLE_COUNT" ] || [ "$TABLE_COUNT" -eq "0" ]; then
     echo "  → Applying database schema (first run)..."
+    echo ""
+    echo "  ⚠️  WARNING: This schema uses DROP SCHEMA IF EXISTS... CASCADE"
+    echo "      Re-running the schema will DESTROY all existing data!"
+    echo ""
     sudo -u user ${PG_BIN}/psql -h localhost -p 5432 -d ${DB_NAME} -f /app/apps/backend/database_schema.sql
     echo "  ✓ Schema applied"
 else
     echo "  ✓ Database schema already exists ($TABLE_COUNT tables found)"
     echo "  ℹ️  Skipping schema application to preserve data"
+    echo ""
+    echo "  ⚠️  TO RE-APPLY SCHEMA (DATA WILL BE LOST):"
+    echo "      1. Backup your data first!"
+    echo "      2. Drop the database and recreate"
+    echo "      3. Container will auto-apply schema on next startup"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -512,7 +528,7 @@ done
 if [ "$BACKEND_READY" = false ]; then
     echo "⚠ Backend API may not be fully ready (continuing)"
     echo "📋 Last 50 lines of error log:"
-    tail -50 /tmp/backend_logs/error.log 2>/dev/null || echo "  (log not available)"
+    tail -50 /tmp/backend.log 2>/dev/null || echo "  (log not available)"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -626,7 +642,7 @@ EXPOSE ${APP_PORT} ${FRONTEND_PORT} ${BACKEND_PORT}
 
 # Health check - flexible for any exposed port
 # HF Space will configure which port the URL maps to
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:${FRONTEND_PORT} 2>/dev/null || \
         curl -f http://localhost:${APP_PORT}/health 2>/dev/null || \
         exit 1
