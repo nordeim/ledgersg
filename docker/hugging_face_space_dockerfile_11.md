@@ -1095,4 +1095,4 @@ Once you confirm these fixes are working:
 3. ✅ Restart container and confirm idempotent detection
 4. ✅ Proceed with fixes #3-#7 from the original analysis
 
-# 
+# https://chat.qwen.ai/s/45c614b3-6930-4765-9cb4-397bb7356a45?fev=0.2.9
