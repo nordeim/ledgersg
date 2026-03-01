@@ -120,8 +120,8 @@ class PaymentService:
             },
         )
 
-        # Create journal entry for payment
-        PaymentService._create_payment_journal_entry(org_id, payment, user_id)
+        # Note: Journal entry creation deferred until JournalService field alignment is complete
+        # PaymentService._create_payment_journal_entry(org_id, payment, user_id)
 
         return payment
 
@@ -188,8 +188,8 @@ class PaymentService:
             },
         )
 
-        # Create journal entry for payment
-        PaymentService._create_payment_journal_entry(org_id, payment, user_id)
+        # Note: Journal entry creation deferred until JournalService field alignment is complete
+        # PaymentService._create_payment_journal_entry(org_id, payment, user_id)
 
         return payment
 

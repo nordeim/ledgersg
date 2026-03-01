@@ -435,9 +435,7 @@ class TestPaymentServiceVoid:
         assert voided.is_voided is True
         assert "Duplicate payment" in voided.notes
 
-    def test_void_already_voided_payment_fails(
-        self, test_org, bank_account, customer, test_user, fiscal_period
-    ):
+    def test_void_already_voided_payment_fails(self, test_org, bank_account, customer, test_user):
         """Test that voiding an already voided payment fails."""
         data = {
             "contact_id": customer.id,
@@ -467,9 +465,7 @@ class TestPaymentServiceVoid:
 
         assert "already voided" in str(exc_info.value).lower()
 
-    def test_void_payment_audit_logged(
-        self, test_org, bank_account, customer, test_user, fiscal_period
-    ):
+    def test_void_payment_audit_logged(self, test_org, bank_account, customer, test_user):
         """Test that voiding is audit logged."""
         data = {
             "contact_id": customer.id,
@@ -540,7 +536,7 @@ class TestPaymentServiceAllocate:
         assert allocations[0].allocated_amount == Decimal("1090.0000")
 
     def test_allocate_exceeds_payment_amount_fails(
-        self, test_org, bank_account, customer, test_user, fiscal_period
+        self, test_org, bank_account, customer, test_user
     ):
         """Test that allocation exceeding payment amount fails."""
         invoice = InvoiceDocument.objects.create(
@@ -578,7 +574,7 @@ class TestPaymentServiceAllocate:
         assert "exceed" in str(exc_info.value).lower()
 
     def test_allocate_to_wrong_contact_fails(
-        self, test_org, bank_account, customer, test_user, fiscal_period, ar_account
+        self, test_org, bank_account, customer, test_user, ar_account
     ):
         """Test that allocating to different contact's invoice fails."""
         other_customer = Contact.objects.create(
