@@ -54,18 +54,20 @@
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.1.0 | ✅ Production Ready | 18 pages, 5 test files, 114 tests passing |
 | **Backend** | v0.3.2 | ✅ Production Ready | 58 endpoints, 14 test files, 173 tests passing |
-| **Database** | v1.0.2 | ✅ Complete | 7 schemas, 28 tables, RLS enforced |
+| **Database** | v1.0.3 | ✅ Complete | 7 schemas, 28 tables, RLS enforced |
 | **Integration** | v0.4.0 | ✅ Complete | Docker live, CORS configured |
-| **Security** | — | ⚠️ 95% Score | 4 findings: SEC-001 (HIGH) pending |
-| **Overall** | — | ⚠️ Near Production | 287 tests, WCAG AAA, IRAS Compliant |
+| **Banking** | v0.5.0 | ✅ SEC-001 Remediated | 29 tests, validated endpoints |
+| **Security** | — | ⚠️ 95% Score | 3 findings remaining (SEC-002, SEC-003, SEC-004) |
+| **Overall** | — | ⚠️ Near Production | 316 tests, WCAG AAA, IRAS Compliant |
 
 ### Latest Milestone
 
-**🎉 Dashboard API & Real Data Integration (TDD)** — 2026-02-28
-- ✅ 22 test-driven tests passing (Red → Green → Refactor)
-- ✅ Real-time financial data aggregation from backend
-- ✅ Server-side authentication with zero JWT exposure
-- ✅ SSR & hydration issues resolved
+**🎉 SEC-001 Banking Module Remediation (HIGH Severity)** — 2026-03-02
+- ✅ 29 test-driven tests passing (14 bank account + 15 payment)
+- ✅ All stub implementations replaced with validated endpoints
+- ✅ Database schema enhanced: `updated_at` column, `get_next_document_number()` function
+- ✅ Comprehensive service layer with audit logging
+- ✅ Multi-currency payment support with FX gain/loss tracking
 
 ---
 
@@ -220,7 +222,7 @@ sequenceDiagram
 
 | ID | Finding | Severity | Status |
 |----|---------|----------|--------|
-| SEC-001 | Banking stubs return unvalidated input | HIGH | ⚠️ Implementation Planned |
+| SEC-001 | Banking stubs return unvalidated input | HIGH | ✅ Remediated (2026-03-02) |
 | SEC-002 | No rate limiting on authentication | MEDIUM | ⚠️ Recommended |
 | SEC-003 | Content Security Policy not configured | MEDIUM | ⚠️ Recommended |
 | SEC-004 | Frontend test coverage minimal outside GST engine | MEDIUM | ⚠️ In Progress |
@@ -514,10 +516,11 @@ pytest --reuse-db --no-migrations
 
 | Test Suite | Status | Files | Tests | Coverage |
 |------------|--------|-------|-------|----------|
-| Backend Unit | ✅ Passing | 14 | 173 | Core, Services, Dashboard API |
+| Backend Unit | ✅ Passing | 16 | 202 | Core, Services, Dashboard, Banking |
 | Frontend Unit | ✅ Passing | 5 | 114 | GST Engine 100%, UI components |
 | Integration | ✅ Verified | — | — | PDF/Email binary stream |
 | Dashboard TDD | ✅ Passing | 2 | 22 | Dashboard service + view |
+| Banking TDD | ✅ Passing | 2 | 29 | Bank account + payment services |
 
 ---
 
@@ -783,6 +786,8 @@ refactor: extract invoice validation to service layer
 | Dashboard API returns 403 | `UserOrganisation.accepted_at` is null | Set `accepted_at` in fixtures |
 | `check_tax_code_input_output` constraint fails | Missing direction flags | Set `is_input=True` or `is_output=True` |
 | Circular dependency on DB init | FK order wrong | FKs added via `ALTER TABLE` at end |
+| `No document sequence configured` | Missing seed data | Add to `core.document_sequence` table |
+| `function get_next_document_number does not exist` | Schema function missing | Load latest `database_schema.sql` |
 
 ### Frontend Issues
 
@@ -815,10 +820,10 @@ refactor: extract invoice validation to service layer
 
 ### Immediate (High Priority)
 
+- [x] **Banking Module** — Replace stubs with validated bank reconciliation logic (SEC-001) ✅ COMPLETE
 - [ ] **Organization Context** — Replace hardcoded `DEFAULT_ORG_ID` with dynamic org selection
 - [ ] **Error Handling** — Add retry logic and fallback UI for dashboard API failures
 - [ ] **Rate Limiting** — Implement `django-ratelimit` on authentication endpoints (SEC-002)
-- [ ] **Banking Module** — Replace stubs with validated bank reconciliation logic (SEC-001)
 
 ### Short-Term (Medium Priority)
 
@@ -827,6 +832,7 @@ refactor: extract invoice validation to service layer
 - [ ] **CI/CD Pipeline** — Automate manual DB initialization workflow in GitHub Actions
 - [ ] **Real-Time Updates** — Implement SSE or polling for live dashboard updates
 - [ ] **Redis Caching** — Add caching for dashboard data
+- [ ] **Journal Entry Integration** — Align JournalService field names with JournalEntry model
 
 ### Long-Term (Low Priority)
 

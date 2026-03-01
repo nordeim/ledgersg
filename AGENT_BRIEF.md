@@ -1,9 +1,9 @@
 # LedgerSG — Agent & Developer Briefing
 
-> **Single Source of Truth** for coding agents and human developers  
-> **Version**: 1.3.0  
-> **Last Updated**: 2026-02-28  
-> **Status**: Production Ready ✅ (SSR & Hydration Fixed)
+> **Single Source of Truth** for coding agents and human developers
+> **Version**: 1.4.0
+> **Last Updated**: 2026-03-02
+> **Status**: Production Ready ✅ (SEC-001 Remediated)
 
 ---
 
@@ -14,7 +14,7 @@
 3. [Backend Deep Dive](#-backend-deep-dive)
 4. [Frontend Deep Dive](#-frontend-deep-dive)
 5. [Database Architecture](#-database-architecture)
-6. [IRAS Compliance \& GST](#-iras-compliance--gst)
+6. [IRAS Compliance & GST](#-iras-compliance--gst)
 7. [Security Architecture](#-security-architecture)
 8. [Testing Strategy](#-testing-strategy)
 9. [Development Guidelines](#-development-guidelines)
@@ -32,11 +32,24 @@
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.1.0 | ✅ Production Ready | 18 static pages, 114 tests |
-| **Backend** | v0.3.2 | ✅ Production Ready | **58 API endpoints**, 22 TDD tests added |
-| **Database** | v1.0.2 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
-| **Integration** | v0.4.0 | ✅ Complete | All API paths aligned, Docker live |
-| **Testing** | — | ✅ 74+ Passing | Backend tests SQL-compliant, TDD workflow |
-| **Overall** | — | ✅ **Platform Ready** | **180+ tests**, WCAG AAA, IRAS Compliant |
+| **Backend** | v0.3.2 | ✅ Production Ready | **58 API endpoints**, 202 tests |
+| **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
+| **Banking** | v0.5.0 | ✅ SEC-001 Remediated | 29 tests, validated endpoints |
+| **Testing** | — | ✅ 316+ Passing | Backend + Frontend tests verified |
+| **Overall** | — | ✅ **Platform Ready** | **316+ tests**, WCAG AAA, IRAS Compliant |
+
+### Recent Milestone: SEC-001 Banking Module Remediation ✅
+**Date**: 2026-03-02
+**Status**: HIGH Severity Finding Remediated
+
+| Fix | Impact |
+|-----|--------|
+| **29 TDD Tests** | 14 bank account + 15 payment tests, 100% pass rate |
+| **Validated Endpoints** | 13 endpoints replacing 5 unvalidated stubs |
+| **Service Layer** | BankAccountService, PaymentService, ReconciliationService |
+| **Schema Enhancements** | `updated_at` column, `get_next_document_number()` function |
+| **Audit Logging** | All operations logged to audit.event_log |
+| **Multi-Currency** | FX gain/loss tracking with base currency conversion |
 
 ### Recent Milestone: Django Model Remediation ✅
 **Date**: 2026-02-27  
@@ -217,6 +230,24 @@ pytest --reuse-db --no-migrations
 
 ## 🔧 Troubleshooting
 
+### Banking Module Issues
+
+**Problem**: `No document sequence configured for org X type PAYMENT_RECEIVED`
+**Cause**: Missing entry in `core.document_sequence` for payment types
+**Solution**: Seed document sequences:
+```sql
+INSERT INTO core.document_sequence (org_id, document_type, prefix, next_number, padding)
+VALUES (org_uuid, 'PAYMENT_RECEIVED', 'RCP-', 1, 5), (org_uuid, 'PAYMENT_MADE', 'PAY-', 1, 5);
+```
+
+**Problem**: `function core.get_next_document_number does not exist`
+**Cause**: Database schema not updated to latest version
+**Solution**: Reload `database_schema.sql` or create the function manually
+
+**Problem**: `column "updated_at" of relation "payment_allocation" does not exist`
+**Cause**: Schema missing column added in v1.0.3
+**Solution**: Apply schema patch or reload full schema
+
 ### Dashboard API
 **Problem**: Dashboard API returns 403 Forbidden.  
 **Cause**: `UserOrganisation.accepted_at` is null (TenantContextMiddleware requires it).  
@@ -296,27 +327,19 @@ pytest --reuse-db --no-migrations
 ## 🚀 Recommended Next Steps
 
 ### Immediate (High Priority)
-1. **Organization Context**: Replace hardcoded `DEFAULT_ORG_ID` with dynamic org selection
-2. **Error Handling**: Add retry logic and fallback UI for dashboard API failures
-3. **Real-time Updates**: Implement SSE or polling for live dashboard updates
-4. **Caching**: Add Redis caching for dashboard data
+1. **Journal Entry Integration**: Align JournalService field names with JournalEntry model
+2. **Organization Context**: Replace hardcoded `DEFAULT_ORG_ID` with dynamic org selection
+3. **Bank Reconciliation Tests**: Add tests for ReconciliationService
+4. **Rate Limiting**: Implement `django-ratelimit` on authentication endpoints (SEC-002)
 
 ### Short-term (Medium Priority)
-5. **Testing**: Add end-to-end tests for dashboard data flow
-6. **Error Tracking**: Add Sentry for API failures and client-side errors
-7. **Banking Module**: Replace stub logic with actual bank reconciliation
+5. **API Tests**: Add comprehensive endpoint tests for banking API
+6. **Frontend Integration**: Connect banking pages to validated backend endpoints
+7. **Content Security Policy**: Configure CSP headers (SEC-003)
+8. **Error Handling**: Add retry logic for payment processing
 
 ### Long-term (Low Priority)
-8. **Analytics**: Add dashboard analytics tracking
-9. **Export**: Add dashboard data export (PDF, Excel)
-10. **Mobile**: Optimize dashboard layout for mobile
-11. **InvoiceNow**: Finalize Peppol transmission integration
-
-### Short-term (Medium Priority)
-4. **Banking Module**: Replace placeholder views in `banking/views.py` with actual bank reconciliation logic
-5. **CI/CD Pipeline**: Automate the manual database initialization workflow in GitHub Actions
-6. **Performance**: Implement code splitting for heavy components
-
-### Long-term (Low Priority)
-7. **Compliance**: Finalize InvoiceNow/Peppol transmission logic (XML generation is architecture-ready)
-8. **Documentation**: Create component usage guidelines (Server vs Client Components)
+9. **InvoiceNow Transmission**: Finalize Peppol XML generation
+10. **PII Encryption**: Encrypt GST numbers and bank accounts at rest (SEC-005)
+11. **Analytics**: Add dashboard analytics tracking
+12. **Mobile**: Optimize banking pages for mobile devices

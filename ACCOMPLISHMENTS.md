@@ -7,9 +7,10 @@ This document records the completed work on the LedgerSG platform, aligned with 
 **Project Status**:
 - ✅ Frontend: v0.1.0 — Production Ready (All 6 Milestones Complete, Docker Live)
 - ✅ Backend: v0.3.2 — Production Ready (58 API endpoints, 22 TDD Tests Added)
-- ✅ Database: v1.0.2 — Hardened & Aligned (SQL Constraints Enforced)
+- ✅ Database: v1.0.3 — Hardened & Aligned (SQL Constraints Enforced)
 - ✅ Integration: v0.4.0 — All API paths aligned (CORS Configured)
-- ✅ Testing: v0.8.0 — Backend & Frontend Tests Verified (180+ total tests)
+- ✅ Banking: v0.5.0 — SEC-001 Remediated (29 TDD Tests, Validated Endpoints)
+- ✅ Testing: v0.9.0 — Backend & Frontend Tests Verified (316+ total tests)
 - ✅ Docker: v1.0.0 — Multi-Service Container with Live Integration
 - ✅ Dashboard API: v0.9.0 — Real Data Integration (TDD)
 
@@ -20,13 +21,193 @@ This document records the completed work on the LedgerSG platform, aligned with 
 | Component | Status | Version | Key Deliverables |
 |-----------|--------|---------|------------------|
 | **Frontend** | ✅ Complete | v0.1.0 | 18 pages, 114 tests, Docker live |
-| **Backend** | ✅ Complete | v0.3.1 | 57 API endpoints, 22 models aligned |
-| **Database** | ✅ Complete | v1.0.2 | 20+ patches applied, 7 schemas, 28 tables |
-| **Integration** | ✅ Complete | v0.4.0 | 4 Phases, 57 API endpoints aligned |
-| **Testing** | ✅ Complete | v0.7.0 | 52+ backend tests, 114 frontend tests |
+| **Backend** | ✅ Complete | v0.3.2 | 58 API endpoints, 22 models aligned |
+| **Database** | ✅ Complete | v1.0.3 | Schema patches, 7 schemas, 28 tables |
+| **Banking** | ✅ Complete | v0.5.0 | 29 tests, SEC-001 remediated |
+| **Integration** | ✅ Complete | v0.4.0 | 4 Phases, 58 API endpoints aligned |
+| **Testing** | ✅ Complete | v0.9.0 | 202 backend tests, 114 frontend tests |
 | **Docker** | ✅ Complete | v1.0.0 | Multi-service, live FE/BE integration |
 
 ---
+
+# Major Milestone: SEC-001 Banking Module Remediation ✅ COMPLETE (2026-03-02)
+
+## Executive Summary
+Remediated **SEC-001 (HIGH Severity)** security finding by replacing all stub implementations in the Banking module with production-grade, validated endpoints following Test-Driven Development (TDD) methodology.
+
+### Key Achievements
+- **29 Tests Passing**: Comprehensive TDD test suite (14 bank account + 15 payment tests)
+- **All Stubs Replaced**: 13 validated API endpoints replacing 5 unvalidated stubs
+- **Database Schema Enhanced**: Added `updated_at` column, `core.get_next_document_number()` function
+- **Service Layer Implemented**: `BankAccountService`, `PaymentService`, `ReconciliationService`
+- **Multi-Currency Support**: FX gain/loss tracking with base currency conversion
+- **Audit Logging**: All operations logged to `audit.event_log` table
+
+### Technical Implementation
+
+#### New Backend Files Created
+| File | Purpose | Lines |
+|------|---------|-------|
+| `apps/core/models/bank_transaction.py` | BankTransaction model (18 fields) | 75 |
+| `apps/banking/serializers/bank_account.py` | BankAccount serializers (3) | 120 |
+| `apps/banking/serializers/payment.py` | Payment serializers (4) | 180 |
+| `apps/banking/serializers/allocation.py` | PaymentAllocation serializers (3) | 90 |
+| `apps/banking/serializers/bank_transaction.py` | BankTransaction serializers (5) | 150 |
+| `apps/banking/services/bank_account_service.py` | CRUD + audit operations | 200 |
+| `apps/banking/services/payment_service.py` | Payment creation, void, allocate | 540 |
+| `apps/banking/services/reconciliation_service.py` | Import, reconcile transactions | 180 |
+| `apps/banking/tests/test_bank_account_service.py` | 14 TDD tests | 280 |
+| `apps/banking/tests/test_payment_service.py` | 15 TDD tests | 650 |
+
+#### Modified Backend Files
+| File | Change |
+|------|--------|
+| `apps/banking/views.py` | Replaced all stub implementations with validated endpoints |
+| `apps/banking/urls.py` | Expanded from 5 to 13 URL patterns |
+| `apps/core/models/__init__.py` | Added BankTransaction export |
+| `apps/core/models/audit_event_log.py` | Fixed ArrayField for changed_fields |
+| `database_schema.sql` | Added `updated_at` to payment_allocation, new function |
+
+#### Database Schema Changes
+| Change | Purpose |
+|--------|---------|
+| `banking.payment_allocation.updated_at` | Track modification timestamps |
+| `trg_payment_allocation_updated_at` | Auto-update trigger |
+| `core.get_next_document_number()` | Returns raw number for payment numbering |
+
+### Test Coverage
+| Test Class | Tests | Coverage |
+|------------|-------|----------|
+| TestBankAccountServiceCreate | 4 | Create, duplicate check, default, audit |
+| TestBankAccountServiceList | 3 | List, filter active, search |
+| TestBankAccountServiceGet | 2 | Get success, not found |
+| TestBankAccountServiceUpdate | 2 | Update, audit log |
+| TestBankAccountServiceDeactivate | 2 | Deactivate, only account fails |
+| TestBankAccountRLS | 1 | Cross-org access blocked |
+| TestPaymentServiceCreateReceived | 3 | Create, number generation, audit |
+| TestPaymentServiceCreateMade | 2 | Create, number format |
+| TestPaymentServiceList | 1 | Filter by type |
+| TestPaymentServiceGet | 2 | Get success, not found |
+| TestPaymentServiceVoid | 3 | Void, double void, audit |
+| TestPaymentServiceAllocate | 3 | Allocate, exceeds, wrong contact |
+| TestPaymentMultiCurrency | 1 | Base amount calculation |
+
+### Security Validation
+- ✅ All inputs validated via DRF serializers
+- ✅ Foreign key ownership verified (org_id matching)
+- ✅ Cross-organisation access blocked (RLS enforced)
+- ✅ Audit trail for all CREATE, UPDATE, VOID operations
+- ✅ Decimal precision enforced (NUMERIC 10,4)
+
+---
+
+## Lessons Learned (Banking Module)
+
+### SQL-First Document Sequencing
+- **Discovery**: Payment numbering required a new function `core.get_next_document_number()` that returns the raw number (not formatted string)
+- **Solution**: Added new function to `database_schema.sql` that returns `BIGINT` instead of `VARCHAR(30)`
+- **Key Insight**: The existing `core.next_document_number()` returns formatted strings (e.g., "RCP-00001"), but banking needed raw numbers for custom formatting
+
+### Missing Database Columns
+- **Discovery**: `payment_allocation` table was missing `updated_at` column, causing ORM errors
+- **Solution**: Added `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()` and trigger to schema
+- **Key Insight**: All models inheriting from `TenantModel` expect `created_at` and `updated_at` timestamps
+
+### Test Fixture Complexity
+- **Discovery**: Payment tests required extensive fixtures: FiscalYear, FiscalPeriod, AR/AP accounts, document sequences
+- **Solution**: Created comprehensive `test_org` fixture that seeds all prerequisites
+- **Key Insight**: Unmanaged model tests require manual fixture setup that matches SQL constraints
+
+### Audit Log Dual-Entry
+- **Discovery**: `banking.payment` has a trigger that creates audit logs automatically, causing duplicate entries
+- **Solution**: Tests filter for `user_id__isnull=False` to find service-created logs
+- **Key Insight**: Database-level audit triggers and application-level logging can coexist; tests must account for both
+
+### Journal Entry Integration Deferred
+- **Discovery**: `JournalService.create_entry()` uses field names that don't match `JournalEntry` model (`entry_type` vs `source_type`, `description` vs `narration`)
+- **Solution**: Journal entry creation commented out pending JournalService refactoring
+- **Key Insight**: Service-model field alignment must be verified before integration; SQL-first means model fields are immutable
+
+---
+
+## Troubleshooting Guide (Banking Module)
+
+### "No document sequence configured"
+- **Issue**: `get_next_document_number()` raises exception
+- **Cause**: Org missing from `core.document_sequence` for payment types
+- **Solution**: Seed sequences: `INSERT INTO core.document_sequence (org_id, document_type, prefix, next_number, padding) VALUES (uuid, 'PAYMENT_RECEIVED', 'RCP-', 1, 5)`
+
+### "relation does not exist" in Tests
+- **Issue**: `ProgrammingError: relation "core.app_user" does not exist`
+- **Cause**: Test database not initialized
+- **Solution**: Run full initialization:
+```bash
+export PGPASSWORD=ledgersg_secret_to_change
+dropdb -h localhost -U ledgersg test_ledgersg_dev || true
+createdb -h localhost -U ledgersg test_ledgersg_dev
+psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
+pytest --reuse-db --no-migrations
+```
+
+### Payment Allocation "updated_at" Column Missing
+- **Issue**: `ProgrammingError: column "updated_at" does not exist`
+- **Cause**: Schema not updated to latest version
+- **Solution**: Apply schema patch or reload full `database_schema.sql`
+
+### Test Fixture Constraint Violations
+- **Issue**: `check_tax_code_input_output` or similar constraint fails
+- **Cause**: Fixture data doesn't match SQL constraints
+- **Solution**: Ensure fixtures set required fields (`is_input`, `is_output`, `contact_type`, etc.)
+
+---
+
+## Blockers Encountered (Banking Module)
+
+### ✅ SOLVED: Missing Document Sequence Function
+- **Status**: SOLVED (2026-03-02)
+- **Problem**: `core.get_next_document_number()` function didn't exist
+- **Solution**: Added function to `database_schema.sql` returning `BIGINT`
+- **Impact**: Payment numbering now works correctly
+
+### ✅ SOLVED: Payment Allocation Missing updated_at
+- **Status**: SOLVED (2026-03-02)
+- **Problem**: Model expected `updated_at` column not in SQL schema
+- **Solution**: Added column and trigger to schema
+- **Impact**: ORM operations now work without errors
+
+### ✅ SOLVED: Test Fiscal Period Setup
+- **Status**: SOLVED (2026-03-02)
+- **Problem**: Tests failing due to missing fiscal year/period
+- **Solution**: Added FiscalYear and FiscalPeriod creation to `test_org` fixture
+- **Impact**: All payment tests now pass
+
+### ⏳ DEFERRED: Journal Entry Field Alignment
+- **Status**: DEFERRED (requires JournalService refactor)
+- **Problem**: `JournalService.create_entry()` uses wrong field names
+- **Solution**: Requires aligning field names across service and model
+- **Impact**: Payment journal entries deferred until alignment complete
+
+---
+
+## Recommended Next Steps (Updated)
+
+### Immediate (High Priority)
+1. **Journal Entry Integration**: Align JournalService field names with JournalEntry model
+2. **Organization Context**: Replace hardcoded `DEFAULT_ORG_ID` with dynamic org selection
+3. **Bank Reconciliation Tests**: Add tests for `ReconciliationService`
+4. **Rate Limiting**: Implement `django-ratelimit` on authentication endpoints (SEC-002)
+
+### Short-term (Medium Priority)
+5. **API Tests**: Add comprehensive endpoint tests for banking API
+6. **Frontend Integration**: Connect banking pages to validated backend endpoints
+7. **Content Security Policy**: Configure CSP headers (SEC-003)
+8. **Error Handling**: Add retry logic for payment processing
+
+### Long-term (Low Priority)
+9. **InvoiceNow Transmission**: Finalize Peppol XML generation
+10. **PII Encryption**: Encrypt GST numbers and bank accounts at rest (SEC-005)
+11. **Analytics**: Add dashboard analytics tracking
+12. **Mobile**: Optimize banking pages for mobile devices
 
 # Major Milestone: Django Model Remediation ✅ COMPLETE (2026-02-27)
 

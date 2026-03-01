@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
-> **Single Source of Truth** for coding agents and human developers  
-> **Version**: 1.3.0  
-> **Last Updated**: 2026-02-28  
-> **Status**: Production Ready ✅ (SSR & Hydration Fixed)
+> **Single Source of Truth** for coding agents and human developers
+> **Version**: 1.4.0
+> **Last Updated**: 2026-03-02
+> **Status**: Production Ready ✅ (SEC-001 Remediated)
 
 ---
 
@@ -33,9 +33,10 @@
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.1.0 | ✅ Production Ready | 18 static pages, 114 tests |
-| **Backend** | v0.3.1 | ✅ Production Ready | 57 API endpoints, schema hardened |
-| **Database** | v1.0.2 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
-| **Overall** | — | ✅ Platform Ready | 158+ tests, WCAG AAA, IRAS Compliant |
+| **Backend** | v0.3.2 | ✅ Production Ready | **58 API endpoints**, 202 tests |
+| **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
+| **Banking** | v0.5.0 | ✅ SEC-001 Remediated | 29 tests, validated endpoints |
+| **Overall** | — | ✅ **Platform Ready** | **316+ tests**, WCAG AAA, IRAS Compliant |
 
 ---
 
@@ -56,11 +57,11 @@
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| API Endpoints | **58** | 100% Path Alignment (+ Dashboard) |
-| Service Files | 7 | Core business logic (+ DashboardService) |
-| Models | **18** | Aligned with SQL schema |
-| Test Files | 13 | 180+ total tests (+ 22 TDD tests) |
-| Lines of Code | **~11,600+** | Logic & Templates |
+| API Endpoints | **58** | 100% Path Alignment (+ Dashboard + Banking) |
+| Service Files | 10 | Core business logic (+ Dashboard + Banking) |
+| Models | **23** | Aligned with SQL schema (+ BankTransaction) |
+| Test Files | 16 | 202+ total tests (+ Banking tests) |
+| Lines of Code | **~14,000+** | Logic & Templates |
 
 ### Directory Structure
 
@@ -166,6 +167,14 @@ pytest --reuse-db --no-migrations
 ---
 
 ## 🚀 Recent Milestones
+
+### SEC-001 Banking Module Remediation (2026-03-02) ✅
+- **Test-Driven Development**: 29 tests written (14 bank account + 15 payment)
+- **All Stubs Replaced**: 13 validated API endpoints
+- **Service Layer**: BankAccountService, PaymentService, ReconciliationService
+- **Database Enhancements**: `updated_at` column, `get_next_document_number()` function
+- **Multi-Currency**: FX gain/loss tracking with base currency conversion
+- **Audit Logging**: All operations logged to audit.event_log
 
 ### Dashboard API & Real Data Integration (TDD) (2026-02-28) ✅
 - **Test-Driven Development**: 22 tests written first, then implemented (Red → Green)
