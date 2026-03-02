@@ -38,6 +38,7 @@ DJANGO_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
 ]
 
 THIRD_PARTY_APPS = [
@@ -46,6 +47,7 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "django_filters",
     "django_celery_beat",
+    "django_ratelimit",
 ]
 
 LOCAL_APPS = [
@@ -259,6 +261,27 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_ENABLE_UTC = True
 
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# =============================================================================
+# RATE LIMITING CONFIGURATION
+# =============================================================================
+
+RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", default=True, cast=bool)
+
+RATELIMIT_CACHE_PREFIX = "ratelimit"
+
+RATELIMIT_VIEW = "common.exceptions.rate_limit_exceeded_view"
+
+RATELIMIT_USE_CACHE = "default"
+
+RATELIMIT_HEADERS_ENABLE = True
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": config("REDIS_URL", default="redis://localhost:6379/1"),
+    }
+}
 
 # =============================================================================
 # CORS CONFIGURATION

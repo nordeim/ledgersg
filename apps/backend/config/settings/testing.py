@@ -50,9 +50,12 @@ PASSWORD_HASHERS = [
 
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://localhost:6379/1",
     }
 }
+
+RATELIMIT_USE_CACHE = "default"
 
 # =============================================================================
 # CELERY (Testing - Synchronous)
