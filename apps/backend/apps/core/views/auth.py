@@ -205,3 +205,55 @@ def my_organisations_view(request: Request) -> Response:
         )
 
     return Response(data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def set_default_org_view(request: Request) -> Response:
+    """
+    Set user's default organisation.
+
+    POST /api/v1/auth/set-default-org/
+    Body: { "org_id": "uuid" }
+    """
+    from apps.core.models import UserOrganisation
+
+    org_id = request.data.get("org_id")
+    if not org_id:
+        return Response(
+            {"error": {"code": "missing_org_id", "message": "org_id is required"}},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Verify user belongs to this org
+    try:
+        user_org = UserOrganisation.objects.get(
+            user=request.user, org_id=org_id, accepted_at__isnull=False
+        )
+    except UserOrganisation.DoesNotExist:
+        return Response(
+            {
+                "error": {
+                    "code": "unauthorized",
+                    "message": "You do not have access to this organisation",
+                }
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Clear existing default
+    UserOrganisation.objects.filter(user=request.user, is_default=True).update(is_default=False)
+
+    # Set new default
+    user_org.is_default = True
+    user_org.save(update_fields=["is_default"])
+
+    return Response(
+        {
+            "message": "Default organisation updated",
+            "default_org": {
+                "id": str(user_org.org.id),
+                "name": user_org.org.name,
+            },
+        }
+    )

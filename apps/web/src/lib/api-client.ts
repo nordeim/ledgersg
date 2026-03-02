@@ -159,9 +159,10 @@ export const endpoints = {
 
   // Organisations
   organisations: {
-    list: "/api/v1/organisations/",
+    list: "/api/v1/auth/organisations/",
     detail: (id: string) => `/api/v1/${id}/`,
     settings: (id: string) => `/api/v1/${id}/settings/`,
+    setDefault: "/api/v1/auth/set-default-org/",
   },
 
   // Invoices (org-scoped) - Aligned with backend: /invoicing/documents/

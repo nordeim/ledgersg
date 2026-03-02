@@ -100,19 +100,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userData = await api.get<User>(endpoints.auth.me);
         setUser(userData);
         
-        // Fetch user's organisations
-        const orgsData = await api.get<{ results: UserOrganisation[] }>(
-          endpoints.organisations.list
-        );
-        setOrganisations(orgsData.results);
-        
-        // Set default org
-        const defaultOrg = orgsData.results.find((uo) => uo.is_default);
-        if (defaultOrg) {
-          setCurrentOrgId(defaultOrg.org.id);
-        } else if (orgsData.results.length > 0) {
-          setCurrentOrgId(orgsData.results[0].org.id);
-        }
+      // Fetch user's organisations (returns array directly from auth/organisations/)
+      const orgsData = await api.get<UserOrganisation[]>(
+        endpoints.organisations.list
+      );
+      setOrganisations(orgsData);
+
+      // Set default org
+      const defaultOrg = orgsData.find((uo) => uo.is_default);
+      if (defaultOrg) {
+        setCurrentOrgId(defaultOrg.org.id);
+      } else if (orgsData.length > 0) {
+        setCurrentOrgId(orgsData[0].org.id);
+      }
       } catch {
         // No valid session
         clearAuth();

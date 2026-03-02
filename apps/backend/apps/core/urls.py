@@ -14,6 +14,7 @@ from apps.core.views.auth import (
     me_view,
     change_password_view,
     my_organisations_view,
+    set_default_org_view,
 )
 
 from apps.core.views.organisations import (
@@ -37,6 +38,7 @@ auth_urlpatterns = [
     path("auth/profile/", me_view, name="auth-profile"),  # Alias for compatibility
     path("auth/change-password/", change_password_view, name="auth-change-password"),
     path("auth/organisations/", my_organisations_view, name="auth-organisations"),
+    path("auth/set-default-org/", set_default_org_view, name="auth-set-default-org"),
 ]
 
 # Non-org-scoped organisation management
@@ -49,13 +51,10 @@ org_urlpatterns = [
 org_detail_urlpatterns = [
     # Organisation detail - mounted at api/v1/{org_id}/
     path("", OrganisationDetailView.as_view(), name="org-detail"),
-    
     # GST registration - mounted at api/v1/{org_id}/gst/
     path("gst/", GSTRegistrationView.as_view(), name="org-gst"),
-    
     # Fiscal years - mounted at api/v1/{org_id}/fiscal-years/
     path("fiscal-years/", FiscalYearListView.as_view(), name="org-fiscal-years"),
-    
     # Organisation summary - mounted at api/v1/{org_id}/summary/
     path("summary/", OrganisationSummaryView.as_view(), name="org-summary"),
 ]

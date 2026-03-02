@@ -12,16 +12,21 @@ import {
   BookOpen,
   Receipt,
   ChevronRight,
+  ChevronDown,
+  Building2,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/providers/auth-provider";
 
 /*
  * BRUTALIST LAYOUT SHELL
  * - Asymmetric grid ready
  * - Collapsible sidebar (mobile)
  * - Sticky header with blur backdrop
+ * - Dynamic org context from auth provider
  */
 
 interface ShellProps {
@@ -46,7 +51,9 @@ const navItems: NavItem[] = [
 export function Shell({ children }: ShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [orgSelectorOpen, setOrgSelectorOpen] = useState(false);
   const pathname = usePathname();
+  const { user, organisations, currentOrg, switchOrg } = useAuth();
 
   useEffect(() => {
     setMounted(true);
@@ -58,6 +65,21 @@ export function Shell({ children }: ShellProps) {
     }
     return pathname?.startsWith(href);
   };
+
+  const handleOrgSwitch = (orgId: string) => {
+    switchOrg(orgId);
+    setOrgSelectorOpen(false);
+  };
+
+  // Get user initials for avatar
+  const userInitials = user?.full_name
+    ? user.full_name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "DU";
 
   return (
     <div className="min-h-screen bg-void text-text-primary flex">
@@ -121,18 +143,66 @@ export function Shell({ children }: ShellProps) {
           })}
         </nav>
 
-        {/* Footer Info */}
+        {/* Footer: User & Org Info */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
+          {/* Org Selector */}
+          {currentOrg && organisations.length > 0 && (
+            <div className="mb-3">
+              <button
+                onClick={() => setOrgSelectorOpen(!orgSelectorOpen)}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-text-muted hover:text-text-secondary transition-colors rounded-sm hover:bg-surface"
+              >
+                <Building2 className="h-3 w-3" aria-hidden="true" />
+                <span className="truncate flex-1 text-left">
+                  {currentOrg.name}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-3 w-3 transition-transform",
+                    orgSelectorOpen && "rotate-180"
+                  )}
+                  aria-hidden="true"
+                />
+              </button>
+
+              {/* Org Dropdown */}
+              {orgSelectorOpen && (
+                <div className="mt-1 py-1 bg-surface border border-border rounded-sm shadow-lg">
+                  {organisations.map((uo) => (
+                    <button
+                      key={uo.org.id}
+                      onClick={() => handleOrgSwitch(uo.org.id)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-carbon transition-colors",
+                        uo.org.id === currentOrg.id && "text-accent-primary"
+                      )}
+                    >
+                      <span className="truncate flex-1 text-left">
+                        {uo.org.name}
+                      </span>
+                      {uo.org.id === currentOrg.id && (
+                        <Check className="h-3 w-3" aria-hidden="true" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* User Info */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-surface rounded-sm flex items-center justify-center">
-              <span className="text-xs font-mono text-text-secondary">DU</span>
+              <span className="text-xs font-mono text-text-secondary">
+                {userInitials}
+              </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-text-primary truncate">
-                Demo User
+                {user?.full_name || "Demo User"}
               </p>
               <p className="text-xs text-text-muted font-mono truncate">
-                ORG-001
+                {user?.email || "user@example.com"}
               </p>
             </div>
           </div>
