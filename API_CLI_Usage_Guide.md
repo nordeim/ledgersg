@@ -2,7 +2,7 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 2.0.0
+> **Version**: 2.1.0
 > **Last Updated**: 2026-03-02
 > **Status**: Production Ready ✅ (SEC-001 & SEC-002 Remediated)
 
@@ -99,11 +99,13 @@ curl -X POST http://localhost:8000/api/v1/auth/login/ \
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "email": "user@example.com",
     "full_name": "John Doe",
-    "is_superadmin": false
+    "phone": "+65 1234 5678",
+    "created_at": "2026-03-02T10:00:00Z"
   },
   "tokens": {
     "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-    "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+    "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+    "access_expires": "2026-03-02T10:15:00Z"
   }
 }
 ```
@@ -132,8 +134,11 @@ curl -X POST http://localhost:8000/api/v1/auth/refresh/ \
 **Response:**
 ```json
 {
-  "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+  "tokens": {
+    "access": "new_access_token_here",
+    "refresh": "new_refresh_token_here",
+    "access_expires": "2026-03-02T10:30:00Z"
+  }
 }
 ```
 
@@ -170,7 +175,7 @@ SET LOCAL app.current_org_id = '{orgId}';
 
 ### Getting Your Organizations
 
-**Endpoint**: `GET /api/v1/organisations/`
+**Endpoint**: `GET /api/v1/organisations/` (or `/api/v1/auth/organisations/` for detailed membership)
 
 **Request:**
 ```bash
@@ -181,13 +186,14 @@ curl -X GET http://localhost:8000/api/v1/organisations/ \
 **Response:**
 ```json
 {
-  "results": [
+  "data": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440001",
       "name": "My Company Pte Ltd",
       "uen": "202312345A",
       "gst_registered": true,
-      "entity_type": "PRIVATE_LIMITED"
+      "entity_type": "PRIVATE_LIMITED",
+      "base_currency": "SGD"
     }
   ],
   "count": 1
@@ -256,7 +262,7 @@ Org-scoped endpoints require:
 
 ## API Endpoints Reference
 
-### Authentication Endpoints (7)
+### Authentication Endpoints (8)
 
 | Method | Endpoint | Auth | Rate Limit | Description |
 |--------|----------|------|------------|-------------|
@@ -267,8 +273,9 @@ Org-scoped endpoints require:
 | GET | `/api/v1/auth/me/` | Yes | - | Get current user profile |
 | PATCH | `/api/v1/auth/me/` | Yes | - | Update user profile |
 | POST | `/api/v1/auth/change-password/` | Yes | - | Change password |
+| GET | `/api/v1/auth/organisations/` | Yes | - | List user's org memberships |
 
-### Organization Endpoints (5)
+### Organization Endpoints (6)
 
 | Method | Endpoint | Permissions | Description |
 |--------|----------|-------------|-------------|
@@ -277,9 +284,9 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/` | IsOrgMember | Get org details |
 | GET | `/api/v1/{orgId}/gst/` | IsOrgMember | Get GST registration info |
 | GET | `/api/v1/{orgId}/fiscal-years/` | IsOrgMember | List fiscal years |
-| GET | `/api/v1/{orgId}/summary/` | IsOrgMember | Dashboard summary |
+| GET | `/api/v1/{orgId}/summary/` | IsOrgMember | Organisation high-level summary |
 
-### Chart of Accounts Endpoints (7)
+### Chart of Accounts Endpoints (8)
 
 | Method | Endpoint | Permissions | Description |
 |--------|----------|-------------|-------------|
@@ -292,7 +299,7 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/accounts/{id}/balance/` | IsOrgMember | Get account balance |
 | GET | `/api/v1/{orgId}/accounts/trial-balance/` | IsOrgMember | Trial balance |
 
-### GST Endpoints (11)
+### GST Endpoints (13)
 
 | Method | Endpoint | Permissions | Description |
 |--------|----------|-------------|-------------|
@@ -306,9 +313,11 @@ Org-scoped endpoints require:
 | POST | `/api/v1/{orgId}/gst/returns/` | CanFileGST | Create GST return |
 | GET | `/api/v1/{orgId}/gst/returns/{id}/` | IsOrgMember | Get GST return |
 | POST | `/api/v1/{orgId}/gst/returns/{id}/file/` | CanFileGST | File F5 return |
+| POST | `/api/v1/{orgId}/gst/returns/{id}/amend/` | CanFileGST | Amend GST return |
+| POST | `/api/v1/{orgId}/gst/returns/{id}/pay/` | CanFileGST | Record GST payment |
 | GET | `/api/v1/{orgId}/gst/deadlines/` | IsOrgMember | Filing deadlines |
 
-### Invoicing Endpoints (18)
+### Invoicing Endpoints (21)
 
 | Method | Endpoint | Permissions | Description |
 |--------|----------|-------------|-------------|
@@ -322,7 +331,10 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/invoicing/documents/summary/` | IsOrgMember | Document summary |
 | GET | `/api/v1/{orgId}/invoicing/documents/status-transitions/` | IsOrgMember | Valid status transitions |
 | GET | `/api/v1/{orgId}/invoicing/documents/{id}/` | IsOrgMember | Get invoice |
-| PATCH | `/api/v1/{orgId}/invoicing/documents/{id}/` | CanCreateInvoices | Update invoice |
+| PATCH | `/api/v1/{orgId}/invoicing/documents/{id}/` | CanCreateInvoices | Update invoice draft |
+| POST | `/api/v1/{orgId}/invoicing/documents/{id}/status/` | CanApproveInvoices | Manual status update |
+| POST | `/api/v1/{orgId}/invoicing/documents/{id}/lines/` | CanCreateInvoices | Add line item |
+| DELETE | `/api/v1/{orgId}/invoicing/documents/{id}/lines/{lineId}/` | CanCreateInvoices | Remove line item |
 | POST | `/api/v1/{orgId}/invoicing/documents/{id}/approve/` | CanApproveInvoices | Approve invoice |
 | POST | `/api/v1/{orgId}/invoicing/documents/{id}/void/` | CanVoidInvoices | Void invoice |
 | GET | `/api/v1/{orgId}/invoicing/documents/{id}/pdf/` | IsOrgMember | Download PDF |
@@ -331,7 +343,7 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/invoicing/documents/{id}/invoicenow-status/` | IsOrgMember | Check Peppol status |
 | POST | `/api/v1/{orgId}/invoicing/quotes/convert/` | CanCreateInvoices | Convert quote → invoice |
 
-### Journal Endpoints (8)
+### Journal Endpoints (9)
 
 | Method | Endpoint | Permissions | Description |
 |--------|----------|-------------|-------------|
@@ -343,6 +355,7 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/journal-entries/entries/{id}/` | IsOrgMember | Get entry |
 | POST | `/api/v1/{orgId}/journal-entries/entries/{id}/reverse/` | CanCreateJournals | Reverse entry |
 | GET | `/api/v1/{orgId}/journal-entries/trial-balance/` | IsOrgMember | Trial balance |
+| GET | `/api/v1/{orgId}/journal-entries/accounts/{id}/balance/` | IsOrgMember | Get account balance |
 
 ### Banking Endpoints (13) ✅ SEC-001 REMEDIATED
 
@@ -373,7 +386,7 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/reports/dashboard/alerts/` | IsOrgMember | Compliance alerts |
 | GET | `/api/v1/{orgId}/reports/reports/financial/` | CanViewReports | Financial reports |
 
-**Total Endpoints: 72**
+**Total Endpoints: 89**
 
 ---
 
@@ -408,7 +421,7 @@ echo "=== Step 2: Get Organization ==="
 ORGS_RESPONSE=$(curl -s -X GET "$API_BASE/organisations/" \
   -H "Authorization: Bearer $ACCESS_TOKEN")
 
-ORG_ID=$(echo $ORGS_RESPONSE | jq -r '.results[0].id')
+ORG_ID=$(echo $ORGS_RESPONSE | jq -r '.data[0].id')
 
 echo "✓ Using organization: $ORG_ID"
 
@@ -437,14 +450,14 @@ INVOICE_RESPONSE=$(curl -s -X POST "$API_BASE/$ORG_ID/invoicing/documents/" \
   -H "Content-Type: application/json" \
   -d "{
     \"contact_id\": \"$CONTACT_ID\",
-    \"document_type\": \"INVOICE\",
+    \"document_type\": \"SALES_INVOICE\",
     \"issue_date\": \"$(date +%Y-%m-%d)\",
     \"due_date\": \"$(date -d '+30 days' +%Y-%m-%d)\",
     \"lines\": [
       {
         \"description\": \"Consulting Services\",
         \"quantity\": 10,
-        \"unit_price\": \"500.00\",
+        \"unit_price\": \"500.0000\",
         \"tax_code_id\": \"$SR_TAX_CODE\"
       }
     ]
@@ -465,7 +478,7 @@ GST_RESPONSE=$(curl -s -X POST "$API_BASE/$ORG_ID/gst/calculate/document/" \
       {
         \"description\": \"Consulting Services\",
         \"quantity\": 10,
-        \"unit_price\": \"500.00\",
+        \"unit_price\": \"500.0000\",
         \"tax_code_id\": \"$SR_TAX_CODE\"
       }
     ]
@@ -489,12 +502,11 @@ echo "✓ Invoice status: $APPROVED_STATUS"
 
 # 8. Generate PDF
 echo "=== Step 8: Generate PDF ==="
-PDF_RESPONSE=$(curl -s -X GET "$API_BASE/$ORG_ID/invoicing/documents/$INVOICE_ID/pdf/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN")
+# Returns FileResponse (binary)
+curl -s -o invoice_$INVOICE_NUMBER.pdf -X GET "$API_BASE/$ORG_ID/invoicing/documents/$INVOICE_ID/pdf/" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 
-PDF_URL=$(echo $PDF_RESPONSE | jq -r '.download_url')
-
-echo "✓ PDF available at: $PDF_URL"
+echo "✓ PDF saved to invoice_$INVOICE_NUMBER.pdf"
 
 echo ""
 echo "=== Workflow Complete ==="
@@ -805,7 +817,7 @@ fi
 # Refresh and retry
 NEW_TOKEN=$(curl -s -X POST "$API_BASE/auth/refresh/" \
   -H "Content-Type: application/json" \
-  -d "{\"refresh\": \"$LEDGERSG_REFRESH\"}" | jq -r '.access')
+  -d "{\"refresh\": \"$LEDGERSG_REFRESH\"}" | jq -r '.tokens.access')
 
 export LEDGERSG_ACCESS="$NEW_TOKEN"
 
@@ -1033,17 +1045,17 @@ curl "$LEDGERSG_API_BASE/$LEDGERSG_ORG_ID/reports/dashboard/metrics/" \
   -H "Authorization: Bearer $LEDGERSG_ACCESS"
 ```
 
-### Total Endpoints: 72
+### Total Endpoints: 89
 
 | Module | Endpoints | Status |
 |--------|-----------|--------|
-| Authentication | 7 | ✅ Production |
+| Authentication | 8 | ✅ Production |
 | Organizations | 6 | ✅ Production |
 | Chart of Accounts | 8 | ✅ Production |
-| GST | 11 | ✅ Production |
-| Invoicing | 18 | ✅ Production |
-| Journal | 8 | ✅ Production |
-| Banking | 13 | ✅ Production (SEC-001 Remediated) |
+| GST | 13 | ✅ Production |
+| Invoicing | 21 | ✅ Production |
+| Journal | 9 | ✅ Production |
+| Banking | 16 | ✅ Production (SEC-001 Remediated) |
 | Dashboard/Reports | 3 | ✅ Production |
 
 ### Testing Checklist
@@ -1076,6 +1088,6 @@ For API-related questions:
 
 *Last validated against codebase: 2026-03-02*
 *Security status: SEC-001 (HIGH) ✅ REMEDIATED, SEC-002 (MEDIUM) ✅ REMEDIATED*
-*API Version: 2.0.0*
-*Total Endpoints: 72*
+*API Version: 2.1.0*
+*Total Endpoints: 89*
 *Security Score: 98%*
