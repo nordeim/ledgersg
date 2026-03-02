@@ -1,7 +1,7 @@
 """
 Integration tests for Journal Service Field Alignment.
 
-TDD RED Phase: Tests that FAIL until JournalService is aligned with SQL schema.
+TDD GREEN Phase: Tests validate JournalService is aligned with SQL schema.
 
 SQL Schema Fields (journal.entry):
 - source_type VARCHAR(30) - NOT 'entry_type'
@@ -32,18 +32,17 @@ class TestJournalServiceFieldAlignment:
     """Test that JournalService uses correct field names matching SQL schema."""
 
     def test_create_entry_uses_source_type_not_entry_type(
-        self, test_organisation, test_accounts, test_fiscal_period
+        self, test_organisation, test_accounts, test_fiscal_period, test_user
     ):
-        """RED: create_entry should accept 'source_type' parameter, not 'entry_type'."""
+        """create_entry should accept 'source_type' parameter."""
         ar_account = test_accounts["1200"]
         revenue_account = test_accounts["4000"]
 
-        # This should work with source_type
         entry = JournalService.create_entry(
             org_id=test_organisation.id,
             entry_date=date(2024, 1, 15),
-            source_type="MANUAL",  # SQL schema field name
-            narration="Test entry with correct field names",  # SQL schema field name
+            source_type="MANUAL",
+            narration="Test entry with correct field names",
             lines=[
                 {
                     "account_id": ar_account.id,
@@ -57,6 +56,7 @@ class TestJournalServiceFieldAlignment:
                 },
             ],
             fiscal_period_id=test_fiscal_period.id,
+            user_id=test_user.id,
         )
 
         assert entry is not None
@@ -64,13 +64,12 @@ class TestJournalServiceFieldAlignment:
         assert entry.narration == "Test entry with correct field names"
 
     def test_create_entry_validates_source_type_values(
-        self, test_organisation, test_accounts, test_fiscal_period
+        self, test_organisation, test_accounts, test_fiscal_period, test_user
     ):
-        """RED: source_type must be one of the SQL CHECK constraint values."""
+        """source_type must be one of the SQL CHECK constraint values."""
         ar_account = test_accounts["1200"]
         revenue_account = test_accounts["4000"]
 
-        # Valid SQL source_type values
         valid_types = [
             "MANUAL",
             "SALES_INVOICE",
@@ -105,17 +104,17 @@ class TestJournalServiceFieldAlignment:
                     },
                 ],
                 fiscal_period_id=test_fiscal_period.id,
+                user_id=test_user.id,
             )
             assert entry.source_type == source_type
 
     def test_create_entry_rejects_invalid_source_type(
         self, test_organisation, test_accounts, test_fiscal_period
     ):
-        """RED: Invalid source_type should raise ValidationError."""
+        """Invalid source_type should raise ValidationError."""
         ar_account = test_accounts["1200"]
         revenue_account = test_accounts["4000"]
 
-        # Old service values that are NOT in SQL schema
         invalid_types = ["INVOICE", "CREDIT_NOTE", "PAYMENT", "ADJUSTMENT", "OPENING", "CLOSING"]
 
         for invalid_type in invalid_types:
@@ -144,13 +143,12 @@ class TestJournalServiceFieldAlignment:
             ) or "Invalid entry type" in str(exc_info.value.message)
 
     def test_list_entries_uses_source_type_filter(
-        self, test_organisation, test_accounts, test_fiscal_period
+        self, test_organisation, test_accounts, test_fiscal_period, test_user
     ):
-        """RED: list_entries should filter by 'source_type', not 'entry_type'."""
+        """list_entries should filter by 'source_type'."""
         ar_account = test_accounts["1200"]
         revenue_account = test_accounts["4000"]
 
-        # Create entries with different source types
         JournalService.create_entry(
             org_id=test_organisation.id,
             entry_date=date(2024, 1, 10),
@@ -169,6 +167,7 @@ class TestJournalServiceFieldAlignment:
                 },
             ],
             fiscal_period_id=test_fiscal_period.id,
+            user_id=test_user.id,
         )
 
         JournalService.create_entry(
@@ -189,9 +188,9 @@ class TestJournalServiceFieldAlignment:
                 },
             ],
             fiscal_period_id=test_fiscal_period.id,
+            user_id=test_user.id,
         )
 
-        # Filter by source_type
         entries = JournalService.list_entries(
             org_id=test_organisation.id,
             source_type="MANUAL",
@@ -201,9 +200,9 @@ class TestJournalServiceFieldAlignment:
         assert entries[0].source_type == "MANUAL"
 
     def test_create_entry_uses_narration_not_description(
-        self, test_organisation, test_accounts, test_fiscal_period
+        self, test_organisation, test_accounts, test_fiscal_period, test_user
     ):
-        """RED: create_entry parameter should be 'narration', not 'description'."""
+        """create_entry parameter should be 'narration'."""
         ar_account = test_accounts["1200"]
         revenue_account = test_accounts["4000"]
 
@@ -225,18 +224,19 @@ class TestJournalServiceFieldAlignment:
                 },
             ],
             fiscal_period_id=test_fiscal_period.id,
+            user_id=test_user.id,
         )
 
-        # Verify narration is stored
         entry.refresh_from_db()
         assert entry.narration == "This is the narration field per SQL schema"
 
-    def test_source_id_parameter_name(self, test_organisation, test_accounts, test_fiscal_period):
-        """RED: create_entry should use 'source_id' for source document reference."""
+    def test_source_id_parameter_name(
+        self, test_organisation, test_accounts, test_fiscal_period, test_user
+    ):
+        """create_entry should use 'source_id' for source document reference."""
         ar_account = test_accounts["1200"]
         revenue_account = test_accounts["4000"]
 
-        # source_id should be the parameter name (matches SQL column)
         test_source_id = UUID("00000000-0000-0000-0000-000000000999")
 
         entry = JournalService.create_entry(
@@ -244,7 +244,7 @@ class TestJournalServiceFieldAlignment:
             entry_date=date(2024, 1, 15),
             source_type="SALES_INVOICE",
             narration="Invoice posting",
-            source_id=test_source_id,  # SQL schema field name
+            source_id=test_source_id,
             lines=[
                 {
                     "account_id": ar_account.id,
@@ -258,18 +258,17 @@ class TestJournalServiceFieldAlignment:
                 },
             ],
             fiscal_period_id=test_fiscal_period.id,
+            user_id=test_user.id,
         )
 
         assert entry.source_id == test_source_id
 
     def test_post_invoice_uses_sales_invoice_source_type(
-        self, test_organisation, test_accounts, test_fiscal_period, test_tax_codes
+        self, test_organisation, test_accounts, test_fiscal_period, test_tax_codes, test_user
     ):
-        """RED: post_invoice should create entry with source_type='SALES_INVOICE'."""
-        from apps.core.models import Contact, InvoiceDocument, InvoiceLine
-        from apps.invoicing.services import DocumentService
+        """post_invoice should create entry with source_type='SALES_INVOICE'."""
+        from apps.core.models import Contact, InvoiceDocument
 
-        # Create contact
         contact = Contact.objects.create(
             org=test_organisation,
             contact_type="CUSTOMER",
@@ -280,7 +279,7 @@ class TestJournalServiceFieldAlignment:
             is_active=True,
         )
 
-        # Create draft invoice
+        # Use correct InvoiceDocument fields (no subtotal, total_gst, total_amount in model)
         invoice = InvoiceDocument.objects.create(
             org=test_organisation,
             document_type="SALES_INVOICE",
@@ -290,17 +289,8 @@ class TestJournalServiceFieldAlignment:
             due_date=date(2024, 2, 15),
             status="DRAFT",
             currency="SGD",
-            subtotal=Decimal("100.00"),
-            total_gst=Decimal("9.00"),
-            total_amount=Decimal("109.00"),
         )
 
-        # Approve invoice (should create journal entry)
-        invoice.status = "APPROVED"
-        invoice.approved_at = date.today()
-        invoice.save()
-
-        # Post journal entry
         ar_account = test_accounts["1200"]
         revenue_account = test_accounts["4000"]
         gst_account = test_accounts["2200"]
@@ -325,6 +315,7 @@ class TestJournalServiceFieldAlignment:
                 {"account_id": gst_account.id, "debit": Decimal("0.00"), "credit": Decimal("9.00")},
             ],
             fiscal_period_id=test_fiscal_period.id,
+            user_id=test_user.id,
         )
 
         assert entry.source_type == "SALES_INVOICE"
@@ -336,41 +327,37 @@ class TestJournalServiceBackwardsCompatibility:
     """Test backwards compatibility during transition period."""
 
     def test_old_entry_type_parameter_still_works_with_warning(
-        self, test_organisation, test_accounts, test_fiscal_period
+        self, test_organisation, test_accounts, test_fiscal_period, test_user
     ):
-        """Optional: Old parameter names should still work but log deprecation warning."""
+        """Old parameter names should still work via backwards compatibility layer."""
         ar_account = test_accounts["1200"]
         revenue_account = test_accounts["4000"]
 
-        # For backwards compatibility, old names might still work
-        # but new code should use source_type and narration
         import warnings
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            try:
-                entry = JournalService.create_entry(
-                    org_id=test_organisation.id,
-                    entry_date=date(2024, 1, 15),
-                    entry_type="MANUAL",  # Old parameter name
-                    description="Test entry",  # Old parameter name
-                    lines=[
-                        {
-                            "account_id": ar_account.id,
-                            "debit": Decimal("100.00"),
-                            "credit": Decimal("0.00"),
-                        },
-                        {
-                            "account_id": revenue_account.id,
-                            "debit": Decimal("0.00"),
-                            "credit": Decimal("100.00"),
-                        },
-                    ],
-                    fiscal_period_id=test_fiscal_period.id,
-                )
-                # Should still work but may have deprecation warning
-                assert entry is not None
-            except TypeError:
-                # If backwards compatibility is not implemented, this is expected
-                pass
+            entry = JournalService.create_entry(
+                org_id=test_organisation.id,
+                entry_date=date(2024, 1, 15),
+                entry_type="MANUAL",
+                description="Test entry",
+                lines=[
+                    {
+                        "account_id": ar_account.id,
+                        "debit": Decimal("100.00"),
+                        "credit": Decimal("0.00"),
+                    },
+                    {
+                        "account_id": revenue_account.id,
+                        "debit": Decimal("0.00"),
+                        "credit": Decimal("100.00"),
+                    },
+                ],
+                fiscal_period_id=test_fiscal_period.id,
+                user_id=test_user.id,
+            )
+            assert entry is not None
+            assert entry.source_type == "MANUAL"
+            assert entry.narration == "Test entry"

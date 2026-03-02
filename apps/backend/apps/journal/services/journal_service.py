@@ -119,7 +119,7 @@ class JournalService:
 
         if account_id:
             entry_ids = JournalLine.objects.filter(account_id=account_id).values_list(
-                "journal_entry_id", flat=True
+                "entry_id", flat=True
             )
             queryset = queryset.filter(id__in=entry_ids)
 
@@ -146,9 +146,9 @@ class JournalService:
     def create_entry(
         org_id: UUID,
         entry_date: date,
-        source_type: str,
-        narration: str,
-        lines: List[Dict[str, Any]],
+        source_type: Optional[str] = None,
+        narration: Optional[str] = None,
+        lines: Optional[List[Dict[str, Any]]] = None,
         fiscal_period_id: Optional[UUID] = None,
         source_id: Optional[UUID] = None,
         user_id: Optional[UUID] = None,
@@ -186,6 +186,10 @@ class JournalService:
 
         effective_narration = narration or description or ""
         effective_source_id = source_id or source_invoice_id
+
+        # Ensure lines is a list
+        if lines is None:
+            lines = []
 
         if effective_source_type not in SOURCE_TYPES:
             valid_types = ", ".join(SOURCE_TYPES.keys())
@@ -241,11 +245,13 @@ class JournalService:
                     raise ValidationError("Line must have either debit or credit amount.")
 
                 JournalLine.objects.create(
-                    journal_entry=journal_entry,
+                    entry=journal_entry,
+                    org_id=org_id,
                     account=account,
                     description=line_data.get("description", ""),
                     debit=debit,
                     credit=credit,
+                    line_number=lines.index(line_data) + 1,
                 )
 
             return journal_entry
