@@ -32,6 +32,7 @@ from apps.core.models import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def api_client() -> APIClient:
     """Return a fresh APIClient."""
@@ -56,6 +57,8 @@ def test_user() -> AppUser:
 @pytest.fixture
 def test_organisation(test_user) -> Organisation:
     """Create and return a test organisation with the user as Owner."""
+    from apps.core.models import DocumentSequence
+
     org_id = uuid.uuid4()
     org = Organisation.objects.create(
         id=org_id,
@@ -70,7 +73,16 @@ def test_organisation(test_user) -> Organisation:
         base_currency="SGD",
         is_active=True,
     )
-    
+
+    # Create document sequences for journal entries
+    DocumentSequence.objects.create(
+        org=org,
+        document_type="JOURNAL_ENTRY",
+        prefix="JE-",
+        next_number=1,
+        padding=5,
+    )
+
     # Create Owner role
     owner_role = Role.objects.create(
         org=org,
@@ -89,9 +101,10 @@ def test_organisation(test_user) -> Organisation:
         can_export_data=True,
         is_system=True,
     )
-    
+
     # Assign user as Owner
     from datetime import datetime
+
     UserOrganisation.objects.create(
         user=test_user,
         org=org,
@@ -100,7 +113,7 @@ def test_organisation(test_user) -> Organisation:
         invited_at=datetime.now(),
         accepted_at=datetime.now(),
     )
-    
+
     return org
 
 
@@ -108,7 +121,7 @@ def test_organisation(test_user) -> Organisation:
 def auth_client(api_client, test_user) -> APIClient:
     """Return an authenticated APIClient."""
     from rest_framework_simplejwt.tokens import RefreshToken
-    
+
     refresh = RefreshToken.for_user(test_user)
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {str(refresh.access_token)}")
     return api_client
@@ -118,19 +131,63 @@ def auth_client(api_client, test_user) -> APIClient:
 def test_tax_codes(test_organisation) -> dict:
     """Create standard tax codes for the organisation."""
     codes = {}
-    
+
     # Tax code data matching SQL schema fields
     # NOTE: SQL schema has NOT NULL constraint on rate, so use 0.0000 instead of None
     # NOTE: SQL chk_io_flag requires is_input=TRUE OR is_output=TRUE OR code='NA'
     tax_code_data = [
-        ("SR", "Standard-Rated", "Standard-Rated Supply", Decimal("0.09"), True, False, True, 1, None, 6),
+        (
+            "SR",
+            "Standard-Rated",
+            "Standard-Rated Supply",
+            Decimal("0.09"),
+            True,
+            False,
+            True,
+            1,
+            None,
+            6,
+        ),
         ("ZR", "Zero-Rated", "Zero-Rated Supply", Decimal("0.00"), True, False, True, 2, None, 6),
         ("ES", "Exempt", "Exempt Supply", Decimal("0.00"), False, True, True, 3, None, None),
-        ("OS", "Out-of-Scope", "Out of Scope Supply", Decimal("0.00"), False, True, False, None, None, None),
-        ("TX", "Taxable Purchase", "Taxable Purchase", Decimal("0.09"), False, True, True, None, 5, 7),
+        (
+            "OS",
+            "Out-of-Scope",
+            "Out of Scope Supply",
+            Decimal("0.00"),
+            False,
+            True,
+            False,
+            None,
+            None,
+            None,
+        ),
+        (
+            "TX",
+            "Taxable Purchase",
+            "Taxable Purchase",
+            Decimal("0.09"),
+            False,
+            True,
+            True,
+            None,
+            5,
+            7,
+        ),
     ]
-    
-    for code, name, description, rate, is_gst_charged, is_input, is_output, f5_supply_box, f5_purchase_box, f5_tax_box in tax_code_data:
+
+    for (
+        code,
+        name,
+        description,
+        rate,
+        is_gst_charged,
+        is_input,
+        is_output,
+        f5_supply_box,
+        f5_purchase_box,
+        f5_tax_box,
+    ) in tax_code_data:
         tc = TaxCode.objects.create(
             org=test_organisation,
             code=code,
@@ -148,7 +205,7 @@ def test_tax_codes(test_organisation) -> dict:
             effective_from=date(2024, 1, 1),
         )
         codes[code] = tc
-    
+
     return codes
 
 
@@ -156,7 +213,7 @@ def test_tax_codes(test_organisation) -> dict:
 def test_accounts(test_organisation) -> dict:
     """Create standard accounts for the organisation."""
     accounts = {}
-    
+
     account_data = [
         ("1200", "Accounts Receivable", "ASSET_CURRENT"),
         ("2200", "GST Output Tax", "LIABILITY_CURRENT"),
@@ -164,7 +221,7 @@ def test_accounts(test_organisation) -> dict:
         ("5000", "Cost of Sales", "COS"),
         ("6100", "Rent Expense", "EXPENSE_ADMIN"),
     ]
-    
+
     for code, name, account_type in account_data:
         acc = Account.objects.create(
             org=test_organisation,
@@ -175,7 +232,7 @@ def test_accounts(test_organisation) -> dict:
             is_active=True,
         )
         accounts[code] = acc
-    
+
     return accounts
 
 
@@ -189,7 +246,7 @@ def test_fiscal_period(test_organisation) -> FiscalPeriod:
         end_date=date(2024, 12, 31),
         is_closed=False,
     )
-    
+
     # Create January period
     period = FiscalPeriod.objects.create(
         org=test_organisation,
@@ -200,7 +257,7 @@ def test_fiscal_period(test_organisation) -> FiscalPeriod:
         end_date=date(2024, 1, 31),
         is_open=True,
     )
-    
+
     return period
 
 
@@ -215,9 +272,11 @@ def test_invoice(test_organisation) -> InvoiceDocument:
 # Helper Functions
 # =============================================================================
 
+
 def get_auth_token(user: AppUser) -> str:
     """Generate JWT access token for a user."""
     from rest_framework_simplejwt.tokens import RefreshToken
+
     refresh = RefreshToken.for_user(user)
     return str(refresh.access_token)
 
@@ -225,7 +284,7 @@ def get_auth_token(user: AppUser) -> str:
 def create_test_contact(org: Organisation, **kwargs) -> "Contact":
     """Create a test contact for an organisation."""
     from apps.core.models import Contact
-    
+
     defaults = {
         "contact_type": "CUSTOMER",  # Required field per SQL CHECK constraint
         "name": "Test Contact",
@@ -237,7 +296,7 @@ def create_test_contact(org: Organisation, **kwargs) -> "Contact":
         "is_active": True,
     }
     defaults.update(kwargs)
-    
+
     return Contact.objects.create(org=org, **defaults)
 
 
@@ -245,7 +304,7 @@ def create_test_invoice(org: Organisation, contact: "Contact", **kwargs) -> "Inv
     """Create a test invoice for testing."""
     from apps.core.models import InvoiceDocument
     from apps.invoicing.services import DocumentService
-    
+
     defaults = {
         "document_type": "SALES_INVOICE",
         "contact": contact,
@@ -255,12 +314,13 @@ def create_test_invoice(org: Organisation, contact: "Contact", **kwargs) -> "Inv
         "notes": "Test notes",
     }
     defaults.update(kwargs)
-    
+
     # Use service to create with proper numbering
     from unittest.mock import patch
-    with patch.object(DocumentService, '_get_next_document_number', return_value="INV-00001"):
+
+    with patch.object(DocumentService, "_get_next_document_number", return_value="INV-00001"):
         invoice = InvoiceDocument.objects.create(org=org, **defaults)
-    
+
     return invoice
 
 
@@ -268,9 +328,11 @@ def create_test_invoice(org: Organisation, contact: "Contact", **kwargs) -> "Inv
 # pytest Configuration
 # =============================================================================
 
+
 def pytest_configure(config):
     """Configure pytest environment."""
     import django
+
     django.setup()
 
 
