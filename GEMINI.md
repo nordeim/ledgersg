@@ -1,82 +1,70 @@
-# LedgerSG — Project Instructional Context
+# LedgerSG — Instructional Context
 
-This document serves as the foundational instructional context for AI agents and developers interacting with the LedgerSG codebase. It summarizes the project's architecture, technologies, and development standards established as of February 2026.
+LedgerSG is an exceptionally well-architected, production-grade double-entry accounting platform purpose-built for Singapore SMBs. It transforms IRAS 2026 compliance into a seamless, automated experience while delivering a distinctive "Illuminated Carbon" neo-brutalist user interface.
 
 ## 🎯 Project Overview
-**LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore Small and Medium Businesses (SMBs). Its core mission is to automate IRAS compliance (GST, InvoiceNow, BCRS) while delivering a neo-brutalist "Illuminated Carbon" user interface.
 
-- **Frontend**: Next.js 16 (App Router) + Tailwind CSS 4.0 + Shadcn/Radix UI.
-- **Backend**: Django 6.0.2 + Django REST Framework 3.16.1.
-- **Database**: PostgreSQL 16 with 7 domain-specific schemas.
-- **Compliance**: IRAS 2026 Ready (9% GST, BCRS deposits, PINT-SG XML, 5-year retention).
+- **Mission:** Automate IRAS compliance (GST F5, InvoiceNow, BCRS) with enterprise-grade financial integrity and a bold aesthetic.
+- **Frontend:** Next.js 16.1.6 (App Router), React 19.2.3, Tailwind CSS 4.0, Shadcn/Radix UI.
+- **Backend:** Django 6.0.2, Django REST Framework 3.16.1, Celery 5.6.2, Redis 6.4.0.
+- **Database:** PostgreSQL 16+ with 7 domain-specific schemas and Row-Level Security (RLS).
+- **Compliance:** IRAS 2026 Ready (9% GST, F5 returns, Peppol PINT-SG XML, 5-year retention).
 
-## 🏗 System Architecture
+## 🏗 Key Architectural Patterns
 
-### 1. Data Layer (PostgreSQL)
-- **SQL-First Schema**: All tables are defined in `database_schema.sql`. Models are unmanaged (`managed = False`).
-- **Domain Separation**: 7 schemas (`core`, `coa`, `gst`, `journal`, `invoicing`, `banking`, `audit`).
-- **Precision**: All monetary values use `NUMERIC(10,4)` storage and `ROUND_HALF_UP` rounding.
-- **Multi-tenancy**: Row-Level Security (RLS) enforced via PostgreSQL session variables (`app.current_org_id`).
+### 1. SQL-First & Unmanaged Models
+The PostgreSQL schema (`database_schema.sql`) is the single source of truth. Django models use `managed = False` and map to existing tables. **Never run `makemigrations`**. Schema changes must be applied via SQL patches followed by model alignment.
 
-### 2. Backend Layer (Django)
-- **Service Layer Pattern**: ALL business logic resides in `services/` modules using `@staticmethod`. Views are thin controllers.
-- **Asynchronous Services**: PDF generation (WeasyPrint) and Email delivery (Celery) are live and verified.
-- **Authentication**: JWT (Access 15m / Refresh 7d) with HttpOnly refresh cookies.
-- **Models**: Inherit from `BaseModel`, `TenantModel`, or `ImmutableModel`.
+### 2. Service Layer Pattern
+All business logic resides in `services/` modules (e.g., `DashboardService`, `PaymentService`). Views are "thin" and only handle HTTP/serialization. Write operations should use `transaction.atomic()`.
 
-### 3. Frontend Layer (Next.js)
-- **UI Aesthetic**: "Illuminated Carbon" — Dark-first, high-contrast, typographically driven (WCAG AAA).
-- **State Management**: TanStack Query (server state) and Zustand (UI state).
-- **Logic**: Client-side GST preview logic (`gst-engine.ts`) must mirror backend `ComplianceEngine`.
+### 3. Monetary Precision (No Floats)
+All currency values use `NUMERIC(10,4)` internal precision.
+- **Backend:** Use `common.decimal_utils.money()` which rejects `float` types.
+- **Frontend:** Use `decimal.js` for all calculations.
+
+### 4. Zero-Exposure JWT Security
+Access tokens are kept in server memory (Server Components) or HttpOnly cookies. Browser JavaScript has **zero access** to JWTs. Next.js Server Components fetch data server-side via `serverFetch` in `lib/server/api-client.ts`.
+
+### 5. Multi-Tenancy via RLS
+Row-Level Security is enforced at the database level using session variables (`app.current_org_id`). `TenantContextMiddleware` sets this per-request.
 
 ## 🚀 Building and Running
 
-### Prerequisites
-- **Python**: 3.12+ (managed via virtual environment).
-- **Node.js**: 20+ (npm).
-- **PostgreSQL**: 16+ (with schemas initialized).
-
 ### Backend Setup
-```bash
-source /opt/venv/bin/activate
-cd apps/backend
-pip install -e ".[dev]"
-# Initialize DB (Critical for unmanaged models)
-export PGPASSWORD=ledgersg_secret_to_change
-psql -h localhost -U ledgersg -d ledgersg_dev -f database_schema.sql
-python manage.py runserver
-```
+1.  **Environment:** `python3 -m venv /opt/venv && source /opt/venv/bin/activate`
+2.  **Install:** `pip install -e ".[dev]"`
+3.  **Database:** `psql -h localhost -U ledgersg -d ledgersg_dev -f database_schema.sql` (Manual init is mandatory).
+4.  **Run:** `python manage.py runserver`
+5.  **Service Control:** Use `./backend_api_service.sh` for start/stop/status.
 
 ### Frontend Setup
-```bash
-cd apps/web
-npm install
-npm run dev
-```
+1.  **Install:** `npm install`
+2.  **Run Dev:** `npm run dev`
+3.  **Run Server:** `npm run build:server && npm run start` (Standalone mode for API integration).
 
 ### Testing Strategy
-**Standard Django test runners fail on unmanaged models.** Use the manual workflow:
-```bash
-# Backend
-export PGPASSWORD=ledgersg_secret_to_change
-dropdb -h localhost -U ledgersg test_ledgersg_dev || true
-createdb -h localhost -U ledgersg test_ledgersg_dev
-psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
-pytest --reuse-db --no-migrations
+**Standard Django test runners fail on unmanaged models.**
+1.  **Init Test DB:**
+    ```bash
+    dropdb test_ledgersg_dev && createdb test_ledgersg_dev
+    psql -d test_ledgersg_dev -f database_schema.sql
+    ```
+2.  **Run Backend:** `pytest --reuse-db --no-migrations`
+3.  **Run Frontend:** `npm test` (Vitest) or `npm run test:e2e` (Playwright).
 
-# Frontend
-cd apps/web && npm test
-```
+## 📁 Critical Files & Directories
+
+- `database_schema.sql`: Source of truth for all table definitions.
+- `apps/backend/apps/`: Domain modules (core, coa, gst, invoicing, journal, banking).
+- `apps/backend/common/decimal_utils.py`: Essential monetary safety utilities.
+- `apps/web/src/lib/server/api-client.ts`: Server-side API client with auth logic.
+- `Project_Architecture_Document.md`: Comprehensive system reference.
+- `ACCOMPLISHMENTS.md`: Recent feature completion log.
 
 ## 📐 Development Conventions
 
-### 1. Monetary Precision
-- **NEVER** use `float` or `parseFloat`.
-- **Python**: Use `common.decimal_utils.money()` utility.
-- **TypeScript**: Use `Decimal.js`.
-
-### 2. Database Alignment
-- LedgerSG is **SQL-First**. When updating models, you **MUST** update `database_schema.sql` manually. Django migrations are not used for unmanaged models.
-
----
-*Last Hardened: 2026-02-27 — Version 1.2.0 — ~11,200 lines verified*
+- **Elite / Meticulous / Avant-Garde:** Adhere to the "Illuminated Carbon" aesthetic—whitespace as a structural element, distinctive typography, and zero "AI slop" generics.
+- **WCAG AAA:** Accessibility is non-negotiable.
+- **IRAS 2026:** Every invoice and transaction must comply with Singapore regulatory standards.
+- **Meticulous SOP:** ANALYZE → PLAN → VALIDATE → IMPLEMENT → VERIFY → DELIVER.
