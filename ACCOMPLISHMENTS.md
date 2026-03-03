@@ -6,13 +6,13 @@ This document records the completed work on the LedgerSG platform, aligned with 
 
 **Project Status**:
 - ✅ Frontend: v0.1.1 — Production Ready (Dynamic Org Context, Docker Live)
-- ✅ Backend: v0.3.3 — Production Ready (60 API endpoints, Rate Limiting Added)
+- ✅ Backend: v0.3.3 — Production Ready (76 API endpoints, Rate Limiting Added)
 - ✅ Database: v1.0.3 — Hardened & Aligned (SQL Constraints Enforced)
 - ✅ Integration: v0.4.0 — All API paths aligned (CORS Configured)
 - ✅ Banking: v0.6.0 — SEC-001 Fully Remediated (55 TDD Tests, 13 Validated Endpoints)
 - ✅ Security: v1.0.0 — SEC-002 Rate Limiting Remediated (django-ratelimit)
 - ✅ Org Context: v1.0.0 — Phase B Complete (Dynamic Organization Context)
-- ✅ Testing: v1.0.1 — Backend & Frontend Tests Verified (359+ total tests)
+- ✅ Testing: v1.0.1 — Backend & Frontend Tests Verified (87+ total tests)
 - ✅ Docker: v1.0.0 — Multi-Service Container with Live Integration
 - ✅ Dashboard API: v0.9.0 — Real Data Integration (TDD)
 
@@ -22,14 +22,14 @@ This document records the completed work on the LedgerSG platform, aligned with 
 
 | Component | Status | Version | Key Deliverables |
 |-----------|--------|---------|------------------|
-| **Frontend** | ✅ Complete | v0.1.1 | 18 pages, dynamic org context, 114 tests, Docker live |
-| **Backend** | ✅ Complete | v0.3.3 | 60 API endpoints, rate limiting, 22 models aligned |
+| **Frontend** | ✅ Complete | v0.1.1 | 11 pages, dynamic org context, 5 test files, Docker live |
+| **Backend** | ✅ Complete | v0.3.3 | 76 API endpoints, rate limiting, 25 models aligned |
 | **Database** | ✅ Complete | v1.0.3 | Schema patches, 7 schemas, 28 tables |
 | **Banking** | ✅ Complete | v0.6.0 | 55 tests, SEC-001 fully remediated |
 | **Security** | ✅ Complete | v1.0.0 | SEC-002 rate limiting remediated |
 | **Org Context** | ✅ Complete | v1.0.0 | Phase B dynamic org selection |
-| **Integration** | ✅ Complete | v0.4.0 | 4 Phases, 60 API endpoints aligned |
-| **Testing** | ✅ Complete | v1.0.1 | 245 backend tests, 114 frontend tests |
+| **Integration** | ✅ Complete | v0.4.0 | 4 Phases, 76 API endpoints aligned |
+| **Testing** | ✅ Complete | v1.0.1 | 82 backend tests, 5 frontend test files |
 | **Docker** | ✅ Complete | v1.0.0 | Multi-service, live FE/BE integration |
 
 ---

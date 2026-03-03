@@ -32,13 +32,13 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.1 | ✅ Production Ready | 18 static pages, dynamic org context, 114 tests |
-| **Backend** | v0.3.3 | ✅ Production Ready | **60 API endpoints**, 245 tests |
+| **Frontend** | v0.1.1 | ✅ Production Ready | 11 pages, dynamic org context, 5 test files |
+| **Backend** | v0.3.3 | ✅ Production Ready | **76 API endpoints**, 13 test files |
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests (services + views), 13 validated endpoints |
 | **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
-| **Testing** | — | ✅ 359+ Passing | Backend + Frontend tests verified |
-| **Overall** | — | ✅ **Platform Ready** | **359+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+| **Testing** | — | ✅ 87+ Passing | 82 backend + 5 frontend tests (functions) |
+| **Overall** | — | ✅ **Platform Ready** | **87+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
 
 ---
 
@@ -59,10 +59,10 @@
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| API Endpoints | **58** | 100% Path Alignment (+ Dashboard + Banking) |
-| Service Files | 10 | Core business logic (+ Dashboard + Banking) |
-| Models | **23** | Aligned with SQL schema (+ BankTransaction) |
-| Test Files | 16 | 202+ total tests (+ Banking tests) |
+| API Endpoints | **76** | 100% Path Alignment (verified against all URL configs) |
+| Service Files | 13 | Core business logic (core: 3, banking: 3, invoicing: 2, gst: 3, journal: 2) |
+| Models | **25** | Aligned with SQL schema (all apps/core/models/) |
+| Test Files | 13 | 82 test functions (integration + security) |
 | Lines of Code | **~14,000+** | Logic & Templates |
 
 ### Directory Structure

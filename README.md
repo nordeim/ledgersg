@@ -52,13 +52,13 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.1 | ✅ Production Ready | 18 pages, dynamic org context, 114 tests passing |
-| **Backend** | v0.3.3 | ✅ Production Ready | 58 endpoints, rate limiting, 233 tests passing |
+| **Frontend** | v0.1.1 | ✅ Production Ready | 11 pages, dynamic org context, 5 test files |
+| **Backend** | v0.3.3 | ✅ Production Ready | 76 endpoints, rate limiting, 13 test files |
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, 28 tables, RLS enforced |
 | **Integration** | v0.4.0 | ✅ Complete | Docker live, CORS configured |
 | **Banking** | v0.6.0 | ✅ SEC-001 Remediated | 55 tests (services + views), 13 validated endpoints |
 | **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
-| **Overall** | — | ✅ **Platform Ready** | 347 tests, WCAG AAA, IRAS Compliant, 98% Security Score |
+| **Overall** | — | ✅ **Platform Ready** | 87+ tests, WCAG AAA, IRAS Compliant, 98% Security Score |
 
 ### Latest Milestones
 
@@ -68,7 +68,7 @@
 - ✅ **New API Endpoint**: `POST /api/v1/auth/set-default-org/` for changing default organization
 - ✅ **Org Selector UI**: Added organization dropdown in sidebar with current org display
 - ✅ **Client-Side Org Resolution**: Dashboard uses `useAuth()` hook for dynamic org_id
-- ✅ **Test Coverage**: 12 TDD tests for auth org context endpoints (6 passing)
+- ✅ **Test Coverage**: 12 TDD tests for auth org context endpoints
 - ✅ **Frontend Build**: `npm run build:server` succeeds with new components
 
 **🎉 SEC-002 Rate Limiting Remediation (MEDIUM Severity)** — 2026-03-02

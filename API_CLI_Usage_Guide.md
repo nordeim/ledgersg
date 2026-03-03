@@ -2,9 +2,9 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 2.1.0
-> **Last Updated**: 2026-03-02
-> **Status**: Production Ready ✅ (SEC-001 & SEC-002 Remediated)
+> **Version**: 1.7.1
+> **Last Updated**: 2026-03-03
+> **Status**: Production Ready ✅ (SEC-001, SEC-002 & Phase B Complete)
 
 ---
 
@@ -262,7 +262,7 @@ Org-scoped endpoints require:
 
 ## API Endpoints Reference
 
-### Authentication Endpoints (8)
+### Authentication Endpoints (9)
 
 | Method | Endpoint | Auth | Rate Limit | Description |
 |--------|----------|------|------------|-------------|
@@ -274,6 +274,7 @@ Org-scoped endpoints require:
 | PATCH | `/api/v1/auth/me/` | Yes | - | Update user profile |
 | POST | `/api/v1/auth/change-password/` | Yes | - | Change password |
 | GET | `/api/v1/auth/organisations/` | Yes | - | List user's org memberships |
+| POST | `/api/v1/auth/set-default-org/` | Yes | - | Set default organization |
 
 ### Organization Endpoints (6)
 
@@ -299,7 +300,7 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/accounts/{id}/balance/` | IsOrgMember | Get account balance |
 | GET | `/api/v1/{orgId}/accounts/trial-balance/` | IsOrgMember | Trial balance |
 
-### GST Endpoints (13)
+### GST Endpoints (12)
 
 | Method | Endpoint | Permissions | Description |
 |--------|----------|-------------|-------------|
@@ -343,7 +344,7 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/invoicing/documents/{id}/invoicenow-status/` | IsOrgMember | Check Peppol status |
 | POST | `/api/v1/{orgId}/invoicing/quotes/convert/` | CanCreateInvoices | Convert quote → invoice |
 
-### Journal Endpoints (9)
+### Journal Endpoints (8)
 
 | Method | Endpoint | Permissions | Description |
 |--------|----------|-------------|-------------|
@@ -356,6 +357,8 @@ Org-scoped endpoints require:
 | POST | `/api/v1/{orgId}/journal-entries/entries/{id}/reverse/` | CanCreateJournals | Reverse entry |
 | GET | `/api/v1/{orgId}/journal-entries/trial-balance/` | IsOrgMember | Trial balance |
 | GET | `/api/v1/{orgId}/journal-entries/accounts/{id}/balance/` | IsOrgMember | Get account balance |
+
+**Note:** The account balance endpoint is accessed via `/api/v1/{orgId}/accounts/{id}/balance/` (see Chart of Accounts), not through the journal-entries path. Journal module has 8 unique endpoints.
 
 ### Banking Endpoints (13) ✅ SEC-001 REMEDIATED
 
@@ -378,6 +381,8 @@ Org-scoped endpoints require:
 | POST | `/api/v1/{orgId}/banking/bank-transactions/{id}/unreconcile/` | CanManageBanking | Unreconcile transaction |
 | GET | `/api/v1/{orgId}/banking/bank-transactions/{id}/suggest-matches/` | IsOrgMember | Suggest payment matches |
 
+**Note:** 13 unique URL patterns, with PATCH and DELETE sharing the same detail URL as GET for bank accounts.
+
 ### Dashboard & Reporting Endpoints (3)
 
 | Method | Endpoint | Permissions | Description |
@@ -386,7 +391,15 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/reports/dashboard/alerts/` | IsOrgMember | Compliance alerts |
 | GET | `/api/v1/{orgId}/reports/reports/financial/` | CanViewReports | Financial reports |
 
-**Total Endpoints: 89**
+### Infrastructure Endpoints (3)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/health/` | No | System health check |
+| GET | `/api/v1/` | No | API root/info |
+| GET | `/api/v1/health/` | No | API health check |
+
+**Total Endpoints: 76**
 
 ---
 
@@ -1045,18 +1058,19 @@ curl "$LEDGERSG_API_BASE/$LEDGERSG_ORG_ID/reports/dashboard/metrics/" \
   -H "Authorization: Bearer $LEDGERSG_ACCESS"
 ```
 
-### Total Endpoints: 89
+### Total Endpoints: 76
 
 | Module | Endpoints | Status |
 |--------|-----------|--------|
-| Authentication | 8 | ✅ Production |
-| Organizations | 6 | ✅ Production |
+| Authentication | 9 | ✅ Production (SEC-002) |
+| Organizations | 6 | ✅ Production (Phase B) |
 | Chart of Accounts | 8 | ✅ Production |
-| GST | 13 | ✅ Production |
-| Invoicing | 21 | ✅ Production |
-| Journal | 9 | ✅ Production |
-| Banking | 16 | ✅ Production (SEC-001 Remediated) |
+| GST | 12 | ✅ Production |
+| Invoicing | 15 | ✅ Production |
+| Journal | 8 | ✅ Production |
+| Banking | 13 | ✅ Production (SEC-001) |
 | Dashboard/Reports | 3 | ✅ Production |
+| Infrastructure | 3 | ✅ Production |
 
 ### Testing Checklist
 
@@ -1086,8 +1100,8 @@ For API-related questions:
 
 **End of Guide**
 
-*Last validated against codebase: 2026-03-02*
-*Security status: SEC-001 (HIGH) ✅ REMEDIATED, SEC-002 (MEDIUM) ✅ REMEDIATED*
-*API Version: 2.1.0*
-*Total Endpoints: 89*
+*Last validated against codebase: 2026-03-03*
+*Security status: SEC-001 (HIGH) ✅ REMEDIATED, SEC-002 (MEDIUM) ✅ REMEDIATED, Phase B ✅ COMPLETE*
+*API Version: 1.7.1*
+*Total Endpoints: 76*
 *Security Score: 98%*
