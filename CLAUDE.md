@@ -37,6 +37,7 @@
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests (services + views), 13 validated endpoints |
 | **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
+| **Integration** | v1.0.0 | ✅ **Fixed** | Critical endpoint path mismatches resolved |
 | **Testing** | — | ✅ 87+ Passing | 82 backend + 5 frontend tests (functions) |
 | **Overall** | — | ✅ **Platform Ready** | **87+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
 

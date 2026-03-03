@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { DashboardActions } from "./dashboard-actions";
 import { GSTChartWrapper } from "./gst-chart-wrapper";
 import { useAuth } from "@/providers/auth-provider";
-import { api } from "@/lib/api-client";
+import { api, endpoints } from "@/lib/api-client";
 
 interface DashboardData {
   gst_payable: string;
@@ -64,7 +64,7 @@ export function DashboardClient() {
 
   const { data, isLoading, error } = useQuery<DashboardData>({
     queryKey: ["dashboard", orgId],
-    queryFn: () => api.get<DashboardData>(`/api/v1/${orgId}/dashboard/`),
+    queryFn: () => api.get<DashboardData>(endpoints.dashboard(orgId!).metrics),
     enabled: !!orgId, // Only fetch when org is available
     staleTime: 60 * 1000, // 1 minute
   });

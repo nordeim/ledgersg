@@ -184,18 +184,18 @@ export const endpoints = {
     detail: (id: string) => `/api/v1/${orgId}/invoicing/contacts/${id}/`,
   }),
 
-  // Dashboard (org-scoped)
+  // Dashboard (org-scoped) - FIXED: Added /reports/ prefix to match backend
   dashboard: (orgId: string) => ({
-    metrics: `/api/v1/${orgId}/dashboard/metrics/`,
-    alerts: `/api/v1/${orgId}/dashboard/alerts/`,
+    metrics: `/api/v1/${orgId}/reports/dashboard/metrics/`,
+    alerts: `/api/v1/${orgId}/reports/dashboard/alerts/`,
   }),
 
-  // Banking (org-scoped)
+  // Banking (org-scoped) - FIXED: Added /banking/ prefix to match backend
   banking: (orgId: string) => ({
-    accounts: `/api/v1/${orgId}/bank-accounts/`,
-    payments: `/api/v1/${orgId}/payments/`,
-    receivePayment: `/api/v1/${orgId}/payments/receive/`,
-    makePayment: `/api/v1/${orgId}/payments/make/`,
+    accounts: `/api/v1/${orgId}/banking/bank-accounts/`,
+    payments: `/api/v1/${orgId}/banking/payments/`,
+    receivePayment: `/api/v1/${orgId}/banking/payments/receive/`,
+    makePayment: `/api/v1/${orgId}/banking/payments/make/`,
   }),
 
   // Chart of Accounts (org-scoped)

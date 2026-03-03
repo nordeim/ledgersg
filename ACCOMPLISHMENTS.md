@@ -34,6 +34,51 @@ This document records the completed work on the LedgerSG platform, aligned with 
 
 ---
 
+# Major Milestone: Frontend-Backend Integration Fixes ✅ COMPLETE (2026-03-03)
+
+## Executive Summary
+Conducted comprehensive analysis of frontend-backend API integration and remediated critical endpoint path mismatches that were preventing the Banking and Dashboard modules from functioning correctly.
+
+### Key Achievements
+- **Critical Issue CRITICAL-1**: Fixed banking endpoint paths (added `/banking/` prefix)
+  - **File**: `apps/web/src/lib/api-client.ts:193-199`
+  - **Issue**: Frontend was using `/api/v1/{orgId}/bank-accounts/` instead of `/api/v1/{orgId}/banking/bank-accounts/`
+  - **Impact**: Banking module completely non-functional from frontend
+  - **Fix**: Updated all banking endpoint paths to include `/banking/` prefix
+- **Critical Issue CRITICAL-2**: Fixed dashboard endpoint paths (added `/reports/` prefix)
+  - **File**: `apps/web/src/lib/api-client.ts:188-191`
+  - **Issue**: Frontend was using `/api/v1/{orgId}/dashboard/metrics/` instead of `/api/v1/{orgId}/reports/dashboard/metrics/`
+  - **Impact**: Dashboard could not load data from backend
+  - **Fix**: Updated dashboard endpoints to use `/reports/dashboard/` prefix
+- **Critical Issue CRITICAL-3**: Fixed dashboard-client.tsx endpoint usage
+  - **File**: `apps/web/src/app/(dashboard)/dashboard/dashboard-client.tsx:21,67`
+  - **Issue**: Component was using hardcoded string template instead of api-client endpoints
+  - **Impact**: Endpoint path was `/api/v1/{orgId}/dashboard/` (wrong)
+  - **Fix**: Updated to use `endpoints.dashboard(orgId).metrics` from api-client
+- **Remediation Plan Created**: Documented all integration issues in `INTEGRATION_REMEDIATION_PLAN.md`
+  - Identified 4 critical issues, 2 high priority issues, 1 medium priority issue
+  - Created implementation priority (Phase 1-4)
+  - Provided detailed verification steps
+
+### Validation Results
+- ✅ Banking endpoints: Now return correct paths with `/banking/` prefix
+- ✅ Dashboard endpoints: Now return correct paths with `/reports/dashboard/` prefix
+- ✅ Dashboard client: Now uses proper endpoint from api-client
+- ⚠️ Fiscal periods endpoints: Still need backend implementation (documented in plan)
+- ⚠️ Peppol endpoints: Still need backend implementation (documented in plan)
+- ⚠️ Dashboard response format: Backend still returns stub data (needs service implementation)
+
+### Files Modified
+| File | Change | Lines |
+|------|--------|-------|
+| `apps/web/src/lib/api-client.ts` | Fixed banking endpoint paths | 193-199 |
+| `apps/web/src/lib/api-client.ts` | Fixed dashboard endpoint paths | 188-191 |
+| `apps/web/src/app/(dashboard)/dashboard/dashboard-client.tsx` | Import endpoints from api-client | 21 |
+| `apps/web/src/app/(dashboard)/dashboard/dashboard-client.tsx` | Use endpoints.dashboard() instead of hardcoded string | 67 |
+| `INTEGRATION_REMEDIATION_PLAN.md` | Created comprehensive remediation plan | NEW FILE |
+
+---
+
 # Major Milestone: Phase B - Dynamic Organization Context ✅ COMPLETE (2026-03-03)
 
 ## Executive Summary
@@ -263,12 +308,17 @@ export function Shell({ children }: ShellProps) {
 3. ~~**Bank Reconciliation Tests**~~ ✅ COMPLETE
 4. ~~**View Tests**~~ ✅ COMPLETE
 5. ~~**Rate Limiting**~~ ✅ COMPLETE
-6. **Error Handling**: Add retry logic and fallback UI for dashboard API failures
+6. ~~**Frontend Integration**: Connect banking pages to validated backend endpoints~~ ✅ COMPLETE (2026-03-03)
+   - Fixed banking endpoint paths (added `/banking/` prefix)
+   - Fixed dashboard endpoint paths (added `/reports/` prefix)
+   - Updated dashboard-client.tsx to use proper endpoints
+7. **Error Handling**: Add retry logic and fallback UI for dashboard API failures
 
 ### Short-term (Medium Priority)
-7. **Frontend Integration**: Connect banking pages to validated backend endpoints
 8. **Content Security Policy**: Configure CSP headers (SEC-003)
 9. **Frontend Test Coverage**: Expand tests for hooks and forms (SEC-004)
+10. **Fiscal Periods**: Implement fiscal year/period close endpoints
+11. **Peppol Integration**: Add Peppol transmission endpoints
 
 ### Long-term (Low Priority)
 10. **InvoiceNow Transmission**: Finalize Peppol XML generation

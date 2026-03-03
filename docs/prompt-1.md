@@ -71,6 +71,10 @@ awesome meticulous job so far. please keep up the good work. yes, please meticul
 
 ---
 
+source /opt/venv/bin/activate && cd /home/project/Ledger-SG/apps/backend && python tests/test_db_conn.py
+
+---
+
 please meticulously review @Project_Architecture_Document.md and validate it carefully and systematically against the actual codebase to ensure its correctness and accuracy.
 
 ---
