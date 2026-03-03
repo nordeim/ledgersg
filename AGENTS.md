@@ -113,8 +113,9 @@ source /opt/venv/bin/activate
 cd apps/backend
 pytest --reuse-db --no-migrations
 ```
-- **Coverage:** 173 tests passing across 14 test files. Focus on Service Layer logic and API endpoint contracts.
-- **Dashboard TDD:** 22 test-driven tests (service + view).
+- **Coverage:** 141+ tests passing across 16 test files. Focus on Service Layer logic and API endpoint contracts.
+- **Dashboard TDD:** 21 test-driven tests (service + view).
+- **Integration Gaps:** 33 new tests (GAP-3: 20 tests, GAP-4: 13 tests), 100% passing.
 - **Fixtures:** Must comply with SQL constraints (e.g., `TaxCode` requires `is_input=TRUE` or `is_output=TRUE`).
 
 ### 4.2 Frontend Testing Workflow
@@ -171,6 +172,7 @@ Recent Security Audit (2026-03-01) scored 95%. Address remaining findings:
 - **403 Forbidden on API:** Check `UserOrganisation.accepted_at` is set (Middleware requirement).
 - **Model Schema Mismatch:** `ProgrammingError: column X does not exist`. **Fix:** Align Django model fields with `database_schema.sql`.
 - **Circular Dependencies:** SQL FKs must be added via `ALTER TABLE` at the end of the schema script.
+- **URL Registration 404:** Added view to `urls.py` but getting 404. **Fix:** Check `config/urls.py` to see which URL config is actually imported (e.g., `apps/core/urls/__init__.py` vs `apps/core/urls.py`).
 
 ### 6.3 Deployment Modes
 - **Development:** `npm run dev` (Frontend) + `python manage.py runserver` (Backend).
