@@ -11,6 +11,7 @@ from apps.core.views.organisations import (
     GSTRegistrationView,
     FiscalYearListView,
     OrganisationSummaryView,
+    OrganisationSettingsView,
 )
 from apps.core.views.dashboard import DashboardView
 
@@ -28,16 +29,14 @@ urlpatterns = [
 org_scoped_urlpatterns = [
     # Organisation detail - mounted at api/v1/{org_id}/
     path("", OrganisationDetailView.as_view(), name="org-detail"),
-    
     # GST registration - mounted at api/v1/{org_id}/gst/
     path("gst/", GSTRegistrationView.as_view(), name="org-gst"),
-    
     # Fiscal years - mounted at api/v1/{org_id}/fiscal-years/
     path("fiscal-years/", FiscalYearListView.as_view(), name="org-fiscal-years"),
-    
     # Organisation summary - mounted at api/v1/{org_id}/summary/
     path("summary/", OrganisationSummaryView.as_view(), name="org-summary"),
-    
     # Dashboard - mounted at api/v1/{org_id}/dashboard/
     path("dashboard/", DashboardView.as_view(), name="org-dashboard"),
+    # Organisation settings - mounted at api/v1/{org_id}/settings/
+    path("settings/", OrganisationSettingsView.as_view(), name="org-settings"),
 ]
