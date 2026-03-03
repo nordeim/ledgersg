@@ -225,21 +225,25 @@ class DashboardService:
         Queries journal.line with tax codes where is_output=TRUE for output tax.
         Queries journal.line with tax codes where is_input=TRUE for input tax.
         Returns net_gst = output_tax - input_tax.
+
+        Note: Uses Sum of all tax_amount on lines with tax codes.
+        Credit notes have negative tax_amount which reduces the total.
         """
         try:
             org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
 
+            # Output tax: Sum all tax amounts on output tax codes
             output_tax_result = JournalLine.objects.filter(
                 org_id=org_uuid,
                 entry__entry_date__gte=period_start,
                 entry__entry_date__lte=period_end,
                 entry__is_reversed=False,
                 tax_code__is_output=True,
-                tax_amount__gt=0,
             ).aggregate(total=Coalesce(Sum("tax_amount"), Decimal("0.0000")))
 
             output_tax = money(output_tax_result["total"])
 
+            # Input tax: Sum all tax amounts on input tax codes
             input_tax_result = JournalLine.objects.filter(
                 org_id=org_uuid,
                 entry__entry_date__gte=period_start,
@@ -247,7 +251,6 @@ class DashboardService:
                 entry__is_reversed=False,
                 tax_code__is_input=True,
                 tax_code__is_claimable=True,
-                tax_amount__gt=0,
             ).aggregate(total=Coalesce(Sum("tax_amount"), Decimal("0.0000")))
 
             input_tax = money(input_tax_result["total"])

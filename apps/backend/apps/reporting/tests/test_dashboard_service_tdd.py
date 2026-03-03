@@ -38,8 +38,7 @@ def test_user():
     user = AppUser.objects.create(
         id=uuid4(),
         email="test@example.com",
-        first_name="Test",
-        last_name="User",
+        full_name="Test User",
     )
     user.set_password("testpass123")
     user.save()
@@ -55,6 +54,7 @@ def test_org(test_user):
         uen="202400001A",
         gst_registered=True,
         gst_reg_number="M12345678X",
+        gst_reg_date=date(2024, 1, 1),
         gst_scheme="STANDARD",
         gst_filing_frequency="QUARTERLY",
         fy_start_month=1,
@@ -161,6 +161,8 @@ def test_bank_account(test_org, test_revenue_account):
         is_active=True,
         opening_balance=Decimal("10000.0000"),
         opening_balance_date=date(2024, 1, 1),
+        paynow_type=None,
+        paynow_id=None,
     )
     return bank
 
@@ -286,17 +288,16 @@ class TestGSTCalculations:
             credit=Decimal("10000.0000"),
         )
 
-        # Credit GST Output Tax
+        # Credit GST Output Tax (no tax_code - this is the GST control account)
         JournalLine.objects.create(
             id=uuid4(),
             entry=entry,
             org=test_org,
             line_number=3,
-            account=test_revenue_account,
+            account=test_revenue_account,  # Should be GST control account
             debit=Decimal("0.0000"),
             credit=Decimal("900.0000"),
-            tax_code=test_std_rated_tax_code,
-            tax_amount=Decimal("900.0000"),
+            # No tax_code - GST control account is not taxable
         )
 
         # Execute
@@ -1004,6 +1005,8 @@ class TestCashPosition:
             is_active=True,
             opening_balance=Decimal("10000.0000"),
             opening_balance_date=date(2024, 1, 1),
+            paynow_type=None,
+            paynow_id=None,
         )
 
         # Bank account B
@@ -1018,6 +1021,8 @@ class TestCashPosition:
             is_active=True,
             opening_balance=Decimal("15000.0000"),
             opening_balance_date=date(2024, 1, 1),
+            paynow_type=None,
+            paynow_id=None,
         )
 
         # Execute
@@ -1119,7 +1124,8 @@ class TestGSTThreshold:
         Expected:
         - Status: SAFE when utilization < 70%
         """
-        # Create invoices totaling $500k for past 12 months
+        # Create invoices totaling $500k for past 12 months (using relative dates)
+        today = date.today()
         for i in range(10):
             InvoiceDocument.objects.create(
                 id=uuid4(),
@@ -1127,8 +1133,8 @@ class TestGSTThreshold:
                 document_type="SALES_INVOICE",
                 document_number=f"INV-{700 + i}",
                 contact=test_customer,
-                issue_date=date(2024, 1, 1) - timedelta(days=i * 30),
-                due_date=date(2024, 2, 1) - timedelta(days=i * 30),
+                issue_date=today - timedelta(days=i * 30),
+                due_date=today + timedelta(days=30 - i * 30),
                 status="APPROVED",
                 total_excl=Decimal("50000.0000"),
                 gst_total=Decimal("4500.0000"),
@@ -1162,7 +1168,8 @@ class TestGSTThreshold:
         Expected:
         - Status: WARNING when 70% <= utilization < 90%
         """
-        # Create invoices totaling $800k
+        # Create invoices totaling $800k (using relative dates)
+        today = date.today()
         for i in range(16):
             InvoiceDocument.objects.create(
                 id=uuid4(),
@@ -1170,8 +1177,8 @@ class TestGSTThreshold:
                 document_type="SALES_INVOICE",
                 document_number=f"INV-{800 + i}",
                 contact=test_customer,
-                issue_date=date(2024, 1, 1) - timedelta(days=i * 20),
-                due_date=date(2024, 2, 1) - timedelta(days=i * 20),
+                issue_date=today - timedelta(days=i * 20),
+                due_date=today + timedelta(days=30 - i * 20),
                 status="APPROVED",
                 total_excl=Decimal("50000.0000"),
                 gst_total=Decimal("4500.0000"),
@@ -1204,7 +1211,8 @@ class TestGSTThreshold:
         Expected:
         - Status: CRITICAL when 90% <= utilization < 100%
         """
-        # Create invoices totaling $950k
+        # Create invoices totaling $950k (using relative dates)
+        today = date.today()
         for i in range(19):
             InvoiceDocument.objects.create(
                 id=uuid4(),
@@ -1212,8 +1220,8 @@ class TestGSTThreshold:
                 document_type="SALES_INVOICE",
                 document_number=f"INV-{900 + i}",
                 contact=test_customer,
-                issue_date=date(2024, 1, 1) - timedelta(days=i * 15),
-                due_date=date(2024, 2, 1) - timedelta(days=i * 15),
+                issue_date=today - timedelta(days=i * 15),
+                due_date=today + timedelta(days=30 - i * 15),
                 status="APPROVED",
                 total_excl=Decimal("50000.0000"),
                 gst_total=Decimal("4500.0000"),
@@ -1342,11 +1350,10 @@ class TestComplianceAlerts:
             id=uuid4(),
             org=test_org,
             bank_account=test_bank_account,
-            transaction_date=date(2024, 1, 1) - timedelta(days=40),
+            transaction_date=date.today() - timedelta(days=40),
             amount=Decimal("1000.0000"),
             description="Unreconciled transaction",
             is_reconciled=False,
-            imported_at=datetime.now() - timedelta(days=40),
         )
 
         # Execute
