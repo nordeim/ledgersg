@@ -1,9 +1,101 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 1.7.0
+> **Version**: 1.8.0
 > **Last Updated**: 2026-03-03
-> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B Complete)
+> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B, Phase 3 Complete)
+
+---
+
+## 📋 Table of Contents
+
+1. [Executive Summary](#-executive-summary)
+2. [Project Architecture](#-project-architecture)
+3. [Backend Deep Dive](#-backend-deep-dive)
+4. [Frontend Deep Dive](#-frontend-deep-dive)
+5. [Database Architecture](#-database-architecture)
+6. [IRAS Compliance & GST](#-iras-compliance--gst)
+7. [Security Architecture](#-security-architecture)
+8. [Testing Strategy](#-testing-strategy)
+9. [Development Guidelines](#-development-guidelines)
+10. [API Reference](#-api-reference)
+11. [Common Development Tasks](#-common-development-tasks)
+12. [Troubleshooting](#-troubleshooting)
+
+---
+
+## 🎯 Executive Summary
+
+**LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs. It transforms IRAS compliance from a burden into a seamless, automated experience while delivering a distinctive "Illuminated Carbon" neo-brutalist user interface.
+
+### Current Status
+
+| Component | Version | Status | Key Metrics |
+|-----------|---------|--------|-------------|
+| **Frontend** | v0.1.1 | ✅ Production Ready | 11 pages, dynamic org context, 5 test files |
+| **Backend** | v0.3.3 | ✅ Production Ready | **81 API endpoints**, 14 test files |
+| **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
+| **Dashboard** | v1.0.0 | ✅ Production Ready | **21 TDD tests**, 100% coverage, real data |
+| **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests (services + views), 13 validated endpoints |
+| **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
+| **Integration** | v1.1.0 | ✅ **Complete** | All endpoint paths aligned, Dashboard real data |
+| **Testing** | — | ✅ **108+ Passing** | 87 backend + 21 TDD dashboard tests |
+| **Overall** | — | ✅ **Platform Ready** | **108+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+
+---
+
+## 🔧 Backend Deep Dive
+
+### Technology Stack
+
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Framework | Django | 6.0.2 | Web framework |
+| API | Django REST Framework | 3.16.1 | REST endpoints |
+| Auth | djangorestframework-simplejwt | Latest | JWT authentication |
+| Database | PostgreSQL | 16+ | Primary data store |
+| Task Queue | Celery + Redis | 5.4+ / 7+ | Async processing |
+| Testing | pytest-django | Latest | Unit/integration tests |
+
+### Backend Metrics
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| API Endpoints | **81** | 100% Path Alignment (verified against all URL configs) |
+| Service Files | 14 | Core business logic (core: 3, banking: 3, invoicing: 2, gst: 3, journal: 2, reporting: 1) |
+| Models | **25** | Aligned with SQL schema (all apps/core/models/) |
+| Test Files | 14 | 87 test functions (integration + security) + 21 TDD dashboard tests |
+| Lines of Code | **~15,500+** | Logic & Templates |
+
+### Directory Structure
+
+```
+apps/backend/
+├── apps/
+│   ├── core/          # Restored: AppUser, Role, JournalEntry, InvoiceLine, GSTReturn, etc.
+│   ├── coa/           # Chart of Accounts
+│   ├── gst/           # GST Module
+│   ├── invoicing/     # Invoicing (PDF & Email Logic)
+│   ├── journal/       # Journal Entry
+│   ├── banking/       # Banking
+│   └── reporting/     # Dashboard & Reports (NEW: DashboardService)
+├── common/            # BaseModel, TenantModel, decimal_utils
+├── config/            # settings/base.py, celery.py
+└── tests/             # integration/, security/
+```
+
+---
+
+## 🗄 Database Architecture
+
+### PostgreSQL Configuration
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| **Schemas** | 7 (core, coa, gst, journal, invoicing, banking, audit) | Domain separation |
+| **Money Precision** | `NUMERIC(10,4)` | 4 decimal places for all amounts |
+| **RLS** | Session variable `app.current_org_id` | Multi-tenant isolation |
+| **Integrity** | Circular Deps Resolved | ALTER TABLE FK strategy |
 
 ---
 
