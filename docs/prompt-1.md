@@ -75,6 +75,10 @@ source /opt/venv/bin/activate && cd /home/project/Ledger-SG/apps/backend && pyth
 
 ---
 
+awesome meticulous job so far. please keep up the good work. yes, please meticulously plan and create a sub-plan for Phase 1, review and validate it against the codebase to ensure accurate alignment, then proceed to execute it.
+
+---
+
 please meticulously review @Project_Architecture_Document.md and validate it carefully and systematically against the actual codebase to ensure its correctness and accuracy.
 
 ---

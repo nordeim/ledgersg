@@ -42,38 +42,30 @@ class OrganisationListCreateView(APIView):
     GET: List user's organisations
     POST: Create new organisation
     """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
-    
+
     @wrap_response
     def get(self, request) -> Response:
         """List organisations where user is a member."""
-        orgs = Organisation.objects.filter(
-            user_memberships__user=request.user
-        ).distinct()
-        
+        orgs = Organisation.objects.filter(user_memberships__user=request.user).distinct()
+
         serializer = OrganisationSerializer(orgs, many=True)
-        return Response({
-            "data": serializer.data,
-            "count": len(serializer.data)
-        })
-    
+        return Response({"data": serializer.data, "count": len(serializer.data)})
+
     @wrap_response
     def post(self, request) -> Response:
         """Create new organisation with full setup."""
         serializer = OrganisationCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         # Create organisation
         org = organisation_service.create_organisation(
-            user=request.user,
-            **serializer.validated_data
+            user=request.user, **serializer.validated_data
         )
-        
-        return Response(
-            OrganisationSerializer(org).data,
-            status=status.HTTP_201_CREATED
-        )
+
+        return Response(OrganisationSerializer(org).data, status=status.HTTP_201_CREATED)
 
 
 class OrganisationDetailView(APIView):
@@ -82,70 +74,74 @@ class OrganisationDetailView(APIView):
     PATCH: Update organisation
     DELETE: Deactivate organisation (soft delete)
     """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsOrgMember]
-    
+
     @wrap_response
     def get(self, request, org_id: str) -> Response:
         """Get organisation details."""
         org = self._get_org(org_id)
         serializer = OrganisationSerializer(org)
-        
+
         # Add additional data
         data = serializer.data
         data["member_count"] = org.user_memberships.count()
         data["fiscal_year_count"] = org.fiscalyear_set.count()
         data["account_count"] = org.account_set.filter(is_system=False).count()
-        
+
         return Response(data)
-    
+
     @wrap_response
     def patch(self, request, org_id: str) -> Response:
         """Update organisation settings."""
         org = self._get_org(org_id)
-        
+
         # Check permission
         self._check_permission(request, "can_manage_org")
-        
+
         # Update allowed fields
         allowed_fields = [
-            "name", "legal_name", "uen", "entity_type",
-            "address", "contact_email", "contact_phone",
-            "base_currency", "peppol_participant_id", "invoicenow_enabled"
+            "name",
+            "legal_name",
+            "uen",
+            "entity_type",
+            "address",
+            "contact_email",
+            "contact_phone",
+            "base_currency",
+            "peppol_participant_id",
+            "invoicenow_enabled",
         ]
-        
-        updates = {
-            k: v for k, v in request.data.items()
-            if k in allowed_fields
-        }
-        
+
+        updates = {k: v for k, v in request.data.items() if k in allowed_fields}
+
         org = organisation_service.update_organisation(org, **updates)
         return Response(OrganisationSerializer(org).data)
-    
+
     @wrap_response
     def delete(self, request, org_id: str) -> Response:
         """Deactivate organisation (soft delete)."""
         org = self._get_org(org_id)
-        
+
         # Check permission
         self._check_permission(request, "can_manage_org")
-        
+
         # Deactivate
         org.is_active = False
         org.save()
-        
+
         return Response(
-            {"message": "Organisation deactivated successfully"},
-            status=status.HTTP_204_NO_CONTENT
+            {"message": "Organisation deactivated successfully"}, status=status.HTTP_204_NO_CONTENT
         )
-    
+
     def _get_org(self, org_id: str) -> Organisation:
         """Get organisation by ID or raise 404."""
         try:
             return Organisation.objects.get(id=org_id)
         except Organisation.DoesNotExist:
             raise UnauthorizedOrgAccess("Organisation not found")
-    
+
     def _check_permission(self, request, permission: str) -> bool:
         """Check if user has specific permission."""
         org_role = getattr(request, "org_role", {})
@@ -159,35 +155,36 @@ class GSTRegistrationView(APIView):
     POST: Register for GST
     DELETE: Deregister from GST
     """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsOrgMember, CanManageOrg]
-    
+
     @wrap_response
     def post(self, request, org_id: str) -> Response:
         """Register organisation for GST."""
         org = self._get_org(org_id)
-        
+
         serializer = GSTRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         org = organisation_service.toggle_gst_registration(
             org,
             registered=True,
             reg_number=serializer.validated_data["gst_reg_number"],
-            reg_date=serializer.validated_data["gst_reg_date"]
+            reg_date=serializer.validated_data["gst_reg_date"],
         )
-        
+
         return Response(OrganisationSerializer(org).data)
-    
+
     @wrap_response
     def delete(self, request, org_id: str) -> Response:
         """Deregister from GST."""
         org = self._get_org(org_id)
-        
+
         org = organisation_service.toggle_gst_registration(org, registered=False)
-        
+
         return Response(OrganisationSerializer(org).data)
-    
+
     def _get_org(self, org_id: str) -> Organisation:
         """Get organisation by ID or raise 404."""
         try:
@@ -201,61 +198,140 @@ class FiscalYearListView(APIView):
     GET: List fiscal years
     POST: Create new fiscal year
     """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsOrgMember, CanCreateJournals]
-    
+
     @wrap_response
     def get(self, request, org_id: str) -> Response:
         """List fiscal years for organisation."""
-        fiscal_years = FiscalYear.objects.filter(
-            org_id=org_id
-        ).order_by("-start_date")
-        
+        fiscal_years = FiscalYear.objects.filter(org_id=org_id).order_by("-start_date")
+
         serializer = FiscalYearSerializer(fiscal_years, many=True)
-        return Response({
-            "data": serializer.data,
-            "count": len(serializer.data)
-        })
+        return Response({"data": serializer.data, "count": len(serializer.data)})
 
 
 class OrganisationSummaryView(APIView):
     """
     GET: Get organisation summary/dashboard data
     """
+
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsOrgMember, CanViewReports]
-    
+
     @wrap_response
     def get(self, request, org_id: str) -> Response:
         """Get organisation summary."""
         org = Organisation.objects.get(id=org_id)
-        
+
         # Get current fiscal year
-        current_fy = FiscalYear.objects.filter(
-            org_id=org_id,
-            is_closed=False
-        ).order_by("start_date").first()
-        
+        current_fy = (
+            FiscalYear.objects.filter(org_id=org_id, is_closed=False).order_by("start_date").first()
+        )
+
         # Get open periods count
-        open_periods = FiscalPeriod.objects.filter(
-            org_id=org_id,
-            is_open=True
-        ).count()
-        
+        open_periods = FiscalPeriod.objects.filter(org_id=org_id, is_open=True).count()
+
         # Get account counts
         total_accounts = Account.objects.filter(org_id=org_id).count()
-        active_accounts = Account.objects.filter(
-            org_id=org_id, is_active=True
-        ).count()
-        
+        active_accounts = Account.objects.filter(org_id=org_id, is_active=True).count()
+
         # Get member count
         member_count = org.user_memberships.count()
-        
-        return Response({
-            "organisation": OrganisationSerializer(org).data,
-            "current_fiscal_year": FiscalYearSerializer(current_fy).data if current_fy else None,
-            "open_periods": open_periods,
-            "total_accounts": total_accounts,
-            "active_accounts": active_accounts,
-            "member_count": member_count,
-        })
+
+        return Response(
+            {
+                "organisation": OrganisationSerializer(org).data,
+                "current_fiscal_year": FiscalYearSerializer(current_fy).data
+                if current_fy
+                else None,
+                "open_periods": open_periods,
+                "total_accounts": total_accounts,
+                "active_accounts": active_accounts,
+                "member_count": member_count,
+            }
+        )
+
+
+class OrganisationSettingsView(APIView):
+    """
+    GET / PATCH: Organisation settings.
+
+    Returns or updates organisation configuration settings.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsOrgMember]
+
+    @wrap_response
+    def get(self, request, org_id: str) -> Response:
+        """Get organisation settings."""
+        try:
+            org = Organisation.objects.get(id=org_id)
+            return Response(
+                {
+                    "id": str(org.id),
+                    "name": org.name,
+                    "legal_name": org.legal_name,
+                    "uen": org.uen,
+                    "entity_type": org.entity_type,
+                    "base_currency": org.base_currency,
+                    "timezone": org.timezone,
+                    "fy_start_month": org.fy_start_month,
+                    "gst_registered": org.gst_registered,
+                    "gst_reg_number": org.gst_reg_number,
+                    "gst_scheme": org.gst_scheme,
+                    "gst_filing_frequency": org.gst_filing_frequency,
+                    "peppol_participant_id": org.peppol_participant_id,
+                    "invoicenow_enabled": org.invoicenow_enabled,
+                }
+            )
+        except Organisation.DoesNotExist:
+            return Response(
+                {"error": {"code": "not_found", "message": "Organisation not found"}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+    @wrap_response
+    def patch(self, request, org_id: str) -> Response:
+        """Update organisation settings."""
+        try:
+            org = Organisation.objects.get(id=org_id)
+
+            # Update allowed fields
+            allowed_fields = [
+                "name",
+                "legal_name",
+                "uen",
+                "entity_type",
+                "base_currency",
+                "timezone",
+                "fy_start_month",
+                "gst_registered",
+                "gst_reg_number",
+                "gst_scheme",
+                "gst_filing_frequency",
+                "peppol_participant_id",
+                "invoicenow_enabled",
+            ]
+
+            updated_fields = []
+            for field in allowed_fields:
+                if field in request.data:
+                    setattr(org, field, request.data[field])
+                    updated_fields.append(field)
+
+            org.save()
+
+            return Response(
+                {
+                    "message": "Settings updated successfully",
+                    "id": str(org.id),
+                    "updated_fields": updated_fields,
+                }
+            )
+        except Organisation.DoesNotExist:
+            return Response(
+                {"error": {"code": "not_found", "message": "Organisation not found"}},
+                status=status.HTTP_404_NOT_FOUND,
+            )

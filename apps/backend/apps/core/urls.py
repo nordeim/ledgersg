@@ -23,6 +23,7 @@ from apps.core.views.organisations import (
     GSTRegistrationView,
     FiscalYearListView,
     OrganisationSummaryView,
+    OrganisationSettingsView,
 )
 
 
@@ -57,6 +58,8 @@ org_detail_urlpatterns = [
     path("fiscal-years/", FiscalYearListView.as_view(), name="org-fiscal-years"),
     # Organisation summary - mounted at api/v1/{org_id}/summary/
     path("summary/", OrganisationSummaryView.as_view(), name="org-summary"),
+    # Organisation settings - mounted at api/v1/{org_id}/settings/
+    path("settings/", OrganisationSettingsView.as_view(), name="org-settings"),
 ]
 
 # Export all URL patterns for non-org-scoped URLs
