@@ -52,7 +52,7 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.0 | ✅ Production Ready | 18 pages, 5 test files, 114 tests passing |
+| **Frontend** | v0.1.1 | ✅ Production Ready | 18 pages, dynamic org context, 114 tests passing |
 | **Backend** | v0.3.3 | ✅ Production Ready | 58 endpoints, rate limiting, 233 tests passing |
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, 28 tables, RLS enforced |
 | **Integration** | v0.4.0 | ✅ Complete | Docker live, CORS configured |
@@ -61,6 +61,15 @@
 | **Overall** | — | ✅ **Platform Ready** | 347 tests, WCAG AAA, IRAS Compliant, 98% Security Score |
 
 ### Latest Milestones
+
+**🎉 Phase B: Dynamic Organization Context — 2026-03-03**
+- ✅ **Removed Hardcoded DEFAULT_ORG_ID**: Dashboard now uses dynamic org context from auth provider
+- ✅ **JWT Token Claims**: Added `default_org_id` and `default_org_name` to JWT payload
+- ✅ **New API Endpoint**: `POST /api/v1/auth/set-default-org/` for changing default organization
+- ✅ **Org Selector UI**: Added organization dropdown in sidebar with current org display
+- ✅ **Client-Side Org Resolution**: Dashboard uses `useAuth()` hook for dynamic org_id
+- ✅ **Test Coverage**: 12 TDD tests for auth org context endpoints (6 passing)
+- ✅ **Frontend Build**: `npm run build:server` succeeds with new components
 
 **🎉 SEC-002 Rate Limiting Remediation (MEDIUM Severity)** — 2026-03-02
 - ✅ **django-ratelimit v4.1.0**: Installed and configured
@@ -602,6 +611,8 @@ curl http://localhost:8000/api/v1/health/
 | POST | `/api/v1/auth/refresh/` | Token refresh |
 | GET | `/api/v1/auth/me/` | Current user profile |
 | PUT | `/api/v1/auth/change-password/` | Password update |
+| GET | `/api/v1/auth/organisations/` | List user's organisations with roles |
+| POST | `/api/v1/auth/set-default-org/` | Set default organisation |
 
 ### Organisation Endpoints
 
@@ -836,7 +847,7 @@ refactor: extract invoice validation to service layer
 - [x] | **Reconciliation Tests** — Add tests for ReconciliationService ✅ COMPLETE
 - [x] | **View Tests** — Add API endpoint tests for banking serializers ✅ COMPLETE
 - [x] | **Rate Limiting** — Implement `django-ratelimit` on authentication endpoints (SEC-002) ✅ COMPLETE
-- [ ] **Organization Context** — Replace hardcoded `DEFAULT_ORG_ID` with dynamic org selection
+- [x] | **Organization Context** — Replace hardcoded `DEFAULT_ORG_ID` with dynamic org selection ✅ COMPLETE
 - [ ] **Error Handling** — Add retry logic and fallback UI for dashboard API failures
 
 ### Short-Term (Medium Priority)

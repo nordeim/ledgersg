@@ -5,13 +5,14 @@
 This document records the completed work on the LedgerSG platform, aligned with the **"Illuminated Carbon" Neo-Brutalist fintech** design system and **IRAS 2026 compliance** requirements.
 
 **Project Status**:
-- ✅ Frontend: v0.1.0 — Production Ready (All 6 Milestones Complete, Docker Live)
-- ✅ Backend: v0.3.3 — Production Ready (58 API endpoints, Rate Limiting Added)
+- ✅ Frontend: v0.1.1 — Production Ready (Dynamic Org Context, Docker Live)
+- ✅ Backend: v0.3.3 — Production Ready (60 API endpoints, Rate Limiting Added)
 - ✅ Database: v1.0.3 — Hardened & Aligned (SQL Constraints Enforced)
 - ✅ Integration: v0.4.0 — All API paths aligned (CORS Configured)
 - ✅ Banking: v0.6.0 — SEC-001 Fully Remediated (55 TDD Tests, 13 Validated Endpoints)
 - ✅ Security: v1.0.0 — SEC-002 Rate Limiting Remediated (django-ratelimit)
-- ✅ Testing: v1.0.0 — Backend & Frontend Tests Verified (342+ total tests)
+- ✅ Org Context: v1.0.0 — Phase B Complete (Dynamic Organization Context)
+- ✅ Testing: v1.0.1 — Backend & Frontend Tests Verified (359+ total tests)
 - ✅ Docker: v1.0.0 — Multi-Service Container with Live Integration
 - ✅ Dashboard API: v0.9.0 — Real Data Integration (TDD)
 
@@ -21,18 +22,258 @@ This document records the completed work on the LedgerSG platform, aligned with 
 
 | Component | Status | Version | Key Deliverables |
 |-----------|--------|---------|------------------|
-| **Frontend** | ✅ Complete | v0.1.0 | 18 pages, 114 tests, Docker live |
-| **Backend** | ✅ Complete | v0.3.3 | 58 API endpoints, rate limiting, 22 models aligned |
+| **Frontend** | ✅ Complete | v0.1.1 | 18 pages, dynamic org context, 114 tests, Docker live |
+| **Backend** | ✅ Complete | v0.3.3 | 60 API endpoints, rate limiting, 22 models aligned |
 | **Database** | ✅ Complete | v1.0.3 | Schema patches, 7 schemas, 28 tables |
 | **Banking** | ✅ Complete | v0.6.0 | 55 tests, SEC-001 fully remediated |
 | **Security** | ✅ Complete | v1.0.0 | SEC-002 rate limiting remediated |
-| **Integration** | ✅ Complete | v0.4.0 | 4 Phases, 58 API endpoints aligned |
-| **Testing** | ✅ Complete | v1.0.0 | 228 backend tests, 114 frontend tests |
+| **Org Context** | ✅ Complete | v1.0.0 | Phase B dynamic org selection |
+| **Integration** | ✅ Complete | v0.4.0 | 4 Phases, 60 API endpoints aligned |
+| **Testing** | ✅ Complete | v1.0.1 | 245 backend tests, 114 frontend tests |
 | **Docker** | ✅ Complete | v1.0.0 | Multi-service, live FE/BE integration |
 
 ---
 
-# Major Milestone: SEC-002 Rate Limiting Remediation ✅ COMPLETE (2026-03-02)
+# Major Milestone: Phase B - Dynamic Organization Context ✅ COMPLETE (2026-03-03)
+
+## Executive Summary
+Eliminated the hardcoded `DEFAULT_ORG_ID` constant and implemented a complete dynamic organization context system. Users can now switch between organizations, and the system automatically resolves the correct org context for API calls.
+
+### Key Achievements
+- **Hardcoded Org Eliminated**: Removed `DEFAULT_ORG_ID = "00000000-0000-0000-0000-000000000001"` from dashboard
+- **JWT Claims Enhanced**: Added `default_org_id` and `default_org_name` to access token payload
+- **New API Endpoint**: `POST /api/v1/auth/set-default-org/` for changing user's default org
+- **Org Selector UI**: Sidebar displays current org with dropdown for switching
+- **Client-Side Context**: Dashboard uses `useAuth()` hook for dynamic org resolution
+- **Frontend Build Fixed**: Corrected endpoint URL and response handling for org list
+
+### Backend Changes
+
+#### JWT Token Enhancement
+```python
+# apps/core/services/auth_service.py
+def generate_tokens(user: AppUser) -> dict:
+    refresh = RefreshToken.for_user(user)
+    
+    # Add default_org_id claim to token
+    user_org = UserOrganisation.objects.filter(user=user, is_default=True).first()
+    if user_org:
+        refresh["default_org_id"] = str(user_org.org_id)
+        refresh["default_org_name"] = user_org.org.name
+    else:
+        # Fallback to first accepted org
+        user_org = UserOrganisation.objects.filter(
+            user=user, accepted_at__isnull=False
+        ).first()
+        if user_org:
+            refresh["default_org_id"] = str(user_org.org_id)
+            refresh["default_org_name"] = user_org.org.name
+```
+
+#### New API Endpoint
+```python
+# apps/core/views/auth.py
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def set_default_org_view(request: Request) -> Response:
+    """
+    Set user's default organisation.
+    POST /api/v1/auth/set-default-org/
+    Body: { "org_id": "uuid" }
+    """
+    org_id = request.data.get("org_id")
+    
+    # Verify user belongs to this org
+    user_org = UserOrganisation.objects.get(
+        user=request.user, org_id=org_id, accepted_at__isnull=False
+    )
+    
+    # Clear existing default
+    UserOrganisation.objects.filter(user=request.user, is_default=True).update(
+        is_default=False
+    )
+    
+    # Set new default
+    user_org.is_default = True
+    user_org.save(update_fields=["is_default"])
+```
+
+### Frontend Changes
+
+#### Dashboard Client Component
+```tsx
+// apps/web/src/app/(dashboard)/dashboard/dashboard-client.tsx
+export function DashboardClient() {
+  const { currentOrg, isLoading: authLoading } = useAuth();
+  const orgId = currentOrg?.id;
+
+  const { data, isLoading } = useQuery<DashboardData>({
+    queryKey: ["dashboard", orgId],
+    queryFn: () => api.get<DashboardData>(`/api/v1/${orgId}/dashboard/`),
+    enabled: !!orgId, // Only fetch when org is available
+  });
+  
+  if (!orgId) {
+    return <NoOrgSelected />;
+  }
+  // ... render dashboard
+}
+```
+
+#### Org Selector in Shell
+```tsx
+// apps/web/src/components/layout/shell.tsx
+export function Shell({ children }: ShellProps) {
+  const { user, organisations, currentOrg, switchOrg } = useAuth();
+  
+  return (
+    <aside>
+      {/* Org Selector */}
+      <button onClick={() => setOrgSelectorOpen(!orgSelectorOpen)}>
+        <Building2 className="h-3 w-3" />
+        <span>{currentOrg?.name}</span>
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      
+      {orgSelectorOpen && (
+        <div>
+          {organisations.map((uo) => (
+            <button onClick={() => switchOrg(uo.org.id)}>
+              {uo.org.name}
+              {uo.org.id === currentOrg?.id && <Check />}
+            </button>
+          ))}
+        </div>
+      )}
+    </aside>
+  );
+}
+```
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `apps/core/services/auth_service.py` | Added JWT claims for `default_org_id` |
+| `apps/core/views/auth.py` | Added `set_default_org_view` endpoint |
+| `apps/core/urls.py` | Added URL route for `set-default-org/` |
+| `apps/web/src/lib/api-client.ts` | Fixed `organisations.list` endpoint URL |
+| `apps/web/src/providers/auth-provider.tsx` | Fixed response handling (array vs `{results}`) |
+| `apps/web/src/app/(dashboard)/dashboard/page.tsx` | Removed hardcoded `DEFAULT_ORG_ID` |
+| `apps/web/src/app/(dashboard)/dashboard/dashboard-client.tsx` | New client component with dynamic org |
+| `apps/web/src/components/layout/shell.tsx` | Added org selector dropdown |
+
+### Test Coverage
+
+| Test Class | Tests | Coverage |
+|------------|-------|----------|
+| TestMyOrganisationsView | 5 | Empty list, is_default flag, sorting, pending exclusion, auth required |
+| TestSetDefaultOrgView | 4 | Set default, missing org_id, unauthorized org, auth required |
+| TestJWTTokenOrgClaims | 3 | Token includes default, fallback to first, no org claim |
+
+### Security Validation
+- ✅ JWT claims contain org_id for efficient client resolution
+- ✅ Endpoint validates org membership before allowing change
+- ✅ Only accepted memberships are returned
+- ✅ Cross-org access blocked in membership checks
+
+---
+
+## Lessons Learned (Phase B)
+
+### Frontend Endpoint Mismatch
+- **Discovery**: Frontend used `/api/v1/organisations/` but the endpoint returning `is_default` is `/api/v1/auth/organisations/`
+- **Solution**: Updated `api-client.ts` to point to correct endpoint
+- **Key Insight**: Multiple endpoints with similar names require careful verification
+
+### Response Format Consistency
+- **Discovery**: `/api/v1/auth/organisations/` returns array directly, not `{results: [...]}`
+- **Solution**: Updated `auth-provider.tsx` to handle array response
+- **Key Insight**: Endpoint response formats must be verified, not assumed
+
+### Role Model Requires Org
+- **Discovery**: Role is a TenantModel requiring `org_id` foreign key
+- **Solution**: Created per-org role fixtures (`test_role_1`, `test_role_2`)
+- **Key Insight**: TenantModel fixtures must include org relationship
+
+### Static Export vs Standalone Build
+- **Discovery**: `npm run build` (static export) fails for pages requiring auth context
+- **Solution**: Use `npm run build:server` for API integration mode
+- **Key Insight**: Dashboard requires dynamic rendering; use standalone build
+
+---
+
+## Troubleshooting Guide (Phase B)
+
+### "No current organisation selected"
+- **Issue**: Dashboard throws when no org available
+- **Cause**: `useCurrentOrg()` throws if `currentOrg` is null
+- **Solution**: Use `useAuth()` directly and check `currentOrg` before rendering
+
+### Frontend Shows Wrong Org List
+- **Issue**: Organisations list empty or missing `is_default`
+- **Cause**: Wrong endpoint URL or response format mismatch
+- **Solution**: Verify `endpoints.organisations.list = "/api/v1/auth/organisations/"`
+
+### JWT Token Missing default_org_id
+- **Issue**: Access token doesn't contain org claims
+- **Cause**: User has no accepted org memberships
+- **Solution**: Ensure `UserOrganisation.accepted_at` is set for test fixtures
+
+### Test Fixtures Fail with "Role has no org"
+- **Issue**: Role creation fails without org relationship
+- **Cause**: Role is TenantModel requiring `org` foreign key
+- **Solution**: Create roles per-org: `Role.objects.create(org=test_org, ...)`
+
+---
+
+## Blockers Encountered (Phase B)
+
+### ✅ SOLVED: Frontend Endpoint Mismatch
+- **Status**: SOLVED (2026-03-03)
+- **Problem**: Wrong endpoint URL for org list
+- **Solution**: Changed to `/api/v1/auth/organisations/`
+- **Impact**: Org selector now shows correct list
+
+### ✅ SOLVED: Response Format Assumption
+- **Status**: SOLVED (2026-03-03)
+- **Problem**: Code expected `{results: [...]}` but endpoint returns array
+- **Solution**: Updated auth-provider to handle direct array
+- **Impact**: Org list populates correctly
+
+### ✅ SOLVED: Role Fixture Tenant Requirement
+- **Status**: SOLVED (2026-03-03)
+- **Problem**: Role.objects.create() failed without org
+- **Solution**: Created per-org role fixtures
+- **Impact**: All org context tests pass
+
+### ✅ SOLVED: Dashboard Hydration with No Org
+- **Status**: SOLVED (2026-03-03)
+- **Problem**: useCurrentOrg() throws when no org selected
+- **Solution**: Use useAuth() with null check and fallback UI
+- **Impact**: Dashboard handles missing org gracefully
+
+---
+
+## Recommended Next Steps (Updated 2026-03-03)
+
+### Immediate (High Priority)
+1. ~~**Journal Entry Integration**: Align JournalService field names~~ ✅ COMPLETE (Phase A)
+2. ~~**Organization Context**: Replace hardcoded `DEFAULT_ORG_ID`~~ ✅ COMPLETE (Phase B)
+3. ~~**Bank Reconciliation Tests**~~ ✅ COMPLETE
+4. ~~**View Tests**~~ ✅ COMPLETE
+5. ~~**Rate Limiting**~~ ✅ COMPLETE
+6. **Error Handling**: Add retry logic and fallback UI for dashboard API failures
+
+### Short-term (Medium Priority)
+7. **Frontend Integration**: Connect banking pages to validated backend endpoints
+8. **Content Security Policy**: Configure CSP headers (SEC-003)
+9. **Frontend Test Coverage**: Expand tests for hooks and forms (SEC-004)
+
+### Long-term (Low Priority)
+10. **InvoiceNow Transmission**: Finalize Peppol XML generation
+11. **PII Encryption**: Encrypt GST numbers and bank accounts at rest (SEC-005)
+12. **Analytics**: Add dashboard analytics tracking
 
 ## Executive Summary
 Remediated **SEC-002 (MEDIUM Severity)** security finding by implementing `django-ratelimit` on all authentication endpoints. This prevents brute-force attacks, mass registration attacks, and API abuse.

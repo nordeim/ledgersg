@@ -1,9 +1,9 @@
 # LedgerSG — Agent & Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 1.6.0
-> **Last Updated**: 2026-03-02
-> **Status**: Production Ready ✅ (SEC-001 & SEC-002 Remediated)
+> **Version**: 1.7.0
+> **Last Updated**: 2026-03-03
+> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B Complete)
 
 ---
 
@@ -31,13 +31,26 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.0 | ✅ Production Ready | 18 static pages, 114 tests |
-| **Backend** | v0.3.3 | ✅ Production Ready | **58 API endpoints**, 233 tests |
+| **Frontend** | v0.1.1 | ✅ Production Ready | 18 static pages, dynamic org context, 114 tests |
+| **Backend** | v0.3.3 | ✅ Production Ready | **60 API endpoints**, 245 tests |
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests, 13 validated endpoints |
 | **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
-| **Testing** | — | ✅ 347+ Passing | Backend + Frontend tests verified |
-| **Overall** | — | ✅ **Platform Ready** | **347+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+| **Testing** | — | ✅ 359+ Passing | Backend + Frontend tests verified |
+| **Overall** | — | ✅ **Platform Ready** | **359+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+
+### Recent Milestone: Phase B Dynamic Organization Context ✅ COMPLETE
+**Date**: 2026-03-03
+**Status**: Hardcoded DEFAULT_ORG_ID Eliminated
+
+| Fix | Impact |
+|-----|--------|
+| **JWT Claims** | `default_org_id` and `default_org_name` in access token |
+| **New Endpoint** | `POST /api/v1/auth/set-default-org/` for changing default org |
+| **Org Selector UI** | Sidebar shows current org with dropdown switcher |
+| **Client-Side Context** | Dashboard uses `useAuth()` hook for dynamic org_id |
+| **Removed Constant** | Eliminated hardcoded `DEFAULT_ORG_ID = "0000..."` from dashboard |
+| **TDD Tests** | 12 tests created for auth org context endpoints |
 
 ### Recent Milestone: SEC-002 Rate Limiting Remediation ✅ COMPLETE
 **Date**: 2026-03-02
@@ -345,11 +358,12 @@ VALUES (org_uuid, 'PAYMENT_RECEIVED', 'RCP-', 1, 5), (org_uuid, 'PAYMENT_MADE', 
 ## 🚀 Recommended Next Steps
 
 ### Immediate (High Priority)
-1. **Journal Entry Integration**: Align JournalService field names with JournalEntry model
-2. **Organization Context**: Replace hardcoded `DEFAULT_ORG_ID` with dynamic org selection
+1. ~~**Journal Entry Integration**: Align JournalService field names with JournalEntry model~~ ✅ COMPLETE (Phase A)
+2. ~~**Organization Context**: Replace hardcoded `DEFAULT_ORG_ID` with dynamic org selection~~ ✅ COMPLETE (Phase B)
 3. ~~**Bank Reconciliation Tests**: Add tests for ReconciliationService~~ ✅ COMPLETE
 4. ~~**View Tests**: Add comprehensive endpoint tests for banking API~~ ✅ COMPLETE
 5. ~~**Rate Limiting**: Implement `django-ratelimit` on authentication endpoints (SEC-002)~~ ✅ COMPLETE
+6. **Error Handling**: Add retry logic and fallback UI for dashboard API failures
 
 ### Short-term (Medium Priority)
 6. **Frontend Integration**: Connect banking pages to validated backend endpoints

@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 1.6.0
-> **Last Updated**: 2026-03-02
-> **Status**: Production Ready ✅ (SEC-001 & SEC-002 Remediated)
+> **Version**: 1.7.0
+> **Last Updated**: 2026-03-03
+> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B Complete)
 
 ---
 
@@ -32,13 +32,13 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.0 | ✅ Production Ready | 18 static pages, 114 tests |
-| **Backend** | v0.3.3 | ✅ Production Ready | **58 API endpoints**, 233 tests |
+| **Frontend** | v0.1.1 | ✅ Production Ready | 18 static pages, dynamic org context, 114 tests |
+| **Backend** | v0.3.3 | ✅ Production Ready | **60 API endpoints**, 245 tests |
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
-| **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests (services + views), 13 endpoints |
+| **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests (services + views), 13 validated endpoints |
 | **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
-| **Testing** | — | ✅ 347+ Passing | Backend + Frontend tests verified |
-| **Overall** | — | ✅ **Platform Ready** | **347+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+| **Testing** | — | ✅ 359+ Passing | Backend + Frontend tests verified |
+| **Overall** | — | ✅ **Platform Ready** | **359+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
 
 ---
 
@@ -169,6 +169,20 @@ pytest --reuse-db --no-migrations
 ---
 
 ## 🚀 Recent Milestones
+
+### Phase B: Dynamic Organization Context ✅ COMPLETE (2026-03-03)
+- **Hardcoded Org Removed**: Eliminated `DEFAULT_ORG_ID` constant from dashboard
+- **JWT Claims Added**: `default_org_id` and `default_org_name` embedded in access token
+- **New Endpoint**: `POST /api/v1/auth/set-default-org/` for changing user's default org
+- **Org Selector UI**: Sidebar shows current org with dropdown to switch
+- **Client-Side Context**: Dashboard uses `useAuth()` hook for dynamic org resolution
+- **TDD Tests**: 12 tests created for auth org context endpoints
+- **Files Modified**: 
+  - `apps/core/services/auth_service.py` — JWT token generation
+  - `apps/core/views/auth.py` — New `set_default_org_view`
+  - `apps/web/src/providers/auth-provider.tsx` — Fixed org endpoint handling
+  - `apps/web/src/app/(dashboard)/dashboard/dashboard-client.tsx` — New client component
+  - `apps/web/src/components/layout/shell.tsx` — Org selector UI
 
 ### SEC-002 Rate Limiting Remediation (2026-03-02) ✅ COMPLETE
 - **django-ratelimit v4.1.0**: Installed and configured
