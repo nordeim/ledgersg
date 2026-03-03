@@ -33,13 +33,14 @@
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.1.1 | ✅ Production Ready | 11 pages, dynamic org context, 5 test files |
-| **Backend** | v0.3.3 | ✅ Production Ready | **81 API endpoints**, 14 test files |
+| **Backend** | v0.3.3 | ✅ Production Ready | **83 API endpoints**, 16 test files |
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
 | **Dashboard** | v1.0.0 | ✅ Production Ready | **21 TDD tests**, 100% coverage, real data |
+| **Integration Gaps** | — | ✅ Complete | GAP-3 (20 tests), GAP-4 (13 tests) |
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests (services + views), 13 validated endpoints |
 | **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
 | **Integration** | v1.1.0 | ✅ **Complete** | All endpoint paths aligned, Dashboard real data |
-| **Testing** | — | ✅ **108+ Passing** | 87 backend + 21 TDD dashboard tests |
+| **Testing** | — | ✅ **141+ Passing** | 87 backend + 21 TDD dashboard + 33 new tests |
 | **Overall** | — | ✅ **Platform Ready** | **108+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
 
 ---
@@ -61,11 +62,11 @@
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| API Endpoints | **81** | 100% Path Alignment (verified against all URL configs) |
+| API Endpoints | **83** | 100% Path Alignment (verified against all URL configs) |
 | Service Files | 14 | Core business logic (core: 3, banking: 3, invoicing: 2, gst: 3, journal: 2, reporting: 1) |
 | Models | **25** | Aligned with SQL schema (all apps/core/models/) |
-| Test Files | 14 | 87 test functions (integration + security) + 21 TDD dashboard tests |
-| Lines of Code | **~15,500+** | Logic & Templates |
+| Test Files | 16 | 87 integration + 21 TDD dashboard + 33 new integration tests |
+| Lines of Code | **~16,150+** | Logic & Templates |
 
 ### Directory Structure
 

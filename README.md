@@ -80,6 +80,14 @@
 - ✅ **GAP-4: Organisation Settings**: GET/PATCH endpoints for org configuration
 - ✅ **Files Modified**: 6 files, 2 new files created, ~800 lines of code
 
+**🎉 Integration Gaps Phase 3 Complete** — 2026-03-04
+- ✅ **GAP-3: Peppol Endpoints Validated**: 20 comprehensive tests (transmission log + settings)
+- ✅ **GAP-4: Organisation Settings Validated**: 13 comprehensive tests (GET/PATCH operations)
+- ✅ **URL Registration Fixed**: Added `OrganisationSettingsView` to `apps/core/urls/__init__.py`
+- ✅ **Test Coverage**: 33 new tests total (100% passing)
+- ✅ **Files Created**: 3 new test files, ~650 lines of test code
+- ✅ **API Endpoints Validated**: Proper JWT auth, IsOrgMember permissions, error handling
+
 **🎉 Phase B: Dynamic Organization Context** — 2026-03-03
 - ✅ **Removed Hardcoded DEFAULT_ORG_ID**: Dashboard now uses dynamic org context from auth provider
 - ✅ **JWT Token Claims**: Added `default_org_id` and `default_org_name` to JWT payload

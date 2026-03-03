@@ -6,13 +6,14 @@ This document records the completed work on the LedgerSG platform, aligned with 
 
 **Project Status**:
 - ✅ Frontend: v0.1.1 — Production Ready (Dynamic Org Context, Docker Live)
-- ✅ Backend: v0.3.3 — Production Ready (81 API endpoints, Rate Limiting Added)
+- ✅ Backend: v0.3.3 — Production Ready (83 API endpoints, Rate Limiting Added)
 - ✅ Database: v1.0.3 — Hardened & Aligned (SQL Constraints Enforced)
 - ✅ Integration: v0.5.0 — All API paths aligned, Dashboard Real Data (CORS Configured)
 - ✅ Banking: v0.6.0 — SEC-001 Fully Remediated (55 TDD Tests, 13 Validated Endpoints)
 - ✅ Security: v1.0.0 — SEC-002 Rate Limiting Remediated (django-ratelimit)
 - ✅ Org Context: v1.0.0 — Phase B Complete (Dynamic Organization Context)
-- ✅ Testing: v1.1.0 — Backend & Frontend Tests Verified (108+ total tests, 21 new TDD tests)
+- ✅ Integration Gaps: v1.0.0 — GAP-3 & GAP-4 Validated (33 new tests, 100% passing)
+- ✅ Testing: v1.2.0 — Backend & Frontend Tests Verified (141+ total tests)
 - ✅ Docker: v1.0.0 — Multi-Service Container with Live Integration
 - ✅ Dashboard API: v1.0.0 — Production Ready (Real Data Integration, 100% TDD Coverage)
 
@@ -23,13 +24,14 @@ This document records the completed work on the LedgerSG platform, aligned with 
 | Component | Status | Version | Key Deliverables |
 |-----------|--------|---------|------------------|
 | **Frontend** | ✅ Complete | v0.1.1 | 11 pages, dynamic org context, 5 test files, Docker live |
-| **Backend** | ✅ Complete | v0.3.3 | 81 API endpoints, rate limiting, 25 models aligned |
+| **Backend** | ✅ Complete | v0.3.3 | 83 API endpoints, rate limiting, 25 models aligned |
 | **Database** | ✅ Complete | v1.0.3 | Schema patches, 7 schemas, 28 tables |
 | **Banking** | ✅ Complete | v0.6.0 | 55 tests, SEC-001 fully remediated |
 | **Security** | ✅ Complete | v1.0.0 | SEC-002 rate limiting remediated |
 | **Org Context** | ✅ Complete | v1.0.0 | Phase B dynamic org selection |
 | **Integration** | ✅ Complete | v0.5.0 | All phases complete, dashboard real data |
-| **Testing** | ✅ Complete | v1.1.0 | 87 backend tests + 21 TDD tests, 5 frontend test files |
+| **Integration Gaps** | ✅ Complete | v1.0.0 | GAP-3 (20 tests) + GAP-4 (13 tests) validated |
+| **Testing** | ✅ Complete | v1.2.0 | 87 backend + 21 TDD + 33 new tests |
 | **Docker** | ✅ Complete | v1.0.0 | Multi-service, live FE/BE integration |
 | **Dashboard** | ✅ Complete | v1.0.0 | Real data calculations, 100% TDD coverage |
 
@@ -1713,3 +1715,181 @@ curl -X GET http://localhost:8000/api/v1/{org_id}/reports/dashboard/metrics/ -H 
 
 ---
 
+
+# Major Milestone: Integration Gaps Phase 3 — Testing & Validation ✅ COMPLETE (2026-03-04)
+
+## Executive Summary
+
+Comprehensive validation and testing of **GAP-3 (Peppol Endpoints)** and **GAP-4 (Organisation Settings Endpoint)**. All endpoints now have production-grade test coverage with 33 comprehensive tests (100% passing).
+
+### Key Achievements
+
+#### GAP-4: Organisation Settings Endpoint ✅
+- **13 Comprehensive Tests** - All passing (100% success rate)
+- **Test Coverage**: GET/PATCH operations, authentication, authorization, 404 handling
+- **Endpoint**: `GET/PUT /api/v1/{org_id}/settings/`
+- **Features Validated**:
+  - All 13 organisation settings fields returned correctly
+  - PATCH updates only allowed fields (whitelist approach)
+  - GST settings updates (registration, scheme, filing frequency)
+  - Peppol/InvoiceNow settings updates
+  - Disallowed fields correctly ignored
+  - Proper 404/403 error handling for non-existent orgs
+
+#### GAP-3: Peppol Endpoints ✅
+- **20 Comprehensive Tests** - All passing (100% success rate)
+- **Test Coverage**: Transmission log, settings GET/PATCH, permissions
+- **Endpoints**:
+  - `GET /api/v1/{org_id}/peppol/transmission-log/`
+  - `GET /api/v1/{org_id}/peppol/settings/`
+  - `PATCH /api/v1/{org_id}/peppol/settings/`
+- **Features Validated**:
+  - Stub transmission log with status filter support
+  - Settings retrieval from Organisation model
+  - Settings updates (enabled, participant_id)
+  - Configured vs not_configured status detection
+  - Regular user permission access
+  - Proper error handling
+
+### Code Changes
+
+#### Critical Fix: URL Registration
+**Problem Discovered**: `OrganisationSettingsView` was registered in `apps/core/urls.py` but Django was importing from `apps/core/urls/__init__.py`.
+
+**Solution Applied**:
+```python
+# apps/core/urls/__init__.py
+from apps.core.views.organisations import (
+    OrganisationDetailView,
+    GSTRegistrationView,
+    FiscalYearListView,
+    OrganisationSummaryView,
+    OrganisationSettingsView,  # Added import
+)
+
+org_scoped_urlpatterns = [
+    # ... existing routes ...
+    path("settings/", OrganisationSettingsView.as_view(), name="org-settings"),
+]
+```
+
+**Lesson Learned**: Always verify which URL configuration file Django is actually importing. The `urls.py` at module level may not be the one used.
+
+### Files Created/Modified
+
+| File | Type | Lines | Purpose |
+|------|------|-------|---------|
+| `tests/integration/test_organisation_settings.py` | NEW | ~325 | Organisation settings tests |
+| `apps/peppol/tests/test_views.py` | NEW | ~531 | Peppol endpoints tests |
+| `apps/peppol/tests/__init__.py` | NEW | ~5 | Peppol tests package |
+| `apps/peppol/tests/conftest.py` | NEW | ~10 | Session-scoped DB setup |
+| `apps/core/urls/__init__.py` | MODIFY | +2 | Add OrganisationSettingsView |
+
+### Test Summary
+
+| Component | Tests | Status | Coverage |
+|-----------|-------|--------|----------|
+| Organisation Settings | 13 | ✅ All Passing | GET, PATCH, Auth, 404 |
+| Peppol Transmission Log | 5 | ✅ All Passing | GET, Filter, Auth, Perms |
+| Peppol Settings | 12 | ✅ All Passing | GET, PATCH, Config, Auth |
+| Peppol Permissions | 3 | ✅ All Passing | Regular user access |
+| **Total** | **33** | **✅ 100%** | **Comprehensive** |
+
+### Test Execution
+
+```bash
+# Run all new tests
+pytest tests/integration/test_organisation_settings.py apps/peppol/tests/test_views.py -v
+
+# Results
+============================== 33 passed in 2.13s ==============================
+```
+
+### Lessons Learned
+
+#### 1. Response Structure Consistency
+**Discovery**: Both endpoints return direct response (not wrapped in `{"data": ...}`).
+
+**Pattern**:
+```python
+# Correct (used by existing views)
+return Response({"id": str(org.id), "name": org.name, ...})
+
+# Incorrect (would break consistency)
+return Response({"data": {"id": str(org.id), ...}})
+```
+
+**Key Insight**: Match existing view response patterns. Check similar views before writing tests.
+
+#### 2. URL Configuration Import Chain
+**Discovery**: Django imports `apps.core.urls` which may resolve to `apps/core/urls/__init__.py` not `urls.py`.
+
+**Solution**: Verify the actual URL file being used by checking `config/urls.py` imports.
+
+**Key Insight**: Always trace the import chain when adding new URL routes.
+
+#### 3. Permission Behavior for Non-Existent Orgs
+**Discovery**: `IsOrgMember` permission returns 403 for non-existent organisations, but view may return 404 if permission passes.
+
+**Solution**: Tests accept either 403 or 404:
+```python
+assert response.status_code in [
+    status.HTTP_403_FORBIDDEN,
+    status.HTTP_404_NOT_FOUND
+]
+```
+
+**Key Insight**: Permission middleware runs before view code. 403 indicates membership check failed; 404 indicates view handled missing resource.
+
+#### 4. Fixture Isolation in Module-Level Tests
+**Discovery**: Tests in different modules need isolated database fixtures but share session-scoped DB.
+
+**Solution**: Created `conftest.py` in `apps/peppol/tests/` with session-scoped `django_db_setup`.
+
+**Key Insight**: Each test module should have its own fixtures to avoid conflicts with other test files.
+
+### Troubleshooting Guide
+
+#### Issue: "relation 'core.app_user' does not exist"
+**Cause**: Test database not initialized with schema.
+**Solution**:
+```bash
+export PGPASSWORD=ledgersg_secret_to_change
+dropdb -h localhost -U ledgersg test_ledgersg_dev 2>/dev/null
+createdb -h localhost -U ledgersg test_ledgersg_dev
+psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
+```
+
+#### Issue: "No directory at: /home/project/Ledger-SG/apps/backend/staticfiles/"
+**Cause**: Warning only, doesn't affect tests.
+**Solution**: Run `python manage.py collectstatic` or ignore in test environment.
+
+#### Issue: 404 on valid endpoint
+**Cause**: URL not registered in correct `urls.py` file.
+**Solution**: Check `config/urls.py` to see which URL config is imported.
+
+### Recommended Next Steps
+
+#### High Priority
+1. **REFACTOR Phase**: Add Redis caching for Peppol settings (5-minute TTL)
+2. **Performance**: Database indexes on frequently queried Peppol-related fields
+3. **Production**: Load test Peppol endpoints with realistic data volumes
+
+#### Medium Priority
+4. **Enhancement**: Implement actual Peppol transmission log (currently stub)
+5. **Enhancement**: Add Peppol XML generation for InvoiceNow integration
+6. **Security**: Review Peppol settings permissions (currently any org member can update)
+
+#### Low Priority
+7. **Documentation**: API documentation for Peppol endpoints
+8. **Frontend**: Peppol configuration UI in organisation settings
+
+### Blockers Resolved
+
+| Blocker | Resolution | Date |
+|---------|------------|------|
+| OrganisationSettingsView 404 | Fixed URL registration in `urls/__init__.py` | 2026-03-04 |
+| Response structure mismatch | Updated tests to match direct response format | 2026-03-04 |
+| Test DB initialization | Created conftest.py with session-scoped fixtures | 2026-03-04 |
+
+---
