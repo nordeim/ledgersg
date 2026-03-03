@@ -25,6 +25,11 @@ from apps.core.views.organisations import (
     OrganisationSummaryView,
     OrganisationSettingsView,
 )
+from apps.core.views.fiscal import (
+    FiscalPeriodListView,
+    FiscalYearCloseView,
+    FiscalPeriodCloseView,
+)
 
 
 app_name = "core"
@@ -60,6 +65,18 @@ org_detail_urlpatterns = [
     path("summary/", OrganisationSummaryView.as_view(), name="org-summary"),
     # Organisation settings - mounted at api/v1/{org_id}/settings/
     path("settings/", OrganisationSettingsView.as_view(), name="org-settings"),
+    # Fiscal periods - mounted at api/v1/{org_id}/fiscal-periods/
+    path("fiscal-periods/", FiscalPeriodListView.as_view(), name="org-fiscal-periods"),
+    # Fiscal year close - mounted at api/v1/{org_id}/fiscal-years/{year_id}/close/
+    path(
+        "fiscal-years/<str:year_id>/close/", FiscalYearCloseView.as_view(), name="fiscal-year-close"
+    ),
+    # Fiscal period close - mounted at api/v1/{org_id}/fiscal-periods/{period_id}/close/
+    path(
+        "fiscal-periods/<str:period_id>/close/",
+        FiscalPeriodCloseView.as_view(),
+        name="fiscal-period-close",
+    ),
 ]
 
 # Export all URL patterns for non-org-scoped URLs

@@ -27,62 +27,11 @@ class DashboardMetricsView(APIView):
 
     @wrap_response
     def get(self, request, org_id: str) -> Response:
-        """Return dashboard metrics (stub implementation)."""
-        # TODO: Implement actual metrics calculation
-        # For now, return placeholder data
+        """Return dashboard metrics matching frontend expectations."""
+        from apps.reporting.services.dashboard_service import DashboardService
 
-        from datetime import date
-        from uuid import UUID
-
-        return Response(
-            {
-                "period": {
-                    "start": str(date.today().replace(day=1)),
-                    "end": str(date.today()),
-                },
-                "revenue": {
-                    "current_month": "0.00",
-                    "previous_month": "0.00",
-                    "change": "0.00",
-                    "change_pct": "0.00",
-                },
-                "expenses": {
-                    "current_month": "0.00",
-                    "previous_month": "0.00",
-                    "change": "0.00",
-                    "change_pct": "0.00",
-                },
-                "profit": {
-                    "current_month": "0.00",
-                    "previous_month": "0.00",
-                    "change": "0.00",
-                    "change_pct": "0.00",
-                },
-                "outstanding": {
-                    "total": "0.00",
-                    "count": 0,
-                    "overdue": "0.00",
-                    "overdue_count": 0,
-                },
-                "bank_balance": {
-                    "total": "0.00",
-                    "accounts": [],
-                },
-                "gst_summary": {
-                    "registered": False,
-                    "next_filing_date": None,
-                    "next_filing_amount": "0.00",
-                },
-                "invoice_summary": {
-                    "draft": 0,
-                    "sent": 0,
-                    "approved": 0,
-                    "paid": 0,
-                    "overdue": 0,
-                    "void": 0,
-                },
-            }
-        )
+        service = DashboardService()
+        return Response(service.get_dashboard_data(org_id))
 
 
 class DashboardAlertsView(APIView):
