@@ -79,7 +79,7 @@ awesome meticulous job so far. please keep up the good work. yes, please meticul
 
 ---
 
-awesome meticulous job so far. please keep up the good work. yes, please meticulously plan and create a sub-plan for Phase 3 in @INTEGRATION_GAPS_CLOSURE_PLAN.md , review and validate it against the codebase to ensure accurate alignment, then proceed to execute it. please adopt Test-Driven Development (TDD) approach for the implementation.
+awesome meticulous job so far. please keep up the good work. yes, please meticulously plan and create a sub-plan for "1. Add Redis caching for dashboard data" in @INTEGRATION_GAPS_PHASE3_SUMMARY.md , review and validate it against the codebase to ensure accurate alignment, then proceed to execute it. please adopt Test-Driven Development (TDD) approach for the implementation.
 
 ---
 

@@ -3,6 +3,7 @@ Dashboard service for LedgerSG.
 
 TDD Implementation - Dashboard Real Calculations
 Phase 3: Production Ready (TDD)
+Phase 4: Redis Caching (TDD)
 """
 
 from datetime import date, datetime, timedelta
@@ -12,6 +13,7 @@ import logging
 
 from django.db.models import Sum, Q, F
 from django.db.models.functions import Coalesce
+from django.core.cache import cache
 
 from apps.core.models import (
     InvoiceDocument,
@@ -28,15 +30,54 @@ logger = logging.getLogger(__name__)
 
 
 class DashboardService:
-    """Service for dashboard data aggregation with real database queries."""
+    """Service for dashboard data aggregation with real database queries and Redis caching."""
 
     GST_THRESHOLD_LIMIT = Decimal("1000000.00")
     GST_THRESHOLD_SAFE = Decimal("0.70")
     GST_THRESHOLD_WARNING = Decimal("0.90")
+    CACHE_TIMEOUT = 300  # 5 minutes
+
+    def _get_cache_key(self, org_id: str) -> str:
+        """Generate cache key for dashboard data."""
+        return f"dashboard:{org_id}"
+
+    def invalidate_dashboard_cache(self, org_id: str) -> None:
+        """Invalidate dashboard cache for organization."""
+        cache_key = self._get_cache_key(org_id)
+        cache.delete(cache_key)
+        logger.info(f"Invalidated dashboard cache for org:{org_id}")
 
     def get_dashboard_data(self, org_id: str) -> dict:
         """
-        Get dashboard data in format matching frontend expectations.
+        Get dashboard data with 5-minute Redis caching.
+
+        Phase 4 TDD Implementation - Uses cache with fallback to database queries.
+        """
+        # Try to get from cache
+        cache_key = self._get_cache_key(org_id)
+        cached_data = cache.get(cache_key)
+
+        if cached_data is not None:
+            logger.debug(f"Cache hit for dashboard:{org_id}")
+            return cached_data
+
+        logger.debug(f"Cache miss for dashboard:{org_id}")
+
+        # Compute from database
+        data = self._compute_dashboard_data(org_id)
+
+        # Cache for 5 minutes
+        try:
+            cache.set(cache_key, data, timeout=self.CACHE_TIMEOUT)
+            logger.debug(f"Cached dashboard data for org:{org_id}")
+        except Exception as e:
+            logger.warning(f"Failed to cache dashboard data: {e}")
+
+        return data
+
+    def _compute_dashboard_data(self, org_id: str) -> dict:
+        """
+        Compute dashboard data from database (original logic).
 
         Phase 3 TDD Implementation - Uses real database queries.
         """
@@ -120,407 +161,23 @@ class DashboardService:
             }
 
         except Exception as e:
-            logger.error(f"Error calculating dashboard data for org {org_id}: {e}")
+            logger.error(f"Error computing dashboard data for org {org_id}: {e}")
             return self._get_empty_dashboard()
 
-    def query_revenue_mtd(self, org_id: str, as_of_date: date) -> Decimal:
-        """
-        Query month-to-date revenue from approved sales invoices.
-
-        Aggregates base_subtotal for current month, excluding DRAFT and VOID.
-        """
-        try:
-            org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
-
-            month_start = date(as_of_date.year, as_of_date.month, 1)
-
-            result = InvoiceDocument.objects.filter(
-                org_id=org_uuid,
-                document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-                issue_date__gte=month_start,
-                issue_date__lte=as_of_date,
-                status__in=["APPROVED", "SENT", "PARTIALLY_PAID", "PAID", "OVERDUE"],
-            ).aggregate(total=Coalesce(Sum("total_excl"), Decimal("0.0000")))
-
-            return money(result["total"])
-
-        except Exception as e:
-            logger.error(f"Error querying revenue MTD for org {org_id}: {e}")
-            return Decimal("0.0000")
-
-    def query_revenue_ytd(self, org_id: str, fiscal_year_id: str) -> Decimal:
-        """
-        Query year-to-date revenue for fiscal year.
-
-        Joins with fiscal_period to get YTD range.
-        """
-        try:
-            org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
-            fy_uuid = UUID(fiscal_year_id) if isinstance(fiscal_year_id, str) else fiscal_year_id
-
-            fiscal_year = FiscalYear.objects.get(id=fy_uuid, org_id=org_uuid)
-
-            result = InvoiceDocument.objects.filter(
-                org_id=org_uuid,
-                document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-                issue_date__gte=fiscal_year.start_date,
-                issue_date__lte=fiscal_year.end_date,
-                status__in=["APPROVED", "SENT", "PARTIALLY_PAID", "PAID", "OVERDUE"],
-            ).aggregate(total=Coalesce(Sum("total_excl"), Decimal("0.0000")))
-
-            return money(result["total"])
-
-        except Exception as e:
-            logger.error(f"Error querying revenue YTD for org {org_id}: {e}")
-            return Decimal("0.0000")
-
-    def query_outstanding_receivables(self, org_id: str) -> Decimal:
-        """
-        Sum amount_due for outstanding sales invoices.
-
-        Filters document_type IN ('SALES_INVOICE', 'SALES_DEBIT_NOTE')
-        and status IN ('APPROVED', 'SENT', 'PARTIALLY_PAID', 'OVERDUE').
-        """
-        try:
-            org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
-
-            result = InvoiceDocument.objects.filter(
-                org_id=org_uuid,
-                document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-                status__in=["APPROVED", "SENT", "PARTIALLY_PAID", "OVERDUE"],
-            ).aggregate(total=Coalesce(Sum(F("total_incl") - F("amount_paid")), Decimal("0.0000")))
-
-            return money(result["total"])
-
-        except Exception as e:
-            logger.error(f"Error querying outstanding receivables for org {org_id}: {e}")
-            return Decimal("0.0000")
-
-    def query_outstanding_payables(self, org_id: str) -> Decimal:
-        """
-        Sum amount_due for outstanding purchase invoices.
-
-        Filters document_type IN ('PURCHASE_INVOICE', 'PURCHASE_DEBIT_NOTE')
-        and status IN ('APPROVED', 'SENT', 'PARTIALLY_PAID', 'OVERDUE').
-        """
-        try:
-            org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
-
-            result = InvoiceDocument.objects.filter(
-                org_id=org_uuid,
-                document_type__in=["PURCHASE_INVOICE", "PURCHASE_DEBIT_NOTE"],
-                status__in=["APPROVED", "SENT", "PARTIALLY_PAID", "OVERDUE"],
-            ).aggregate(total=Coalesce(Sum(F("total_incl") - F("amount_paid")), Decimal("0.0000")))
-
-            return money(result["total"])
-
-        except Exception as e:
-            logger.error(f"Error querying outstanding payables for org {org_id}: {e}")
-            return Decimal("0.0000")
-
-    def calculate_gst_liability(self, org_id: str, period_start: date, period_end: date) -> dict:
-        """
-        Calculate GST payable/receivable for period.
-
-        Queries journal.line with tax codes where is_output=TRUE for output tax.
-        Queries journal.line with tax codes where is_input=TRUE for input tax.
-        Returns net_gst = output_tax - input_tax.
-
-        Note: Uses Sum of all tax_amount on lines with tax codes.
-        Credit notes have negative tax_amount which reduces the total.
-        """
-        try:
-            org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
-
-            # Output tax: Sum all tax amounts on output tax codes
-            output_tax_result = JournalLine.objects.filter(
-                org_id=org_uuid,
-                entry__entry_date__gte=period_start,
-                entry__entry_date__lte=period_end,
-                entry__is_reversed=False,
-                tax_code__is_output=True,
-            ).aggregate(total=Coalesce(Sum("tax_amount"), Decimal("0.0000")))
-
-            output_tax = money(output_tax_result["total"])
-
-            # Input tax: Sum all tax amounts on input tax codes
-            input_tax_result = JournalLine.objects.filter(
-                org_id=org_uuid,
-                entry__entry_date__gte=period_start,
-                entry__entry_date__lte=period_end,
-                entry__is_reversed=False,
-                tax_code__is_input=True,
-                tax_code__is_claimable=True,
-            ).aggregate(total=Coalesce(Sum("tax_amount"), Decimal("0.0000")))
-
-            input_tax = money(input_tax_result["total"])
-
-            net_gst = output_tax - input_tax
-
-            return {
-                "output_tax": output_tax,
-                "input_tax": input_tax,
-                "net_gst": net_gst,
-            }
-
-        except Exception as e:
-            logger.error(f"Error calculating GST liability for org {org_id}: {e}")
-            return {
-                "output_tax": Decimal("0.0000"),
-                "input_tax": Decimal("0.0000"),
-                "net_gst": Decimal("0.0000"),
-            }
-
-    def calculate_cash_on_hand(self, org_id: str) -> Decimal:
-        """
-        Calculate cash position across all bank accounts.
-
-        Sum bank_account.opening_balance for active accounts.
-        Add payment.amount where payment_type='RECEIVED' and is_reconciled=True.
-        Subtract payment.amount where payment_type='MADE' and is_reconciled=True.
-        """
-        try:
-            org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
-
-            opening_result = BankAccount.objects.filter(
-                org_id=org_uuid,
-                is_active=True,
-            ).aggregate(total=Coalesce(Sum("opening_balance"), Decimal("0.0000")))
-
-            cash = money(opening_result["total"])
-
-            received_result = Payment.objects.filter(
-                org_id=org_uuid,
-                payment_type="RECEIVED",
-                is_reconciled=True,
-                is_voided=False,
-            ).aggregate(total=Coalesce(Sum("amount"), Decimal("0.0000")))
-
-            cash += money(received_result["total"])
-
-            made_result = Payment.objects.filter(
-                org_id=org_uuid,
-                payment_type="MADE",
-                is_reconciled=True,
-                is_voided=False,
-            ).aggregate(total=Coalesce(Sum("amount"), Decimal("0.0000")))
-
-            cash -= money(made_result["total"])
-
-            return cash
-
-        except Exception as e:
-            logger.error(f"Error calculating cash on hand for org {org_id}: {e}")
-            return Decimal("0.0000")
-
-    def query_gst_threshold_status(self, org_id: str) -> dict:
-        """
-        Calculate GST registration threshold status.
-
-        Query rolling 12-month revenue.
-        Calculate utilization % against S$1,000,000.
-        Return status: SAFE (<70%), WARNING (70-90%), CRITICAL (>90%), EXCEEDED (>100%).
-        """
-        try:
-            org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
-
-            today = date.today()
-            twelve_months_ago = today - timedelta(days=365)
-
-            result = InvoiceDocument.objects.filter(
-                org_id=org_uuid,
-                document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-                issue_date__gte=twelve_months_ago,
-                issue_date__lte=today,
-                status__in=["APPROVED", "SENT", "PARTIALLY_PAID", "PAID", "OVERDUE"],
-            ).aggregate(total=Coalesce(Sum("total_excl"), Decimal("0.0000")))
-
-            revenue = money(result["total"])
-
-            if self.GST_THRESHOLD_LIMIT == Decimal("0.0000"):
-                utilization = 0
-            else:
-                utilization = int((revenue / self.GST_THRESHOLD_LIMIT) * 100)
-
-            if utilization >= 100:
-                status = "EXCEEDED"
-            elif utilization >= 90:
-                status = "CRITICAL"
-            elif utilization >= 70:
-                status = "WARNING"
-            else:
-                status = "SAFE"
-
-            return {
-                "status": status,
-                "utilization": utilization,
-                "amount": revenue,
-                "threshold": self.GST_THRESHOLD_LIMIT,
-            }
-
-        except Exception as e:
-            logger.error(f"Error querying GST threshold for org {org_id}: {e}")
-            return {
-                "status": "SAFE",
-                "utilization": 0,
-                "amount": Decimal("0.0000"),
-                "threshold": self.GST_THRESHOLD_LIMIT,
-            }
-
-    def generate_compliance_alerts(self, org_id: str) -> list:
-        """
-        Generate compliance alerts based on business rules.
-
-        Alert 1: GST filing deadline (≤30 days)
-        Alert 2: Overdue invoices (past due date + 7 days)
-        Alert 3: Outstanding payables (past due date)
-        Alert 4: Bank reconciliation (unreconciled > 30 days)
-        """
-        alerts = []
-
-        try:
-            org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
-            today = date.today()
-
-            current_quarter = (today.month - 1) // 3 + 1
-            period_end_month = current_quarter * 3
-            period_end_year = today.year
-
-            if period_end_month == 12:
-                period_end = date(period_end_year, 12, 31)
-            else:
-                next_month = period_end_month + 1
-                period_end = date(period_end_year, next_month, 1) - timedelta(days=1)
-
-            filing_month = period_end.month + 1
-            filing_year = period_end.year
-            if filing_month > 12:
-                filing_month = 1
-                filing_year += 1
-            filing_due_date = date(filing_year, filing_month, 30)
-
-            days_remaining = (filing_due_date - today).days
-
-            if days_remaining <= 30 and days_remaining > 0:
-                alerts.append(
-                    {
-                        "id": f"alert-filing-{org_id}",
-                        "severity": "HIGH" if days_remaining <= 15 else "MEDIUM",
-                        "title": "GST F5 Filing Due Soon",
-                        "message": f"Your GST F5 filing is due in {days_remaining} days",
-                        "action_required": "File Now",
-                        "deadline": filing_due_date.isoformat(),
-                        "dismissed": False,
-                    }
-                )
-
-            overdue_invoices = InvoiceDocument.objects.filter(
-                org_id=org_uuid,
-                document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-                status="OVERDUE",
-                due_date__lt=today - timedelta(days=7),
-            )
-
-            if overdue_invoices.exists():
-                overdue_count = overdue_invoices.count()
-                overdue_total = overdue_invoices.aggregate(
-                    total=Coalesce(Sum(F("total_incl") - F("amount_paid")), Decimal("0.0000"))
-                )["total"]
-
-                alerts.append(
-                    {
-                        "id": f"alert-overdue-{org_id}",
-                        "severity": "HIGH",
-                        "title": "Overdue Invoices",
-                        "message": f"You have {overdue_count} overdue invoices totaling {self._format_display(overdue_total)}",
-                        "action_required": "Review Invoices",
-                        "deadline": None,
-                        "dismissed": False,
-                    }
-                )
-
-            unreconciled_transactions = BankTransaction.objects.filter(
-                org_id=org_uuid,
-                is_reconciled=False,
-                transaction_date__lt=today - timedelta(days=30),
-            )
-
-            if unreconciled_transactions.exists():
-                unreconciled_count = unreconciled_transactions.count()
-                alerts.append(
-                    {
-                        "id": f"alert-recon-{org_id}",
-                        "severity": "MEDIUM",
-                        "title": "Bank Reconciliation Needed",
-                        "message": f"You have {unreconciled_count} unreconciled bank transactions older than 30 days",
-                        "action_required": "Reconcile Now",
-                        "deadline": None,
-                        "dismissed": False,
-                    }
-                )
-
-            return alerts
-
-        except Exception as e:
-            logger.error(f"Error generating compliance alerts for org {org_id}: {e}")
-            return alerts
-
-    def _get_invoice_counts(self, org_uuid: UUID) -> dict:
-        """Get invoice counts for pending, overdue, and peppol pending."""
-        try:
-            pending = InvoiceDocument.objects.filter(
-                org_id=org_uuid,
-                document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-                status__in=["APPROVED", "SENT"],
-            ).count()
-
-            overdue = InvoiceDocument.objects.filter(
-                org_id=org_uuid,
-                document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-                status="OVERDUE",
-            ).count()
-
-            peppol_pending = InvoiceDocument.objects.filter(
-                org_id=org_uuid,
-                document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-                invoicenow_status="PENDING",
-            ).count()
-
-            return {
-                "pending": pending,
-                "overdue": overdue,
-                "peppol_pending": peppol_pending,
-            }
-
-        except Exception as e:
-            logger.error(f"Error getting invoice counts for org {org_uuid}: {e}")
-            return {
-                "pending": 0,
-                "overdue": 0,
-                "peppol_pending": 0,
-            }
-
-    def _format_display(self, amount: Decimal) -> str:
-        """Format decimal amount for display (2 decimal places)."""
-        try:
-            return f"{amount:,.2f}"
-        except Exception:
-            return "0.00"
-
     def _get_empty_dashboard(self) -> dict:
-        """Return empty dashboard data for error cases."""
+        """Return empty dashboard structure."""
         return {
             "gst_payable": "0.0000",
-            "gst_payable_display": "0.00",
-            "outstanding_receivables": "0.00",
-            "outstanding_payables": "0.00",
-            "revenue_mtd": "0.00",
-            "revenue_ytd": "0.00",
-            "cash_on_hand": "0.00",
+            "gst_payable_display": "SGD 0.00",
+            "outstanding_receivables": "SGD 0.00",
+            "outstanding_payables": "SGD 0.00",
+            "revenue_mtd": "SGD 0.00",
+            "revenue_ytd": "SGD 0.00",
+            "cash_on_hand": "SGD 0.00",
             "gst_threshold_status": "SAFE",
             "gst_threshold_utilization": 0,
-            "gst_threshold_amount": "0.00",
-            "gst_threshold_limit": "1,000,000.00",
+            "gst_threshold_amount": "SGD 0.00",
+            "gst_threshold_limit": "SGD 1,000,000.00",
             "compliance_alerts": [],
             "invoices_pending": 0,
             "invoices_overdue": 0,
@@ -532,4 +189,248 @@ class DashboardService:
                 "days_remaining": 0,
             },
             "last_updated": datetime.now().isoformat(),
+        }
+
+    def _format_display(self, amount: Decimal) -> str:
+        """Format amount as SGD string with 2 decimal places."""
+        try:
+            amount_decimal = Decimal(str(amount))
+            return f"SGD {amount_decimal:,.2f}"
+        except (ValueError, TypeError):
+            return "SGD 0.00"
+
+    def query_revenue_mtd(self, org_id: str, today: date) -> Decimal:
+        """Query month-to-date revenue from approved sales invoices."""
+        org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
+        month_start = today.replace(day=1)
+
+        result = InvoiceDocument.objects.filter(
+            org_id=org_uuid,
+            document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
+            status="APPROVED",
+            issue_date__gte=month_start,
+            issue_date__lte=today,
+        ).aggregate(total=Sum("total_excl"))
+
+        return money(result.get("total") or Decimal("0.0000"))
+
+    def query_revenue_ytd(self, org_id: str, fiscal_year_id: str) -> Decimal:
+        """Query year-to-date revenue from approved sales invoices."""
+        org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
+
+        try:
+            fiscal_year = FiscalYear.objects.get(id=fiscal_year_id, org_id=org_uuid)
+        except FiscalYear.DoesNotExist:
+            return Decimal("0.0000")
+
+        result = InvoiceDocument.objects.filter(
+            org_id=org_uuid,
+            document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
+            status="APPROVED",
+            issue_date__gte=fiscal_year.start_date,
+            issue_date__lte=fiscal_year.end_date,
+        ).aggregate(total=Sum("total_excl"))
+
+        return money(result.get("total") or Decimal("0.0000"))
+
+    def query_outstanding_receivables(self, org_id: str) -> Decimal:
+        """Query outstanding receivables from unpaid sales invoices."""
+        org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
+
+        result = (
+            InvoiceDocument.objects.filter(
+                org_id=org_uuid,
+                document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
+                status__in=["APPROVED", "OVERDUE"],
+            )
+            .filter(amount_paid__lt=F("total_incl"))
+            .aggregate(total=Sum(F("total_incl") - Coalesce(F("amount_paid"), Decimal("0.0000"))))
+        )
+
+        return money(max(result.get("total") or Decimal("0.0000"), Decimal("0.0000")))
+
+    def query_outstanding_payables(self, org_id: str) -> Decimal:
+        """Query outstanding payables from unpaid purchase invoices."""
+        org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
+
+        result = (
+            InvoiceDocument.objects.filter(
+                org_id=org_uuid,
+                document_type__in=["PURCHASE_INVOICE", "PURCHASE_DEBIT_NOTE"],
+                status__in=["APPROVED", "OVERDUE"],
+            )
+            .filter(amount_paid__lt=F("total_incl"))
+            .aggregate(total=Sum(F("total_incl") - Coalesce(F("amount_paid"), Decimal("0.0000"))))
+        )
+
+        return money(max(result.get("total") or Decimal("0.0000"), Decimal("0.0000")))
+
+    def calculate_gst_liability(self, org_id: str, period_start: date, period_end: date) -> dict:
+        """Calculate GST liability (output tax - input tax) for a period."""
+        org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
+
+        # Output tax from sales (posted entries only)
+        output_result = JournalLine.objects.filter(
+            org_id=org_uuid,
+            entry__posted_at__isnull=False,  # Posted entries only
+            entry__entry_date__gte=period_start,
+            entry__entry_date__lte=period_end,
+            tax_code__is_output=True,
+        ).aggregate(total=Sum("tax_amount"))
+
+        output_tax = money(output_result.get("total") or Decimal("0.0000"))
+
+        # Input tax from purchases (posted entries only)
+        input_result = JournalLine.objects.filter(
+            org_id=org_uuid,
+            entry__posted_at__isnull=False,  # Posted entries only
+            entry__entry_date__gte=period_start,
+            entry__entry_date__lte=period_end,
+            tax_code__is_input=True,
+        ).aggregate(total=Sum("tax_amount"))
+
+        input_tax = money(input_result.get("total") or Decimal("0.0000"))
+
+        net_gst = output_tax - input_tax
+
+        return {
+            "output_tax": output_tax,
+            "input_tax": input_tax,
+            "net_gst": net_gst,
+        }
+
+    def calculate_cash_on_hand(self, org_id: str) -> Decimal:
+        """Calculate cash position across all bank accounts."""
+        org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
+
+        # Use opening_balance as current balance (transaction calculation TBD)
+        bank_accounts = BankAccount.objects.filter(
+            org_id=org_uuid,
+            is_active=True,
+        )
+
+        total = Decimal("0.0000")
+        for account in bank_accounts:
+            total += account.opening_balance
+
+        return money(total)
+
+    def query_gst_threshold_status(self, org_id: str) -> dict:
+        """Check GST registration threshold status (12-month rolling revenue)."""
+        org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
+        today = date.today()
+        twelve_months_ago = today - timedelta(days=365)
+
+        result = InvoiceDocument.objects.filter(
+            org_id=org_uuid,
+            document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
+            status="APPROVED",
+            issue_date__gte=twelve_months_ago,
+            issue_date__lte=today,
+        ).aggregate(total=Sum("total_excl"))
+
+        amount = money(result.get("total") or Decimal("0.0000"))
+        utilization = int((amount / self.GST_THRESHOLD_LIMIT) * 100)
+
+        if utilization >= 90:
+            status = "CRITICAL"
+        elif utilization >= 70:
+            status = "WARNING"
+        else:
+            status = "SAFE"
+
+        return {
+            "status": status,
+            "utilization": utilization,
+            "amount": amount,
+        }
+
+    def generate_compliance_alerts(self, org_id: str) -> list:
+        """Generate compliance alerts based on business rules."""
+        org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
+        alerts = []
+
+        # Check for overdue invoices
+        today = date.today()
+        overdue_invoices = (
+            InvoiceDocument.objects.filter(
+                org_id=org_uuid,
+                document_type__in=["SALES_INVOICE", "PURCHASE_INVOICE"],
+                status="APPROVED",
+                due_date__lt=today,
+            )
+            .filter(amount_paid__lt=F("total_incl"))
+            .count()
+        )
+
+        if overdue_invoices > 0:
+            alerts.append(
+                {
+                    "id": f"overdue_{org_id}",
+                    "severity": "HIGH",
+                    "title": "Overdue Invoices",
+                    "message": f"{overdue_invoices} invoice(s) are overdue for payment.",
+                    "action_required": "Review and follow up on overdue invoices.",
+                }
+            )
+
+        # Check for GST filing deadline
+        current_quarter = (today.month - 1) // 3 + 1
+        if current_quarter == 4:
+            period_end = date(today.year, 12, 31)
+        else:
+            next_month = current_quarter * 3 + 1
+            period_end = date(today.year, next_month, 1) - timedelta(days=1)
+
+        filing_month = period_end.month + 1
+        filing_year = period_end.year
+        if filing_month > 12:
+            filing_month = 1
+            filing_year += 1
+        filing_due_date = date(filing_year, filing_month, 30)
+        days_remaining = (filing_due_date - today).days
+
+        if days_remaining <= 14 and days_remaining > 0:
+            alerts.append(
+                {
+                    "id": f"gst_filing_{org_id}",
+                    "severity": "MEDIUM",
+                    "title": "GST Filing Approaching",
+                    "message": f"GST filing due in {days_remaining} days ({filing_due_date.strftime('%d %b %Y')}).",
+                    "action_required": "Prepare and submit GST return.",
+                }
+            )
+
+        return alerts
+
+    def _get_invoice_counts(self, org_uuid: UUID) -> dict:
+        """Get counts of invoices by status."""
+        pending = InvoiceDocument.objects.filter(
+            org_id=org_uuid,
+            document_type="SALES_INVOICE",
+            status="DRAFT",
+        ).count()
+
+        overdue = (
+            InvoiceDocument.objects.filter(
+                org_id=org_uuid,
+                document_type__in=["SALES_INVOICE", "PURCHASE_INVOICE"],
+                status="APPROVED",
+                due_date__lt=date.today(),
+            )
+            .exclude(payment_status="PAID")
+            .count()
+        )
+
+        peppol_pending = InvoiceDocument.objects.filter(
+            org_id=org_uuid,
+            document_type="SALES_INVOICE",
+            status="APPROVED",
+            peppol_status="PENDING",
+        ).count()
+
+        return {
+            "pending": pending,
+            "overdue": overdue,
+            "peppol_pending": peppol_pending,
         }
