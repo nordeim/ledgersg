@@ -1,5 +1,6 @@
 #!/bin/bash
 cd apps/backend && ls -l database_schema.sql
+# export PGPASSWORD=ledgersg_secret_to_change && dropdb -h localhost -U ledgersg test_ledgersg_dev 2>/dev/null; createdb -h localhost -U ledgersg test_ledgersg_dev && psql -h localhost -U ledgersg -d test_ledgersg_dev -f /home/project/Ledger-SG/database_schema.sql > /dev/null 2>&1 && echo "Test database initialized successfully"
 
 # Initialize test database
 export PGPASSWORD=ledgersg_secret_to_change

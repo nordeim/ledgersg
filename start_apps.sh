@@ -5,6 +5,9 @@ echo "git clone https://github.com/nordeim/ledgersg.git"
 # export PGPASSWORD=ledgersg_secret_to_change && dropdb -h localhost -U ledgersg test_ledgersg_dev 2>&1 || echo "Database doesn't exist, continuing..."
 # export PGPASSWORD=ledgersg_secret_to_change && createdb -h localhost -U ledgersg test_ledgersg_dev 2>&1
 # export PGPASSWORD=ledgersg_secret_to_change && psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql 2>&1 | tail -20
+#
+# export PGPASSWORD=ledgersg_secret_to_change && dropdb -h localhost -U ledgersg test_ledgersg_dev 2>/dev/null; createdb -h localhost -U ledgersg test_ledgersg_dev && psql -h localhost -U ledgersg -d test_ledgersg_dev -f /home/project/Ledger-SG/database_schema.sql > /dev/null 2>&1 && echo "Test database initialized successfully"
+#
 # export PGPASSWORD=ledgersg_secret_to_change && psql -h localhost -U ledgersg -d test_ledgersg_dev -c "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'bank_account_paynow_type_check';"
 # source /opt/venv/bin/activate && pytest apps/reporting/tests/test_dashboard_service_tdd.py --reuse-db --no-migrations -v 2>&1 | head -150
 # source /opt/venv/bin/activate && pytest apps/reporting/tests/test_dashboard_service_tdd.py::TestEdgeCases::test_handles_empty_organisation --reuse-db --no-migrations -v 2>&1

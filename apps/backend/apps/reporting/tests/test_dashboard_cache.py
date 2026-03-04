@@ -163,8 +163,10 @@ def cache_test_bank_account(cache_test_org, cache_test_gl_account):
         account_number="1234567890",
         currency="SGD",
         gl_account=cache_test_gl_account,
+        paynow_type=None,
+        paynow_id=None,
         opening_balance=Decimal("10000.0000"),
-        current_balance=Decimal("10000.0000"),
+        opening_balance_date=date(2024, 1, 1),
         is_active=True,
         is_default=True,
     )
@@ -403,10 +405,10 @@ class TestDashboardCacheWithData:
             issue_date=date.today(),
             due_date=date.today() + timedelta(days=30),
             status="APPROVED",
-            subtotal=Decimal("1000.0000"),
-            tax_amount=Decimal("90.0000"),
-            total=Decimal("1090.0000"),
-            tax_code=cache_test_tax_code,
+            total_excl=Decimal("1000.0000"),
+            gst_total=Decimal("90.0000"),
+            total_incl=Decimal("1090.0000"),
+            amount_paid=Decimal("0.0000"),
         )
 
         service = DashboardService()

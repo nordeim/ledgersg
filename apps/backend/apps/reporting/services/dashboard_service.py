@@ -55,11 +55,13 @@ class DashboardService:
         """
         # Try to get from cache
         cache_key = self._get_cache_key(org_id)
-        cached_data = cache.get(cache_key)
-
-        if cached_data is not None:
-            logger.debug(f"Cache hit for dashboard:{org_id}")
-            return cached_data
+        try:
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                logger.debug(f"Cache hit for dashboard:{org_id}")
+                return cached_data
+        except Exception as e:
+            logger.warning(f"Cache get failed for org {org_id}: {e}")
 
         logger.debug(f"Cache miss for dashboard:{org_id}")
 
@@ -241,7 +243,7 @@ class DashboardService:
             InvoiceDocument.objects.filter(
                 org_id=org_uuid,
                 document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-                status__in=["APPROVED", "OVERDUE"],
+                status__in=["APPROVED", "PARTIALLY_PAID", "OVERDUE"],
             )
             .filter(amount_paid__lt=F("total_incl"))
             .aggregate(total=Sum(F("total_incl") - Coalesce(F("amount_paid"), Decimal("0.0000"))))
@@ -300,18 +302,44 @@ class DashboardService:
         }
 
     def calculate_cash_on_hand(self, org_id: str) -> Decimal:
-        """Calculate cash position across all bank accounts."""
+        """
+        Calculate cash position across all bank accounts.
+
+        Formula: opening_balance + sum(reconciled payments received) - sum(reconciled payments made)
+        """
         org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
 
-        # Use opening_balance as current balance (transaction calculation TBD)
+        # Get all active bank accounts
         bank_accounts = BankAccount.objects.filter(
             org_id=org_uuid,
             is_active=True,
         )
 
         total = Decimal("0.0000")
+
         for account in bank_accounts:
+            # Add opening balance
             total += account.opening_balance
+
+            # Add reconciled payments received
+            received = Payment.objects.filter(
+                bank_account=account,
+                payment_type="RECEIVED",
+                is_reconciled=True,
+                is_voided=False,
+            ).aggregate(total=Sum("base_amount"))
+
+            total += received.get("total") or Decimal("0.0000")
+
+            # Subtract reconciled payments made
+            made = Payment.objects.filter(
+                bank_account=account,
+                payment_type="MADE",
+                is_reconciled=True,
+                is_voided=False,
+            ).aggregate(total=Sum("base_amount"))
+
+            total -= made.get("total") or Decimal("0.0000")
 
         return money(total)
 
@@ -415,10 +443,10 @@ class DashboardService:
             InvoiceDocument.objects.filter(
                 org_id=org_uuid,
                 document_type__in=["SALES_INVOICE", "PURCHASE_INVOICE"],
-                status="APPROVED",
+                status__in=["APPROVED", "PARTIALLY_PAID", "OVERDUE"],
                 due_date__lt=date.today(),
             )
-            .exclude(payment_status="PAID")
+            .filter(amount_paid__lt=F("total_incl"))
             .count()
         )
 
@@ -426,7 +454,7 @@ class DashboardService:
             org_id=org_uuid,
             document_type="SALES_INVOICE",
             status="APPROVED",
-            peppol_status="PENDING",
+            invoicenow_status="PENDING",
         ).count()
 
         return {

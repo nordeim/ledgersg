@@ -1400,11 +1400,11 @@ class TestEdgeCases:
 
         # Assert
         assert result["gst_payable"] == "0.0000"
-        assert result["outstanding_receivables"] == "0.00"
-        assert result["outstanding_payables"] == "0.00"
-        assert result["revenue_mtd"] == "0.00"
-        assert result["revenue_ytd"] == "0.00"
-        assert result["cash_on_hand"] == "0.00"
+        assert result["outstanding_receivables"] == "SGD 0.00"
+        assert result["outstanding_payables"] == "SGD 0.00"
+        assert result["revenue_mtd"] == "SGD 0.00"
+        assert result["revenue_ytd"] == "SGD 0.00"
+        assert result["cash_on_hand"] == "SGD 0.00"
         assert isinstance(result["compliance_alerts"], list)
 
     @pytest.mark.django_db
