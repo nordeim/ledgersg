@@ -1,15 +1,16 @@
 # LedgerSG Autonomous Agent Briefing Document
 
-**Version:** 1.5.0
+**Version:** 1.6.0
 **Classification:** CONFIDENTIAL — Internal Development Use
 **Date:** 2026-03-04
 **Subject:** Comprehensive Project Architecture, Standards, and Operational Directives
 
 **Recent Updates:**
-- ✅ Integration Gaps Phase 3 Complete: GAP-3 (20 tests) + GAP-4 (13 tests) validated
-- ✅ 33 new tests added, 100% passing
-- ✅ URL registration fix for OrganisationSettingsView
-- ✅ Total API endpoints: 83, Total tests: 141+
+- ✅ Phase 4 Complete: Dashboard Service Field Remediation (36/36 tests passing, 100%)
+- ✅ Redis Caching Implemented: 5-minute TTL, cache invalidation, graceful error handling
+- ✅ 7 Critical Blockers Fixed: Field alignment, transaction-based cash calculation, cache error handling
+- ✅ Transaction-Based Cash Calculation: Opening balance + reconciled payments
+- ✅ Total API endpoints: 83, Total tests: 156+
 
 ---
 
@@ -19,9 +20,9 @@
 
 **Current Status:** ✅ **Production Ready**
 - **Frontend:** v0.1.1 (Next.js 16.1.6, 11 pages, 5 test files, 114 tests passing)
-- **Backend:** v0.3.3 (Django 6.0.2, 83 API endpoints, 16 test files, 141+ tests passing)
+- **Backend:** v0.3.3 (Django 6.0.2, 83 API endpoints, 16 test files, 156+ tests passing)
 - **Database:** v1.0.3 (PostgreSQL 16+, 7 schemas, 28 tables, RLS enforced)
-- **Dashboard:** v1.0.0 (Real Data Integration, 21 TDD tests, 100% coverage)
+- **Dashboard:** v1.0.0 (Real Data Integration, 36 TDD tests, 100% coverage)
 - **Integration Gaps:** Phase 3 Complete (GAP-3: 20 tests, GAP-4: 13 tests)
 - **Security Score:** 98% (Audit Verified, All Issues Remediated)
 

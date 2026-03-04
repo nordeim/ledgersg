@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 1.8.0
-> **Last Updated**: 2026-03-03
-> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B, Phase 3 Complete)
+> **Version**: 1.9.0
+> **Last Updated**: 2026-03-04
+> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B, Phase 3, Phase 4 Complete)
 
 ---
 
@@ -35,13 +35,13 @@
 | **Frontend** | v0.1.1 | ✅ Production Ready | 11 pages, dynamic org context, 5 test files |
 | **Backend** | v0.3.3 | ✅ Production Ready | **83 API endpoints**, 16 test files |
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
-| **Dashboard** | v1.0.0 | ✅ Production Ready | **21 TDD tests**, 100% coverage, real data |
+| **Dashboard** | v1.0.0 | ✅ Production Ready | **36 TDD tests** (21 service + 15 cache), 100% coverage |
 | **Integration Gaps** | — | ✅ Complete | GAP-3 (20 tests), GAP-4 (13 tests) |
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests (services + views), 13 validated endpoints |
 | **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
 | **Integration** | v1.1.0 | ✅ **Complete** | All endpoint paths aligned, Dashboard real data |
-| **Testing** | — | ✅ **141+ Passing** | 87 backend + 21 TDD dashboard + 33 new tests |
-| **Overall** | — | ✅ **Platform Ready** | **108+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+| **Testing** | — | ✅ **156+ Passing** | 87 backend + 36 TDD dashboard + 33 new tests |
+| **Overall** | — | ✅ **Platform Ready** | **156+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
 
 ---
 
