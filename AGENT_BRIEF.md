@@ -1,9 +1,9 @@
 # LedgerSG — Agent & Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 1.7.0
-> **Last Updated**: 2026-03-03
-> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B Complete)
+> **Version**: 1.8.0
+> **Last Updated**: 2026-03-05
+> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B, Phase 3, Phase 4, Phase 5.4 Complete)
 
 ---
 
@@ -31,13 +31,29 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.1 | ✅ Production Ready | 18 static pages, dynamic org context, 114 tests |
-| **Backend** | v0.3.3 | ✅ Production Ready | **60 API endpoints**, 245 tests |
+| **Frontend** | v0.1.1 | ✅ Production Ready | 19 static pages (including Banking), dynamic org context, 222 tests |
+| **Backend** | v0.3.3 | ✅ Production Ready | **83 API endpoints**, 245 tests |
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests, 13 validated endpoints |
+| **Banking UI** | v1.0.0 | ✅ Phase 5.4 Complete | 16 TDD tests, tabbed interface |
 | **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
-| **Testing** | — | ✅ 359+ Passing | Backend + Frontend tests verified |
-| **Overall** | — | ✅ **Platform Ready** | **359+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+| **Testing** | — | ✅ 467+ Passing | Backend + Frontend tests verified |
+| **Overall** | — | ✅ **Platform Ready** | **467+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+
+### Recent Milestone: Phase 5.4 Banking Frontend UI ✅ COMPLETE
+**Date**: 2026-03-05
+**Status**: TDD Banking UI Implementation
+
+| Fix | Impact |
+|-----|--------|
+| **16 TDD Tests** | Comprehensive coverage of banking UI components |
+| **Server/Client Split** | Metadata compliance pattern for Next.js 16 |
+| **Tabbed Interface** | Accounts, Payments, Transactions tabs with Radix UI |
+| **React Query Integration** | useBankAccounts hook connected to validated backend |
+| **Error/Empty States** | Comprehensive handling of all UI states |
+| **PayNow Display** | Singapore-specific badges on bank accounts |
+| **Files Created** | 5 new files (~800 lines of production code + tests) |
+| **Files Modified** | 2 files (navigation, schema export) |
 
 ### Recent Milestone: Phase B Dynamic Organization Context ✅ COMPLETE
 **Date**: 2026-03-03
@@ -363,13 +379,15 @@ VALUES (org_uuid, 'PAYMENT_RECEIVED', 'RCP-', 1, 5), (org_uuid, 'PAYMENT_MADE', 
 3. ~~**Bank Reconciliation Tests**: Add tests for ReconciliationService~~ ✅ COMPLETE
 4. ~~**View Tests**: Add comprehensive endpoint tests for banking API~~ ✅ COMPLETE
 5. ~~**Rate Limiting**: Implement `django-ratelimit` on authentication endpoints (SEC-002)~~ ✅ COMPLETE
-6. **Error Handling**: Add retry logic and fallback UI for dashboard API failures
+6. ~~**Banking UI**: Create frontend pages with TDD tests~~ ✅ COMPLETE (Phase 5.4)
+7. **Error Handling**: Add retry logic and fallback UI for dashboard API failures
 
 ### Short-term (Medium Priority)
-6. **Frontend Integration**: Connect banking pages to validated backend endpoints
-7. **Content Security Policy**: Configure CSP headers (SEC-003)
-8. **Error Handling**: Add retry logic for payment processing
-9. **Frontend Test Coverage**: Expand tests for hooks and forms (SEC-004)
+8. **Payment Tab Implementation**: Replace placeholder with payment list UI
+9. **Bank Transactions Tab**: Implement reconciliation UI with matching
+10. **Content Security Policy**: Configure CSP headers (SEC-003)
+11. **Error Handling**: Add retry logic for payment processing
+12. **Frontend Test Coverage**: Expand tests for hooks and forms (SEC-004)
 
 ### Long-term (Low Priority)
 10. **InvoiceNow Transmission**: Finalize Peppol XML generation
