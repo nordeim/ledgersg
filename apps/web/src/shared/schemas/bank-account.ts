@@ -14,18 +14,6 @@ import { z } from "zod";
 export const PAYNOW_TYPES = ["UEN", "MOBILE", "NRIC"] as const;
 export type PayNowType = (typeof PAYNOW_TYPES)[number];
 
-// Payment Methods (shared with Payment schema)
-export const PAYMENT_METHODS = [
-  "BANK_TRANSFER",
-  "CHEQUE",
-  "CASH",
-  "PAYNOW",
-  "CREDIT_CARD",
-  "GIRO",
-  "OTHER",
-] as const;
-export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
-
 /**
  * Bank Account Schema (Read - from API)
  *
