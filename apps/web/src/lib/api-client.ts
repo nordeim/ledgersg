@@ -190,12 +190,24 @@ export const endpoints = {
     alerts: `/api/v1/${orgId}/reports/dashboard/alerts/`,
   }),
 
-  // Banking (org-scoped) - FIXED: Added /banking/ prefix to match backend
+  // Banking (org-scoped) - All endpoints matching backend
   banking: (orgId: string) => ({
+    // Bank Accounts
     accounts: `/api/v1/${orgId}/banking/bank-accounts/`,
+    accountDetail: (id: string) => `/api/v1/${orgId}/banking/bank-accounts/${id}/`,
+    // Payments
     payments: `/api/v1/${orgId}/banking/payments/`,
+    paymentDetail: (id: string) => `/api/v1/${orgId}/banking/payments/${id}/`,
     receivePayment: `/api/v1/${orgId}/banking/payments/receive/`,
     makePayment: `/api/v1/${orgId}/banking/payments/make/`,
+    allocatePayment: (id: string) => `/api/v1/${orgId}/banking/payments/${id}/allocate/`,
+    voidPayment: (id: string) => `/api/v1/${orgId}/banking/payments/${id}/void/`,
+    // Bank Transactions (Reconciliation)
+    transactions: `/api/v1/${orgId}/banking/bank-transactions/`,
+    transactionImport: `/api/v1/${orgId}/banking/bank-transactions/import/`,
+    transactionReconcile: (id: string) => `/api/v1/${orgId}/banking/bank-transactions/${id}/reconcile/`,
+    transactionUnreconcile: (id: string) => `/api/v1/${orgId}/banking/bank-transactions/${id}/unreconcile/`,
+    transactionSuggestMatches: (id: string) => `/api/v1/${orgId}/banking/bank-transactions/${id}/suggest-matches/`,
   }),
 
   // Chart of Accounts (org-scoped)
