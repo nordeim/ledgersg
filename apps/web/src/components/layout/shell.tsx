@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Building2,
   Check,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -44,6 +45,7 @@ const navItems: NavItem[] = [
   { icon: FileText, label: "Invoices", href: "/invoices" },
   { icon: Receipt, label: "Quotes", href: "/quotes" },
   { icon: BookOpen, label: "Ledger", href: "/ledger" },
+  { icon: Landmark, label: "Banking", href: "/banking" },
   { icon: PieChart, label: "Reports", href: "/reports" },
   { icon: Settings, label: "Settings", href: "/settings" },
 ];
