@@ -34,16 +34,16 @@ This document records the completed work on the LedgerSG platform, aligned with 
 | **Integration** | ✅ Complete | v0.5.0 | All phases complete, dashboard real data |
 | **Integration Gaps** | ✅ Complete | v1.0.0 | GAP-3 (20 tests) + GAP-4 (13 tests) validated |
 | **Dashboard** | ✅ Complete | v1.1.0 | Phase 4: Field remediation + Redis caching (36 tests) |
-| **Banking Frontend** | ✅ Complete | v1.0.0 | Phase 5.4: Banking UI page with tabs (16 tests) |
-| **Testing** | ✅ Complete | v1.4.0 | 87 backend + 36 TDD + 33 integration + 16 UI + 34 hooks = 206 tests |
+| **Banking Frontend** | ⚠️ Partial | v1.0.0 | Phase 5.4: Structure Complete (16 tests), Payment/Reconciliation UI Pending |
+| **Testing** | ✅ Complete | v1.4.0 | 325 backend + 16 UI + 34 hooks + ~150 other = ~525 total tests |
 | **Docker** | ✅ Complete | v1.0.0 | Multi-service, live FE/BE integration |
 
 ---
 
-# Major Milestone: Phase 5.4 Banking Frontend Integration ✅ COMPLETE (2026-03-05)
+# Major Milestone: Phase 5.4 Banking Frontend Integration ⚠️ PARTIAL (2026-03-05)
 
 ## Executive Summary
-Implemented complete Banking UI pages using Test-Driven Development (TDD) methodology. Created tabbed interface with Bank Accounts, Payments, and Bank Transactions sections. Achieved **100% test pass rate** (16/16 tests) with comprehensive coverage of rendering, navigation, data fetching, empty states, error handling, and accessibility.
+Implemented Banking UI **structure** using Test-Driven Development (TDD). Created tabbed interface framework with Bank Accounts fully implemented. Payments and Bank Transactions tabs are currently placeholders pending Phase 5.5 implementation. Achieved **100% test pass rate** (16/16 tests) for existing functionality.
 
 ### Key Achievements
 
@@ -56,7 +56,7 @@ Implemented complete Banking UI pages using Test-Driven Development (TDD) method
 #### Frontend Implementation
 - **New Files Created**: 5 files (~800 lines of production code + tests)
 - **Banking Page Structure**: Server/Client component split for Next.js metadata compliance
-- **Tabbed Interface**: 3 tabs (Accounts, Payments, Transactions) with Radix UI tabs
+- **Tabbed Interface**: 3 tabs (Accounts ✅, Payments ⏳, Transactions ⏳) with Radix UI tabs
 - **Data Fetching**: React Query integration with `useBankAccounts` hook
 - **Error Handling**: Loading states, empty states, error boundaries
 
