@@ -2,9 +2,9 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 1.7.1
-> **Last Updated**: 2026-03-03
-> **Status**: Production Ready ✅ (SEC-001, SEC-002 & Phase B Complete)
+> **Version**: 1.8.0
+> **Last Updated**: 2026-03-05
+> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B & Phase 5.4 Complete)
 
 ---
 
@@ -275,8 +275,9 @@ Org-scoped endpoints require:
 | POST | `/api/v1/auth/change-password/` | Yes | - | Change password |
 | GET | `/api/v1/auth/organisations/` | Yes | - | List user's org memberships |
 | POST | `/api/v1/auth/set-default-org/` | Yes | - | Set default organization |
+| GET | `/api/v1/auth/profile/` | Yes | - | Get user profile (alias for /me/) |
 
-### Organization Endpoints (6)
+### Organization Endpoints (11)
 
 | Method | Endpoint | Permissions | Description |
 |--------|----------|-------------|-------------|
@@ -285,7 +286,12 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/` | IsOrgMember | Get org details |
 | GET | `/api/v1/{orgId}/gst/` | IsOrgMember | Get GST registration info |
 | GET | `/api/v1/{orgId}/fiscal-years/` | IsOrgMember | List fiscal years |
+| GET | `/api/v1/{orgId}/fiscal-periods/` | IsOrgMember | List fiscal periods |
+| POST | `/api/v1/{orgId}/fiscal-years/{id}/close/` | CanManageOrg | Close fiscal year |
+| POST | `/api/v1/{orgId}/fiscal-periods/{id}/close/` | CanManageOrg | Close fiscal period |
 | GET | `/api/v1/{orgId}/summary/` | IsOrgMember | Organisation high-level summary |
+| GET | `/api/v1/{orgId}/dashboard/` | IsOrgMember | Dashboard view |
+| GET/PUT/PATCH | `/api/v1/{orgId}/settings/` | IsOrgMember | Organisation settings |
 
 ### Chart of Accounts Endpoints (8)
 
@@ -300,7 +306,7 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/accounts/{id}/balance/` | IsOrgMember | Get account balance |
 | GET | `/api/v1/{orgId}/accounts/trial-balance/` | IsOrgMember | Trial balance |
 
-### GST Endpoints (12)
+### GST Endpoints (13)
 
 | Method | Endpoint | Permissions | Description |
 |--------|----------|-------------|-------------|
@@ -316,17 +322,16 @@ Org-scoped endpoints require:
 | POST | `/api/v1/{orgId}/gst/returns/{id}/file/` | CanFileGST | File F5 return |
 | POST | `/api/v1/{orgId}/gst/returns/{id}/amend/` | CanFileGST | Amend GST return |
 | POST | `/api/v1/{orgId}/gst/returns/{id}/pay/` | CanFileGST | Record GST payment |
-| GET | `/api/v1/{orgId}/gst/deadlines/` | IsOrgMember | Filing deadlines |
+| GET | `/api/v1/{orgId}/gst/returns/deadlines/` | IsOrgMember | Filing deadlines |
 
-### Invoicing Endpoints (21)
+### Invoicing Endpoints (16)
 
 | Method | Endpoint | Permissions | Description |
 |--------|----------|-------------|-------------|
 | GET | `/api/v1/{orgId}/invoicing/contacts/` | IsOrgMember | List contacts |
 | POST | `/api/v1/{orgId}/invoicing/contacts/` | CanCreateInvoices | Create contact |
 | GET | `/api/v1/{orgId}/invoicing/contacts/{id}/` | IsOrgMember | Get contact |
-| PUT | `/api/v1/{orgId}/invoicing/contacts/{id}/` | CanCreateInvoices | Update contact |
-| DELETE | `/api/v1/{orgId}/invoicing/contacts/{id}/` | CanCreateInvoices | Delete contact |
+| PUT/PATCH/DELETE | `/api/v1/{orgId}/invoicing/contacts/{id}/` | CanCreateInvoices | Update/delete contact |
 | GET | `/api/v1/{orgId}/invoicing/documents/` | IsOrgMember | List invoices |
 | POST | `/api/v1/{orgId}/invoicing/documents/` | CanCreateInvoices | Create invoice |
 | GET | `/api/v1/{orgId}/invoicing/documents/summary/` | IsOrgMember | Document summary |
@@ -344,7 +349,7 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/invoicing/documents/{id}/invoicenow-status/` | IsOrgMember | Check Peppol status |
 | POST | `/api/v1/{orgId}/invoicing/quotes/convert/` | CanCreateInvoices | Convert quote → invoice |
 
-### Journal Endpoints (8)
+### Journal Endpoints (9)
 
 | Method | Endpoint | Permissions | Description |
 |--------|----------|-------------|-------------|
@@ -358,7 +363,7 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/journal-entries/trial-balance/` | IsOrgMember | Trial balance |
 | GET | `/api/v1/{orgId}/journal-entries/accounts/{id}/balance/` | IsOrgMember | Get account balance |
 
-**Note:** The account balance endpoint is accessed via `/api/v1/{orgId}/accounts/{id}/balance/` (see Chart of Accounts), not through the journal-entries path. Journal module has 8 unique endpoints.
+**Note:** The trial-balance endpoint is duplicated - accessible via both `/api/v1/{orgId}/accounts/trial-balance/` (Chart of Accounts) and `/api/v1/{orgId}/journal-entries/trial-balance/` (Journal). The account balance endpoint at `/api/v1/{orgId}/journal-entries/accounts/{id}/balance/` is an alternative path to `/api/v1/{orgId}/accounts/{id}/balance/`. Journal module has 9 unique URL patterns.
 
 ### Banking Endpoints (13) ✅ SEC-001 REMEDIATED
 
@@ -391,6 +396,13 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/reports/dashboard/alerts/` | IsOrgMember | Compliance alerts |
 | GET | `/api/v1/{orgId}/reports/reports/financial/` | CanViewReports | Financial reports |
 
+### Peppol (InvoiceNow) Endpoints (2)
+
+| Method | Endpoint | Permissions | Description |
+|--------|----------|-------------|-------------|
+| GET | `/api/v1/{orgId}/peppol/transmission-log/` | IsOrgMember | Peppol transmission log |
+| GET/POST/PUT/PATCH | `/api/v1/{orgId}/peppol/settings/` | CanManageOrg | Peppol settings configuration |
+
 ### Infrastructure Endpoints (3)
 
 | Method | Endpoint | Auth | Description |
@@ -399,7 +411,7 @@ Org-scoped endpoints require:
 | GET | `/api/v1/` | No | API root/info |
 | GET | `/api/v1/health/` | No | API health check |
 
-**Total Endpoints: 76**
+**Total Endpoints: 86**
 
 ---
 
@@ -1058,17 +1070,18 @@ curl "$LEDGERSG_API_BASE/$LEDGERSG_ORG_ID/reports/dashboard/metrics/" \
   -H "Authorization: Bearer $LEDGERSG_ACCESS"
 ```
 
-### Total Endpoints: 76
+### Total Endpoints: 86
 
 | Module | Endpoints | Status |
 |--------|-----------|--------|
 | Authentication | 9 | ✅ Production (SEC-002) |
-| Organizations | 6 | ✅ Production (Phase B) |
+| Organizations | 11 | ✅ Production (Phase B) |
 | Chart of Accounts | 8 | ✅ Production |
-| GST | 12 | ✅ Production |
-| Invoicing | 15 | ✅ Production |
-| Journal | 8 | ✅ Production |
+| GST | 13 | ✅ Production |
+| Invoicing | 16 | ✅ Production |
+| Journal | 9 | ✅ Production |
 | Banking | 13 | ✅ Production (SEC-001) |
+| Peppol (InvoiceNow) | 2 | ✅ Production |
 | Dashboard/Reports | 3 | ✅ Production |
 | Infrastructure | 3 | ✅ Production |
 
@@ -1100,8 +1113,8 @@ For API-related questions:
 
 **End of Guide**
 
-*Last validated against codebase: 2026-03-03*
-*Security status: SEC-001 (HIGH) ✅ REMEDIATED, SEC-002 (MEDIUM) ✅ REMEDIATED, Phase B ✅ COMPLETE*
-*API Version: 1.7.1*
-*Total Endpoints: 76*
+*Last validated against codebase: 2026-03-05*
+*Security status: SEC-001 (HIGH) ✅ REMEDIATED, SEC-002 (MEDIUM) ✅ REMEDIATED, Phase B ✅ COMPLETE, Phase 5.4 ✅ COMPLETE*
+*API Version: 1.8.0*
+*Total Endpoints: 86*
 *Security Score: 98%*
