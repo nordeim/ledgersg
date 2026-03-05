@@ -227,21 +227,28 @@ describe("BankingPage", () => {
   });
 
   describe("Tab Navigation", () => {
-    it("should switch to Payments tab when clicked", async () => {
-      const user = userEvent.setup();
-      vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
-        data: mockBankAccounts,
-        isLoading: false,
-        error: null,
-      } as any);
+  it("should switch to Payments tab when clicked", async () => {
+    const user = userEvent.setup();
+    vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
+      data: mockBankAccounts,
+      isLoading: false,
+      error: null,
+    } as any);
+    
+    // Mock usePayments hook
+    vi.mocked(bankingHooks.usePayments).mockReturnValue({
+      data: { results: [], count: 0, next: null, previous: null },
+      isLoading: false,
+      error: null,
+    } as any);
 
-      render(<BankingClient />, { wrapper: createWrapper() });
+    render(<BankingClient />, { wrapper: createWrapper() });
 
-      const paymentsTab = screen.getByRole("tab", { name: /payments/i });
-      await user.click(paymentsTab);
+    const paymentsTab = screen.getByRole("tab", { name: /payments/i });
+    await user.click(paymentsTab);
 
-      expect(paymentsTab).toHaveAttribute("data-state", "active");
-    });
+    expect(paymentsTab).toHaveAttribute("data-state", "active");
+  });
 
     it("should switch to Transactions tab when clicked", async () => {
       const user = userEvent.setup();
@@ -259,21 +266,29 @@ describe("BankingPage", () => {
       expect(transactionsTab).toHaveAttribute("data-state", "active");
     });
 
-    it("should show Payments placeholder content", async () => {
-      const user = userEvent.setup();
-      vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
-        data: mockBankAccounts,
-        isLoading: false,
-        error: null,
-      } as any);
+  it("should show Payments content", async () => {
+    const user = userEvent.setup();
+    vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
+      data: mockBankAccounts,
+      isLoading: false,
+      error: null,
+    } as any);
+    
+    // Mock usePayments hook
+    vi.mocked(bankingHooks.usePayments).mockReturnValue({
+      data: { results: [], count: 0, next: null, previous: null },
+      isLoading: false,
+      error: null,
+    } as any);
 
-      render(<BankingClient />, { wrapper: createWrapper() });
+    render(<BankingClient />, { wrapper: createWrapper() });
 
-      const paymentsTab = screen.getByRole("tab", { name: /payments/i });
-      await user.click(paymentsTab);
+    const paymentsTab = screen.getByRole("tab", { name: /payments/i });
+    await user.click(paymentsTab);
 
-      expect(screen.getByText(/payments module coming soon/i)).toBeInTheDocument();
-    });
+    // Check that payments tab shows filter controls (not placeholder)
+    expect(screen.getByTestId("payment-filters")).toBeInTheDocument();
+  });
 
     it("should show Transactions placeholder content", async () => {
       const user = userEvent.setup();

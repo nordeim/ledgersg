@@ -1,14 +1,19 @@
 "use client";
 
 import * as React from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Landmark, CreditCard, ArrowLeftRight, Loader2, AlertTriangle, Building2 } from "lucide-react";
+import { Plus, Landmark, CreditCard, ArrowLeftRight, Loader2, AlertTriangle, Building2, X } from "lucide-react";
 import { useAuth } from "@/providers/auth-provider";
 import { useBankAccounts } from "@/hooks/use-banking";
 import { formatOpeningBalance } from "@/shared/schemas/bank-account";
+import { PaymentList } from "./components/payment-list";
+import { PaymentFilters, type PaymentFilters as PaymentFiltersType } from "./components/payment-filters";
+import { ReceivePaymentForm } from "./components/receive-payment-form";
+import type { Payment } from "@/shared/schemas";
 
 export function BankingClient() {
   const { currentOrg, isLoading: authLoading } = useAuth();
@@ -219,24 +224,92 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
 }
 
 // ============================================
-// PAYMENTS TAB (Placeholder)
+// PAYMENTS TAB (Implemented)
 // ============================================
 
 function PaymentsTab() {
+  const { currentOrg } = useAuth();
+  const orgId = currentOrg?.id ?? null;
+  const [showReceiveForm, setShowReceiveForm] = useState(false);
+  const [showMakeForm, setShowMakeForm] = useState(false);
+  const [paymentFilters, setPaymentFilters] = useState<{
+    payment_type?: "RECEIVED" | "MADE";
+    is_reconciled?: boolean | null;
+    date_from?: string;
+    date_to?: string;
+  }>({
+    payment_type: undefined,
+    is_reconciled: null,
+  });
+
+  if (!orgId) {
+    return (
+      <Card className="border-border bg-carbon rounded-sm">
+        <CardContent className="py-12 text-center">
+          <AlertTriangle className="h-12 w-12 text-warning mx-auto mb-4" />
+          <p className="text-text-secondary">No organisation selected</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="border-border bg-carbon rounded-sm">
-      <CardContent className="py-12">
-        <div className="text-center">
-          <CreditCard className="h-12 w-12 text-text-muted mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-text-primary mb-2">
-            Payments module coming soon
-          </h3>
-          <p className="text-text-secondary">
-            Receive and make payments with allocation tracking
-          </p>
+    <div className="space-y-4">
+      {showReceiveForm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <ReceivePaymentForm
+            orgId={orgId}
+            onSuccess={() => setShowReceiveForm(false)}
+            onCancel={() => setShowReceiveForm(false)}
+          />
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      <PaymentFilters 
+        filters={{
+          payment_type: paymentFilters.payment_type === undefined ? "ALL" : paymentFilters.payment_type,
+          is_reconciled: paymentFilters.is_reconciled,
+          date_from: paymentFilters.date_from,
+          date_to: paymentFilters.date_to,
+        }}
+        onChange={(newFilters) => {
+          setPaymentFilters({
+            payment_type: newFilters.payment_type === "ALL" ? undefined : newFilters.payment_type,
+            is_reconciled: newFilters.is_reconciled,
+            date_from: newFilters.date_from,
+            date_to: newFilters.date_to,
+          });
+        }}
+      />
+      
+      <Card className="border-border bg-carbon rounded-sm">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="font-display text-lg text-text-primary">
+            Payments
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowReceiveForm(true)}
+              className="rounded-sm bg-accent-primary text-void hover:bg-accent-primary-dim"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Receive Payment
+            </Button>
+            <Button
+              onClick={() => setShowMakeForm(true)}
+              variant="outline"
+              className="rounded-sm"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Make Payment
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <PaymentList orgId={orgId} filters={paymentFilters} />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
