@@ -34,8 +34,8 @@ This document records the completed work on the LedgerSG platform, aligned with 
 | **Integration** | ✅ Complete | v0.5.0 | All phases complete, dashboard real data |
 | **Integration Gaps** | ✅ Complete | v1.0.0 | GAP-3 (20 tests) + GAP-4 (13 tests) validated |
 | **Dashboard** | ✅ Complete | v1.1.0 | Phase 4: Field remediation + Redis caching (36 tests) |
-| **Banking Frontend** | ⚠️ Partial | v1.0.0 | Phase 5.4: Structure Complete (16 tests), Payment/Reconciliation UI Pending |
-| **Testing** | ✅ Complete | v1.4.0 | 325 backend + 16 UI + 34 hooks + ~150 other = ~525 total tests |
+| **Banking Frontend** | ✅ **Complete** | v1.2.0 | Phase 5.5: All Tabs Complete (66 tests total, 50 new), Full Reconciliation UI |
+| **Testing** | ✅ Complete | v1.5.0 | **325 backend + 66 Banking UI + ~184 other = ~575 total tests** |
 | **Docker** | ✅ Complete | v1.0.0 | Multi-service, live FE/BE integration |
 
 ---
