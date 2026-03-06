@@ -6,14 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Landmark, CreditCard, ArrowLeftRight, Loader2, AlertTriangle, Building2, X } from "lucide-react";
+import { Plus, Landmark, CreditCard, ArrowLeftRight, Loader2, AlertTriangle, Building2, X, Upload } from "lucide-react";
 import { useAuth } from "@/providers/auth-provider";
 import { useBankAccounts } from "@/hooks/use-banking";
 import { formatOpeningBalance } from "@/shared/schemas/bank-account";
 import { PaymentList } from "./components/payment-list";
 import { PaymentFilters, type PaymentFilters as PaymentFiltersType } from "./components/payment-filters";
 import { ReceivePaymentForm } from "./components/receive-payment-form";
+import { TransactionList } from "./components/transaction-list";
+import { TransactionFilters, type TransactionFilters as TransactionFiltersType } from "./components/transaction-filters";
+import { ReconciliationSummary } from "./components/reconciliation-summary";
+import { ImportTransactionsForm } from "./components/import-transactions-form";
+import { ReconcileForm } from "./components/reconcile-form";
 import type { Payment } from "@/shared/schemas";
+import type { BankTransaction } from "@/shared/schemas";
 
 export function BankingClient() {
   const { currentOrg, isLoading: authLoading } = useAuth();
@@ -314,24 +320,110 @@ function PaymentsTab() {
 }
 
 // ============================================
-// BANK TRANSACTIONS TAB (Placeholder)
+// BANK TRANSACTIONS TAB (Implemented)
 // ============================================
 
 function BankTransactionsTab() {
+  const { currentOrg } = useAuth();
+  const orgId = currentOrg?.id ?? null;
+
+  const [showImportForm, setShowImportForm] = useState(false);
+  const [showReconcileForm, setShowReconcileForm] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<BankTransaction | null>(null);
+
+  const [transactionFilters, setTransactionFilters] = useState<TransactionFiltersType>({
+    bank_account_id: undefined,
+    is_reconciled: null,
+    unreconciled_only: false,
+    date_from: undefined,
+    date_to: undefined,
+  });
+
+  const { data: accountsData } = useBankAccounts(orgId, { is_active: true });
+  const bankAccounts = accountsData?.results || [];
+
+  if (!orgId) {
+    return (
+      <Card className="border-border bg-carbon rounded-sm">
+        <CardContent className="py-12 text-center">
+          <AlertTriangle className="h-12 w-12 text-warning mx-auto mb-4" />
+          <p className="text-text-secondary">No organisation selected</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const handleTransactionClick = (transaction: BankTransaction) => {
+    setSelectedTransaction(transaction);
+    setShowReconcileForm(true);
+  };
+
+  const handleCloseReconcileForm = () => {
+    setShowReconcileForm(false);
+    setSelectedTransaction(null);
+  };
+
   return (
-    <Card className="border-border bg-carbon rounded-sm">
-      <CardContent className="py-12">
-        <div className="text-center">
-          <ArrowLeftRight className="h-12 w-12 text-text-muted mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-text-primary mb-2">
-            Bank reconciliation module coming soon
-          </h3>
-          <p className="text-text-secondary">
-            Import bank statements and reconcile transactions
-          </p>
+    <div className="space-y-4">
+      {/* Import Modal */}
+      {showImportForm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <ImportTransactionsForm
+            orgId={orgId}
+            onSuccess={() => setShowImportForm(false)}
+            onCancel={() => setShowImportForm(false)}
+          />
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {/* Reconcile Modal */}
+      {showReconcileForm && selectedTransaction && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <ReconcileForm
+            transaction={selectedTransaction}
+            orgId={orgId}
+            onClose={handleCloseReconcileForm}
+          />
+        </div>
+      )}
+
+      {/* Reconciliation Summary */}
+      <ReconciliationSummary
+        orgId={orgId}
+        bankAccountId={transactionFilters.bank_account_id}
+      />
+
+      {/* Transaction Filters */}
+      <TransactionFilters
+        filters={transactionFilters}
+        onChange={setTransactionFilters}
+        bankAccounts={bankAccounts}
+      />
+
+      {/* Transaction List Card */}
+      <Card className="border-border bg-carbon rounded-sm">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="font-display text-lg text-text-primary">
+            Bank Transactions
+          </CardTitle>
+          <Button
+            onClick={() => setShowImportForm(true)}
+            className="rounded-sm bg-accent-primary text-void hover:bg-accent-primary-dim"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import Statement
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <TransactionList
+            orgId={orgId}
+            filters={transactionFilters}
+            onTransactionClick={handleTransactionClick}
+            onImportClick={() => setShowImportForm(true)}
+          />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
