@@ -1,9 +1,9 @@
 # LedgerSG — Agent & Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 1.8.0
-> **Last Updated**: 2026-03-05
-> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B, Phase 3, Phase 4, Phase 5.4 Complete)
+> **Version**: 2.0.0
+> **Last Updated**: 2026-03-06
+> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B, Phase 3, Phase 4, Phase 5.4, Phase 5.5 Complete)
 
 ---
 
@@ -31,14 +31,41 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.1 | ✅ Production Ready | 19 static pages (including Banking), dynamic org context, 222 tests |
-| **Backend** | v0.3.3 | ✅ Production Ready | **83 API endpoints**, 245 tests |
+| **Frontend** | v0.1.1 | ✅ Production Ready | 12 pages (including Banking), dynamic org context, **305 tests** |
+| **Backend** | v0.3.3 | ✅ Production Ready | **83 API endpoints**, **233+ tests** |
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests, 13 validated endpoints |
-| **Banking UI** | v1.0.0 | ✅ Phase 5.4 Complete | 16 TDD tests, tabbed interface |
+| **Banking UI** | v1.3.0 | ✅ **Phase 5.5 Complete** | **73 TDD tests**, all 3 tabs live, reconciliation workflow |
 | **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
-| **Testing** | — | ✅ 467+ Passing | Backend + Frontend tests verified |
-| **Overall** | — | ✅ **Platform Ready** | **467+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+| **Testing** | — | ✅ **538+ Passing** | **305 Frontend + 233 Backend** tests verified |
+| **Overall** | — | ✅ **Platform Ready** | **538+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+
+### Recent Milestone: Phase 3 Bank Transactions Tab Integration ✅ COMPLETE
+**Date**: 2026-03-06
+**Status**: TDD Integration Tests Complete - Placeholder Replaced
+
+| Fix | Impact |
+|-----|--------|
+| **7 Integration Tests** | TDD RED → GREEN → REFACTOR cycle |
+| **Placeholder Replaced** | Full BankTransactionsTab with all Gap 4 components |
+| **Components Wired** | TransactionList, TransactionFilters, ReconciliationSummary, ImportTransactionsForm, ReconcileForm |
+| **Pattern Compliance** | Follows PaymentsTab architecture exactly |
+| **Async Testing** | userEvent pattern for Radix UI tab switching |
+| **Hook Mocks** | Comprehensive mocking for useBankAccounts, useBankTransactions |
+| **Test Fixes** | page.test.tsx updated (16/16 tests passing) |
+| **Blockers Solved** | Async tab switching, missing hook mocks, multiple button collision |
+
+### Recent Milestone: Phase 5.5 Banking Frontend Complete ✅ COMPLETE
+**Date**: 2026-03-06
+**Status**: All Tabs Live - Full Reconciliation Workflow
+
+| Component | Tests | Status |
+|-----------|-------|--------|
+| **Phase 1 Components** | 24 tests | ✅ TransactionRow, TransactionList, TransactionFilters + Payment components |
+| **Phase 2 Modals** | 26 tests | ✅ ReconciliationSummary, ImportTransactionsForm, ReconcileForm, MatchSuggestions |
+| **Phase 3 Integration** | 7 tests | ✅ BankTransactionsTab wiring and interactions |
+| **Page Tests** | 16 tests | ✅ Banking page structure and navigation |
+| **Total Banking Tests** | **73 tests** | **100% passing** |
 
 ### Recent Milestone: Phase 5.4 Banking Frontend UI ✅ COMPLETE
 **Date**: 2026-03-05
@@ -337,6 +364,50 @@ VALUES (org_uuid, 'PAYMENT_RECEIVED', 'RCP-', 1, 5), (org_uuid, 'PAYMENT_MADE', 
 **Cause**: `output: 'export'` mode doesn't support API routes.  
 **Solution**: Use `NEXT_OUTPUT_MODE=standalone` and run `node .next/standalone/server.js`.
 
+### Phase 3 Integration Lessons (Frontend Testing)
+
+**Problem**: Radix UI Tabs not activating in integration tests.
+**Cause**: `fireEvent.click` doesn't trigger Radix UI state changes - requires proper user interaction simulation.
+**Solution**: Use `userEvent.setup()` + `await user.click()` instead of `fireEvent.click`:
+```typescript
+// ❌ Incorrect - doesn't trigger tab activation
+fireEvent.click(transactionsTab);
+
+// ✅ Correct - triggers proper state change
+const user = userEvent.setup();
+await user.click(transactionsTab);
+```
+
+**Problem**: "Found multiple elements with the role 'button' and name..." test error.
+**Cause**: Multiple elements match the selector (e.g., two "Import Statement" buttons).
+**Solution**: Use `findAllByRole` instead of `findByRole`:
+```typescript
+// ❌ Incorrect - expects single match
+const importButton = await screen.findByRole("button", { name: /import statement/i });
+
+// ✅ Correct - handles multiple matches
+const importButtons = await screen.findAllByRole("button", { name: /import statement/i });
+expect(importButtons.length).toBeGreaterThan(0);
+```
+
+**Problem**: Hook returns `undefined` in tests.
+**Cause**: Missing mock for the hook in test file.
+**Solution**: Add comprehensive hook mocking:
+```typescript
+vi.mock("@/hooks/use-banking");
+
+vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
+  data: { results: [], count: 0 },
+  isLoading: false,
+} as any);
+```
+
+**Problem**: TransactionList test expects `transactions-list` but finds `transactions-empty`.
+**Cause**: Component renders different testids based on `data.count` value.
+**Solution**: Understand conditional rendering:
+- `count === 0` → renders `transactions-empty`
+- `count > 0` → renders `transactions-list`
+
 ### Frontend "Loading..." Stuck State
 **Problem**: Dashboard shows "Loading..." indefinitely.  
 **Cause**: Missing static JS files in standalone build OR hydration mismatch.  
@@ -357,20 +428,6 @@ VALUES (org_uuid, 'PAYMENT_RECEIVED', 'RCP-', 1, 5), (org_uuid, 'PAYMENT_MADE', 
 
 ---
 
-### Recent Milestone: Frontend SSR & Hydration Fix ✅
-**Date**: 2026-02-28  
-**Status**: Production Ready - Dashboard renders immediately without "Loading..." stuck state
-
-| Fix | Impact |
-|-----|--------|
-| **Dashboard Server Component** | Converted from Client to Server Component for immediate render |
-| **Static Files Auto-Copy** | Build script now copies `.next/static` to standalone folder automatically |
-| **Hydration Mismatch Fix** | Removed "Loading..." early return from shell.tsx |
-| **Loading.tsx Disabled** | Moved to loading.tsx.bak to prevent skeleton flash |
-| **ClientOnly Component** | Now renders children immediately without skeleton fallback |
-
----
-
 ## 🚀 Recommended Next Steps
 
 ### Immediate (High Priority)
@@ -383,14 +440,14 @@ VALUES (org_uuid, 'PAYMENT_RECEIVED', 'RCP-', 1, 5), (org_uuid, 'PAYMENT_MADE', 
 7. **Error Handling**: Add retry logic and fallback UI for dashboard API failures
 
 ### Short-term (Medium Priority)
-8. **Payment Tab Implementation**: Replace placeholder with payment list UI
-9. **Bank Transactions Tab**: Implement reconciliation UI with matching
+8. ~~**Payment Tab Implementation**: Replace placeholder with payment list UI~~ ✅ COMPLETE (Phase 5.5)
+9. ~~**Bank Transactions Tab**: Implement reconciliation UI with matching~~ ✅ COMPLETE (Phase 5.5)
 10. **Content Security Policy**: Configure CSP headers (SEC-003)
 11. **Error Handling**: Add retry logic for payment processing
 12. **Frontend Test Coverage**: Expand tests for hooks and forms (SEC-004)
 
 ### Long-term (Low Priority)
-10. **InvoiceNow Transmission**: Finalize Peppol XML generation
-11. **PII Encryption**: Encrypt GST numbers and bank accounts at rest (SEC-005)
-12. **Analytics**: Add dashboard analytics tracking
-13. **Mobile**: Optimize banking pages for mobile devices
+13. **InvoiceNow Transmission**: Finalize Peppol XML generation
+14. **PII Encryption**: Encrypt GST numbers and bank accounts at rest (SEC-005)
+15. **Analytics**: Add dashboard analytics tracking
+16. **Mobile**: Optimize banking pages for mobile devices
