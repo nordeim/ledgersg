@@ -182,6 +182,14 @@ Recent Security Audit (2026-03-01) scored 95%. Address remaining findings:
 - **"Found Multiple Elements" in Tests:** Multiple elements match selector. **Fix:** Use `findAllByRole()` and check array length.
 - **Hook Returns Undefined:** Missing mock in test. **Fix:** Add `vi.mocked(hooks.useXxx).mockReturnValue({...})`.
 
+#### CSP-Specific Troubleshooting (SEC-003)
+- **CSP Headers Not Appearing:** Tests failing with no CSP headers in response. **Fix:** Check django-csp version (v4.0+ uses dict-based config). Use `CONTENT_SECURITY_POLICY_REPORT_ONLY = {"DIRECTIVES": {...}}` instead of individual `CSP_*` settings.
+- **CSP Report Endpoint Returns 401:** Browser sends CSP reports without auth tokens. **Fix:** Add `@permission_classes([AllowAny])` decorator to the report view.
+- **report-uri Missing from CSP Header:** Test expects `report-uri` directive but it's not in header. **Fix:** Explicitly add `"report-uri": ["/api/v1/security/csp-report/"]` to DIRECTIVES dict.
+- **django-csp Module Not Found:** `ImportError: No module named 'csp.middleware'`. **Fix:** Add `'csp'` to `INSTALLED_APPS` in `settings/base.py`.
+- **CSP Breaks Django Admin:** Admin pages not loading properly with CSP. **Fix:** Use report-only mode first, monitor violations, then consider adding `'unsafe-inline'` to `script-src` if needed for admin-only usage.
+- **Tests Passing Locally But Failing in CI:** CSP configuration differences between environments. **Fix:** Ensure `CONTENT_SECURITY_POLICY_REPORT_ONLY` is set in both `base.py` and `testing.py` settings.
+
 ### 6.3 Deployment Modes
 - **Development:** `npm run dev` (Frontend) + `python manage.py runserver` (Backend).
 - **Production:** `npm run build:server` + `npm run start` (Frontend) + Gunicorn (Backend).
@@ -228,6 +236,13 @@ As an autonomous agent working on PRs, you must adhere to the following operatio
 - **Multiple Element Handling**: When multiple buttons have same text (e.g., "Import Statement"), use `findAllByRole` and check array length instead of `findByRole`.
 - **Component State Awareness**: TransactionList renders `transactions-empty` when `count=0` and `transactions-list` when `count>0`. Understand conditional renders before writing assertions.
 
+#### CSP Implementation Lessons (SEC-003)
+- **django-csp v4.0 Breaking Change**: Configuration changed from individual `CSP_*` settings to dict-based `CONTENT_SECURITY_POLICY`. Always check package version before implementation.
+- **Report Endpoint Authentication**: CSP reports are sent by browsers without auth tokens. Use `@permission_classes([AllowAny])` for the report endpoint.
+- **Middleware Order Matters**: CSPMiddleware must be placed after SecurityMiddleware but before response-generating middleware.
+- **Report-URI Manual Addition**: django-csp doesn't auto-append report-uri from settings; must be explicitly added to DIRECTIVES dict.
+- **Report-Only Mode First**: Always deploy CSP in report-only mode to monitor violations before enforcement.
+
 ### 7.5 Prohibited Actions
 - **NO** Django migrations (`makemigrations`).
 - **NO** Float arithmetic for money.
@@ -244,10 +259,12 @@ As an autonomous agent working on PRs, you must adhere to the following operatio
 - ✅ **Organization Context:** Replace hardcoded `DEFAULT_ORG_ID` with dynamic user context. **COMPLETE** (2026-03-03)
 - ✅ **Integration Gaps:** Validate GAP-3 (Peppol) and GAP-4 (Org Settings) endpoints. **COMPLETE** (2026-03-04)
 - ✅ **Bank Transactions Tab:** Implement full reconciliation UI with TDD. **COMPLETE** (2026-03-06)
+- ✅ **Content Security Policy:** Implement CSP headers on backend (SEC-003). **COMPLETE** (2026-03-07)
 - **Error Handling:** Add retry logic and fallback UI for dashboard API failures.
 
 ### 8.2 Short-Term (Medium Priority)
 - ✅ **Rate Limiting:** Implement `django-ratelimit` on auth endpoints (SEC-002). **COMPLETE** (2026-03-02)
+- ✅ **CSP Headers:** Configure Content Security Policy (SEC-003). **COMPLETE** (2026-03-07)
 - **Frontend Tests:** Expand coverage for hooks and forms (SEC-004).
 - **CI/CD:** Automate manual DB initialization workflow in GitHub Actions.
 - **Peppol Enhancement:** Implement actual transmission log (currently stub).

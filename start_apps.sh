@@ -15,6 +15,8 @@ echo "git clone https://github.com/nordeim/ledgersg.git"
 
 cd /home/project/ledgersg/apps/backend && source /opt/venv/bin/activate && python manage.py runserver 0.0.0.0:8000
 
+cd /home/project/ledgersg/apps/web && rm -rf .next && npm run build:server
+
 /bin/bash -c "cd /home/project/ledgersg/apps/web && nohup node .next/standalone/server.js > /tmp/next-server.log 2>&1 &"
 
 exit 0

@@ -193,12 +193,12 @@ export function ImportTransactionsForm({
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button
-            onClick={handleImport}
-            disabled={importMutation.isLoading || !selectedAccountId || !selectedFile}
-            className="bg-accent-primary text-void hover:bg-accent-primary-dim"
-          >
-            {importMutation.isLoading ? (
+        <Button
+          onClick={handleImport}
+          disabled={importMutation.isPending || !selectedAccountId || !selectedFile}
+          className="bg-accent-primary text-void hover:bg-accent-primary-dim"
+        >
+          {importMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Importing...

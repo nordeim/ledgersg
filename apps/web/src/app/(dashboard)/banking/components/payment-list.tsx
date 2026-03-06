@@ -14,7 +14,7 @@ interface PaymentListProps {
   orgId: string;
   filters?: {
     payment_type?: "RECEIVED" | "MADE";
-    is_reconciled?: boolean;
+    is_reconciled?: boolean | null;
     date_from?: string;
     date_to?: string;
   };

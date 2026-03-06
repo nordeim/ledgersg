@@ -187,7 +187,7 @@ export function usePayments(
     bank_account_id?: string;
     date_from?: string;
     date_to?: string;
-    is_reconciled?: boolean;
+    is_reconciled?: boolean | null;
     is_voided?: boolean;
   }
 ) {
@@ -398,7 +398,7 @@ export function useBankTransactions(
     bank_account_id?: string;
     date_from?: string;
     date_to?: string;
-    is_reconciled?: boolean;
+    is_reconciled?: boolean | null;
     unreconciled_only?: boolean;
   }
 ) {

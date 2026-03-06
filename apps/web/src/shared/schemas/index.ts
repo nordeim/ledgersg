@@ -5,6 +5,7 @@
  */
 
 export * from "./bank-account";
+export * from "./bank-transaction";
 export * from "./dashboard";
 export * from "./invoice";
 export * from "./payment";

@@ -13,7 +13,7 @@ interface TransactionListProps {
   orgId: string;
   filters?: {
     bank_account_id?: string;
-    is_reconciled?: boolean;
+    is_reconciled?: boolean | null;
     unreconciled_only?: boolean;
     date_from?: string;
     date_to?: string;

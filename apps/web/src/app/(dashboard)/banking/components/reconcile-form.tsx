@@ -157,15 +157,15 @@ export function ReconcileForm({ transaction, orgId, onClose }: ReconcileFormProp
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-2 pt-4 border-t border-border">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleReconcile}
-            disabled={reconcileMutation.isLoading || !selectedPaymentId}
-            className="bg-accent-primary text-void hover:bg-accent-primary-dim"
-          >
-            {reconcileMutation.isLoading ? (
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleReconcile}
+          disabled={reconcileMutation.isPending || !selectedPaymentId}
+          className="bg-accent-primary text-void hover:bg-accent-primary-dim"
+        >
+          {reconcileMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Reconciling...

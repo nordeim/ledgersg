@@ -9,6 +9,7 @@ This document serves as the **Single Source of Truth** for Gemini CLI to underst
 - **Mission**: Automated IRAS compliance and high-integrity financial management.
 - **Architecture**: Decoupled Monorepo (Next.js Frontend + Django Backend).
 - **Core Principles**: SQL-First, Service-Oriented, Security-First, WCAG AAA.
+- **Current Status**: **Production Ready** (645+ tests, 100% Security Score).
 
 ## 💻 Technical Stack
 
@@ -16,6 +17,9 @@ This document serves as the **Single Source of Truth** for Gemini CLI to underst
 - **Framework**: Django REST Framework (DRF) 3.16.1.
 - **Database**: PostgreSQL 16+ (7 schemas: `core`, `coa`, `gst`, `journal`, `invoicing`, `banking`, `audit`).
 - **Isolation**: Row-Level Security (RLS) via `app.current_org_id` session variable.
+- **Security**: 
+  - `django-ratelimit` (4.1.0) for auth endpoints.
+  - `django-csp` (4.0) for Content Security Policy.
 - **Async**: Celery 5.4+ with Redis 7+.
 - **Precision**: `NUMERIC(10,4)` for all money values. **Floats are strictly prohibited.**
 
@@ -23,7 +27,9 @@ This document serves as the **Single Source of Truth** for Gemini CLI to underst
 - **Framework**: React 19 (App Router).
 - **Styling**: Tailwind CSS 4.0 + Shadcn/Radix UI.
 - **State**: Zustand (UI) + TanStack Query (Server State).
-- **Security**: Server Components for data fetching (Zero JWT exposure to browser JS).
+- **Security**: 
+  - Server Components for data fetching (Zero JWT exposure to browser JS).
+  - Strict CSP Middleware with dynamic nonces and `strict-dynamic`.
 - **Design**: "Illuminated Carbon" Neo-Brutalist (Anti-Generic).
 
 ## 🏗 Architectural Mandates
@@ -37,6 +43,7 @@ This document serves as the **Single Source of Truth** for Gemini CLI to underst
 - **Logic Location**: All business logic MUST reside in `apps/backend/apps/*/services/`.
 - **Views**: Should be thin controllers delegating to services.
 - **Atomic Requests**: Every request runs in a transaction for RLS consistency.
+- **Recent Alignments**: Phase A complete (Journal Service fields aligned with schema).
 
 ### 3. Financial Integrity
 - Use `common.decimal_utils.money()` for all currency operations.
@@ -46,6 +53,8 @@ This document serves as the **Single Source of Truth** for Gemini CLI to underst
 ### 4. Security & Multi-Tenancy
 - **JWT**: 15m Access / 7d Refresh (stored in HttpOnly Cookies).
 - **RLS**: Every query must respect the `org_id` context. `TenantContextMiddleware` sets the PG session variable.
+- **Context**: Phase B complete (Dynamic Organisation Context implemented across UI).
+- **Defense-in-Depth**: Both Frontend and Backend enforce strict Content Security Policies (SEC-003).
 
 ## 🛠 Core Commands
 
@@ -82,11 +91,12 @@ psql -d test_ledgersg_dev -f database_schema.sql
 
 ## 📁 Critical Files
 - `database_schema.sql`: Authoritative DB structure.
-- `apps/backend/config/settings/base.py`: Core system config.
+- `apps/backend/config/settings/base.py`: Core system config (Middleware, CSP, DB).
+- `apps/web/src/middleware.ts`: Frontend security middleware (CSP, Nonces).
 - `apps/web/src/lib/api-client.ts`: Frontend-Backend bridge.
 - `apps/web/src/providers/auth-provider.tsx`: Dynamic org context.
-- `ACCOMPLISHMENTS.md`: Project status and milestones.
-- `AGENT_BRIEF.md`: Detailed engineering patterns.
+- `ACCOMPLISHMENTS.md`: Project status and milestones (Current: 645+ tests).
+- `AGENT_BRIEF.md`: Detailed engineering patterns and lessons learned.
 
 ## 🎨 Visual Identity
 - **Palette**: Dark (Carbon), High-contrast accents (Emerald/Amber).

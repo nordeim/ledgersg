@@ -62,23 +62,23 @@ export function ReceivePaymentForm({ orgId, onSuccess, onCancel }: ReceivePaymen
   };
 
   const validateForm = (): boolean => {
-    try {
-      paymentReceiveInputSchema.parse(formData);
-      setErrors({});
-      return true;
-    } catch (error) {
-      if (error instanceof z.ZodError && error.errors) {
-        const newErrors: Record<string, string> = {};
-        error.errors.forEach((err) => {
-          if (err.path && err.path.length > 0) {
-            const field = String(err.path[0]);
-            newErrors[field] = err.message;
-          }
-        });
-        setErrors(newErrors);
+      try {
+        paymentReceiveInputSchema.parse(formData);
+        setErrors({});
+        return true;
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          const newErrors: Record<string, string> = {};
+          error.issues.forEach((issue) => {
+            if (issue.path && issue.path.length > 0) {
+              const field = String(issue.path[0]);
+              newErrors[field] = issue.message;
+            }
+          });
+          setErrors(newErrors);
+        }
+        return false;
       }
-      return false;
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -174,15 +174,15 @@ export function ReceivePaymentForm({ orgId, onSuccess, onCancel }: ReceivePaymen
 
             {/* Amount */}
             <div className="space-y-2">
-              <label className="text-sm text-text-secondary">
-                Amount <span className="text-alert">*</span>
-              </label>
-              <MoneyInput
-                value={formData.amount || ""}
-                onChange={(value) => handleChange("amount", value)}
-                currency={formData.currency}
-                disabled={isSubmitting}
-              />
+        <label className="text-sm text-text-secondary">
+          Amount <span className="text-alert">*</span>
+        </label>
+        <MoneyInput
+          value={formData.amount || ""}
+          onChange={(value) => handleChange("amount", value)}
+          ariaLabel="Payment amount"
+          disabled={isSubmitting}
+        />
               {errors.amount && (
                 <p className="text-sm text-alert">{errors.amount}</p>
               )}
