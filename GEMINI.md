@@ -1,70 +1,94 @@
-# LedgerSG — Instructional Context
+# LedgerSG - Global Context & Instructions
 
-LedgerSG is an exceptionally well-architected, production-grade double-entry accounting platform purpose-built for Singapore SMBs. It transforms IRAS 2026 compliance into a seamless, automated experience while delivering a distinctive "Illuminated Carbon" neo-brutalist user interface.
+This document serves as the **Single Source of Truth** for Gemini CLI to understand the LedgerSG project architecture, development standards, and operational mandates.
 
 ## 🎯 Project Overview
 
-- **Mission:** Automate IRAS compliance (GST F5, InvoiceNow, BCRS) with enterprise-grade financial integrity and a bold aesthetic.
-- **Frontend:** Next.js 16.1.6 (App Router), React 19.2.3, Tailwind CSS 4.0, Shadcn/Radix UI.
-- **Backend:** Django 6.0.2, Django REST Framework 3.16.1, Celery 5.6.2, Redis 6.4.0.
-- **Database:** PostgreSQL 16+ with 7 domain-specific schemas and Row-Level Security (RLS).
-- **Compliance:** IRAS 2026 Ready (9% GST, F5 returns, Peppol PINT-SG XML, 5-year retention).
+**LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs. It transforms IRAS 2026 compliance into a seamless experience with a distinctive "Illuminated Carbon" neo-brutalist UI.
 
-## 🏗 Key Architectural Patterns
+- **Mission**: Automated IRAS compliance and high-integrity financial management.
+- **Architecture**: Decoupled Monorepo (Next.js Frontend + Django Backend).
+- **Core Principles**: SQL-First, Service-Oriented, Security-First, WCAG AAA.
 
-### 1. SQL-First & Unmanaged Models
-The PostgreSQL schema (`database_schema.sql`) is the single source of truth. Django models use `managed = False` and map to existing tables. **Never run `makemigrations`**. Schema changes must be applied via SQL patches followed by model alignment.
+## 💻 Technical Stack
+
+### Backend (Django 6.0.2)
+- **Framework**: Django REST Framework (DRF) 3.16.1.
+- **Database**: PostgreSQL 16+ (7 schemas: `core`, `coa`, `gst`, `journal`, `invoicing`, `banking`, `audit`).
+- **Isolation**: Row-Level Security (RLS) via `app.current_org_id` session variable.
+- **Async**: Celery 5.4+ with Redis 7+.
+- **Precision**: `NUMERIC(10,4)` for all money values. **Floats are strictly prohibited.**
+
+### Frontend (Next.js 16.1.6)
+- **Framework**: React 19 (App Router).
+- **Styling**: Tailwind CSS 4.0 + Shadcn/Radix UI.
+- **State**: Zustand (UI) + TanStack Query (Server State).
+- **Security**: Server Components for data fetching (Zero JWT exposure to browser JS).
+- **Design**: "Illuminated Carbon" Neo-Brutalist (Anti-Generic).
+
+## 🏗 Architectural Mandates
+
+### 1. SQL-First Design (Unmanaged Models)
+- The database schema (`database_schema.sql`) is the source of truth.
+- Django models use `managed = False`.
+- **Prohibited**: `python manage.py makemigrations`. Schema changes require manual SQL patches and model alignment.
 
 ### 2. Service Layer Pattern
-All business logic resides in `services/` modules (e.g., `DashboardService`, `PaymentService`). Views are "thin" and only handle HTTP/serialization. Write operations should use `transaction.atomic()`.
+- **Logic Location**: All business logic MUST reside in `apps/backend/apps/*/services/`.
+- **Views**: Should be thin controllers delegating to services.
+- **Atomic Requests**: Every request runs in a transaction for RLS consistency.
 
-### 3. Monetary Precision (No Floats)
-All currency values use `NUMERIC(10,4)` internal precision.
-- **Backend:** Use `common.decimal_utils.money()` which rejects `float` types.
-- **Frontend:** Use `decimal.js` for all calculations.
+### 3. Financial Integrity
+- Use `common.decimal_utils.money()` for all currency operations.
+- Debits must equal credits (enforced via `JournalService` and DB constraints).
+- Posted entries are immutable; corrections require reversing entries.
 
-### 4. Zero-Exposure JWT Security
-Access tokens are kept in server memory (Server Components) or HttpOnly cookies. Browser JavaScript has **zero access** to JWTs. Next.js Server Components fetch data server-side via `serverFetch` in `lib/server/api-client.ts`.
+### 4. Security & Multi-Tenancy
+- **JWT**: 15m Access / 7d Refresh (stored in HttpOnly Cookies).
+- **RLS**: Every query must respect the `org_id` context. `TenantContextMiddleware` sets the PG session variable.
 
-### 5. Multi-Tenancy via RLS
-Row-Level Security is enforced at the database level using session variables (`app.current_org_id`). `TenantContextMiddleware` sets this per-request.
+## 🛠 Core Commands
 
-## 🚀 Building and Running
+### Backend
+| Task | Command |
+|------|---------|
+| Initialize DB | `psql -h localhost -U ledgersg -d ledgersg_dev -f database_schema.sql` |
+| Start Server | `python manage.py runserver` |
+| Run Tests | `pytest --reuse-db --no-migrations` |
+| Celery | `celery -A config worker -l info` |
 
-### Backend Setup
-1.  **Environment:** `python3 -m venv /opt/venv && source /opt/venv/bin/activate`
-2.  **Install:** `pip install -e ".[dev]"`
-3.  **Database:** `psql -h localhost -U ledgersg -d ledgersg_dev -f database_schema.sql` (Manual init is mandatory).
-4.  **Run:** `python manage.py runserver`
-5.  **Service Control:** Use `./backend_api_service.sh` for start/stop/status.
+### Frontend
+| Task | Command |
+|------|---------|
+| Dev Mode | `npm run dev` |
+| Build (Server) | `npm run build:server` (Standalone mode) |
+| Start Prod | `npm run start` |
+| Run Tests | `npm test` |
 
-### Frontend Setup
-1.  **Install:** `npm install`
-2.  **Run Dev:** `npm run dev`
-3.  **Run Server:** `npm run build:server && npm run start` (Standalone mode for API integration).
+## 🧪 Testing Strategy (TDD)
 
-### Testing Strategy
-**Standard Django test runners fail on unmanaged models.**
-1.  **Init Test DB:**
-    ```bash
-    dropdb test_ledgersg_dev && createdb test_ledgersg_dev
-    psql -d test_ledgersg_dev -f database_schema.sql
-    ```
-2.  **Run Backend:** `pytest --reuse-db --no-migrations`
-3.  **Run Frontend:** `npm test` (Vitest) or `npm run test:e2e` (Playwright).
+LedgerSG follows a strict **Meticulous Approach**:
+1. **Analyze**: Deep requirement mining.
+2. **Plan**: Structured roadmap.
+3. **Validate**: Confirmation before code.
+4. **Implement**: TDD (RED -> GREEN -> REFACTOR).
+5. **Verify**: Rigorous QA + edge cases.
 
-## 📁 Critical Files & Directories
+**Note**: To run backend tests, you MUST manually initialize the test database:
+```bash
+dropdb test_ledgersg_dev && createdb test_ledgersg_dev
+psql -d test_ledgersg_dev -f database_schema.sql
+```
 
-- `database_schema.sql`: Source of truth for all table definitions.
-- `apps/backend/apps/`: Domain modules (core, coa, gst, invoicing, journal, banking).
-- `apps/backend/common/decimal_utils.py`: Essential monetary safety utilities.
-- `apps/web/src/lib/server/api-client.ts`: Server-side API client with auth logic.
-- `Project_Architecture_Document.md`: Comprehensive system reference.
-- `ACCOMPLISHMENTS.md`: Recent feature completion log.
+## 📁 Critical Files
+- `database_schema.sql`: Authoritative DB structure.
+- `apps/backend/config/settings/base.py`: Core system config.
+- `apps/web/src/lib/api-client.ts`: Frontend-Backend bridge.
+- `apps/web/src/providers/auth-provider.tsx`: Dynamic org context.
+- `ACCOMPLISHMENTS.md`: Project status and milestones.
+- `AGENT_BRIEF.md`: Detailed engineering patterns.
 
-## 📐 Development Conventions
-
-- **Elite / Meticulous / Avant-Garde:** Adhere to the "Illuminated Carbon" aesthetic—whitespace as a structural element, distinctive typography, and zero "AI slop" generics.
-- **WCAG AAA:** Accessibility is non-negotiable.
-- **IRAS 2026:** Every invoice and transaction must comply with Singapore regulatory standards.
-- **Meticulous SOP:** ANALYZE → PLAN → VALIDATE → IMPLEMENT → VERIFY → DELIVER.
+## 🎨 Visual Identity
+- **Palette**: Dark (Carbon), High-contrast accents (Emerald/Amber).
+- **Typography**: Bespoke hierarchy, mono-space for financial data.
+- **Philosophy**: Whitespace as structure, no "safe" templates.
