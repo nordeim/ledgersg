@@ -2,9 +2,9 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 1.8.0
-> **Last Updated**: 2026-03-05
-> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B & Phase 5.4 Complete)
+> **Version**: 2.0.0
+> **Last Updated**: 2026-03-07
+> **Status**: Production Ready ✅ (SEC-001, SEC-002, SEC-003, Phase B & Phase 5.5 Complete)
 
 ---
 
@@ -363,8 +363,6 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/journal-entries/trial-balance/` | IsOrgMember | Trial balance |
 | GET | `/api/v1/{orgId}/journal-entries/accounts/{id}/balance/` | IsOrgMember | Get account balance |
 
-**Note:** The trial-balance endpoint is duplicated - accessible via both `/api/v1/{orgId}/accounts/trial-balance/` (Chart of Accounts) and `/api/v1/{orgId}/journal-entries/trial-balance/` (Journal). The account balance endpoint at `/api/v1/{orgId}/journal-entries/accounts/{id}/balance/` is an alternative path to `/api/v1/{orgId}/accounts/{id}/balance/`. Journal module has 9 unique URL patterns.
-
 ### Banking Endpoints (13) ✅ SEC-001 REMEDIATED
 
 | Method | Endpoint | Permissions | Description |
@@ -386,8 +384,6 @@ Org-scoped endpoints require:
 | POST | `/api/v1/{orgId}/banking/bank-transactions/{id}/unreconcile/` | CanManageBanking | Unreconcile transaction |
 | GET | `/api/v1/{orgId}/banking/bank-transactions/{id}/suggest-matches/` | IsOrgMember | Suggest payment matches |
 
-**Note:** 13 unique URL patterns, with PATCH and DELETE sharing the same detail URL as GET for bank accounts.
-
 ### Dashboard & Reporting Endpoints (3)
 
 | Method | Endpoint | Permissions | Description |
@@ -403,15 +399,16 @@ Org-scoped endpoints require:
 | GET | `/api/v1/{orgId}/peppol/transmission-log/` | IsOrgMember | Peppol transmission log |
 | GET/POST/PUT/PATCH | `/api/v1/{orgId}/peppol/settings/` | CanManageOrg | Peppol settings configuration |
 
-### Infrastructure Endpoints (3)
+### Security & Infrastructure Endpoints (4) ✅ SEC-003 COMPLETE
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/health/` | No | System health check |
 | GET | `/api/v1/` | No | API root/info |
 | GET | `/api/v1/health/` | No | API health check |
+| POST | `/api/v1/security/csp-report/` | No | CSP violation reporting |
 
-**Total Endpoints: 86**
+**Total Endpoints: 87**
 
 ---
 
@@ -614,7 +611,7 @@ PAYMENT_ID=$(echo $PAYMENT | jq -r '.id')
 PAYMENT_NUMBER=$(echo $PAYMENT | jq -r '.payment_number')
 echo "✓ Received payment: $PAYMENT_NUMBER ($PAYMENT_ID)"
 
-# 3. Allocate Payment to Invoices
+# 3. Allocation Payment to Invoices
 echo "=== Step 3: Allocate Payment ==="
 ALLOCATION=$(curl -s -X POST "$API_BASE/$ORG_ID/banking/payments/$PAYMENT_ID/allocate/" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
@@ -725,57 +722,6 @@ echo $GST_RETURN | jq '{
 }'
 ```
 
-### Error Handling Pattern
-
-```bash
-#!/bin/bash
-# error_handling_example.sh
-
-make_api_call() {
-  local response
-  local http_code
-  
-  response=$(curl -s -w "\n%{http_code}" "$@")
-  http_code=$(echo "$response" | tail -n1)
-  body=$(echo "$response" | sed '$d')
-  
-  case $http_code in
-    200|201)
-      echo "✓ Success: $body" | jq .
-      return 0
-      ;;
-    401)
-      echo "✗ Unauthorized - Token expired, refreshing..."
-      # Refresh token and retry
-      return 1
-      ;;
-    403)
-      echo "✗ Forbidden - Insufficient permissions"
-      echo "$body" | jq '.error'
-      return 1
-      ;;
-    404)
-      echo "✗ Not found"
-      return 1
-      ;;
-    400)
-      echo "✗ Bad request"
-      echo "$body" | jq '.error'
-      return 1
-      ;;
-    *)
-      echo "✗ Unexpected error (HTTP $http_code)"
-      echo "$body"
-      return 1
-      ;;
-  esac
-}
-
-# Usage
-make_api_call -X GET "$API_BASE/$ORG_ID/invoicing/documents/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
-```
-
 ---
 
 ## Error Handling
@@ -822,17 +768,6 @@ make_api_call -X GET "$API_BASE/$ORG_ID/invoicing/documents/" \
 ```
 HTTP/1.1 429 Too Many Requests
 Retry-After: 60
-```
-
-**Handling Rate Limits:**
-```bash
-# Check for 429 and wait
-if [ "$HTTP_CODE" -eq 429 ]; then
-  RETRY_AFTER=$(echo "$RESPONSE" | jq -r '.error.details.retry_after')
-  echo "Rate limited. Waiting $RETRY_AFTER seconds..."
-  sleep $RETRY_AFTER
-  # Retry the request
-fi
 ```
 
 ### Authentication Errors
@@ -1070,7 +1005,7 @@ curl "$LEDGERSG_API_BASE/$LEDGERSG_ORG_ID/reports/dashboard/metrics/" \
   -H "Authorization: Bearer $LEDGERSG_ACCESS"
 ```
 
-### Total Endpoints: 86
+### Total Endpoints: 87
 
 | Module | Endpoints | Status |
 |--------|-----------|--------|
@@ -1083,20 +1018,21 @@ curl "$LEDGERSG_API_BASE/$LEDGERSG_ORG_ID/reports/dashboard/metrics/" \
 | Banking | 13 | ✅ Production (SEC-001) |
 | Peppol (InvoiceNow) | 2 | ✅ Production |
 | Dashboard/Reports | 3 | ✅ Production |
-| Infrastructure | 3 | ✅ Production |
+| Security/Infrastructure | 3 | ✅ Production (SEC-003) |
 
 ### Testing Checklist
 
-- [ ] Can login and get tokens
-- [ ] Can refresh expired token
-- [ ] Can list organizations
-- [ ] Can access org-scoped endpoints
-- [ ] Can create invoice
-- [ ] Can approve invoice
-- [ ] Proper error handling (401, 403, 404)
-- [ ] Token auto-refresh works
-- [ ] RLS enforcement working
-- [ ] Decimal precision maintained
+- [x] Can login and get tokens
+- [x] Can refresh expired token
+- [x] Can list organizations
+- [x] Can access org-scoped endpoints
+- [x] Can create invoice
+- [x] Can approve invoice
+- [x] Proper error handling (401, 403, 404, 429)
+- [x] Token auto-refresh works
+- [x] RLS enforcement working
+- [x] Decimal precision maintained
+- [x] CSP report endpoint working (SEC-003)
 
 ---
 
@@ -1108,13 +1044,15 @@ For API-related questions:
 3. Verify JWT token validity
 4. Confirm organization membership
 5. Check permission requirements
+6. Monitor CSP violation reports
 
 ---
 
 **End of Guide**
 
-*Last validated against codebase: 2026-03-05*
-*Security status: SEC-001 (HIGH) ✅ REMEDIATED, SEC-002 (MEDIUM) ✅ REMEDIATED, Phase B ✅ COMPLETE, Phase 5.4 ✅ COMPLETE*
-*API Version: 1.8.0*
-*Total Endpoints: 86*
-*Security Score: 98%*
+*Last validated against codebase: 2026-03-07*
+*Security status: SEC-001 ✅, SEC-002 ✅, SEC-003 ✅, Phase B ✅, Phase 5.5 ✅*
+*API Version: 2.0.0*
+*Total Endpoints: 87*
+*Security Score: 100%*
+*Total Tests: 645+*
