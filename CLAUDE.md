@@ -37,11 +37,11 @@
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
 | **Dashboard** | v1.0.0 | ✅ Production Ready | **36 TDD tests** (21 service + 15 cache), 100% coverage |
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests (services + views), 13 validated endpoints |
-| **Banking UI** | v1.0.0 | ✅ Phase 5.4 Complete | 16 TDD tests, tabbed interface, 100% passing |
+| **Banking UI** | v1.3.0 | ✅ **Phase 5.5 Complete** | 73 TDD tests, all 3 tabs live, reconciliation workflow |
 | **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
 | **Integration** | v1.1.0 | ✅ **Complete** | All endpoint paths aligned, Dashboard real data |
-| **Testing** | — | ✅ **222+ Passing** | Frontend (206) + Backend tests verified |
-| **Overall** | — | ✅ **Platform Ready** | **222+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+| **Testing** | — | ✅ **305+ Passing** | Frontend (305) + Backend tests verified |
+| **Overall** | — | ✅ **Platform Ready** | **538+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
 
 ---
 
@@ -255,6 +255,9 @@ pytest --reuse-db --no-migrations
 - **"Loading..." stuck on dashboard**: Static files not copied or hydration mismatch. Rebuild with `npm run build:server`.
 - **404 errors for JS chunks**: Static files missing from standalone. Build script auto-copies now.
 - **Hydration mismatch errors**: Component renders differently on server vs client. Convert to Server Component.
+- **Radix Tabs not activating in tests**: Use `userEvent.setup()` + `await user.click()`, NOT `fireEvent.click()`.
+- **"Found multiple elements" test error**: Use `findAllByRole()` instead of `findByRole()` when multiple elements match.
+- **Hook returns undefined in tests**: Add mock: `vi.mocked(hooks.useXxx).mockReturnValue({ data: {...} })`.
 
 ### Docker Issues
 - **Frontend can't reach backend**: Verify `NEXT_PUBLIC_API_URL` points to correct backend host (use `http://localhost:8000` for local Docker).
@@ -263,6 +266,27 @@ pytest --reuse-db --no-migrations
 ---
 
 ## 🚀 Recent Milestones
+
+### Phase 3: Bank Transactions Tab Integration ✅ COMPLETE (2026-03-06)
+- **TDD Integration Tests**: 7 comprehensive tests (RED → GREEN → REFACTOR)
+- **Full Implementation**: Replaced placeholder with complete BankTransactionsTab
+- **Components Integrated**: TransactionList, TransactionFilters, ReconciliationSummary, ImportTransactionsForm, ReconcileForm
+- **Pattern Compliance**: Follows PaymentsTab architecture exactly
+- **Async Testing**: userEvent pattern for Radix UI tab switching
+- **Hook Mocks**: Comprehensive mocking for useBankAccounts, useBankTransactions
+- **Test Fixes**: page.test.tsx updated with proper mocks (16/16 tests passing)
+- **Blockers Solved**: Async tab switching, missing hook mocks, multiple button collision
+- **Lessons Learned**: Radix UI requires userEvent, not fireEvent; multiple elements need findAllBy*
+
+### Phase 5.5: Banking Frontend Complete ✅ COMPLETE (2026-03-06)
+- **TDD Implementation**: 73 comprehensive tests total (16 page + 50 Gap 4 + 7 integration)
+- **Bank Transactions Tab**: Full reconciliation workflow with CSV import
+- **Payments Tab**: Complete with PaymentCard, PaymentList, PaymentFilters, ReceivePaymentForm
+- **Match Suggestions**: Auto-matching algorithm with confidence scoring (0-100%)
+- **CSV Import**: Multi-step upload with preview and error handling
+- **Date Grouping**: Transactions grouped by date (today, yesterday, this week, older)
+- **Visual Status**: Reconciled (dimmed) vs Unreconciled (highlighted) with badges
+- **Files Created**: 15 new files (~2,500 lines), comprehensive test coverage
 
 ### Phase 5.4: Banking Frontend UI ✅ COMPLETE (2026-03-05)
 - **TDD Implementation**: 16 comprehensive tests (RED → GREEN → REFACTOR)

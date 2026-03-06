@@ -6,11 +6,13 @@
 **Subject:** Comprehensive Project Architecture, Standards, and Operational Directives
 
 **Recent Updates:**
-- ✅ Phase 4 Complete: Dashboard Service Field Remediation (36/36 tests passing, 100%)
-- ✅ Redis Caching Implemented: 5-minute TTL, cache invalidation, graceful error handling
-- ✅ 7 Critical Blockers Fixed: Field alignment, transaction-based cash calculation, cache error handling
-- ✅ Transaction-Based Cash Calculation: Opening balance + reconciled payments
-- ✅ Total API endpoints: 83, Total tests: 156+
+- ✅ **Phase 3 Complete**: Bank Transactions Tab Integration (7/7 integration tests passing, 100%)
+- ✅ **Placeholder Replaced**: Full BankTransactionsTab implementation with all Gap 4 components
+- ✅ **TDD Methodology**: RED → GREEN → REFACTOR cycle for all integration tests
+- ✅ **Blockers Solved**: Async tab switching with userEvent, missing hook mocks, multiple button collision
+- ✅ **Test Updates**: page.test.tsx fixed with proper useBankTransactions mocks (16/16 tests passing)
+- ✅ **Total Frontend Tests**: 305 tests across 22 test files
+- ✅ Total API endpoints: 83, Total tests: 538+
 
 ---
 
@@ -19,11 +21,12 @@
 **LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore Small and Medium Businesses (SMBs). Its primary mission is to transform IRAS 2026 compliance from a regulatory burden into a seamless, automated experience. The platform combines enterprise-grade financial integrity with a distinctive "Illuminated Carbon" neo-brutalist user interface.
 
 **Current Status:** ✅ **Production Ready**
-- **Frontend:** v0.1.1 (Next.js 16.1.6, 11 pages, 5 test files, 114 tests passing)
-- **Backend:** v0.3.3 (Django 6.0.2, 83 API endpoints, 16 test files, 156+ tests passing)
+- **Frontend:** v0.1.1 (Next.js 16.1.6, 12 pages, 22 test files, **305 tests passing**)
+- **Backend:** v0.3.3 (Django 6.0.2, 83 API endpoints, 16 test files, **233+ tests passing**)
 - **Database:** v1.0.3 (PostgreSQL 16+, 7 schemas, 28 tables, RLS enforced)
 - **Dashboard:** v1.0.0 (Real Data Integration, 36 TDD tests, 100% coverage)
 - **Integration Gaps:** Phase 3 Complete (GAP-3: 20 tests, GAP-4: 13 tests)
+- **Banking UI:** Phase 5.5 Complete (73 TDD tests, all tabs live)
 - **Security Score:** 98% (Audit Verified, All Issues Remediated)
 
 As an autonomous coding agent, your objective is to maintain this high standard of architectural maturity while executing Pull Requests (PRs). You must operate under the **Meticulous Approach**: Analyze → Plan → Validate → Implement → Verify → Deliver. Surface-level assumptions are prohibited; every change must be grounded in deep technical reasoning.
@@ -114,9 +117,10 @@ source /opt/venv/bin/activate
 cd apps/backend
 pytest --reuse-db --no-migrations
 ```
-- **Coverage:** 141+ tests passing across 16 test files. Focus on Service Layer logic and API endpoint contracts.
+- **Coverage:** 233+ tests passing across 16 test files. Focus on Service Layer logic and API endpoint contracts.
 - **Dashboard TDD:** 21 test-driven tests (service + view).
 - **Integration Gaps:** 33 new tests (GAP-3: 20 tests, GAP-4: 13 tests), 100% passing.
+- **Banking UI:** 73 TDD tests (Phase 5.4: 16 + Phase 5.5: 50 + Phase 3: 7), 100% passing.
 - **Fixtures:** Must comply with SQL constraints (e.g., `TaxCode` requires `is_input=TRUE` or `is_output=TRUE`).
 
 ### 4.2 Frontend Testing Workflow
@@ -174,6 +178,9 @@ Recent Security Audit (2026-03-01) scored 95%. Address remaining findings:
 - **Model Schema Mismatch:** `ProgrammingError: column X does not exist`. **Fix:** Align Django model fields with `database_schema.sql`.
 - **Circular Dependencies:** SQL FKs must be added via `ALTER TABLE` at the end of the schema script.
 - **URL Registration 404:** Added view to `urls.py` but getting 404. **Fix:** Check `config/urls.py` to see which URL config is actually imported (e.g., `apps/core/urls/__init__.py` vs `apps/core/urls.py`).
+- **Radix Tabs Not Activating in Tests:** `fireEvent.click` doesn't trigger state. **Fix:** Use `const user = userEvent.setup(); await user.click(tab)`.
+- **"Found Multiple Elements" in Tests:** Multiple elements match selector. **Fix:** Use `findAllByRole()` and check array length.
+- **Hook Returns Undefined:** Missing mock in test. **Fix:** Add `vi.mocked(hooks.useXxx).mockReturnValue({...})`.
 
 ### 6.3 Deployment Modes
 - **Development:** `npm run dev` (Frontend) + `python manage.py runserver` (Backend).
@@ -215,6 +222,12 @@ As an autonomous agent working on PRs, you must adhere to the following operatio
 - **Handoff:** Provide clear usage instructions and migration steps (SQL patches).
 - **Lessons Learned:** Record challenges encountered during implementation for future reference.
 
+#### Frontend Testing Lessons (Phase 3)
+- **Radix UI Async Behavior**: `fireEvent.click` doesn't trigger Radix UI state changes. Always use `userEvent.setup()` and `await user.click(tab)` for tab switching.
+- **Comprehensive Hook Mocking**: Missing `useBankTransactions` mock caused cascading failures. Audit all hooks used by component tree.
+- **Multiple Element Handling**: When multiple buttons have same text (e.g., "Import Statement"), use `findAllByRole` and check array length instead of `findByRole`.
+- **Component State Awareness**: TransactionList renders `transactions-empty` when `count=0` and `transactions-list` when `count>0`. Understand conditional renders before writing assertions.
+
 ### 7.5 Prohibited Actions
 - **NO** Django migrations (`makemigrations`).
 - **NO** Float arithmetic for money.
@@ -230,6 +243,7 @@ As an autonomous agent working on PRs, you must adhere to the following operatio
 - ✅ **Banking Module:** Replace stubs in `banking/views.py` with validated logic (SEC-001). **COMPLETE** (2026-03-02)
 - ✅ **Organization Context:** Replace hardcoded `DEFAULT_ORG_ID` with dynamic user context. **COMPLETE** (2026-03-03)
 - ✅ **Integration Gaps:** Validate GAP-3 (Peppol) and GAP-4 (Org Settings) endpoints. **COMPLETE** (2026-03-04)
+- ✅ **Bank Transactions Tab:** Implement full reconciliation UI with TDD. **COMPLETE** (2026-03-06)
 - **Error Handling:** Add retry logic and fallback UI for dashboard API failures.
 
 ### 8.2 Short-Term (Medium Priority)

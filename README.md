@@ -57,15 +57,26 @@
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, 28 tables, RLS enforced |
 | **Integration** | v0.5.0 | ✅ Complete | Docker live, CORS configured, Dashboard real data |
 | **Banking** | v0.6.0 | ✅ SEC-001 Remediated | 55 tests (services + views), 13 validated endpoints |
-| **Banking UI** | v1.2.0 | ✅ **Phase 5.5 Complete** | All 3 tabs implemented: 66 TDD tests (50 new), Payments & Reconciliation live |
+| **Banking UI** | v1.3.0 | ✅ **Phase 5.5 Complete** | All 3 tabs implemented: 73 TDD tests (57 new), Payments & Reconciliation live |
 | **Dashboard** | v1.0.0 | ✅ Production Ready | 21 TDD tests, 100% coverage, real data calculations |
 | **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
-| **Overall** | — | ✅ **Platform Ready** | **~575+ tests** (325 backend + ~250 frontend), WCAG AAA, IRAS Compliant, 98% Security Score |
+| **Overall** | — | ✅ **Platform Ready** | **~538+ tests** (233 backend + 305 frontend), WCAG AAA, IRAS Compliant, 98% Security Score |
 
 ### Latest Milestones
 
+**🎉 Phase 3: Bank Transactions Tab Integration (TDD)** — 2026-03-06
+- ✅ **7 Integration Tests Passing**: TDD approach (RED → GREEN → REFACTOR)
+- ✅ **Placeholder Replaced**: Full BankTransactionsTab implementation with all Gap 4 components
+- ✅ **Components Integrated**: TransactionList, TransactionFilters, ReconciliationSummary, ImportTransactionsForm, ReconcileForm
+- ✅ **Pattern Compliance**: Follows PaymentsTab architecture exactly
+- ✅ **Async Testing**: userEvent pattern for Radix UI tab switching
+- ✅ **Hook Mocks**: Comprehensive mocking for useBankAccounts, useBankTransactions
+- ✅ **Updated Tests**: page.test.tsx fixed (16/16 tests passing)
+- ✅ **Lessons Learned**: Radix UI requires userEvent not fireEvent, multiple button collision handling
+- ✅ **Blockers Solved**: Async tab switching, missing hook mocks, test data state management
+
 **🎉 Phase 5.5: Bank Transactions & Reconciliation (TDD)** — 2026-03-06
-- ✅ **66 TDD Tests Passing**: Complete banking UI with all tabs (50 new tests)
+- ✅ **73 TDD Tests Passing**: Complete banking UI with all tabs (57 new tests)
 - ✅ **Phase 1 - Core Components**: TransactionRow (8), TransactionList (9), TransactionFilters (7)
 - ✅ **Phase 2 - Modals**: ReconciliationSummary (6), ImportTransactionsForm (8), ReconcileForm (6), MatchSuggestions (6)
 - ✅ **Bank Transactions Tab**: Full reconciliation workflow with CSV import
@@ -601,12 +612,13 @@ pytest --reuse-db --no-migrations
 | Test Suite | Status | Files | Tests | Coverage |
 |------------|--------|-------|-------|----------|
 | Backend Unit | ✅ Passing | 19 | 233 | Core, Services, Dashboard, Banking, Security |
-| Frontend Unit | ✅ Passing | 10 | 222 | GST Engine 100%, UI components, Banking UI |
+| Frontend Unit | ✅ Passing | 22 | 305 | GST Engine 100%, UI components, Banking UI, Integration |
 | Integration | ✅ Verified | — | — | PDF/Email binary stream |
 | Dashboard TDD | ✅ Passing | 2 | 36 | Dashboard service (21) + Cache (15) |
 | Banking TDD | ✅ Passing | 5 | 55 | Bank account + payment + reconciliation + allocation + views |
-| Banking UI TDD | ✅ Passing | 1 | 16 | Page rendering, data fetching, navigation, accessibility |
+| Banking UI TDD | ✅ Passing | 8 | 73 | Page rendering, data fetching, navigation, accessibility, integration |
 | Rate Limiting | ✅ Passing | 1 | 5 | Configuration tests (3 integration skipped) |
+| **TOTAL** | ✅ **Passing** | **—** | **538** | **233 Backend + 305 Frontend** |
 
 ---
 
@@ -901,6 +913,9 @@ refactor: extract invoice validation to service layer
 | pytest tries to run migrations | Unmanaged models | Use `--reuse-db --no-migrations` |
 | Test fixtures fail SQL constraints | Invalid fixture data | Update fixtures per SQL schema |
 | Frontend tests fail | Missing dependencies | Run `npm install` in `apps/web` |
+| **Radix Tabs not activating in tests** | `fireEvent.click` doesn't trigger state | Use `userEvent.setup()` + `await user.click()` |
+| **"Found multiple elements" error** | Multiple buttons with same text | Use `findAllByRole` instead of `findByRole` |
+| **Hook returns undefined** | Missing mock in test | Add `vi.mocked(hooks.useXxx).mockReturnValue()` |
 
 ---
 

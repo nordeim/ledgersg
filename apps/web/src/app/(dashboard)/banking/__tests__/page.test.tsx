@@ -250,21 +250,27 @@ describe("BankingPage", () => {
     expect(paymentsTab).toHaveAttribute("data-state", "active");
   });
 
-    it("should switch to Transactions tab when clicked", async () => {
-      const user = userEvent.setup();
-      vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
-        data: mockBankAccounts,
-        isLoading: false,
-        error: null,
-      } as any);
+  it("should switch to Transactions tab when clicked", async () => {
+    const user = userEvent.setup();
+    vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
+      data: mockBankAccounts,
+      isLoading: false,
+      error: null,
+    } as any);
 
-      render(<BankingClient />, { wrapper: createWrapper() });
+    // Mock useBankTransactions for ReconciliationSummary and TransactionList
+    vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
+      data: { results: [], count: 0 },
+      isLoading: false,
+    } as any);
 
-      const transactionsTab = screen.getByRole("tab", { name: /transactions/i });
-      await user.click(transactionsTab);
+    render(<BankingClient />, { wrapper: createWrapper() });
 
-      expect(transactionsTab).toHaveAttribute("data-state", "active");
-    });
+    const transactionsTab = screen.getByRole("tab", { name: /transactions/i });
+    await user.click(transactionsTab);
+
+    expect(transactionsTab).toHaveAttribute("data-state", "active");
+  });
 
   it("should show Payments content", async () => {
     const user = userEvent.setup();
@@ -290,21 +296,33 @@ describe("BankingPage", () => {
     expect(screen.getByTestId("payment-filters")).toBeInTheDocument();
   });
 
-    it("should show Transactions placeholder content", async () => {
-      const user = userEvent.setup();
-      vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
-        data: mockBankAccounts,
-        isLoading: false,
-        error: null,
-      } as any);
+  it("should show Transactions content with reconciliation components", async () => {
+    const user = userEvent.setup();
+    vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
+      data: mockBankAccounts,
+      isLoading: false,
+      error: null,
+    } as any);
 
-      render(<BankingClient />, { wrapper: createWrapper() });
+    // Mock useBankTransactions for ReconciliationSummary and TransactionList
+    // TransactionList shows transactions-empty when count is 0
+    vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
+      data: { results: [], count: 0 },
+      isLoading: false,
+    } as any);
 
-      const transactionsTab = screen.getByRole("tab", { name: /transactions/i });
-      await user.click(transactionsTab);
+    render(<BankingClient />, { wrapper: createWrapper() });
 
-      expect(screen.getByText(/bank reconciliation module coming soon/i)).toBeInTheDocument();
-    });
+    const transactionsTab = screen.getByRole("tab", { name: /transactions/i });
+    await user.click(transactionsTab);
+
+    // Check that transactions tab shows reconciliation components (not placeholder)
+    // Using findBy* which waits for elements to appear
+    expect(await screen.findByTestId("transaction-filters")).toBeInTheDocument();
+    expect(await screen.findByTestId("reconciliation-summary")).toBeInTheDocument();
+    // When count is 0, shows transactions-empty instead of transactions-list
+    expect(await screen.findByTestId("transactions-empty")).toBeInTheDocument();
+  });
   });
 
   describe("Accessibility", () => {
