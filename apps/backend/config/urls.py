@@ -13,6 +13,9 @@ from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
+# CSP violation reporting endpoint (SEC-003)
+from apps.core.views.security import csp_report_view
+
 # Debug toolbar URLs (only in debug mode)
 if settings.DEBUG:
     import debug_toolbar
@@ -140,6 +143,8 @@ urlpatterns = debug_urlpatterns + [
     # API v1
     path("api/v1/", api_root, name="api-root"),
     path("api/v1/health/", health_check, name="api-health"),
+    # CSP violation reporting (SEC-003)
+    path("api/v1/security/csp-report/", csp_report_view, name="csp-report"),
     # Core module (auth + organisations)
     path("api/v1/", include("apps.core.urls")),
     # Org-scoped modules (handled by tenant middleware)

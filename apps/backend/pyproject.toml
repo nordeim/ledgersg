@@ -20,12 +20,13 @@ classifiers = [
 ]
 
 dependencies = [
-    # Core Framework
-    "django==6.0.2",
-    "djangorestframework==3.16.1",
-    "djangorestframework-simplejwt==5.5.1",
-    "django-cors-headers==4.9.0",
-    "django-filter==25.2",
+# Core Framework
+"django==6.0.2",
+"djangorestframework==3.16.1",
+"djangorestframework-simplejwt==5.5.1",
+"django-cors-headers==4.9.0",
+"django-filter==25.2",
+"django-csp==4.0", # SEC-003: Content Security Policy
 
     # Database
     "psycopg[binary]==3.3.3",          # Psycopg 3 (not psycopg2)

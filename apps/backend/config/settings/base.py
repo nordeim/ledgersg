@@ -48,6 +48,7 @@ THIRD_PARTY_APPS = [
     "django_filters",
     "django_celery_beat",
     "django_ratelimit",
+    "csp",  # SEC-003: Content Security Policy
 ]
 
 LOCAL_APPS = [
@@ -70,6 +71,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "csp.middleware.CSPMiddleware",  # SEC-003: Content Security Policy
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -308,6 +310,51 @@ SECURE_SSL_REDIRECT = False
 SECURE_HSTS_SECONDS = 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
+
+# =============================================================================
+# SEC-003: CONTENT SECURITY POLICY (CSP)
+# =============================================================================
+
+# CSP Configuration (django-csp 4.0+)
+# Run in report-only mode first to identify violations before enforcement
+CONTENT_SECURITY_POLICY = None  # Disable enforcing mode initially
+
+# Report-Only mode configuration
+CONTENT_SECURITY_POLICY_REPORT_ONLY = {
+    "DIRECTIVES": {
+        # Strict defaults - force explicit allowances for every resource type
+        "default-src": ["'none'"],
+        # Script sources - prohibit inline scripts for XSS mitigation
+        "script-src": ["'self'"],
+        # Style sources - unsafe-inline needed for Django admin forms
+        "style-src": ["'self'", "'unsafe-inline'"],
+        # Image sources
+        "img-src": ["'self'", "data:", "blob:"],
+        # Font sources
+        "font-src": ["'self'", "data:"],
+        # Connect sources (API calls)
+        "connect-src": ["'self'"],
+        # Block plugins (Flash, Java, etc.)
+        "object-src": ["'none'"],
+        # Base tag restriction
+        "base-uri": ["'self'"],
+        # Prevent clickjacking
+        "frame-ancestors": ["'none'"],
+        # Frame sources
+        "frame-src": ["'none'"],
+        # Form submission restriction
+        "form-action": ["'self'"],
+        # Force HTTPS
+        "upgrade-insecure-requests": [],
+        # CSP violation reporting endpoint
+        "report-uri": ["/api/v1/security/csp-report/"],
+    },
+}
+
+# Legacy CSP_* settings (django-csp < 4.0) - NOT USED in 4.0+
+# Kept for reference but overridden by CONTENT_SECURITY_POLICY dict
+CSP_REPORT_ONLY = True
+CSP_REPORT_URI = "/api/v1/security/csp-report/"
 
 # =============================================================================
 # DECIMAL / FINANCIAL SETTINGS
