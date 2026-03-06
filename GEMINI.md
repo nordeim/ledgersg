@@ -26,7 +26,7 @@ This document serves as the **Single Source of Truth** for Gemini CLI to underst
 ### Frontend (Next.js 16.1.6)
 - **Framework**: React 19 (App Router).
 - **Styling**: Tailwind CSS 4.0 + Shadcn/Radix UI.
-- **State**: Zustand (UI) + TanStack Query (Server State).
+- **State**: Zustand (UI) + TanStack Query v5 (Server State).
 - **Security**: 
   - Server Components for data fetching (Zero JWT exposure to browser JS).
   - Strict CSP Middleware with dynamic nonces and `strict-dynamic`.
@@ -56,6 +56,17 @@ This document serves as the **Single Source of Truth** for Gemini CLI to underst
 - **Context**: Phase B complete (Dynamic Organisation Context implemented across UI).
 - **Defense-in-Depth**: Both Frontend and Backend enforce strict Content Security Policies (SEC-003).
 
+## 🧪 Frontend Development Standards
+
+### 1. Library & API Usage
+- **TanStack Query v5**: Use `isPending` for mutations (instead of `isLoading`).
+- **Zod**: Use `error.issues` when iterating validation errors.
+- **Strict Typing**: Filters that can represent "all" should use `boolean | null` to distinguish from `undefined`.
+
+### 2. Schema Management
+- All new data schemas must be created in `src/shared/schemas/` and exported via the barrel file (`index.ts`).
+- Schemas should use Zod for runtime validation and TypeScript for static typing.
+
 ## 🛠 Core Commands
 
 ### Backend
@@ -73,6 +84,7 @@ This document serves as the **Single Source of Truth** for Gemini CLI to underst
 | Build (Server) | `npm run build:server` (Standalone mode) |
 | Start Prod | `npm run start` |
 | Run Tests | `npm test` |
+| Type Check | `npx tsc --noEmit` |
 
 ## 🧪 Testing Strategy (TDD)
 
