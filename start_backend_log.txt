@@ -1,0 +1,297 @@
+$ cd /home/project/Ledger-SG/apps/backend && export PGPASSWORD=ledgersg_secret_to_change && dropdb -h localhost -U ledgersg test_ledgersg_dev 2>&1 && createdb -h localhost -U ledgersg test_ledgersg_dev 2>/dev/null || echo "DB already exists or creating..." && psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql && source /opt/venv/bin/activate && python tests/test_db_conn.py
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+DO
+psql:database_schema.sql:78: NOTICE:  schema "audit" does not exist, skipping
+DROP SCHEMA
+psql:database_schema.sql:79: NOTICE:  schema "banking" does not exist, skipping
+DROP SCHEMA
+psql:database_schema.sql:80: NOTICE:  schema "invoicing" does not exist, skipping
+DROP SCHEMA
+psql:database_schema.sql:81: NOTICE:  schema "journal" does not exist, skipping
+DROP SCHEMA
+psql:database_schema.sql:82: NOTICE:  schema "gst" does not exist, skipping
+DROP SCHEMA
+psql:database_schema.sql:83: NOTICE:  schema "coa" does not exist, skipping
+DROP SCHEMA
+psql:database_schema.sql:84: NOTICE:  schema "core" does not exist, skipping
+DROP SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+ALTER TABLE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TYPE
+CREATE TYPE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE TRIGGER
+CREATE TABLE
+COMMENT
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE VIEW
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE TRIGGER
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on core.fiscal_year
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on core.fiscal_period
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on core.exchange_rate
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on core.document_sequence
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on core.organisation_setting
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on coa.account
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on gst.return
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on gst.threshold_snapshot
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on gst.peppol_transmission_log
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on journal.entry
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on journal.line
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on invoicing.contact
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on invoicing.document
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on invoicing.document_line
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on invoicing.document_attachment
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on banking.bank_account
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on banking.payment
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on banking.payment_allocation
+psql:database_schema.sql:2343: NOTICE:  RLS enabled on banking.bank_transaction
+DO
+psql:database_schema.sql:2348: NOTICE:  policy "rls_select_organisation" for relation "core.organisation" does not exist, skipping
+DROP POLICY
+psql:database_schema.sql:2349: NOTICE:  policy "rls_insert_organisation" for relation "core.organisation" does not exist, skipping
+DROP POLICY
+psql:database_schema.sql:2350: NOTICE:  policy "rls_update_organisation" for relation "core.organisation" does not exist, skipping
+DROP POLICY
+psql:database_schema.sql:2351: NOTICE:  policy "rls_delete_organisation" for relation "core.organisation" does not exist, skipping
+DROP POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+INSERT 0 5
+INSERT 0 8
+INSERT 0 29
+INSERT 0 20
+INSERT 0 4
+INSERT 0 7
+INSERT 0 1
+INSERT 0 2
+INSERT 0 2
+CREATE FUNCTION
+COMMENT
+DO
+GRANT
+GRANT
+GRANT
+GRANT
+REVOKE
+GRANT
+GRANT
+ALTER DEFAULT PRIVILEGES
+ALTER DEFAULT PRIVILEGES
+ALTER DEFAULT PRIVILEGES
+psql:database_schema.sql:3097: NOTICE:  
+psql:database_schema.sql:3097: NOTICE:  ══════════════════════════════════════════════════════════════
+psql:database_schema.sql:3097: NOTICE:    LEDGERSG DATABASE SCHEMA — INSTALLATION COMPLETE
+psql:database_schema.sql:3097: NOTICE:  ══════════════════════════════════════════════════════════════
+psql:database_schema.sql:3097: NOTICE:    Schemas created:        7
+psql:database_schema.sql:3097: NOTICE:    Tables created:         28
+psql:database_schema.sql:3097: NOTICE:    Functions created:       15
+psql:database_schema.sql:3097: NOTICE:    GST tax codes seeded:    16 (incl. historical rates)
+psql:database_schema.sql:3097: NOTICE:    Currencies seeded:       20
+psql:database_schema.sql:3097: NOTICE:    System roles seeded:     5
+psql:database_schema.sql:3097: NOTICE:  ══════════════════════════════════════════════════════════════
+psql:database_schema.sql:3097: NOTICE:    Next steps:
+psql:database_schema.sql:3097: NOTICE:      1. Change ledgersg_owner and ledgersg_app passwords
+psql:database_schema.sql:3097: NOTICE:      2. Create your first organisation via Django admin
+psql:database_schema.sql:3097: NOTICE:      3. The system will auto-seed CoA via
+psql:database_schema.sql:3097: NOTICE:         core.seed_default_chart_of_accounts(org_id, gst_registered)
+psql:database_schema.sql:3097: NOTICE:  ══════════════════════════════════════════════════════════════
+psql:database_schema.sql:3097: NOTICE:  
+DO
+
+============================================================
+📊 DATABASE CONNECTION STATUS REPORT
+============================================================
+🔹 Target   : localhost:5432/ledgersg_dev
+🔹 User     : ledgersg
+🔄 Attempting connection...
+✅ Status   : 0 (CONNECTION_OK)
+🛡  Server   : PostgreSQL 16.11 on x86_64-pc-linux-musl
+📁 Database : ledgersg_dev
+👤 Auth User: ledgersg
+🌐 Topology : Client(172.24.0.1) -> Server(172.24.0.2)
+🕒 DB Time  : 2026-03-07 09:49:56.357323+00:00
+============================================================
+🎉 [SUCCESS] Database connectivity is optimal.
+============================================================
+
+

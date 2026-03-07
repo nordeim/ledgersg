@@ -52,20 +52,12 @@ function buildCSP(): string {
 }
 
 export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
+	const response = NextResponse.next();
 
-  // Get nonce for CSP (for scripts that need it)
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-
-  // Build CSP with nonce support
-  const csp = buildCSP()
-    .replace(/{{nonce}}/g, nonce)
-    .replace("'unsafe-inline'", `'nonce-${nonce}' 'unsafe-inline'`);
-
-  // Security Headers
-  const securityHeaders = {
-    // Content Security Policy
-    "Content-Security-Policy": csp,
+	// Security Headers
+	const securityHeaders = {
+		// Content Security Policy (without nonce - Next.js requires 'unsafe-inline')
+		"Content-Security-Policy": buildCSP(),
 
     // Strict Transport Security (HSTS)
     "Strict-Transport-Security":
@@ -93,15 +85,12 @@ export function middleware(request: NextRequest) {
     "Cross-Origin-Embedder-Policy": "require-corp",
   };
 
-  // Apply all security headers
-  Object.entries(securityHeaders).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
+	// Apply all security headers
+	Object.entries(securityHeaders).forEach(([key, value]) => {
+		response.headers.set(key, value);
+	});
 
-  // Add nonce to response headers for use in meta tags
-  response.headers.set("x-nonce", nonce);
-
-  return response;
+	return response;
 }
 
 // Matcher configuration
