@@ -44,3 +44,7 @@ configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
 plugins: django-4.12.0, respx-0.22.0, qt-4.5.0, hypothesis-6.148.7, Faker-40.5.1, mock-3.12.0, anyio-4.12.1, cov-7.0.0, langsmith-0.5.1, logfire-4.16.0, asyncio-0.21.2, xdist-3.8.0
 asyncio: mode=Mode.STRICT
 
+$ curl -X POST http://localhost:8000/api/v1/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"testpassword123"}' 2>&1 | grep -v "^  %" | python3 -m json.tool | grep -A 5 "refresh"
+

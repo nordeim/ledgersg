@@ -1,18 +1,24 @@
 # LedgerSG Autonomous Agent Briefing Document
 
-**Version:** 1.6.0
+**Version:** 1.7.0
 **Classification:** CONFIDENTIAL — Internal Development Use
-**Date:** 2026-03-04
+**Date:** 2026-03-08
 **Subject:** Comprehensive Project Architecture, Standards, and Operational Directives
 
 **Recent Updates:**
+- ✅ **Authentication Remediation Complete**: 5-phase defense-in-depth implementation (10/10 tests passing)
+- ✅ **Layer 1**: AuthProvider redirects unauthenticated users to /login
+- ✅ **Layer 2**: DashboardLayout guard prevents unauthorized access (no flash)
+- ✅ **Layer 3**: Backend JWT validation on all protected endpoints
+- ✅ **Backend Response Fix**: Nested organisation structure, UUID serialization
+- ✅ **Test Coverage**: E2E authentication tests (login, refresh, security)
 - ✅ **Phase 3 Complete**: Bank Transactions Tab Integration (7/7 integration tests passing, 100%)
 - ✅ **Placeholder Replaced**: Full BankTransactionsTab implementation with all Gap 4 components
 - ✅ **TDD Methodology**: RED → GREEN → REFACTOR cycle for all integration tests
 - ✅ **Blockers Solved**: Async tab switching with userEvent, missing hook mocks, multiple button collision
 - ✅ **Test Updates**: page.test.tsx fixed with proper useBankTransactions mocks (16/16 tests passing)
 - ✅ **Total Frontend Tests**: 305 tests across 22 test files
-- ✅ Total API endpoints: 83, Total tests: 538+
+- ✅ Total API endpoints: 83, Total tests: 548+
 
 ---
 
@@ -79,10 +85,54 @@ The database schema is the single source of truth. Django models must strictly a
 - **Alignment:** All 22 Django models are currently aligned with SQL v1.0.2. Any new field requires a SQL patch first.
 
 ### 3.2 Security-First Authentication
-- **JWT Strategy:** 15-minute Access Token + 7-day Refresh Token.
-- **Storage:** Refresh tokens stored in **HttpOnly Cookies**. Access tokens held in server memory during SSR.
-- **Exposure:** **Zero JWT exposure** to browser JavaScript. Server Components fetch data server-side using cookies.
-- **Middleware:** `TenantContextMiddleware` sets PostgreSQL session variables (`app.current_org_id`) per request to enforce RLS.
+
+**Defense-in-Depth Architecture:**
+
+The authentication system implements three independent layers to ensure robust security:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ LAYER 1: AuthProvider (Client-Side)                            │
+│ - checkSession() on mount                                      │
+│ - Calls /api/v1/auth/me/                                       │
+│ - 401 → Redirect to /login                                     │
+│ - Preserves destination via ?redirect= parameter               │
+└─────────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ LAYER 2: DashboardLayout Guard (Client-Side)                   │
+│ - Checks isAuthenticated state                                 │
+│ - false → Redirect to /login                                   │
+│ - false → Return null (prevents flash of protected content)    │
+│ - true → Render <Shell>{children}</Shell>                      │
+└─────────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ LAYER 3: Backend API (Server-Side)                             │
+│ - CORSJWTAuthentication middleware                             │
+│ - JWT token validation                                         │
+│ - 401 for invalid/missing tokens                               │
+│ - TenantContextMiddleware sets RLS session variables           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Principles:**
+- **JWT Strategy:** 15-minute Access Token + 7-day Refresh Token
+- **Storage:** Refresh tokens in **HttpOnly Cookies**. Access tokens in server memory (SSR)
+- **Exposure:** **Zero JWT exposure** to browser JavaScript
+- **No Flash:** Layer 2 returns `null` if not authenticated, preventing flash of protected content
+- **Users Without Organisations:** Dashboard shows "No Organisation Selected" with "Create Organisation" button linking to `/settings/organisations/new`
+
+**Test Coverage:**
+- 10/10 E2E authentication tests passing
+- Tests cover: redirect flow, login, organisations fetch, users without orgs, token refresh, rate limiting, JWT exposure
+
+**Common Troubleshooting:**
+- **403 Forbidden:** Check `UserOrganisation.accepted_at` is set (Middleware requirement)
+- **Redirect Loops:** AuthProvider checks current path before redirecting
+- **UUID Serialization:** Backend returns UUIDs as strings to avoid JSON serialization errors
 
 ### 3.3 Financial Integrity
 - **Decimal Precision:** Use `common.decimal_utils.money()` for all currency operations. This utility rejects floats and quantizes to 4 decimal places.

@@ -1,0 +1,19 @@
+
+> web@0.1.0 dev
+> next dev
+
+⚠ Port 3000 is in use by an unknown process, using available port 3001 instead.
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.2.132:3001
+- Environments: .env.local
+
+✓ Starting...
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 4.6s
+○ Compiling /dashboard ...
+ GET /dashboard/ 200 in 8.4s (compile: 7.8s, proxy.ts: 91ms, render: 467ms)
+ GET /login/?redirect=%2Fdashboard%2F 200 in 740ms (compile: 645ms, proxy.ts: 34ms, render: 61ms)
+ GET /login/ 200 in 111ms (compile: 6ms, proxy.ts: 7ms, render: 98ms)
+ GET /dashboard/ 200 in 47ms (compile: 6ms, proxy.ts: 6ms, render: 35ms)
+[?25h

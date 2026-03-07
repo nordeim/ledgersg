@@ -85,9 +85,15 @@ export function DashboardClient() {
           <h2 className="text-xl font-semibold text-text-primary mb-2">
             No Organisation Selected
           </h2>
-          <p className="text-text-secondary">
-            Please select an organisation to view the dashboard
+          <p className="text-text-secondary mb-6">
+            You don't have any organisations yet. Create one to get started.
           </p>
+          <Link
+            href="/settings/organisations/new"
+            className="inline-flex items-center px-6 py-3 bg-accent-primary text-void rounded-sm hover:bg-accent-primary-dim transition-colors font-medium"
+          >
+            Create Organisation
+          </Link>
         </div>
       </div>
     );
