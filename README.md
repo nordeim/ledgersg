@@ -60,9 +60,21 @@
 | **Banking UI** | v1.3.0 | ✅ **Phase 5.5 Complete** | All 3 tabs implemented: 73 TDD tests (57 new), Payments & Reconciliation live |
 | **Dashboard** | v1.0.0 | ✅ Production Ready | 21 TDD tests, 100% coverage, real data calculations |
 | **Security** | v1.0.0 | ✅ **SEC-002, SEC-003 Remediated** | Rate limiting + CSP headers (backend) |
+| **CORS** | v1.0.0 | ✅ **Dashboard Loading Fixed** | CORSJWTAuthentication class, preflight handling |
 | **Overall** | — | ✅ **Platform Ready** | **~538+ tests** (233 backend + 305 frontend), WCAG AAA, IRAS Compliant, **100% Security Score** |
 
 ### Latest Milestones
+
+**🎉 CORS Authentication Fix (Dashboard Loading)** — 2026-03-07
+- ✅ **Dashboard Renders Properly**: No longer stuck at "Loading..." state
+- ✅ **CORS Preflight Success**: OPTIONS requests return 200 OK with proper headers
+- ✅ **CORSJWTAuthentication Class**: Created custom authentication that handles CORS preflight
+- ✅ **django-csp 4.0 Fix**: Removed legacy CSP_* settings, fixed configuration error
+- ✅ **Security Preserved**: Full JWT authentication maintained for all non-OPTIONS methods
+- ✅ **Files Created**: New authentication.py file (38 lines)
+- ✅ **Files Modified**: base.py (removed legacy CSP settings, updated auth config)
+- ✅ **Lessons Learned**: DRF authentication executes before permissions, django-csp 4.0 uses dict config
+- ✅ **Blockers Solved**: CSP configuration error, port 8000 conflict, infinite loading issue
 
 **🎉 SEC-003: Content Security Policy Implementation (TDD)** — 2026-03-07
 - ✅ **100% Security Score Achieved**: All HIGH/MEDIUM severity findings remediated
@@ -911,6 +923,7 @@ refactor: extract invoice validation to service layer
 | 404 errors for JS chunks | Static files not copied | Build script auto-copies now |
 | Hydration mismatch errors | Client/Server render differs | Convert to Server Component |
 | API connection failed | CORS or URL misconfigured | Check `.env.local` and backend CORS |
+| **Dashboard infinite loading** | **CORS preflight rejected** | **CORSJWTAuthentication handles OPTIONS** |
 
 ### Docker Issues
 
@@ -927,9 +940,10 @@ refactor: extract invoice validation to service layer
 | pytest tries to run migrations | Unmanaged models | Use `--reuse-db --no-migrations` |
 | Test fixtures fail SQL constraints | Invalid fixture data | Update fixtures per SQL schema |
 | Frontend tests fail | Missing dependencies | Run `npm install` in `apps/web` |
-| **Radix Tabs not activating in tests** | `fireEvent.click` doesn't trigger state | Use `userEvent.setup()` + `await user.click()` |
+| **Radix Tabs not activating in tests** | `fireEvent.click` doesn\'t trigger state | Use `userEvent.setup()` + `await user.click()` |
 | **"Found multiple elements" error** | Multiple buttons with same text | Use `findAllByRole` instead of `findByRole` |
 | **Hook returns undefined** | Missing mock in test | Add `vi.mocked(hooks.useXxx).mockReturnValue()` |
+| **CORS preflight returns 401** | JWT auth rejecting OPTIONS | CORSJWTAuthentication skips OPTIONS |
 
 ---
 

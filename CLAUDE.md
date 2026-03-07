@@ -2,8 +2,8 @@
 
 > **Single Source of Truth** for coding agents and human developers
 > **Version**: 2.0.0
-> **Last Updated**: 2026-03-05
-> **Status**: Production Ready ✅ (SEC-001, SEC-002, Phase B, Phase 3, Phase 4, Phase 5.4 Complete)
+> **Last Updated**: 2026-03-07
+> **Status**: Production Ready ✅ (SEC-001, SEC-002, SEC-003, CORS Fix, Phase A, Phase B, Phase 3, Phase 4, Phase 5.4, Phase 5.5 Complete)
 
 ---
 
@@ -38,10 +38,11 @@
 | **Dashboard** | v1.0.0 | ✅ Production Ready | **36 TDD tests** (21 service + 15 cache), 100% coverage |
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests (services + views), 13 validated endpoints |
 | **Banking UI** | v1.3.0 | ✅ **Phase 5.5 Complete** | 73 TDD tests, all 3 tabs live, reconciliation workflow |
-| **Security** | v1.0.0 | ✅ SEC-002 Remediated | Rate limiting on auth endpoints |
+| **Security** | v1.0.0 | ✅ SEC-002, SEC-003 Remediated | Rate limiting on auth endpoints |
+| **CORS** | v1.0.0 | ✅ Dashboard Fixed | CORSJWTAuthentication, preflight handling |
 | **Integration** | v1.1.0 | ✅ **Complete** | All endpoint paths aligned, Dashboard real data |
 | **Testing** | — | ✅ **305+ Passing** | Frontend (305) + Backend tests verified |
-| **Overall** | — | ✅ **Platform Ready** | **538+ tests**, WCAG AAA, IRAS Compliant, 98% Security |
+| **Overall** | — | ✅ **Platform Ready** | **538+ tests**, WCAG AAA, IRAS Compliant, 100% Security |
 
 ---
 
@@ -233,6 +234,11 @@ pytest --reuse-db --no-migrations
 ---
 
 ## 🔧 Troubleshooting
+
+### CORS & Dashboard Loading Issues
+- **Dashboard stuck at "Loading..."**: CORS preflight rejection. Test: `curl -X OPTIONS http://localhost:8000/api/v1/auth/me/ -i`. Should return 200 with CORS headers.
+- **CORS preflight returns 401**: JWT auth rejecting OPTIONS. Solution: CORSJWTAuthentication class skips OPTIONS requests.
+- **Backend startup fails with csp.E001**: Legacy CSP_* settings. Solution: Remove CSP_REPORT_ONLY, CSP_REPORT_URI; use dict-based config.
 
 ### Dashboard API Issues
 - **403 Forbidden on /dashboard/**: Check `UserOrganisation.accepted_at` is set (middleware requires it)

@@ -37,8 +37,29 @@
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests, 13 validated endpoints |
 | **Banking UI** | v1.3.0 | ✅ **Phase 5.5 Complete** | **73 TDD tests**, all 3 tabs live, reconciliation workflow |
 | **Security** | v1.0.0 | ✅ **SEC-002, SEC-003 Remediated** | Rate limiting + CSP headers |
+| **CORS** | v1.0.0 | ✅ **Dashboard Fixed** | CORSJWTAuthentication, preflight handling |
 | **Testing** | — | ✅ **538+ Passing** | **305 Frontend + 233 Backend** tests verified |
 | **Overall** | — | ✅ **Platform Ready** | **538+ tests**, WCAG AAA, IRAS Compliant, **100% Security** |
+
+### Recent Milestone: CORS Authentication Fix ✅ COMPLETE
+**Date**: 2026-03-07
+**Status**: Dashboard Loading Issue Resolved - CORS Preflight Working
+
+| Fix | Impact |
+|-----|--------|
+| **CORSJWTAuthentication** | Custom auth class that skips OPTIONS requests |
+| **Dashboard Renders** | No longer stuck at "Loading..." state |
+| **CORS Headers Present** | Preflight returns 200 with proper headers |
+| **Security Preserved** | Full JWT auth for all non-OPTIONS methods |
+| **django-csp 4.0 Fix** | Removed legacy CSP_* settings, fixed startup error |
+| **Port 8000 Cleared** | Stopped conflicting librechat-rag-api container |
+
+**Technical Details**:
+- Created: `apps/core/authentication.py` (38 lines)
+- Modified: `config/settings/base.py` (removed legacy CSP, updated auth)
+- Root Cause: DRF authentication executes before permissions
+- Solution: Authentication layer returns `None` for OPTIONS requests
+- Result: Dashboard renders with "No Organisation Selected" (correct for unauthenticated)
 
 ### Recent Milestone: SEC-003 CSP Headers Implementation ✅ COMPLETE
 **Date**: 2026-03-07
@@ -428,12 +449,19 @@ vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
 - `count > 0` → renders `transactions-list`
 
 ### Frontend "Loading..." Stuck State
-**Problem**: Dashboard shows "Loading..." indefinitely.  
-**Cause**: Missing static JS files in standalone build OR hydration mismatch.  
+**Problem**: Dashboard shows "Loading..." indefinitely.
+**Cause**: Missing static JS files in standalone build OR hydration mismatch OR CORS preflight rejection.
 **Solution**:
 1. Verify static files: `ls .next/standalone/.next/static/chunks/`
 2. Rebuild: `npm run build:server` (now auto-copies static files)
 3. Check browser console for hydration errors
+4. Test CORS preflight: `curl -X OPTIONS http://localhost:8000/api/v1/auth/me/ -i`
+5. Verify CORSJWTAuthentication is configured in settings
+
+### CORS Preflight Authentication Blocking
+**Problem**: OPTIONS requests return 401 Unauthorized.
+**Cause**: DRF JWT authentication rejects unauthenticated preflight requests.
+**Solution**: Use `CORSJWTAuthentication` class that returns `None` for OPTIONS method.
 
 ### 404 Errors for JS/CSS Chunks
 **Problem**: Browser shows 404 for `/_next/static/chunks/*.js`.  
@@ -444,6 +472,70 @@ vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
 **Problem**: Console shows "Text content does not match server-rendered HTML".  
 **Cause**: Component renders differently on server vs client (e.g., `useEffect` with early return).  
 **Solution**: Convert to Server Component or ensure identical initial render on both environments.
+
+---
+
+## 🎓 Lessons Learned
+
+### CORS Authentication Fix (2026-03-07)
+
+#### 1. DRF Authentication Executes Before Permissions
+- **Discovery**: Permission classes cannot bypass authentication for OPTIONS requests
+- **Lesson**: Authentication layer must explicitly handle CORS preflight
+- **Pattern**: Create custom authentication class for CORS-specific logic
+- **Code**: `CORSJWTAuthentication.authenticate()` returns `None` for OPTIONS
+
+#### 2. django-csp 4.0 Breaking Change
+- **Discovery**: Legacy `CSP_*` settings cause errors in django-csp 4.0+
+- **Lesson**: Always check package version before using old configuration syntax
+- **Pattern**: Use dict-based `CONTENT_SECURITY_POLICY` config for v4.0+
+- **Fix**: Removed `CSP_REPORT_ONLY`, `CSP_REPORT_URI` from base.py
+
+#### 3. Port Conflicts in Multi-Service Environments
+- **Discovery**: Backend appeared to run but was actually a different service
+- **Lesson**: Always verify which process is using a port before debugging
+- **Pattern**: Use `lsof -i :PORT` or `ss -tulpn | grep :PORT` to check
+- **Case**: `librechat-rag-api` was using port 8000
+
+#### 4. CORS by Design Excludes Auth Tokens
+- **Discovery**: Browser preflight requests intentionally don't include authentication
+- **Lesson**: Backend must handle unauthenticated OPTIONS requests gracefully
+- **Pattern**: Authentication layer should return `None` for OPTIONS, not raise error
+- **Implementation**: `if request.method == "OPTIONS": return None`
+
+### CSP Implementation (2026-03-07)
+
+#### 1. django-csp Configuration Syntax
+- **Discovery**: v4.0+ uses `CONTENT_SECURITY_POLICY` dict, not individual settings
+- **Lesson**: Migration guide at https://django-csp.readthedocs.io/en/latest/migration-guide.html
+- **Pattern**: `CONTENT_SECURITY_POLICY_REPORT_ONLY = {"DIRECTIVES": {...}}`
+
+#### 2. CSP Report Endpoint Authentication
+- **Discovery**: Browsers send CSP reports without auth tokens
+- **Lesson**: Report endpoint must allow anonymous access
+- **Pattern**: Add `@permission_classes([AllowAny])` decorator
+
+#### 3. Report-Uri Manual Addition
+- **Discovery**: django-csp doesn't auto-append report-uri from settings
+- **Lesson**: Must be explicitly added to DIRECTIVES dict
+- **Pattern**: `"report-uri": ["/api/v1/security/csp-report/"]`
+
+### Phase 3 Integration (2026-03-06)
+
+#### 1. Radix UI Tabs Require userEvent
+- **Discovery**: `fireEvent.click` doesn't trigger Radix UI tab activation
+- **Lesson**: Always use `userEvent.setup()` for interactive testing
+- **Pattern**: `const user = userEvent.setup(); await user.click(tab)`
+
+#### 2. Hook Mocks Must Be Comprehensive
+- **Discovery**: Missing hook mocks caused cascading test failures
+- **Lesson**: Audit all hooks used by component tree
+- **Pattern**: List all `useXxx` imports and mock each one
+
+#### 3. Multiple Elements Require findAllBy*
+- **Discovery**: Multiple elements matching selector caused errors
+- **Lesson**: Use `findAllByRole` when multiple elements match
+- **Pattern**: `const buttons = await screen.findAllByRole("button", { name: /text/i })`
 
 ---
 
