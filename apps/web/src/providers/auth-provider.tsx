@@ -113,12 +113,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (orgsData.length > 0) {
         setCurrentOrgId(orgsData[0].org.id);
       }
-      } catch {
-        // No valid session
-        clearAuth();
-      } finally {
-        setIsLoading(false);
+    } catch {
+      // No valid session - redirect to login
+      clearAuth();
+      // Only redirect if not already on login page (prevent redirect loops)
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        if (!currentPath.includes('/login')) {
+          const returnUrl = currentPath !== '/' ? `?redirect=${encodeURIComponent(currentPath)}` : '';
+          router.push(`/login${returnUrl}`);
+        }
       }
+    } finally {
+      setIsLoading(false);
+    }
     }
 
     checkSession();
