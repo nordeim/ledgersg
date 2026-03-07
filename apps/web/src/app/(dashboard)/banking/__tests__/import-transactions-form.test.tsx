@@ -143,18 +143,19 @@ describe("ImportTransactionsForm", () => {
     });
   });
 
-  test("6. Shows loading state during import", () => {
-    mockUseImportBankTransactions.mockReturnValue({
-      mutateAsync: vi.fn(),
-      isLoading: true,
-    });
+test("6. Shows loading state during import", () => {
+		mockUseImportBankTransactions.mockReturnValue({
+			mutateAsync: vi.fn(),
+			isPending: true, // Changed from isLoading to isPending (TanStack Query v5)
+		});
 
-    render(<ImportTransactionsForm orgId={orgId} onCancel={vi.fn()} />);
+		render(<ImportTransactionsForm orgId={orgId} onCancel={vi.fn()} />);
 
-    // Should show loading indicator on button
-    const importButton = screen.getByRole("button", { name: /importing/i });
-    expect(importButton).toBeDisabled();
-  });
+		// Should show loading indicator on button
+		const importButton = screen.getByRole("button", { name: /importing/i });
+		expect(importButton).toBeDisabled();
+		expect(importButton).toHaveTextContent("Importing...");
+	});
 
   test("7. Handles import errors", async () => {
     const mutateAsync = vi.fn().mockRejectedValue(new Error("Import failed"));

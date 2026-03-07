@@ -947,11 +947,11 @@ refactor: extract invoice validation to service layer
 
 ### Short-Term (Medium Priority)
 
-- [ ] **Content Security Policy** — Configure CSP headers (SEC-003)
+- [x] **Content Security Policy** — Configure CSP headers (SEC-003) ✅ COMPLETE (2026-03-07)
 - [ ] **Frontend Test Coverage** — Expand coverage for hooks and forms (SEC-004)
 - [ ] **CI/CD Pipeline** — Automate manual DB initialization workflow in GitHub Actions
 - [ ] **Real-Time Updates** — Implement SSE or polling for live dashboard updates
-- [ ] **Journal Entry Integration** — Align JournalService field names with JournalEntry model
+- [x] **Journal Entry Integration** — Align JournalService field names with JournalEntry model ✅ COMPLETE (Verified 2026-03-07)
 
 ### Long-Term (Low Priority)
 

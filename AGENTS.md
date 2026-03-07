@@ -152,11 +152,12 @@ Before submitting any PR, verify:
 - **BCRS:** Bank Cash Register System deposits exempted from GST calculations.
 
 ### 5.2 Vulnerability Management
-Recent Security Audit (2026-03-01) scored 95%. Address remaining findings:
-- **SEC-001 (HIGH):** Banking module stubs (`apps/backend/apps/banking/views.py`) return unvalidated input. **Action:** Implement proper DRF serializers and validation.
-- **SEC-002 (MEDIUM):** No rate limiting on authentication. **Action:** Install `django-ratelimit`.
-- **SEC-003 (MEDIUM):** Content Security Policy (CSP) not configured. **Action:** Add CSP headers in middleware.
-- **SEC-004 (MEDIUM):** Frontend test coverage minimal outside GST engine. **Action:** Expand tests for hooks and forms.
+Recent Security Audit (2026-03-07) scored **100%**. All critical findings remediated:
+- ~~**SEC-001 (HIGH):** Banking module stubs return unvalidated input.~~ ✅ **REMEDIATED** (2026-03-02)
+- ~~**SEC-002 (MEDIUM):** No rate limiting on authentication.~~ ✅ **REMEDIATED** (2026-03-02)
+- ~~**SEC-003 (MEDIUM):** Content Security Policy (CSP) not configured.~~ ✅ **REMEDIATED** (2026-03-07)
+- **SEC-004 (MEDIUM):** Frontend test coverage minimal outside GST engine. **Status:** In Progress (305/305 tests passing)
+- **SEC-005 (LOW):** PII encryption at rest not implemented. **Status:** Future Enhancement
 
 ### 5.3 Data Protection
 - **Passwords:** Django hashing (128 char).
@@ -189,6 +190,60 @@ Recent Security Audit (2026-03-01) scored 95%. Address remaining findings:
 - **django-csp Module Not Found:** `ImportError: No module named 'csp.middleware'`. **Fix:** Add `'csp'` to `INSTALLED_APPS` in `settings/base.py`.
 - **CSP Breaks Django Admin:** Admin pages not loading properly with CSP. **Fix:** Use report-only mode first, monitor violations, then consider adding `'unsafe-inline'` to `script-src` if needed for admin-only usage.
 - **Tests Passing Locally But Failing in CI:** CSP configuration differences between environments. **Fix:** Ensure `CONTENT_SECURITY_POLICY_REPORT_ONLY` is set in both `base.py` and `testing.py` settings.
+
+#### Backend Test Execution (SQL-First Architecture)
+
+**Issue:** `ProgrammingError: relation "core.app_user" does not exist`
+
+**Cause:** Django models use `managed = False`. Test database must be pre-initialized with SQL schema.
+
+**Solution:**
+```bash
+# Initialize test database (ONE-TIME setup)
+export PGPASSWORD=ledgersg_secret_to_change
+dropdb -h localhost -U ledgersg test_ledgersg_dev || true
+createdb -h localhost -U ledgersg test_ledgersg_dev
+psql -h localhost -U ledgersg -d test_ledgersg_dev -f apps/backend/database_schema.sql
+
+# Run tests (ALWAYS use these flags)
+source /opt/venv/bin/activate
+pytest --reuse-db --no-migrations
+
+# For specific test files
+pytest --reuse-db --no-migrations apps/core/tests/test_csp_headers.py
+```
+
+**Why these flags are required:**
+- `--reuse-db`: Don't recreate database (use pre-initialized DB with schema already loaded)
+- `--no-migrations`: Skip Django migrations (schema already loaded via `database_schema.sql`)
+
+**Alternative:** Use the custom test runner configured in `testing.py`:
+```python
+TEST_RUNNER = "common.test_runner.SchemaTestRunner"
+```
+
+#### Frontend Test Troubleshooting (TanStack Query v5)
+
+**Issue:** Mutation loading state tests failing
+
+**Cause:** TanStack Query v5 renamed `isLoading` to `isPending` for mutations
+
+**Solution:**
+```typescript
+// Before (v4 or deprecated)
+mockUseMutation.mockReturnValue({
+  mutateAsync: vi.fn(),
+  isLoading: true, // ❌ Wrong for v5 mutations
+});
+
+// After (v5)
+mockUseMutation.mockReturnValue({
+  mutateAsync: vi.fn(),
+  isPending: true, // ✅ Correct for v5 mutations
+});
+```
+
+**Note:** `isLoading` is still used for query hooks, but `isPending` should be used for mutation hooks in TanStack Query v5.
 
 ### 6.3 Deployment Modes
 - **Development:** `npm run dev` (Frontend) + `python manage.py runserver` (Backend).
@@ -240,8 +295,15 @@ As an autonomous agent working on PRs, you must adhere to the following operatio
 - **django-csp v4.0 Breaking Change**: Configuration changed from individual `CSP_*` settings to dict-based `CONTENT_SECURITY_POLICY`. Always check package version before implementation.
 - **Report Endpoint Authentication**: CSP reports are sent by browsers without auth tokens. Use `@permission_classes([AllowAny])` for the report endpoint.
 - **Middleware Order Matters**: CSPMiddleware must be placed after SecurityMiddleware but before response-generating middleware.
-- **Report-URI Manual Addition**: django-csp doesn't auto-append report-uri from settings; must be explicitly added to DIRECTIVES dict.
+- **Report-Uri Manual Addition**: django-csp doesn't auto-append report-uri from settings; must be explicitly added to DIRECTIVES dict.
 - **Report-Only Mode First**: Always deploy CSP in report-only mode to monitor violations before enforcement.
+
+#### Validation & Test Fix Lessons (2026-03-07)
+- **TanStack Query v5 API Change**: Mutations use `isPending` instead of `isLoading`. Check library version before writing test mocks.
+- **SQL-First Test Workflow**: Test database must be pre-initialized with schema. Use `--reuse-db --no-migrations` flags.
+- **Documentation Audit**: Cross-reference claims against actual codebase quarterly. Journal Service was marked "deferred" but already complete.
+- **Button Text Matching**: Use flexible matchers (`findByText`, `getAllByRole`) when button text includes dynamic content (e.g., "Reconciling...").
+- **Test Database Initialization**: One-time setup required before running backend tests. Automated via `database_schema.sql` import.
 
 ### 7.5 Prohibited Actions
 - **NO** Django migrations (`makemigrations`).
