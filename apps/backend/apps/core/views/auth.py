@@ -199,14 +199,41 @@ def my_organisations_view(request: Request) -> Response:
     for membership in memberships:
         data.append(
             {
-                "id": str(membership.org.id),  # Convert UUID to string
-                "name": membership.org.name,
+                "id": str(membership.id),  # Membership ID
+                "org": {
+                    "id": str(membership.org.id),
+                    "name": membership.org.name,
+                    "legal_name": membership.org.legal_name,
+                    "uen": membership.org.uen,
+                    "entity_type": membership.org.entity_type,
+                    "gst_registered": membership.org.gst_registered,
+                    "gst_reg_number": membership.org.gst_reg_number,
+                    "gst_reg_date": membership.org.gst_reg_date,
+                    "gst_scheme": membership.org.gst_scheme,
+                    "gst_filing_frequency": membership.org.gst_filing_frequency,
+                    "peppol_participant_id": membership.org.peppol_participant_id,
+                    "invoicenow_enabled": membership.org.invoicenow_enabled,
+                    "fy_start_month": membership.org.fy_start_month,
+                    "base_currency": membership.org.base_currency,
+                    "timezone": membership.org.timezone,
+                    "is_active": membership.org.is_active,
+                },
                 "role": {
-                    "id": str(membership.role.id),  # Convert UUID to string
+                    "id": str(membership.role.id),
                     "name": membership.role.name,
+                    "can_manage_org": membership.role.can_manage_org,
+                    "can_manage_users": membership.role.can_manage_users,
+                    "can_manage_coa": membership.role.can_manage_coa,
+                    "can_create_invoices": membership.role.can_create_invoices,
+                    "can_approve_invoices": membership.role.can_approve_invoices,
+                    "can_void_invoices": membership.role.can_void_invoices,
+                    "can_create_journals": membership.role.can_create_journals,
+                    "can_manage_banking": membership.role.can_manage_banking,
+                    "can_file_gst": membership.role.can_file_gst,
+                    "can_view_reports": membership.role.can_view_reports,
+                    "can_export_data": membership.role.can_export_data,
                 },
                 "is_default": membership.is_default,
-                "joined_at": membership.accepted_at,
             }
         )
 
