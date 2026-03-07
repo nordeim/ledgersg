@@ -65,6 +65,19 @@
 
 ### Latest Milestones
 
+**🎉 Authentication Flow Remediation (Defense-in-Depth)** — 2026-03-08
+- ✅ **Three-Layer Authentication**: AuthProvider + DashboardLayout Guard + Backend JWT
+- ✅ **Zero JWT Exposure**: Access tokens in server memory, refresh in HttpOnly cookies
+- ✅ **Backend Response Fixed**: Nested organisation structure, UUID serialization
+- ✅ **Seamless UX**: No flash of protected content, smooth redirects
+- ✅ **E2E Test Coverage**: 10/10 comprehensive tests passing (redirect, login, refresh, security)
+- ✅ **User Without Orgs**: "Create Organisation" button with clear messaging
+- ✅ **Files Modified**: 5 production files (auth-provider, login, layout, dashboard, auth view)
+- ✅ **Test Files Created**: 6 comprehensive test scripts (~900 lines)
+- ✅ **Documentation Created**: 5 detailed documentation files (~1,250 lines)
+- ✅ **Lessons Learned**: Defense-in-depth patterns, UUID serialization, nested structures
+- ✅ **Blockers Solved**: Dashboard error display, response structure mismatch, hydration mismatch
+
 **🎉 CORS Authentication Fix (Dashboard Loading)** — 2026-03-07
 - ✅ **Dashboard Renders Properly**: No longer stuck at "Loading..." state
 - ✅ **CORS Preflight Success**: OPTIONS requests return 200 OK with proper headers
@@ -338,6 +351,7 @@ sequenceDiagram
 | Security Headers | 12 headers configured (CSP, HSTS, X-Frame-Options, etc.) | ✅ Pass |
 | Rate Limiting | django-ratelimit on auth endpoints | ✅ Pass |
 | Content Security Policy | django-csp v4.0 + Next.js middleware (strict defaults) | ✅ Pass |
+| Defense-in-Depth Auth | Three independent authentication layers | ✅ Pass |
 
 ### Security Findings & Remediation
 
@@ -351,6 +365,70 @@ sequenceDiagram
 
 ### Authentication Flow
 
+LedgerSG implements a **defense-in-depth authentication architecture** with three independent security layers:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ LAYER 1: AuthProvider (Client-Side)                            │
+│ - checkSession() on mount                                      │
+│ - Calls /api/v1/auth/me/                                       │
+│ - 401 → Redirect to /login                                     │
+│ - Preserves destination via ?redirect= parameter               │
+└─────────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ LAYER 2: DashboardLayout Guard (Client-Side)                   │
+│ - Checks isAuthenticated state                                 │
+│ - false → Redirect to /login                                   │
+│ - false → Return null (prevents flash of protected content)    │
+│ - true → Render <Shell>{children}</Shell>                      │
+└─────────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ LAYER 3: Backend API (Server-Side)                             │
+│ - CORSJWTAuthentication middleware                             │
+│ - JWT token validation                                         │
+│ - 401 for invalid/missing tokens                               │
+│ - TenantContextMiddleware sets RLS session variables           │
+└─────────────────────────────────────────────────────────────────┘
+
+BROWSER
+│
+┌─────────────────────────────────────────────────────────────┐
+│ Server Component (DashboardPage)                            │
+│ • No JavaScript sent to client                              │
+│ • Renders HTML server-side                                  │
+└─────────────────────────────────────────────────────────────┘
+│
+▼
+┌─────────────────────────────────────────────────────────────┐
+│ NEXT.JS SERVER (Node.js)                                    │
+│ ┌───────────────────────────────────────────────────────┐   │
+│ │ Auth Middleware                                        │   │
+│ │ • Reads HTTP-only cookie                              │   │
+│ │ • Validates JWT                                       │   │
+│ │ • Refreshes token if needed                           │   │
+│ └───────────────────────────────────────────────────────┘   │
+│                                                              │
+│ ▼                                                            │
+│ ┌───────────────────────────────────────────────────────┐   │
+│ │ Server-Side Fetch                                      │   │
+│ │ • Internal call to backend:8000                       │   │
+│ │ • Passes JWT in Authorization header                  │   │
+│ └───────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+│
+▼
+┌─────────────────────────────────────────────────────────────┐
+│ DJANGO BACKEND (localhost:8000)                             │
+│ ┌───────────────────────────────────────────────────────┐   │
+│ │ GET /api/v1/{org_id}/dashboard/                        │   │
+│ │ • Aggregates all metrics                              │   │
+│ │ • Returns JSON                                        │   │
+│ └───────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      BROWSER                                │
