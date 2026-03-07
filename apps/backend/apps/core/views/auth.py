@@ -15,6 +15,7 @@ from apps.core.serializers.auth import (
     UserProfileSerializer,
     ChangePasswordSerializer,
 )
+from apps.core.permissions import IsAuthenticatedOrOptions
 from apps.core.services import auth_service
 from common.exceptions import ValidationError
 
@@ -133,8 +134,8 @@ def logout_view(request: Request) -> Response:
     return Response({"message": "Logged out successfully"})
 
 
-@api_view(["GET", "PATCH"])
-@permission_classes([IsAuthenticated])
+@api_view(["GET", "PATCH", "OPTIONS"])  # Added OPTIONS for CORS preflight
+@permission_classes([IsAuthenticatedOrOptions])  # Allow OPTIONS without auth
 def me_view(request: Request) -> Response:
     """
     Get or update current user profile.
