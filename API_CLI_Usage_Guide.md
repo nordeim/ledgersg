@@ -262,7 +262,7 @@ Org-scoped endpoints require:
 
 ## API Endpoints Reference
 
-### Authentication Endpoints (9)
+### Authentication Endpoints (10)
 
 | Method | Endpoint | Auth | Rate Limit | Description |
 |--------|----------|------|------------|-------------|
@@ -290,7 +290,6 @@ Org-scoped endpoints require:
 | POST | `/api/v1/{orgId}/fiscal-years/{id}/close/` | CanManageOrg | Close fiscal year |
 | POST | `/api/v1/{orgId}/fiscal-periods/{id}/close/` | CanManageOrg | Close fiscal period |
 | GET | `/api/v1/{orgId}/summary/` | IsOrgMember | Organisation high-level summary |
-| GET | `/api/v1/{orgId}/dashboard/` | IsOrgMember | Dashboard view |
 | GET/PUT/PATCH | `/api/v1/{orgId}/settings/` | IsOrgMember | Organisation settings |
 
 ### Chart of Accounts Endpoints (8)
@@ -408,7 +407,9 @@ Org-scoped endpoints require:
 | GET | `/api/v1/health/` | No | API health check |
 | POST | `/api/v1/security/csp-report/` | No | CSP violation reporting |
 
-**Total Endpoints: 87**
+**Total Endpoints: ~90** (varies by counting method)
+
+*Note: Some URL patterns handle multiple HTTP methods (e.g., GET/PATCH on same endpoint)*
 
 ---
 
@@ -1005,12 +1006,12 @@ curl "$LEDGERSG_API_BASE/$LEDGERSG_ORG_ID/reports/dashboard/metrics/" \
   -H "Authorization: Bearer $LEDGERSG_ACCESS"
 ```
 
-### Total Endpoints: 87
+### Total Endpoints: ~90 (varies by counting method)
 
 | Module | Endpoints | Status |
 |--------|-----------|--------|
-| Authentication | 9 | ✅ Production (SEC-002) |
-| Organizations | 11 | ✅ Production (Phase B) |
+| Authentication | 10 | ✅ Production (SEC-002) |
+| Organizations | 10 | ✅ Production (Phase B) |
 | Chart of Accounts | 8 | ✅ Production |
 | GST | 13 | ✅ Production |
 | Invoicing | 16 | ✅ Production |
@@ -1050,9 +1051,10 @@ For API-related questions:
 
 **End of Guide**
 
-*Last validated against codebase: 2026-03-07*
-*Security status: SEC-001 ✅, SEC-002 ✅, SEC-003 ✅, Phase B ✅, Phase 5.5 ✅*
-*API Version: 2.0.0*
-*Total Endpoints: 87*
-*Security Score: 100%*
-*Total Tests: 645+*
+*Last validated against codebase: 2026-03-08*  
+*Validation report: API_CLI_USAGE_GUIDE_VALIDATION_REPORT.md*  
+*Security status: SEC-001 ✅, SEC-002 ✅, SEC-003 ✅, Phase B ✅, Phase 5.5 ✅, Authentication ✅*  
+*API Version: 2.0.0*  
+*Total Endpoints: ~90 (94 URL patterns)*  
+*Security Score: 100%*  
+*Total Tests: 548+*

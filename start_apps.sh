@@ -48,3 +48,46 @@ $ curl -X POST http://localhost:8000/api/v1/auth/login/ \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"testpassword123"}' 2>&1 | grep -v "^  %" | python3 -m json.tool | grep -A 5 "refresh"
 
+$ npm run build:server
+
+> web@0.1.0 build:server
+> NEXT_OUTPUT_MODE=standalone next build && cp -r .next/static .next/standalone/.next/
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 13.3s
+✓ Finished TypeScript in 8.9s
+✓ Collecting page data using 3 workers in 576.8ms
+✓ Generating static pages using 3 workers (19/19) in 626.7ms
+✓ Finalizing page optimization in 3.5s
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /banking
+├ ○ /dashboard
+├ ○ /invoices
+├ ● /invoices/[id]
+│ ├ /invoices/INV-2024-0001
+│ ├ /invoices/INV-2024-0002
+│ └ /invoices/INV-2024-0003
+├ ● /invoices/[id]/edit
+│ ├ /invoices/INV-2024-0001/edit
+│ ├ /invoices/INV-2024-0002/edit
+│ └ /invoices/INV-2024-0003/edit
+├ ○ /invoices/new
+├ ○ /ledger
+├ ○ /login
+├ ○ /quotes
+├ ○ /reports
+└ ○ /settings
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)  prerendered as static content
+●  (SSG)     prerendered as static HTML (uses generateStaticParams)
+
