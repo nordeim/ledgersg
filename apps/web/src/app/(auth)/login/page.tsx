@@ -15,22 +15,51 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Lock, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/providers/auth-provider";
+import { ApiError } from "@/lib/api-client";
 
 export default function LoginPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const router = useRouter();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
-    // Simulate login - will be replaced with actual auth
-    setTimeout(() => {
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    try {
+      await login(email, password);
+
+      // Check for redirect parameter
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get("redirect") || "/dashboard";
+
+      router.push(redirect);
+    } catch (err) {
+      // Handle API errors
+      if (err instanceof ApiError) {
+        switch (err.status) {
+          case 401:
+            setError("Invalid email or password. Please try again.");
+            break;
+          case 429:
+            setError("Too many login attempts. Please wait and try again later.");
+            break;
+          default:
+            setError(err.message || "An error occurred. Please try again.");
+        }
+      } else {
+        setError("Unable to connect to server. Please check your connection.");
+      }
+    } finally {
       setIsSubmitting(false);
-      router.push("/dashboard");
-    }, 1000);
+    }
   };
 
   return (

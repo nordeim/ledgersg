@@ -133,22 +133,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
+    // Backend returns: { user, tokens: { access, refresh, access_expires } }
     const response = await api.post<{
       user: User;
-      organisations: UserOrganisation[];
-      access: string;
+      tokens: {
+        access: string;
+        refresh: string;
+        access_expires: string;
+      };
     }>(endpoints.auth.login, { email, password });
 
-    setAccessToken(response.access);
+    // Store access token in memory
+    setAccessToken(response.tokens.access);
     setUser(response.user);
-    setOrganisations(response.organisations);
+
+    // Fetch organisations separately
+    const orgsData = await api.get<UserOrganisation[]>(
+      endpoints.organisations.list
+    );
+    setOrganisations(orgsData);
 
     // Set default org
-    const defaultOrg = response.organisations.find((uo) => uo.is_default);
+    const defaultOrg = orgsData.find((uo) => uo.is_default);
     if (defaultOrg) {
       setCurrentOrgId(defaultOrg.org.id);
-    } else if (response.organisations.length > 0) {
-      setCurrentOrgId(response.organisations[0].org.id);
+    } else if (orgsData.length > 0) {
+      setCurrentOrgId(orgsData[0].org.id);
     }
 
     // Invalidate any cached queries

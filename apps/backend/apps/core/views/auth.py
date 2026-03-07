@@ -199,10 +199,10 @@ def my_organisations_view(request: Request) -> Response:
     for membership in memberships:
         data.append(
             {
-                "id": membership.org.id,
+                "id": str(membership.org.id),  # Convert UUID to string
                 "name": membership.org.name,
                 "role": {
-                    "id": membership.role.id,
+                    "id": str(membership.role.id),  # Convert UUID to string
                     "name": membership.role.name,
                 },
                 "is_default": membership.is_default,

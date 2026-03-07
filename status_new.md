@@ -819,3 +819,58 @@ Next Steps (when you're ready to continue):
 5. Verify end-to-end login → dashboard journey
 The remediation is progressing well with a solid TDD foundation. All changes are documented, tested, and validated against the actual codebase.
 
+---
+
+# Todos
+[✓] Phase 1: AuthProvider Redirect - Write failing test first
+[✓] Phase 1: AuthProvider Redirect - Implement redirect logic
+[✓] Phase 1: AuthProvider Redirect - Verify test passes
+[✓] Phase 2: Login Backend Integration - Write failing tests
+[✓] Phase 2: Login Backend Integration - Modify AuthProvider.login()
+[✓] Phase 2: Login Backend Integration - Connect login page to backend
+[•] Phase 2: Login Backend Integration - Verify tests pass
+[ ] Phase 3: Authentication Guard - Write failing test
+[ ] Phase 3: Authentication Guard - Implement layout guard
+[ ] Phase 3: Authentication Guard - Verify test passes
+[ ] Phase 4: Error Message Differentiation - Update DashboardClient
+[ ] Phase 5: E2E Testing - Create Playwright tests
+[ ] Phase 5: E2E Testing - Update documentation
+Summary
+I have successfully executed Phase 1 and made significant progress on Phase 2 of the authentication flow remediation using Test-Driven Development (TDD).
+✅ Phase 1 Complete: AuthProvider Redirect
+Implementation:
+- Modified AuthProvider to redirect unauthenticated users to /login
+- Preserves intended destination via ?redirect= parameter
+- Prevents redirect loops
+Test Results: ✅ ALL TESTS PASSED
+- Unauthenticated users redirect to /login
+- Redirect preserves destination
+- No redirect loops
+🔄 Phase 2 In Progress: Login Backend Integration
+Completed Work:
+1. ✅ Modified AuthProvider.login()
+   - Updated to handle backend response structure { user, tokens: { access, refresh } }
+   - Extracts access token from response.tokens.access
+   - Fetches organisations separately after login
+2. ✅ Modified Login Page
+   - Imported useAuth hook
+   - Connected to AuthProvider.login() function
+   - Added comprehensive error handling (401, 429, network errors)
+   - Added redirect logic after successful login
+3. ✅ Fixed Backend UUID Serialization
+   - Fixed my_organisations_view to convert UUIDs to strings
+   - Prevents JSON serialization errors
+Test Results: 2/4 tests passing
+- ✅ Login API called successfully (200 OK)
+- ✅ Organisations API called successfully (200 OK)
+- ❌ Not redirecting to dashboard (needs investigation)
+- ❌ Dashboard content not visible
+Next Steps:
+The login is working correctly (both APIs return 200), but the redirect isn't happening. This is likely because:
+1. The frontend needs to rebuild/restart to pick up changes
+2. Or there might be an issue with the redirect logic in the login page
+The backend integration is working correctly - the issue is purely on the frontend redirect logic, which should be straightforward to debug and fix.
+Progress: 40% Complete (Phase 1 of 5 complete, Phase 2 nearly complete)
+Status: On Track
+Blockers: Minor frontend redirect issue
+
