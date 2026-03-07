@@ -153,23 +153,27 @@ describe("ReconcileForm", () => {
     });
   });
 
-  test("5. Shows loading state while reconciling", () => {
-    mockUseReconcileTransaction.mockReturnValue({
-      mutateAsync: vi.fn(),
-      isLoading: true,
-    });
+	test("5. Shows loading state while reconciling", () => {
+		mockUseReconcileTransaction.mockReturnValue({
+			mutateAsync: vi.fn(),
+			isPending: true, // Changed from isLoading to isPending (TanStack Query v5)
+		});
 
-    render(
-      <ReconcileForm
-        transaction={mockTransaction}
-        orgId={orgId}
-        onClose={vi.fn()}
-      />
-    );
+		render(
+			<ReconcileForm
+				transaction={mockTransaction}
+				orgId={orgId}
+				onClose={vi.fn()}
+			/>
+		);
 
-    const reconcileButton = screen.getByRole("button", { name: /reconciling/i });
-    expect(reconcileButton).toBeDisabled();
-  });
+		// When loading, the button should be disabled and show "Reconciling..."
+		const buttons = screen.getAllByRole("button");
+		const reconcileButton = buttons.find(b => b.textContent?.includes("Reconciling"));
+		expect(reconcileButton).toBeDefined();
+		expect(reconcileButton).toBeDisabled();
+		expect(reconcileButton).toHaveTextContent("Reconciling...");
+	});
 
   test("6. Calls onClose when close button clicked", () => {
     mockUseReconcileTransaction.mockReturnValue({
