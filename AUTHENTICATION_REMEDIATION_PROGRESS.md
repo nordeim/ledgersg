@@ -1,341 +1,289 @@
-# Authentication Flow Remediation - Phase 1 & 2 Complete
+# Authentication Flow Remediation - Phases 1, 2 & 3 Complete
 
 **Date:** 2026-03-08  
-**Status:** Phase 1 ✅ COMPLETE, Phase 2 ✅ COMPLETE  
+**Status:** Phase 1 ✅, Phase 2 ✅, Phase 3 ✅ COMPLETE  
 **Method:** Test-Driven Development (TDD)  
-**Test Results:** ALL TESTS PASSING
+**Test Results:** ALL TESTS PASSING (100%)
 
 ---
 
 ## ✅ Phase 1: AuthProvider Redirect - COMPLETE
 
 ### Implementation
-**File Modified:** `apps/web/src/providers/auth-provider.tsx` (lines 116-127)
+**File:** `apps/web/src/providers/auth-provider.tsx` (lines 116-127)
 
-**Change Applied:**
-```typescript
-} catch {
-  // No valid session - redirect to login
-  clearAuth();
-  // Only redirect if not already on login page (prevent redirect loops)
-  if (typeof window !== 'undefined') {
-    const currentPath = window.location.pathname;
-    if (!currentPath.includes('/login')) {
-      const returnUrl = currentPath !== '/' ? `?redirect=${encodeURIComponent(currentPath)}` : '';
-      router.push(`/login${returnUrl}`);
-    }
-  }
-}
-```
+**Changes:**
+- Added redirect logic in catch block of `checkSession()`
+- Redirects unauthenticated users to `/login`
+- Preserves intended destination via `?redirect=` parameter
+- Prevents redirect loops by checking current path
 
 ### Test Results
 ```
 ✅ PASS: User redirected to login page
 ✅ PASS: Redirect preserves intended destination
 ✅ PASS: No redirect loops detected
-✅ PASS: All acceptance criteria met
-```
-
-**Test Output:**
-```
-Current URL: http://localhost:3000/login/?redirect=%2Fdashboard%2F
-Is Login Page: True
 ```
 
 ---
 
 ## ✅ Phase 2: Login Backend Integration - COMPLETE
 
-### Implementation Summary
+### Implementation
 
 #### 1. Modified AuthProvider.login()
 **File:** `apps/web/src/providers/auth-provider.tsx` (lines 135-167)
 
 **Changes:**
-- Updated to handle backend response structure `{ user, tokens: { access, refresh } }`
+- Updated to handle backend response `{ user, tokens: { access, refresh } }`
 - Extracts access token from `response.tokens.access`
-- Fetches organisations separately after login
-- Sets user and organisation state correctly
-
-**Code:**
-```typescript
-const login = async (email: string, password: string) => {
-  // Backend returns: { user, tokens: { access, refresh, access_expires } }
-  const response = await api.post<{
-    user: User;
-    tokens: {
-      access: string;
-      refresh: string;
-      access_expires: string;
-    };
-  }>(endpoints.auth.login, { email, password });
-
-  // Store access token in memory
-  setAccessToken(response.tokens.access);
-  setUser(response.user);
-
-  // Fetch organisations separately
-  const orgsData = await api.get<UserOrganisation[]>(
-    endpoints.organisations.list
-  );
-  setOrganisations(orgsData);
-
-  // Set default org
-  const defaultOrg = orgsData.find((uo) => uo.is_default);
-  if (defaultOrg) {
-    setCurrentOrgId(defaultOrg.org.id);
-  } else if (orgsData.length > 0) {
-    setCurrentOrgId(orgsData[0].org.id);
-  }
-
-  // Invalidate any cached queries
-  queryClient.invalidateQueries();
-};
-```
+- Fetches organisations separately
+- Sets user and organisation state
 
 #### 2. Modified Login Page
 **File:** `apps/web/src/app/(auth)/login/page.tsx`
 
 **Changes:**
-- Imported `useAuth` hook and `ApiError` from api-client
-- Replaced simulated login with actual backend authentication
-- Added comprehensive error handling for 401, 429, and network errors
+- Imported `useAuth` hook and `ApiError`
+- Connected to backend authentication
+- Added comprehensive error handling (401, 429, network)
 - Added redirect logic after successful login
-
-**Code:**
-```typescript
-import { useAuth } from "@/providers/auth-provider";
-import { ApiError } from "@/lib/api-client";
-
-export default function LoginPage() {
-  const { login } = useAuth();
-  
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
-
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-
-    try {
-      await login(email, password);
-      
-      // Check for redirect parameter
-      const params = new URLSearchParams(window.location.search);
-      const redirect = params.get("redirect") || "/dashboard";
-      
-      router.push(redirect);
-    } catch (err) {
-      if (err instanceof ApiError) {
-        switch (err.status) {
-          case 401:
-            setError("Invalid email or password. Please try again.");
-            break;
-          case 429:
-            setError("Too many login attempts. Please wait and try again later.");
-            break;
-          default:
-            setError(err.message || "An error occurred. Please try again.");
-        }
-      } else {
-        setError("Unable to connect to server. Please check your connection.");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-}
-```
 
 #### 3. Fixed Backend Organisations Response
 **File:** `apps/backend/apps/core/views/auth.py` (lines 188-234)
 
-**Problem:** Backend returned flat structure, frontend expected nested structure.
+**Changes:**
+- Restructured response to nested format `{ id, org: {...}, role: {...} }`
+- Added full organisation and role details
+- Converted all UUIDs to strings
 
-**Before:**
-```json
-{
-  "id": "org_id",
-  "name": "Org Name",
-  "role": {...},
-  "is_default": true
-}
+### Test Results
+```
+✅ PASS: Login API was called (200 OK)
+✅ PASS: Organisations API was called (200 OK)
+✅ PASS: Redirected to dashboard
+✅ PASS: Dashboard content visible
 ```
 
-**After:**
-```json
-{
-  "id": "membership_id",
-  "org": {
-    "id": "org_id",
-    "name": "Org Name",
-    ...full org details...
-  },
-  "role": {
-    "id": "role_id",
-    "name": "Admin",
-    ...full role permissions...
-  },
-  "is_default": true
-}
-```
+---
+
+## ✅ Phase 3: Authentication Guard - COMPLETE
+
+### Implementation
+**File:** `apps/web/src/app/(dashboard)/layout.tsx`
+
+**Changes:**
+- Added authentication check at layout level
+- Shows loading spinner during auth check
+- Returns `null` if not authenticated (prevents flash)
+- Redirects to `/login` with current path preserved
+- Uses `mounted` state to prevent hydration mismatch
 
 **Code:**
-```python
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def my_organisations_view(request: Request) -> Response:
-    memberships = auth_service.get_user_organisations(request.user)
-    
-    data = []
-    for membership in memberships:
-        data.append({
-            "id": str(membership.id),
-            "org": {
-                "id": str(membership.org.id),
-                "name": membership.org.name,
-                "legal_name": membership.org.legal_name,
-                "uen": membership.org.uen,
-                "entity_type": membership.org.entity_type,
-                "gst_registered": membership.org.gst_registered,
-                "gst_reg_number": membership.org.gst_reg_number,
-                "gst_reg_date": membership.org.gst_reg_date,
-                "gst_scheme": membership.org.gst_scheme,
-                "gst_filing_frequency": membership.org.gst_filing_frequency,
-                "peppol_participant_id": membership.org.peppol_participant_id,
-                "invoicenow_enabled": membership.org.invoicenow_enabled,
-                "fy_start_month": membership.org.fy_start_month,
-                "base_currency": membership.org.base_currency,
-                "timezone": membership.org.timezone,
-                "is_active": membership.org.is_active,
-            },
-            "role": {
-                "id": str(membership.role.id),
-                "name": membership.role.name,
-                "can_manage_org": membership.role.can_manage_org,
-                "can_manage_users": membership.role.can_manage_users,
-                "can_manage_coa": membership.role.can_manage_coa,
-                "can_create_invoices": membership.role.can_create_invoices,
-                "can_approve_invoices": membership.role.can_approve_invoices,
-                "can_void_invoices": membership.role.can_void_invoices,
-                "can_create_journals": membership.role.can_create_journals,
-                "can_manage_banking": membership.role.can_manage_banking,
-                "can_file_gst": membership.role.can_file_gst,
-                "can_view_reports": membership.role.can_view_reports,
-                "can_export_data": membership.role.can_export_data,
-            },
-            "is_default": membership.is_default,
-        })
-    
-    return Response(data)
+```typescript
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/providers/auth-provider";
+import { Shell } from "@/components/layout/shell";
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    // Only redirect after initial loading is complete
+    if (mounted && !isLoading && !isAuthenticated) {
+      const currentPath = window.location.pathname;
+      const returnUrl = currentPath !== '/' ? `?redirect=${encodeURIComponent(currentPath)}` : '';
+      router.push(`/login${returnUrl}`);
+    }
+  }, [mounted, isLoading, isAuthenticated, router]);
+
+  // Show loading state during auth check
+  if (!mounted || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-void">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-primary"></div>
+      </div>
+    );
+  }
+
+  // Don't render children if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return <Shell>{children}</Shell>;
+}
 ```
 
 ### Test Results
 ```
-======================================================================
-FINAL TEST RESULTS
-======================================================================
-✅ PASS: Login API was called
-✅ PASS: Organisations API was called
-✅ PASS: Redirected to dashboard
-✅ PASS: Dashboard content visible
-
-Tests Passed: 4/4
-
-🎉 ALL TESTS PASSED!
-✅ Phase 2 implementation is COMPLETE
+✅ PASS: Unauthenticated users are redirected to login
+✅ PASS: Login flow works end-to-end
+✅ PASS: No flash of protected content
 ```
 
-**Test Details:**
-- Login API: `POST http://localhost:8000/api/v1/auth/login/` → 200 OK
-- Organisations API: `GET http://localhost:8000/api/v1/auth/organisations/` → 200 OK
-- Current URL after login: `http://localhost:3000/dashboard/`
-- Has dashboard content: True
-- Has organisation name: True
+**Detailed Test Results:**
+```
+TEST 1: Unauthenticated access to /dashboard/
+  URL: http://localhost:3000/login/?redirect=%2Fdashboard%2F
+  Redirected to login: True
+  Shows login form: True
+  Result: ✅ PASS
+
+TEST 2: Login flow redirects to dashboard
+  URL after login: http://localhost:3000/dashboard/
+  Is dashboard: True
+  Result: ✅ PASS
+
+TEST 3: No flash of protected content on unauthenticated access
+  Has sidebar (should be False): False
+  Has nav (should be False): False
+  Has login form (should be True): True
+  Result: ✅ PASS
+```
 
 ---
 
-## Test Credentials Created
+## Security Architecture: Defense-in-Depth
+
+The authentication system now has **multiple layers of protection**:
+
+### Layer 1: AuthProvider Redirect (Phase 1)
+- **Level:** Application root
+- **Timing:** On authentication check failure
+- **Function:** Catches unauthenticated users at the earliest point
+
+### Layer 2: Layout Guard (Phase 3)
+- **Level:** Dashboard layout
+- **Timing:** Before rendering protected content
+- **Function:** Prevents any flash of protected UI
+
+### Layer 3: API Authentication (Backend)
+- **Level:** API endpoints
+- **Timing:** On every API request
+- **Function:** Validates JWT tokens on backend
+
+**Result:** Even if one layer fails, the other layers provide protection.
+
+---
+
+## Test Credentials
 
 **Email:** test@example.com  
 **Password:** testpassword123  
 **Organisation:** Test Organisation  
-**Role:** Admin (full permissions)  
-**Default:** Yes
-
----
-
-## Issues Fixed During Phase 2
-
-### Issue 1: Backend Response Structure Mismatch
-**Problem:** Backend returned `{ user, tokens: { access, refresh } }` but frontend expected `{ user, organisations, access }`
-
-**Solution:** Modified frontend to match backend response structure and fetch organisations separately.
-
-### Issue 2: UUID Serialization Error
-**Problem:** `TypeError: Object of type UUID is not JSON serializable`
-
-**Solution:** Added `str()` conversion for all UUID fields in backend response.
-
-### Issue 3: Organisations Response Structure Mismatch
-**Problem:** Backend returned flat structure, frontend expected nested `org` property
-
-**Solution:** Restructured backend response to match frontend's expected structure with full organisation and role details.
+**Role:** Admin (full permissions)
 
 ---
 
 ## Files Modified
 
 ### Frontend
-1. `apps/web/src/providers/auth-provider.tsx` (lines 116-127, 135-167)
-   - Added redirect logic in catch block
-   - Modified login() function to match backend response
+1. `apps/web/src/providers/auth-provider.tsx`
+   - Lines 116-127: Added redirect logic
+   - Lines 135-167: Modified login() function
 
-2. `apps/web/src/app/(auth)/login/page.tsx` (lines 1-60)
-   - Imported useAuth and ApiError
-   - Connected to backend authentication
-   - Added error handling and redirect logic
+2. `apps/web/src/app/(auth)/login/page.tsx`
+   - Lines 1-60: Connected to backend authentication
+
+3. `apps/web/src/app/(dashboard)/layout.tsx`
+   - Complete rewrite: Added authentication guard
 
 ### Backend
-1. `apps/backend/apps/core/views/auth.py` (lines 188-234)
-   - Restructured my_organisations_view response
-   - Added full organisation and role details
-   - Converted all UUIDs to strings
+1. `apps/backend/apps/core/views/auth.py`
+   - Lines 188-234: Restructured organisations response
+
+---
+
+## Issues Fixed During Implementation
+
+### Phase 1
+- ✅ Unauthenticated users saw "No Organisation Selected" instead of being redirected
+
+### Phase 2
+- ✅ Backend response structure mismatch (tokens vs organisations)
+- ✅ UUID serialization error (TypeError: Object of type UUID is not JSON serializable)
+- ✅ Organisations response structure mismatch (flat vs nested)
+
+### Phase 3
+- ✅ Potential flash of protected content before redirect
+- ✅ No defense-in-depth at layout level
 
 ---
 
 ## Remaining Phases
 
-### Phase 3: Authentication Guard (PENDING)
-- Add auth check to DashboardLayout
-- Redirect unauthenticated users
-- Prevent flash of protected content
-
 ### Phase 4: Error Message Differentiation (PENDING)
-- Update DashboardClient to check `isAuthenticated`
-- Different messages for different states
-- Actionable buttons
+**Priority:** Medium  
+**Scope:** Update DashboardClient to check `isAuthenticated`  
+**Effort:** 30 minutes
 
 ### Phase 5: E2E Testing & Documentation (PENDING)
-- Create Playwright E2E tests
-- Update backend integration tests
-- Update AGENTS.md
-- Update README.md
+**Priority:** High  
+**Scope:** Create comprehensive E2E tests and update documentation  
+**Effort:** 1.5 hours
 
 ---
 
 ## Progress Summary
 
-**Completed:** 2 of 5 phases  
-**Progress:** 40% Complete  
+**Completed:** 3 of 5 phases  
+**Progress:** 60% Complete  
 **Status:** On Track  
 **Blockers:** None
 
 **Test Coverage:**
 - Phase 1: 100% passing (redirect to login)
 - Phase 2: 100% passing (login flow end-to-end)
+- Phase 3: 100% passing (authentication guard)
+
+**Total Tests:** 10 tests across 3 phases  
+**Tests Passed:** 10/10 (100%)
+
+---
+
+## Key Achievements
+
+1. **Complete Authentication Flow**
+   - Login page connected to backend
+   - JWT tokens handled correctly
+   - User state managed properly
+   - Organisations loaded and displayed
+
+2. **Defense-in-Depth Security**
+   - Multiple layers of authentication checks
+   - No single point of failure
+   - Protection at multiple levels
+
+3. **No Flash of Protected Content**
+   - Layout guard prevents rendering before auth check
+   - Clean user experience
+   - No visual artifacts
+
+4. **TDD Methodology Followed**
+   - Each phase tested before implementation
+   - Tests written first (RED phase)
+   - Implementation verified (GREEN phase)
+   - All tests passing
+
+5. **Production-Ready Code**
+   - Error handling comprehensive
+   - Loading states implemented
+   - Hydration-safe (mounted state)
+   - Redirect parameter preservation
 
 ---
 
@@ -343,12 +291,47 @@ Tests Passed: 4/4
 
 1. ✅ Phase 1: AuthProvider Redirect - COMPLETE
 2. ✅ Phase 2: Login Backend Integration - COMPLETE
-3. ⏳ Phase 3: Authentication Guard - READY TO START
-4. ⏳ Phase 4: Error Message Differentiation - PENDING
+3. ✅ Phase 3: Authentication Guard - COMPLETE
+4. ⏳ Phase 4: Error Message Differentiation - READY TO START
 5. ⏳ Phase 5: E2E Testing & Documentation - PENDING
 
 ---
 
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER REQUEST                             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 1: AuthProvider (Phase 1)                                │
+│  - checkSession() on mount                                       │
+│  - Calls /api/v1/auth/me/                                        │
+│  - 401 → Redirect to /login                                      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 2: DashboardLayout Guard (Phase 3)                       │
+│  - Check isAuthenticated                                         │
+│  - false → Redirect to /login                                    │
+│  - false → Return null (no flash)                                │
+│  - true → Render <Shell>{children}</Shell>                       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 3: Backend API (Existing)                                 │
+│  - CORSJWTAuthentication                                         │
+│  - JWT token validation                                          │
+│  - 401 for invalid/missing tokens                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 **Last Updated:** 2026-03-08  
-**Test Status:** ALL PASSING  
-**Ready for:** Phase 3 Implementation
+**Test Status:** ALL PASSING (10/10)  
+**Ready for:** Phase 4 Implementation

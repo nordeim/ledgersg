@@ -314,9 +314,45 @@ As an autonomous agent working on PRs, you must adhere to the following operatio
 
 ---
 
-## 8. Future Roadmap & Priorities
 
-### 8.1 Immediate (High Priority)
+## 8. Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER REQUEST                             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 1: AuthProvider (Phase 1)                                │
+│  - checkSession() on mount                                       │
+│  - Calls /api/v1/auth/me/                                        │
+│  - 401 → Redirect to /login                                      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 2: DashboardLayout Guard (Phase 3)                       │
+│  - Check isAuthenticated                                         │
+│  - false → Redirect to /login                                    │
+│  - false → Return null (no flash)                                │
+│  - true → Render <Shell>{children}</Shell>                       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 3: Backend API (Existing)                                 │
+│  - CORSJWTAuthentication                                         │
+│  - JWT token validation                                          │
+│  - 401 for invalid/missing tokens                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 9. Future Roadmap & Priorities
+
+### 9.1 Immediate (High Priority)
 - ✅ **Banking Module:** Replace stubs in `banking/views.py` with validated logic (SEC-001). **COMPLETE** (2026-03-02)
 - ✅ **Organization Context:** Replace hardcoded `DEFAULT_ORG_ID` with dynamic user context. **COMPLETE** (2026-03-03)
 - ✅ **Integration Gaps:** Validate GAP-3 (Peppol) and GAP-4 (Org Settings) endpoints. **COMPLETE** (2026-03-04)
@@ -324,14 +360,14 @@ As an autonomous agent working on PRs, you must adhere to the following operatio
 - ✅ **Content Security Policy:** Implement CSP headers on backend (SEC-003). **COMPLETE** (2026-03-07)
 - **Error Handling:** Add retry logic and fallback UI for dashboard API failures.
 
-### 8.2 Short-Term (Medium Priority)
+### 9.2 Short-Term (Medium Priority)
 - ✅ **Rate Limiting:** Implement `django-ratelimit` on auth endpoints (SEC-002). **COMPLETE** (2026-03-02)
 - ✅ **CSP Headers:** Configure Content Security Policy (SEC-003). **COMPLETE** (2026-03-07)
 - **Frontend Tests:** Expand coverage for hooks and forms (SEC-004).
 - **CI/CD:** Automate manual DB initialization workflow in GitHub Actions.
 - **Peppol Enhancement:** Implement actual transmission log (currently stub).
 
-### 8.3 Long-Term (Low Priority)
+### 9.3 Long-Term (Low Priority)
 - **InvoiceNow:** Finalize Peppol XML transmission logic.
 - **PII Encryption:** Encrypt sensitive data at rest.
 - **Mobile Optimization:** Responsive refinements for dashboard.
@@ -339,7 +375,7 @@ As an autonomous agent working on PRs, you must adhere to the following operatio
 
 ---
 
-## 9. Conclusion
+## 10. Conclusion
 
 LedgerSG represents a mature, security-conscious platform balancing regulatory compliance with modern engineering practices. The **SQL-First** design ensures data integrity, while the **Service Layer** ensures maintainability. 
 

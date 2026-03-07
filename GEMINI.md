@@ -114,3 +114,38 @@ psql -d test_ledgersg_dev -f database_schema.sql
 - **Palette**: Dark (Carbon), High-contrast accents (Emerald/Amber).
 - **Typography**: Bespoke hierarchy, mono-space for financial data.
 - **Philosophy**: Whitespace as structure, no "safe" templates.
+
+
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER REQUEST                             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 1: AuthProvider (Phase 1)                                │
+│  - checkSession() on mount                                       │
+│  - Calls /api/v1/auth/me/                                        │
+│  - 401 → Redirect to /login                                      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 2: DashboardLayout Guard (Phase 3)                       │
+│  - Check isAuthenticated                                         │
+│  - false → Redirect to /login                                    │
+│  - false → Return null (no flash)                                │
+│  - true → Render <Shell>{children}</Shell>                       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 3: Backend API (Existing)                                 │
+│  - CORSJWTAuthentication                                         │
+│  - JWT token validation                                          │
+│  - 401 for invalid/missing tokens                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
