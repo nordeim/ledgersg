@@ -15,6 +15,13 @@ echo "git clone https://github.com/nordeim/ledgersg.git"
 
 source /opt/venv/bin/activate && export PGPASSWORD=ledgersg_secret_to_change && dropdb -h localhost -U ledgersg test_ledgersg_dev 2>&1; createdb -h localhost -U ledgersg test_ledgersg_dev 2>&1; psql -h localhost -U ledgersg -d test_ledgersg_dev -f /home/project/Ledger-SG/database_schema.sql 2>&1 | tail -10
 
+# source /opt/venv/bin/activate && python manage.py runserver 0.0.0.0:8000 > /tmp/backend.log 2>&1 &
+#
+# pkill -f "runserver" && sleep 2 && source /opt/venv/bin/activate && python manage.py check --deploy 2>&1 | tail -30
+# source /opt/venv/bin/activate && python manage.py check --deploy 2>&1 | tail -30
+# Test CORS preflight with running server
+# curl -s -X OPTIONS http://localhost:8000/api/v1/auth/me/ -i 2>&1 | head -25
+
 cd /home/project/ledgersg/apps/backend && source /opt/venv/bin/activate && python manage.py runserver 0.0.0.0:8000
 
 cd /home/project/ledgersg/apps/web && rm -rf .next && npm run build:server

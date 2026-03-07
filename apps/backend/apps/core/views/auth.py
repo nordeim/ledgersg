@@ -142,7 +142,12 @@ def me_view(request: Request) -> Response:
 
     GET /api/v1/auth/me/
     PATCH /api/v1/auth/me/
+    OPTIONS /api/v1/auth/me/  # CORS preflight
     """
+    # Handle OPTIONS preflight request
+    if request.method == "OPTIONS":
+        return Response(status=200)
+
     if request.method == "GET":
         return Response(UserProfileSerializer(request.user).data)
 

@@ -202,7 +202,7 @@ AUTH_USER_MODEL = "core.AppUser"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.core.authentication.CORSJWTAuthentication",  # CORS-aware JWT auth
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -375,10 +375,8 @@ CONTENT_SECURITY_POLICY_REPORT_ONLY = {
     },
 }
 
-# Legacy CSP_* settings (django-csp < 4.0) - NOT USED in 4.0+
-# Kept for reference but overridden by CONTENT_SECURITY_POLICY dict
-CSP_REPORT_ONLY = True
-CSP_REPORT_URI = "/api/v1/security/csp-report/"
+# Legacy CSP_* settings removed - django-csp 4.0+ uses dict-based config
+# See CONTENT_SECURITY_POLICY_REPORT_ONLY above
 
 # =============================================================================
 # DECIMAL / FINANCIAL SETTINGS
