@@ -13,6 +13,8 @@ echo "git clone https://github.com/nordeim/ledgersg.git"
 # source /opt/venv/bin/activate && pytest apps/reporting/tests/test_dashboard_service_tdd.py::TestEdgeCases::test_handles_empty_organisation --reuse-db --no-migrations -v 2>&1
 # cd /home/project/Ledger-SG/apps/backend && export PGPASSWORD=ledgersg_secret_to_change && createdb -h localhost -U ledgersg test_ledgersg_dev 2>/dev/null || echo "DB already exists or creating..." && psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql > /dev/null 2>&1 && source /opt/venv/bin/activate && pytest tests/integration/test_organisation_settings.py::TestOrganisationSettingsView::test_get_settings_success -v --tb=short 2>&1 | tail -60
 
+source /opt/venv/bin/activate && export PGPASSWORD=ledgersg_secret_to_change && dropdb -h localhost -U ledgersg test_ledgersg_dev 2>&1; createdb -h localhost -U ledgersg test_ledgersg_dev 2>&1; psql -h localhost -U ledgersg -d test_ledgersg_dev -f /home/project/Ledger-SG/database_schema.sql 2>&1 | tail -10
+
 cd /home/project/ledgersg/apps/backend && source /opt/venv/bin/activate && python manage.py runserver 0.0.0.0:8000
 
 cd /home/project/ledgersg/apps/web && rm -rf .next && npm run build:server
