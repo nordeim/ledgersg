@@ -13,11 +13,11 @@ from common.models import BaseModel
 class Organisation(BaseModel):
     """
     Organisation (tenant) model.
-    
+
     Maps to core.organisation table.
     Each organisation has its own Chart of Accounts, invoices, etc.
     """
-    
+
     # Basic info
     name = models.CharField(
         max_length=255,
@@ -28,7 +28,7 @@ class Organisation(BaseModel):
         blank=True,
         db_column="legal_name",
     )
-    
+
     # Singapore-specific identifiers
     uen = models.CharField(
         max_length=20,
@@ -52,7 +52,7 @@ class Organisation(BaseModel):
         db_column="entity_type",
         choices=ENTITY_TYPES,
     )
-    
+
     # GST registration
     gst_registered = models.BooleanField(
         default=False,
@@ -98,7 +98,7 @@ class Organisation(BaseModel):
         db_column="gst_filing_frequency",
         choices=GST_FILING_FREQUENCIES,
     )
-    
+
     # InvoiceNow / Peppol
     peppol_participant_id = models.CharField(
         max_length=64,
@@ -120,7 +120,43 @@ class Organisation(BaseModel):
         blank=True,
         db_column="invoicenow_ap_id",
     )
-    
+
+    # Additional Peppol configuration fields
+    access_point_provider = models.CharField(
+        max_length=100,
+        blank=True,
+        db_column="access_point_provider",
+        help_text="IMDA-accredited Access Point provider",
+    )
+    access_point_api_url = models.URLField(
+        blank=True,
+        null=True,
+        db_column="access_point_api_url",
+        help_text="AP provider API endpoint URL",
+    )
+    access_point_api_key = models.CharField(
+        max_length=255,
+        blank=True,
+        db_column="access_point_api_key",
+        help_text="AP provider API key (should be encrypted at application level)",
+    )
+    access_point_client_id = models.CharField(
+        max_length=100,
+        blank=True,
+        db_column="access_point_client_id",
+        help_text="AP provider client ID",
+    )
+    auto_transmit = models.BooleanField(
+        default=False,
+        db_column="auto_transmit",
+        help_text="Auto-transmit invoices on approval",
+    )
+    transmission_retry_attempts = models.IntegerField(
+        default=3,
+        db_column="transmission_retry_attempts",
+        help_text="Number of retry attempts on transmission failure",
+    )
+
     # Fiscal settings
     fy_start_month = models.SmallIntegerField(
         default=1,
@@ -142,7 +178,7 @@ class Organisation(BaseModel):
         default="DD/MM/YYYY",
         db_column="date_format",
     )
-    
+
     # Address
     address_line_1 = models.CharField(
         max_length=255,
@@ -174,7 +210,7 @@ class Organisation(BaseModel):
         default="SG",
         db_column="country",
     )
-    
+
     # Contact
     phone = models.CharField(
         max_length=30,
@@ -204,13 +240,13 @@ class Organisation(BaseModel):
         blank=True,
         db_column="logo_url",
     )
-    
+
     # Status
     is_active = models.BooleanField(
         default=True,
         db_column="is_active",
     )
-    
+
     # Soft delete
     deleted_at = models.DateTimeField(
         null=True,
@@ -226,30 +262,35 @@ class Organisation(BaseModel):
         db_column="deleted_by",
         related_name="deleted_organisations",
     )
-    
+
     class Meta:
         managed = False
         db_table = 'core"."organisation'
         verbose_name = "organisation"
         verbose_name_plural = "organisations"
-    
+
     def __str__(self) -> str:
         return self.name
-    
+
     @property
     def is_gst_registered(self) -> bool:
         """Check if org is GST registered with valid registration."""
         return self.gst_registered and bool(self.gst_reg_number)
-    
+
     @property
     def current_fiscal_year(self):
         """Get the current open fiscal year."""
         from .fiscal_year import FiscalYear
-        return FiscalYear.objects.filter(
-            org=self,
-            is_closed=False,
-        ).order_by("start_date").first()
-    
+
+        return (
+            FiscalYear.objects.filter(
+                org=self,
+                is_closed=False,
+            )
+            .order_by("start_date")
+            .first()
+        )
+
     @property
     def gst_filing_periods_per_year(self) -> int:
         """Return number of GST filing periods per year."""

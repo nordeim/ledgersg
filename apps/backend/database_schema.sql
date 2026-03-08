@@ -243,9 +243,25 @@ COMMENT ON COLUMN core.organisation.peppol_participant_id
     IS 'Peppol network ID for InvoiceNow. Format: schemeID:identifier (e.g., 0195:202301234A).';
 
 CREATE TRIGGER trg_organisation_updated_at
-    BEFORE UPDATE ON core.organisation
-    FOR EACH ROW EXECUTE FUNCTION core.set_updated_at();
+BEFORE UPDATE ON core.organisation
+FOR EACH ROW EXECUTE FUNCTION core.set_updated_at();
 
+-- ============================================
+-- ORGANISATION PEPPOL FIELD EXTENSIONS
+-- Added: 2026-03-08
+-- ============================================
+
+ALTER TABLE core.organisation
+ADD COLUMN IF NOT EXISTS access_point_provider VARCHAR(100) DEFAULT '',
+ADD COLUMN IF NOT EXISTS access_point_api_url VARCHAR(500),
+ADD COLUMN IF NOT EXISTS access_point_api_key VARCHAR(255),
+ADD COLUMN IF NOT EXISTS access_point_client_id VARCHAR(100),
+ADD COLUMN IF NOT EXISTS auto_transmit BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS transmission_retry_attempts SMALLINT DEFAULT 3;
+
+COMMENT ON COLUMN core.organisation.access_point_provider IS 'IMDA-accredited Access Point provider';
+COMMENT ON COLUMN core.organisation.access_point_api_url IS 'AP provider API endpoint URL';
+COMMENT ON COLUMN core.organisation.access_point_api_key IS 'AP provider API key (should be encrypted at application level)';
 
 -- ──────────────────────────────────────────────
 -- 3b. App User (Authentication & Identity)
@@ -1184,7 +1200,63 @@ COMMENT ON TABLE gst.peppol_transmission_log
 CREATE INDEX idx_peppol_log_doc ON gst.peppol_transmission_log(document_id, attempt_number);
 CREATE INDEX idx_peppol_log_org ON gst.peppol_transmission_log(org_id, transmitted_at DESC);
 CREATE INDEX idx_peppol_log_status ON gst.peppol_transmission_log(status)
-    WHERE status IN ('PENDING', 'FAILED');
+WHERE status IN ('PENDING', 'FAILED');
+
+-- ============================================
+-- PEPPOL TRANSMISSION LOG EXTENSIONS
+-- For InvoiceNow Phase 1 Implementation
+-- Added: 2026-03-08
+-- ============================================
+
+-- Add new fields for enhanced tracking
+ALTER TABLE gst.peppol_transmission_log 
+ADD COLUMN IF NOT EXISTS xml_payload_hash VARCHAR(64),
+ADD COLUMN IF NOT EXISTS access_point_provider VARCHAR(100),
+ADD COLUMN IF NOT EXISTS mlr_status VARCHAR(50),
+ADD COLUMN IF NOT EXISTS mlr_received_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS iras_submission_id VARCHAR(100);
+
+COMMENT ON COLUMN gst.peppol_transmission_log.xml_payload_hash IS 'SHA-256 hash of complete XML payload for audit trail';
+COMMENT ON COLUMN gst.peppol_transmission_log.access_point_provider IS 'IMDA-accredited AP provider name (e.g., Storecove)';
+COMMENT ON COLUMN gst.peppol_transmission_log.mlr_status IS 'Message Level Response status from AP';
+COMMENT ON COLUMN gst.peppol_transmission_log.mlr_received_at IS 'Timestamp when MLR received from AP';
+COMMENT ON COLUMN gst.peppol_transmission_log.iras_submission_id IS 'IRAS submission reference for 5th corner reporting';
+
+-- ============================================
+-- ORGANISATION PEPPOL SETTINGS
+-- Added: 2026-03-08
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS gst.organisation_peppol_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id UUID NOT NULL REFERENCES core.organisation(id) ON DELETE CASCADE,
+    
+    -- Access Point Configuration
+    access_point_provider VARCHAR(100) NOT NULL DEFAULT '',
+    access_point_api_url VARCHAR(500),
+    access_point_api_key VARCHAR(255), -- Encrypted
+    access_point_client_id VARCHAR(100),
+    
+    -- Transmission Settings
+    auto_transmit BOOLEAN NOT NULL DEFAULT FALSE,
+    transmission_retry_attempts SMALLINT NOT NULL DEFAULT 3,
+    
+    -- Status
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    configured_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_transmission_at TIMESTAMPTZ,
+    
+    -- Constraints
+    CONSTRAINT chk_retry_positive CHECK (transmission_retry_attempts > 0),
+    CONSTRAINT chk_one_settings_per_org UNIQUE (org_id)
+);
+
+COMMENT ON TABLE gst.organisation_peppol_settings IS 'Peppol/InvoiceNow configuration per organisation. One row per org.';
+
+-- Performance indexes
+CREATE INDEX IF NOT EXISTS idx_peppol_settings_org 
+ON gst.organisation_peppol_settings(org_id) 
+WHERE is_active = TRUE;
 
 -- NOTE: Permissions granted in §15 Application Roles & Grants
 
