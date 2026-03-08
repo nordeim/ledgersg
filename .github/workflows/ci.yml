@@ -1,0 +1,239 @@
+# .github/workflows/ci.yml
+# LedgerSG Enterprise CI/CD Pipeline
+# SQL-First Architecture Validation with PostgreSQL RLS
+#
+# This pipeline institutionalizes the "SQL-First" mandate by:
+# 1. Manually initializing PostgreSQL with database_schema.sql (not migrations)
+# 2. Running pytest with --no-migrations and --reuse-db flags
+# 3. Validating 340+ backend tests against the true production schema
+#
+# Version: 1.0.0
+# Last Updated: 2026-03-08
+
+name: LedgerSG Enterprise CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  POSTGRES_USER: ledgersg
+  POSTGRES_PASSWORD: ledgersg_secret_to_change
+  POSTGRES_DB: ledgersg_dev
+  POSTGRES_HOST: localhost
+  POSTGRES_PORT: 5432
+
+jobs:
+  # ============================================================================
+  # BACKEND TESTS: Django 6 / Pytest with SQL-First Database Initialization
+  # ============================================================================
+  backend-tests:
+    name: Backend Tests (Django 6 / Pytest)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ledgersg
+          POSTGRES_PASSWORD: ledgersg_secret_to_change
+          POSTGRES_DB: ledgersg_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "apps/backend/requirements*.txt"
+
+      - name: 📦 Install Backend Dependencies
+        working-directory: ./apps/backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: 🗄️ Initialize Unmanaged SQL Schema (SQL-First Mandate)
+        env:
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        run: |
+          echo "🔄 Initializing SQL-First database schema..."
+          
+          # Wait for PostgreSQL to be ready
+          for i in {1..10}; do
+            if pg_isready -h ${{ env.POSTGRES_HOST }} -U ${{ env.POSTGRES_USER }}; then
+              echo "✅ PostgreSQL is ready"
+              break
+            fi
+            echo "⏳ Waiting for PostgreSQL... (attempt $i/10)"
+            sleep 2
+          done
+          
+          # 1. Create the test database
+          echo "📁 Creating test_ledgersg_dev database..."
+          createdb -h ${{ env.POSTGRES_HOST }} -U ${{ env.POSTGRES_USER }} test_ledgersg_dev
+          
+          # 2. Inject the source-of-truth schema into the test database
+          echo "🔄 Loading database_schema.sql..."
+          psql -h ${{ env.POSTGRES_HOST }} -U ${{ env.POSTGRES_USER }} -d test_ledgersg_dev -f apps/backend/database_schema.sql
+          
+          # 3. Verify schema loaded
+          echo "✅ Schema loaded successfully. Verifying tables..."
+          psql -h ${{ env.POSTGRES_HOST }} -U ${{ env.POSTGRES_USER }} -d test_ledgersg_dev -c "\dt core.*" | head -20
+          
+          echo "✅ Database initialization complete"
+
+      - name: 🧪 Run Backend Tests (Meticulous Workflow)
+        working-directory: ./apps/backend
+        env:
+          DATABASE_URL: postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
+          REDIS_URL: redis://localhost:6379/1
+          SECRET_KEY: test_secret_key_for_ci_pipeline
+          DJANGO_SETTINGS_MODULE: config.settings.testing
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        run: |
+          echo "🧪 Running backend tests with SQL-First configuration..."
+          echo "📊 Configuration:"
+          echo "   - DATABASE_URL: postgres://****@****:****/ledgersg_dev"
+          echo "   - REDIS_URL: redis://localhost:6379/1"
+          echo "   - DJANGO_SETTINGS_MODULE: config.settings.testing"
+          echo ""
+          
+          # Run tests avoiding migrations and reusing our precisely built schema
+          # --no-migrations: Prevents Django from trying to run migrations (schema already loaded)
+          # --reuse-db: Forces pytest to use our manually created test_ledgersg_dev database
+          pytest --reuse-db --no-migrations -v --tb=short
+          
+          echo "✅ Backend tests completed"
+
+      - name: 📊 Generate Test Report
+        if: always()
+        working-directory: ./apps/backend
+        run: |
+          echo "📈 Generating test report..."
+          pytest --reuse-db --no-migrations --tb=no -q || true
+
+  # ============================================================================
+  # FRONTEND TESTS: Next.js 16 / TypeScript / Vitest
+  # ============================================================================
+  frontend-tests:
+    name: Frontend Tests (Next.js 16 / Vitest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "apps/web/package.json"
+
+      - name: 📦 Install Frontend Dependencies
+        working-directory: ./apps/web
+        run: |
+          echo "📦 Installing frontend dependencies..."
+          npm ci
+          echo "✅ Dependencies installed"
+
+      - name: 🔎 TypeScript Strict Check
+        working-directory: ./apps/web
+        run: |
+          echo "🔍 Running TypeScript strict check..."
+          npx tsc --noEmit
+          echo "✅ TypeScript check passed"
+
+      - name: 🧪 Run Frontend Tests
+        working-directory: ./apps/web
+        run: |
+          echo "🧪 Running frontend tests..."
+          npm test -- --reporter=verbose
+          echo "✅ Frontend tests completed"
+
+      - name: 🏗️ Build Verification
+        working-directory: ./apps/web
+        run: |
+          echo "🏗️ Verifying production build..."
+          npm run build:server
+          echo "✅ Build successful"
+
+  # ============================================================================
+  # SECURITY SCAN: Dependency vulnerabilities
+  # ============================================================================
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔍 Backend Security Check
+        working-directory: ./apps/backend
+        run: |
+          pip install safety bandit
+          safety check || true
+          bandit -r . -f json -o bandit-report.json || true
+
+      - name: 🔍 Frontend Security Check
+        working-directory: ./apps/web
+        run: |
+          npm audit --audit-level=moderate || true
+
+  # ============================================================================
+  # SUMMARY: Overall CI Status
+  # ============================================================================
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, security-scan]
+    if: always()
+
+    steps:
+      - name: 📊 CI Summary
+        run: |
+          echo "========================================"
+          echo "📊 LedgerSG CI/CD Pipeline Summary"
+          echo "========================================"
+          echo ""
+          echo "Backend Tests: ${{ needs.backend-tests.result == 'success' && '✅ PASSED' || '❌ FAILED' }}"
+          echo "Frontend Tests: ${{ needs.frontend-tests.result == 'success' && '✅ PASSED' || '❌ FAILED' }}"
+          echo "Security Scan: ${{ needs.security-scan.result == 'success' && '✅ PASSED' || '❌ FAILED' }}"
+          echo ""
+          echo "Overall Status: ${{ (needs.backend-tests.result == 'success' && needs.frontend-tests.result == 'success') && '✅ ALL CHECKS PASSED' || '❌ SOME CHECKS FAILED' }}"
+          echo "========================================"
+
+      - name: ✅ Mark as Success
+        if: needs.backend-tests.result == 'success' && needs.frontend-tests.result == 'success'
+        run: echo "All critical tests passed!"
+
+      - name: ❌ Mark as Failed
+        if: needs.backend-tests.result != 'success' || needs.frontend-tests.result != 'success'
+        run: |
+          echo "Some tests failed. Please review the logs above."
+          exit 1

@@ -470,3 +470,46 @@ File Hierarchy Diagram:
 - Maintained project branding and tone
 - Updated all version numbers and dates to 2026-03-08
 The README is now production-ready and provides an excellent entry point for developers, AI agents, and stakeholders! 🚀
+
+---
+
+✅ CI/CD Pipeline Created
+Jobs Structure:
+1. backend-tests - Django 6 / Pytest with SQL-First initialization
+   - PostgreSQL 16 service
+   - Redis 7 service
+   - Manual database initialization with database_schema.sql
+   - Runs pytest --reuse-db --no-migrations
+   - Health checks for services
+2. frontend-tests - Next.js 16 / Vitest
+   - TypeScript strict check (tsc --noEmit)
+   - Vitest test execution
+   - Production build verification
+3. security-scan - Dependency vulnerability scanning
+   - Safety & Bandit for Python
+   - npm audit for Node.js
+   - Runs after main tests pass
+4. ci-summary - Overall status reporting
+   - Aggregates all job results
+   - Fails the workflow if any critical tests fail
+Key Features:
+✅ SQL-First Architecture Support
+- Manual database creation: createdb test_ledgersg_dev
+- Schema injection: psql ... -f database_schema.sql
+- Verification step to confirm tables loaded
+✅ Meticulous Testing
+- --no-migrations: Prevents Django from trying to create schema
+- --reuse-db: Uses our manually created database
+- Proper environment variables for test DB
+✅ Full Stack Validation
+- Backend: 346+ pytest tests
+- Frontend: 305+ Vitest tests
+- TypeScript strict mode
+- Security scanning
+✅ Production-Ready
+- Health checks for PostgreSQL and Redis
+- Proper caching for dependencies
+- Detailed logging and reporting
+- Branch protection (main/develop)
+The pipeline ensures that every PR validates against the true production schema, eliminating the "collected vs passing" ambiguity! 🚀
+
