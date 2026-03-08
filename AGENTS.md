@@ -640,3 +640,24 @@ Added a comprehensive Troubleshooting section to API_CLI_Usage_Guide.md covering
 - 403 Forbidden: Check org_id, RLS context, and membership status
 - 500 Errors: Exception logging via wrap_response decorator
 
+# Documentation Created ✅
+- UUID_PATTERNS_GUIDE.md - Comprehensive guide covering:
+  - Django URL converter behavior
+  - Common mistakes and fixes
+  - Safe conversion patterns
+  - Testing and migration checklist
+  - Error message explanations
+Files Modified
+File
+tests/integration/test_auth_api.py
+apps/coa/views.py
+UUID_PATTERNS_GUIDE.md
+Key Lessons
+1. Django URL converters automatically convert <uuid:org_id> to UUID objects
+2. Don't double-convert - calling UUID() on a UUID object fails
+3. Query params still need conversion: UUID(request.query_params.get("id"))
+4. LSP errors are type checker warnings, not runtime errors
+Testing Commands
+# Verify RLS tests
+pytest tests/middleware/test_rls_context.py -v --reuse-db --no-migrations
+

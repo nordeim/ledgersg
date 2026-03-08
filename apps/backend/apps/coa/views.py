@@ -125,7 +125,7 @@ class AccountDetailView(APIView):
     def get(self, request, org_id: str, account_id: str) -> Response:
         """Get account details."""
         from uuid import UUID
-        account = AccountService.get_account(UUID(org_id), UUID(account_id))
+        account = AccountService.get_account(org_id, account_id)
         serializer = AccountDetailSerializer(account)
         return Response(serializer.data)
     
@@ -140,8 +140,8 @@ class AccountDetailView(APIView):
         serializer.is_valid(raise_exception=True)
         
         account = AccountService.update_account(
-            org_id=UUID(org_id),
-            account_id=UUID(account_id),
+            org_id=org_id,
+            account_id=account_id,
             **serializer.validated_data
         )
         
@@ -154,7 +154,7 @@ class AccountDetailView(APIView):
         self._check_permission(request, "can_manage_coa")
         
         from uuid import UUID
-        account = AccountService.archive_account(UUID(org_id), UUID(account_id))
+        account = AccountService.archive_account(org_id, account_id)
         
         return Response(
             {"message": "Account archived successfully", "account": AccountDetailSerializer(account).data},
@@ -183,8 +183,8 @@ class AccountBalanceView(APIView):
         from uuid import UUID
         from decimal import Decimal
         
-        balance = AccountService.get_account_balance(UUID(org_id), UUID(account_id))
-        account = AccountService.get_account(UUID(org_id), UUID(account_id))
+        balance = AccountService.get_account_balance(org_id, account_id)
+        account = AccountService.get_account(org_id, account_id)
         
         return Response({
             "account_id": account_id,
@@ -209,7 +209,7 @@ class AccountHierarchyView(APIView):
         
         from uuid import UUID
         hierarchy = AccountService.get_account_hierarchy(
-            UUID(org_id),
+            org_id,
             account_type=account_type
         )
         
@@ -264,7 +264,7 @@ class TrialBalanceView(APIView):
             fiscal_year_id = UUID(fiscal_year_id)
         
         trial_balance = AccountService.get_trial_balance(
-            UUID(org_id),
+            org_id,
             fiscal_year_id=fiscal_year_id
         )
         
