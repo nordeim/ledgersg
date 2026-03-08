@@ -91,6 +91,46 @@ awesome meticulous job so far. please keep up the good work. now, please meticul
 
 ---
 
+Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously plan to create a markdown document named `API_workflow_examples_and_tips_guide.md` , the purpose is to onboard an **accounting** AI agent how to use this software application for a small Singapore business who is not GST registered, design a typical (sample) workflow with step-by-step examples with relevant `curl` and `playwright` code snippets as illustrations, include tips on navigating the backend CORS and other requirements. You can think of it as a kind of quick-start guide to supplement @API_CLI_Usage_Guide.md so that the **accounting** user agent does not need to study the actual code to know how to use this software as an effective tool to upload the accounting data into the PostgreSQL database and how to generate relevent P&L or other IRAS required outputs as PDFs. This is an important assignment for you so please think deeper and harder to explore how best to re-imagine such a sample usafe workflow, then meticulously create an implementation plan for the new workflow guide. review and validate the implementation plan against the actual codebase before executing it. please use web searches to clarify any Singapore IRAS requirements or any assumptions and doubts you may have about the Singapore specific business needs.
+
+Let us break down the requirements:
+1. Target Audience: Accounting AI agent working for a small Singapore business
+2. Business Type: NOT GST registered (so GST considerations are minimal)
+3. Purpose: Quick-start guide to supplement API_CLI_Usage_Guide.md
+4. Content: Step-by-step workflow examples with curl and playwright snippets
+5. Focus: 
+   - Upload accounting data to PostgreSQL
+   - Generate P&L and IRAS-required outputs as PDFs
+   - Navigate CORS and backend requirements
+   - Don't need to study code to use effectively
+Let us create an implementation plan first, then execute it meticulously.
+I should:
+1. Research Singapore IRAS requirements for non-GST registered businesses
+2. Plan the workflow steps
+3. Create the document with curl and playwright examples
+4. Validate against the codebase
+5. Create the final document
+Let us start by exploring the codebase to understand
+
+Then create a comprehensive implementation plan and then execute it meticulously for this accounting AI agent quick-start guide.
+
+# ToDos
+
+[•] Research Singapore IRAS requirements for non-GST registered businesses
+[ ] Design comprehensive 7-step workflow for non-GST SMB
+[ ] Map each workflow step to API endpoints
+[ ] Validate all endpoints against codebase
+[ ] Test sample curl payloads
+[ ] Create comprehensive implementation sub-plan with checklist
+[ ] Draft API_workflow_examples_and_tips_guide.md
+[ ] Final review and validation
+
+---
+
+Awesome job on your meticulous review, analysis and planning. Please keep up the good work in your rigorous and meticulous approach to planning and execution.  Yes, please meticulously proceed with the next step in the implementation plan. begin by thinking hard what to include or add in the step, then create a comprehensive sub-plan with integrated checklist. review and validate the sub-plan against the codebase for correct alignment before proceeding with the execution. please test all the examples and sample codes to be included in the guide. if you have any doubts about the Singapore specific bsuiness or regulatory requiremnts, please use web searches to clarify before proceeding.
+
+---
+
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.
 
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT_BRIEF.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.
