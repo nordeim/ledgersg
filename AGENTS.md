@@ -631,3 +631,12 @@ LedgerSG represents a mature, security-conscious platform balancing regulatory c
 
 Your role is to protect this integrity. Every line of code you commit must uphold the **Meticulous Approach**. Do not rush. Validate deeply. Ensure that every feature not only works but is secure, compliant, and aesthetically aligned with the "Illuminated Carbon" vision.
 
+---
+
+Added a comprehensive Troubleshooting section to API_CLI_Usage_Guide.md covering:
+- UUID Formatting: Django URL converter already provides UUID objects, don't double-convert
+- Decimal Precision: Strings with 4 decimals required, helper function included
+- CORS Errors: Backend handles OPTIONS without auth via CORSJWTAuthentication
+- 403 Forbidden: Check org_id, RLS context, and membership status
+- 500 Errors: Exception logging via wrap_response decorator
+

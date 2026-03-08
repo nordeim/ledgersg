@@ -349,3 +349,9 @@ psql -d test_ledgersg_dev -f database_schema.sql
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+Added a comprehensive Troubleshooting section to API_CLI_Usage_Guide.md covering:
+- UUID Formatting: Django URL converter already provides UUID objects, don't double-convert
+- Decimal Precision: Strings with 4 decimals required, helper function included
+- CORS Errors: Backend handles OPTIONS without auth via CORSJWTAuthentication
+- 403 Forbidden: Check org_id, RLS context, and membership status
+- 500 Errors: Exception logging via wrap_response decorator
