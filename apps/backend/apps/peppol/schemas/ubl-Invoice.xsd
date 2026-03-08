@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+           xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">
+  <xs:annotation>
+    <xs:documentation>
+      UBL 2.1 Invoice Schema - Minimal version for LedgerSG
+      Full schema available at: https://docs.peppol.eu/poac/sg/pint-sg/trn-invoice/syntax/ubl-Invoice.xsd
+    </xs:documentation>
+  </xs:annotation>
+  
+  <xs:element name="Invoice" type="InvoiceType"/>
+  
+  <xs:complexType name="InvoiceType">
+    <xs:sequence>
+      <xs:element name="UBLVersionID" type="xs:string" minOccurs="0"/>
+      <xs:element name="CustomizationID" type="xs:string" minOccurs="0"/>
+      <xs:element name="ProfileID" type="xs:string" minOccurs="0"/>
+      <xs:element name="ID" type="xs:string"/>
+      <xs:element name="IssueDate" type="xs:date"/>
+      <xs:element name="DueDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="InvoiceTypeCode" type="xs:string" minOccurs="0"/>
+      <xs:element name="DocumentCurrencyCode" type="xs:string" minOccurs="0"/>
+      <xs:element name="TaxCurrencyCode" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

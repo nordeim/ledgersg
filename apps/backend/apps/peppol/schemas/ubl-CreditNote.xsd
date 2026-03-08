@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2"
+           xmlns="urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2">
+  <xs:annotation>
+    <xs:documentation>
+      UBL 2.1 CreditNote Schema - Minimal version for LedgerSG
+      Full schema available at: https://docs.peppol.eu/poac/sg/pint-sg/trn-creditnote/syntax/ubl-CreditNote.xsd
+    </xs:documentation>
+  </xs:annotation>
+  
+  <xs:element name="CreditNote" type="CreditNoteType"/>
+  
+  <xs:complexType name="CreditNoteType">
+    <xs:sequence>
+      <xs:element name="UBLVersionID" type="xs:string" minOccurs="0"/>
+      <xs:element name="CustomizationID" type="xs:string" minOccurs="0"/>
+      <xs:element name="ProfileID" type="xs:string" minOccurs="0"/>
+      <xs:element name="ID" type="xs:string"/>
+      <xs:element name="IssueDate" type="xs:date"/>
+      <xs:element name="CreditNoteTypeCode" type="xs:string" minOccurs="0"/>
+      <xs:element name="DocumentCurrencyCode" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
