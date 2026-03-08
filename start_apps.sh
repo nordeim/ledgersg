@@ -224,3 +224,19 @@ Thinking: Excellent! Login works. Now I have a valid access token. Let me extrac
 $ export TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcyOTQwNTkzLCJpYXQiOjE3NzI5MzY5OTMsImp0aSI6ImI1OGZiZWZjZTlmYzRiYTliM2YzZTQ5YWYzZTJhZjAyIiwidXNlcl9pZCI6ImVlMmNkYzQ0LTUwM2YtNDg2NC05YTM2LTAwNWRmMTQ4ZTY1MCIsImRlZmF1bHRfb3JnX2lkIjoiNjVhYmJjZDYtNjEyOS00MWVmLTgyZWQtOWU4NGEzNDQyYzdmIiwiZGVmYXVsdF9vcmdfbmFtZSI6IlRlc3QgT3JnYW5pc2F0aW9uIn0.A5MKTg_aGm5Mjg2aqesus_GTJigu07Au2DiDWDM_Dn0" && export ORG_ID="65abbcd6-6129-41ef-82ed-9e84a3442c7f" && echo "Token and Org ID set"
 Token and Org ID set
 
+---
+
+# Check Django server output for actual errors
+$ ps aux | grep "manage.py" | grep -v grep | awk '{print $2}' | xargs kill -HUP 2>/dev/null; sleep 1; cd /home/project/Ledger-SG/apps/backend && source /opt/venv/bin/activate && timeout 10 python manage.py runserver 0.0.0.0:8000 2>&1 | tail -50 &
+
+---
+
+# Verify Django is running
+$ curl -s http://localhost:8000/api/v1/health/ 2>&1
+{"status": "healthy", "database": "connected", "version": "1.0.0"}
+# Get fresh auth token
+$ curl -s -X POST "http://localhost:8000/api/v1/auth/login/" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "testpass123"}' | jq -r '.tokens.access' 2>/dev/null
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcyOTQ5ODE3LCJpYXQiOjE3NzI5NDYyMTcsImp0aSI6IjMzNmFkMWU5MjBlYTQxYzk4YWYxMDYzMzIxMmFjODU1IiwidXNlcl9pZCI6ImVlMmNkYzQ0LTUwM2YtNDg2NC05YTM2LTAwNWRmMTQ4ZTY1MCIsImRlZmF1bHRfb3JnX2lkIjoiNjVhYmJjZDYtNjEyOS00MWVmLTgyZWQtOWU4NGEzNDQyYzdmIiwiZGVmYXVsdF9vcmdfbmFtZSI6IlRlc3QgT3JnYW5pc2F0aW9uIn0.3k6SSn82QZj3yftMGM19st2VjXIzVh42uZbf1EQASxU
+

@@ -17,6 +17,7 @@ for compatibility with async contexts and ASGI.
 import contextvars
 import uuid
 from typing import Optional
+import logging
 
 from django.db import connection
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -26,14 +27,15 @@ from django.contrib.auth import get_user_model
 from common.exceptions import UnauthorizedOrgAccess
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 # Contextvars for application-layer access
 _current_org_id: contextvars.ContextVar[Optional[uuid.UUID]] = contextvars.ContextVar(
-    'current_org_id', default=None
+    "current_org_id", default=None
 )
 _current_user_id: contextvars.ContextVar[Optional[uuid.UUID]] = contextvars.ContextVar(
-    'current_user_id', default=None
+    "current_user_id", default=None
 )
 
 
@@ -50,38 +52,54 @@ def get_current_user_id() -> Optional[uuid.UUID]:
 class TenantContextMiddleware:
     """
     Middleware that extracts org_id from URL and sets RLS session variables.
-    
+
     Must be placed AFTER AuthenticationMiddleware in MIDDLEWARE list.
     """
-    
+
     def __init__(self, get_response):
         self.get_response = get_response
-    
+
     def __call__(self, request: HttpRequest) -> HttpResponse:
+        logger.debug(f"TenantContextMiddleware processing: {request.path}")
+
         # Skip for non-org-scoped URLs
         if not self._is_org_scoped(request.path):
+            logger.debug(f"Skipping non-org-scoped URL: {request.path}")
             return self.get_response(request)
-        
+
         # Try to authenticate user if not already authenticated
         user = self._get_authenticated_user(request)
-        
+        logger.debug(f"Authenticated user: {user}")
+
         # Skip for unauthenticated users (let view handle auth)
+        # BUT we need to set RLS to NULL to enforce policy denial
         if not user or not user.is_authenticated:
+            logger.warning(f"No authenticated user for {request.path}, setting RLS to NULL")
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SET LOCAL app.current_org_id = NULL")
+                    cursor.execute("SET LOCAL app.current_user_id = NULL")
+                    logger.debug("RLS context set to NULL for unauthenticated request")
+            except Exception as e:
+                logger.error(f"Failed to set RLS context: {e}")
             return self.get_response(request)
-        
+
         # Set user on request for downstream use
         request.user = user
-        
+
         try:
             # Extract org_id from URL
             org_id = self._extract_org_id(request.path)
-            
+            logger.debug(f"Extracted org_id: {org_id}")
+
             if not org_id:
                 # No org_id in URL, let view handle it
+                logger.warning(f"No org_id extracted from {request.path}")
                 return self.get_response(request)
-            
+
             # Verify user belongs to this org
             if not self._verify_org_membership(user, org_id):
+                logger.warning(f"User {user.id} not authorized for org {org_id}")
                 return JsonResponse(
                     {
                         "error": {
@@ -89,36 +107,37 @@ class TenantContextMiddleware:
                             "message": "You do not have access to this organization",
                         }
                     },
-                    status=403
+                    status=403,
                 )
-            
+
             # Get user's role for this org
             org_role = self._get_org_role(request.user, org_id)
-            
+            logger.debug(f"User role: {org_role}")
+
             # Set RLS session variables within the atomic transaction
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "SET LOCAL app.current_org_id = %s",
-                    [str(org_id)]
-                )
-                cursor.execute(
-                    "SET LOCAL app.current_user_id = %s",
-                    [str(request.user.id)]
-                )
-            
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SET LOCAL app.current_org_id = %s", [str(org_id)])
+                    cursor.execute("SET LOCAL app.current_user_id = %s", [str(request.user.id)])
+                    logger.debug(f"RLS context set: org_id={org_id}, user_id={request.user.id}")
+            except Exception as e:
+                logger.error(f"Failed to set RLS context: {e}")
+                raise
+
             # Set contextvars for application-level access
             _current_org_id.set(org_id)
             _current_user_id.set(request.user.id)
-            
+
             # Attach to request for view convenience
             request.org_id = org_id
             request.org_role = org_role
-            
+
             # Proceed with the request
             response = self.get_response(request)
-            
+
+            logger.debug(f"Request completed successfully: {response.status_code}")
             return response
-            
+
         except UnauthorizedOrgAccess as e:
             return JsonResponse(
                 {
@@ -127,7 +146,7 @@ class TenantContextMiddleware:
                         "message": e.message,
                     }
                 },
-                status=e.status_code
+                status=e.status_code,
             )
         except Exception as e:
             # Log the error and return generic response
@@ -139,19 +158,19 @@ class TenantContextMiddleware:
                         "message": "Failed to set tenant context",
                     }
                 },
-                status=500
+                status=500,
             )
-    
+
     def _is_org_scoped(self, path: str) -> bool:
         """
         Check if the URL path is org-scoped.
-        
+
         Org-scoped URLs have the pattern: /api/v1/{org_id}/...
         """
         # Skip non-API paths
         if not path.startswith("/api/v1/"):
             return False
-        
+
         # Skip auth and non-org paths
         skip_prefixes = [
             "/api/v1/health/",
@@ -161,13 +180,13 @@ class TenantContextMiddleware:
         for prefix in skip_prefixes:
             if path.startswith(prefix):
                 return False
-        
+
         return True
-    
+
     def _extract_org_id(self, path: str) -> Optional[uuid.UUID]:
         """
         Extract org_id UUID from URL path.
-        
+
         URL pattern: /api/v1/{org_id}/...
         """
         try:
@@ -175,103 +194,106 @@ class TenantContextMiddleware:
             parts = path.replace("/api/v1/", "").split("/")
             if not parts:
                 return None
-            
+
             # First part should be the org_id
             org_id_str = parts[0]
             return uuid.UUID(org_id_str)
         except (ValueError, IndexError):
             return None
-    
+
     def _get_authenticated_user(self, request: HttpRequest) -> Optional[User]:
         """
         Get authenticated user from request.
-        
+
         First checks request.user (set by Django's AuthenticationMiddleware).
         If not authenticated, tries JWT authentication from Authorization header.
-        
+
         Returns:
             User instance if authenticated, None otherwise
         """
         # Check if user is already authenticated by Django's middleware
-        if hasattr(request, 'user') and request.user is not None and request.user.is_authenticated:
+        if hasattr(request, "user") and request.user is not None and request.user.is_authenticated:
             return request.user
-        
+
         # Try JWT authentication from Authorization header
-        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-        if auth_header.startswith('Bearer '):
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        if auth_header.startswith("Bearer "):
             token = auth_header[7:]  # Remove 'Bearer ' prefix
             try:
                 from rest_framework_simplejwt.tokens import AccessToken
+
                 access_token = AccessToken(token)
-                user_id = access_token['user_id']
+                user_id = access_token["user_id"]
                 return User.objects.get(id=user_id)
             except Exception:
                 # Invalid token - let the view handle it
                 pass
-        
+
         return None
-    
+
     def _verify_org_membership(self, user, org_id: uuid.UUID) -> bool:
         """
         Verify that the user belongs to the organization.
-        
+
         Uses cache to minimize database queries.
         """
         # Superadmins can access any org
-        if getattr(user, 'is_superadmin', False):
+        if getattr(user, "is_superadmin", False):
             return True
-        
+
         # Check cache first
         cache_key = f"user_org:{user.id}:{org_id}"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
-        
+
         # Query database
         try:
             from apps.core.models import UserOrganisation
+
             is_member = UserOrganisation.objects.filter(
                 user=user,
                 org_id=org_id,
                 accepted_at__isnull=False,  # Must have accepted invitation
             ).exists()
-            
+
             # Cache for 5 minutes
             cache.set(cache_key, is_member, 300)
-            
+
             return is_member
         except Exception:
             # If we can't verify, deny access (fail secure)
             return False
-    
+
     def _get_org_role(self, user, org_id: uuid.UUID) -> Optional[dict]:
         """
         Get the user's role for this organization.
-        
+
         Returns role dict with permission flags.
         """
         try:
             from apps.core.models import UserOrganisation
-            user_org = UserOrganisation.objects.select_related('role').get(
+
+            user_org = UserOrganisation.objects.select_related("role").get(
                 user=user,
                 org_id=org_id,
             )
-            
+
             role = user_org.role
             return {
-                'id': role.id,
-                'name': role.name,
-                'can_manage_org': role.can_manage_org,
-                'can_manage_users': role.can_manage_users,
-                'can_manage_coa': role.can_manage_coa,
-                'can_create_invoices': role.can_create_invoices,
-                'can_approve_invoices': role.can_approve_invoices,
-                'can_void_invoices': role.can_void_invoices,
-                'can_create_journals': role.can_create_journals,
-                'can_manage_banking': role.can_manage_banking,
-                'can_file_gst': role.can_file_gst,
-                'can_view_reports': role.can_view_reports,
-                'can_export_data': role.can_export_data,
+                "id": role.id,
+                "name": role.name,
+                "can_manage_org": role.can_manage_org,
+                "can_manage_users": role.can_manage_users,
+                "can_manage_coa": role.can_manage_coa,
+                "can_create_invoices": role.can_create_invoices,
+                "can_approve_invoices": role.can_approve_invoices,
+                "can_void_invoices": role.can_void_invoices,
+                "can_create_journals": role.can_create_journals,
+                "can_manage_banking": role.can_manage_banking,
+                "can_file_gst": role.can_file_gst,
+                "can_view_reports": role.can_view_reports,
+                "can_export_data": role.can_export_data,
             }
         except Exception:
             return None
