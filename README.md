@@ -61,9 +61,24 @@
 | **Dashboard** | v1.0.0 | ✅ Production Ready | 21 TDD tests, 100% coverage, real data calculations |
 | **Security** | v1.0.0 | ✅ **SEC-002, SEC-003 Remediated** | Rate limiting + CSP headers (backend) |
 | **CORS** | v1.0.0 | ✅ **Dashboard Loading Fixed** | CORSJWTAuthentication class, preflight handling |
+| **RLS & View Layer** | v1.0.0 | ✅ **Complete** | 6/6 RLS tests passing, UUID fixes, endpoint validation |
 | **Overall** | — | ✅ **Platform Ready** | **~538+ tests** (233 backend + 305 frontend), WCAG AAA, IRAS Compliant, **100% Security Score** |
 
 ### Latest Milestones
+
+**🎉 RLS & View Layer Fix — Complete Endpoint Validation** — 2026-03-08
+- ✅ **6/6 Tests Passing**: RLS context middleware + Banking/GST/Journal endpoints (100%)
+- ✅ **SQL NULL Syntax Fixed**: Changed `SET LOCAL app.current_org_id = NULL` to `SET LOCAL app.current_org_id = ''`
+- ✅ **Test Assertions Fixed**: Replaced `response.data` with `json.loads(response.content)` (3 locations)
+- ✅ **Org Membership Fixtures**: Added comprehensive test fixtures with Organisation, Role, UserOrganisation
+- ✅ **UUID Double Conversion Fixed**: Removed redundant `UUID(org_id)` calls in banking (multiple), gst (13), journal (7) views
+- ✅ **Error Logging Enhanced**: Added proper exception logging to `wrap_response` decorator
+- ✅ **TDD Methodology**: RED → GREEN → REFACTOR cycle for all fixes
+- ✅ **Root Causes Identified**: Django's `<uuid:org_id>` path converter already returns UUID objects
+- ✅ **Files Modified**: 6 files (middleware, views, common, tests)
+- ✅ **Documentation Created**: 2 comprehensive sub-plans (TDD_RLS_FIXES_SUBPLAN.md, TDD_VIEW_LAYER_FIXES_SUBPLAN.md)
+- ✅ **Lessons Learned**: Django URL path converters auto-convert to UUID, PostgreSQL SET LOCAL requires strings not NULL
+- ✅ **Blockers Solved**: 500 errors on banking/tax/journal endpoints
 
 **🎉 Authentication Flow Remediation (Defense-in-Depth)** — 2026-03-08
 - ✅ **Three-Layer Authentication**: AuthProvider + DashboardLayout Guard + Backend JWT
@@ -191,6 +206,18 @@
 - ✅ **Custom 429 Handler**: LedgerSG-formatted error responses with Retry-After headers
 - ✅ **Security Tests**: 5 configuration tests passing
 - ✅ **Security Score**: Improved from 95% to 98%
+
+**🎉 RLS & View Layer Fix — Complete Endpoint Validation** — 2026-03-08
+- ✅ **6/6 Tests Passing**: RLS context middleware + Banking/GST/Journal endpoints (100%)
+- ✅ **SQL NULL Syntax Fixed**: Changed `SET LOCAL app.current_org_id = NULL` to `SET LOCAL app.current_org_id = ''`
+- ✅ **Test Assertions Fixed**: Replaced `response.data` with `json.loads(response.content)` (3 locations)
+- ✅ **Org Membership Fixtures**: Added comprehensive test fixtures with Organisation, Role, UserOrganisation
+- ✅ **UUID Double Conversion Fixed**: Removed redundant `UUID(org_id)` calls in banking (multiple), gst (13), journal (7) views
+- ✅ **Error Logging Enhanced**: Added proper exception logging to `wrap_response` decorator
+- ✅ **TDD Methodology**: RED → GREEN → REFACTOR cycle for all fixes
+- ✅ **Root Causes Identified**: Django's `<uuid:org_id>` path converter already returns UUID objects
+- ✅ **Files Modified**: 6 files (middleware, views, common, tests)
+- ✅ **Documentation Created**: 2 comprehensive sub-plans (TDD_RLS_FIXES_SUBPLAN.md, TDD_VIEW_LAYER_FIXES_SUBPLAN.md)
 
 **🎉 SEC-001 Banking Module Remediation (HIGH Severity)** — 2026-03-02
 - ✅ **55 TDD Tests Passing**: Comprehensive coverage (14 bank account + 15 payment + 7 reconciliation + 11 view/serializer + 8 allocation)

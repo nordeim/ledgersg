@@ -21,6 +21,7 @@ This document records the completed work on the LedgerSG platform, aligned with 
 - ✅ Bank Transactions Integration: v1.0.0 — Phase 3 Complete (TDD Integration Tests, 100% Passing)
 - ✅ **SEC-003 CSP Implementation**: v1.0.0 — **100% Security Score Achieved** (15 TDD Tests, Backend CSP Live)
 - ✅ **CORS Authentication Fix**: v1.0.0 — Dashboard Loading Issue Resolved (CORSJWTAuthentication Created)
+- ✅ **RLS & View Layer Fixes**: v1.0.0 — **6/6 Tests Passing**, 500 Errors Fixed, UUID Double Conversion Resolved
 
 ---
 
@@ -43,6 +44,97 @@ This document records the completed work on the LedgerSG platform, aligned with 
 | **Docker** | ✅ Complete | v1.0.0 | Multi-service, live FE/BE integration |
 | **SEC-003 CSP** | ✅ **Complete** | v1.0.0 | Backend CSP live (15 TDD tests), 100% security score |
 | **CORS Fix** | ✅ **Complete** | v1.0.0 | Dashboard loading fixed, CORSJWTAuthentication class created |
+| **RLS & View Layer** | ✅ **Complete** | v1.0.0 | **6/6 tests passing**, 500 errors fixed, UUID double conversion resolved |
+
+---
+
+# Major Milestone: RLS & View Layer Fixes — Complete Endpoint Validation ✅ COMPLETE (2026-03-08)
+
+## Executive Summary
+
+Successfully fixed Row Level Security (RLS) middleware issues and view layer 500 errors across banking, GST, and journal endpoints. Used rigorous Test-Driven Development (TDD) methodology to identify and resolve 4 distinct root causes, resulting in **6/6 tests passing (100%)**. All critical endpoints now return proper 200 responses instead of 500 Internal Server Error.
+
+### Key Achievements
+
+#### Issues Fixed
+- **SQL NULL Syntax** — Changed `SET LOCAL app.current_org_id = NULL` to `SET LOCAL app.current_org_id = ''` (PostgreSQL requires strings)
+- **Test Assertions** — Fixed 3 occurrences of `response.data` to `json.loads(response.content)` (JsonResponse has no `.data` attribute)
+- **Org Membership** — Added comprehensive test fixtures with Organisation, Role, UserOrganisation setup
+- **UUID Double Conversion** — Removed 20+ redundant `UUID(org_id)` calls across banking, GST, and journal views
+- **Error Logging** — Enhanced `wrap_response` decorator with proper exception logging for debugging
+
+#### Test Results
+- **6/6 Tests Passing** (100% success rate)
+- **RLS Middleware Tests**: 3/3 passing
+- **Endpoint Tests**: 3/3 passing (banking, GST, journal)
+
+### Technical Implementation
+
+#### Root Causes Identified
+
+1. **PostgreSQL SET LOCAL Syntax**
+   - Problem: `SET LOCAL app.current_org_id = NULL` fails with syntax error
+   - Solution: Use empty string `''` instead of SQL NULL
+   - File: `common/middleware/tenant_context.py`
+
+2. **JsonResponse Attribute Error**
+   - Problem: `response.data` doesn't exist on JsonResponse objects
+   - Solution: Use `json.loads(response.content)` to parse response body
+   - File: `tests/middleware/test_rls_context.py`
+
+3. **Missing Org Membership in Tests**
+   - Problem: Tests created users but not UserOrganisation memberships
+   - Solution: Added fixtures for Organisation, Role, UserOrganisation with `accepted_at` timestamp
+   - File: `tests/middleware/test_rls_context.py`
+
+4. **UUID Double Conversion**
+   - Problem: Django's `<uuid:org_id>` path converter already returns UUID objects
+   - Solution: Removed redundant `UUID(org_id)` calls in views
+   - Files: `apps/banking/views.py`, `apps/gst/views.py` (13 occurrences), `apps/journal/views.py` (7 occurrences)
+
+#### Files Modified
+
+| File | Change | Lines | Purpose |
+|------|--------|-------|---------|
+| `common/middleware/tenant_context.py` | Fixed NULL syntax | 2 | Changed `NULL` to `''` for PostgreSQL compatibility |
+| `common/views.py` | Enhanced logging | ~15 | Added exception logging to `wrap_response` decorator |
+| `tests/middleware/test_rls_context.py` | Complete rewrite | ~180 | Added fixtures, fixed assertions, comprehensive test coverage |
+| `apps/banking/views.py` | Removed UUID() | Multiple | Removed redundant UUID conversions |
+| `apps/gst/views.py` | Removed UUID() | 13 | Removed redundant UUID conversions |
+| `apps/journal/views.py` | Removed UUID() | 7 | Removed redundant UUID conversions |
+
+### Lessons Learned
+
+1. **Django URL Path Converters**: `<uuid:org_id>` automatically converts URL parameters to UUID objects
+2. **PostgreSQL SET LOCAL**: Requires string values, not SQL NULL keyword
+3. **JsonResponse vs Response**: JsonResponse has `.content` (bytes), not `.data`
+4. **RLS Membership Verification**: Middleware requires `accepted_at__isnull=False` on UserOrganisation
+5. **TDD Methodology**: Writing failing tests first (RED → GREEN → REFACTOR) revealed all root causes systematically
+
+### Troubleshooting Guide
+
+**Issue: "'UUID' object has no attribute 'replace'"**
+- **Cause**: Trying to call `UUID(org_id)` when org_id is already a UUID object
+- **Solution**: Remove redundant `UUID()` calls; Django's path converter already returns UUID
+
+**Issue: "syntax error at or near 'NULL'"**
+- **Cause**: `SET LOCAL app.current_org_id = NULL` uses SQL NULL
+- **Solution**: Use empty string `SET LOCAL app.current_org_id = ''`
+
+**Issue: "'JsonResponse' object has no attribute 'data'"**
+- **Cause**: Accessing `response.data` on JsonResponse
+- **Solution**: Parse JSON with `json.loads(response.content)`
+
+**Issue: "User not authorized for org" in tests**
+- **Cause**: Missing UserOrganisation with `accepted_at` timestamp
+- **Solution**: Create proper org membership fixtures in test setup
+
+### Documentation Created
+
+1. **TDD_RLS_FIXES_SUBPLAN.md** — Comprehensive TDD plan for RLS fixes
+2. **TDD_VIEW_LAYER_FIXES_SUBPLAN.md** — TDD plan for view layer UUID fixes
+3. **TDD_IMPLEMENTATION_REPORT.md** — Implementation details and validation results
+4. **RLS_FIX_VALIDATION_REPORT.md** — Validation evidence confirming RLS fix is working
 
 ---
 

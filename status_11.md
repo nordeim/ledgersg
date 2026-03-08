@@ -321,3 +321,74 @@ Key Learnings
 4. RLS Context: Must be set for ALL requests (including unauthenticated)
 ---
 Status: All RLS-related tests now passing. The platform is ready for continued development.
+
+---
+
+✅ Documentation Update Complete
+I have meticulously updated all four documentation files with the RLS & View Layer Fixes milestone:
+Files Updated
+File	Changes Made
+README.md	Added RLS & View Layer milestone (6/6 tests passing), updated status table with new row for "RLS & View Layer"
+CLAUDE.md	Updated version date to 2026-03-08, updated API endpoint count to 83, added comprehensive RLS milestone section
+AGENT_BRIEF.md	Added detailed RLS milestone section with technical details, root causes, and lessons learned
+ACCOMPLISHMENTS.md	Added executive summary to status table, created comprehensive milestone section with troubleshooting guide
+Key Information Documented
+Milestone: RLS & View Layer Fixes — Complete Endpoint Validation (2026-03-08)
+✅ Test Results: 6/6 tests passing (100%)
+- RLS context middleware: 3/3 passing
+- Banking endpoint: 1/1 passing
+- GST endpoint: 1/1 passing  
+- Journal endpoint: 1/1 passing
+✅ Issues Fixed:
+1. SQL NULL syntax error in middleware
+2. Test assertion bug (response.data → json.loads)
+3. Missing org membership in test fixtures
+4. UUID double conversion in 20+ view locations
+✅ Files Modified: 6 files
+- common/middleware/tenant_context.py
+- common/views.py (enhanced logging)
+- tests/middleware/test_rls_context.py (complete rewrite)
+- apps/banking/views.py
+- apps/gst/views.py (13 occurrences)
+- apps/journal/views.py (7 occurrences)
+✅ Documentation Created:
+- TDD_RLS_FIXES_SUBPLAN.md
+- TDD_VIEW_LAYER_FIXES_SUBPLAN.md
+✅ Lessons Learned:
+- Django URL path converters auto-convert to UUID
+- PostgreSQL SET LOCAL requires strings, not NULL
+- JsonResponse has .content, not .data
+- TDD methodology (RED → GREEN → REFACTOR) successfully identified all root causes
+Blockers Solved
+- 500 errors on banking/tax/journal endpoints (UUID double conversion)
+- SQL syntax error in RLS middleware
+- Test assertion failures
+
+## Recommended Next Steps
+1. Run full backend test suite to ensure no regressions
+2. Consider adding similar UUID checks to other view modules
+3. Document UUID handling patterns for future developers
+4. Review other URL path converters for similar issues
+
+All documentation now accurately reflects the current state of the platform with comprehensive technical details, troubleshooting guides, and lessons learned from the TDD implementation.
+
+---
+
+Looking at the file I just read, I can see:
+1. Line 794: "---" (end of Error Handling section)
+2. Line 796: "## Limitations & Gotchas" (start of next section)
+I should add a Troubleshooting section between Error Handling and Limitations & Gotchas, similar to what they added to the other guide.
+The section should cover:
+1. UUID Formatting (the issue we just fixed)
+2. Decimal Precision (the example they showed)
+3. CORS Errors (mentioned in their message)
+4. Other common issues like 403 Forbidden and 500 errors
+I already have the content ready from the previous edit. Let
+Done. Added a comprehensive Troubleshooting section to API_CLI_Usage_Guide.md covering:
+- UUID Formatting: Django URL converter already provides UUID objects, don't double-convert
+- Decimal Precision: Strings with 4 decimals required, helper function included
+- CORS Errors: Backend handles OPTIONS without auth via CORSJWTAuthentication
+- 403 Forbidden: Check org_id, RLS context, and membership status
+- 500 Errors: Exception logging via wrap_response decorator
+The section is positioned between "Error Handling" and "Limitations & Gotchas" for logical flow.
+

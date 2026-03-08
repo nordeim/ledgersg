@@ -3,8 +3,74 @@
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
 > **Version**: 2.0.0
-> **Last Updated**: 2026-03-07
-> **Status**: Production Ready ✅ (SEC-001, SEC-002, SEC-003, Phase B & Phase 5.5 Complete)
+> **Last Updated**: 2026-03-08
+> **Status**: Production Ready ✅ (SEC-001, SEC-002, SEC-003, Phase B, Phase 5.5, RLS Fix Complete)
+
+---
+
+## 🎉 Recent Milestone: RLS & View Layer Fixes ✅ COMPLETE (2026-03-08)
+
+### Summary
+
+Successfully fixed Row Level Security (RLS) middleware issues and view layer 500 errors across banking, GST, and journal endpoints. All critical endpoints now return proper 200 responses instead of 500 Internal Server Error.
+
+### Issues Fixed
+
+| Issue | Root Cause | Solution | Files Modified |
+|-------|------------|----------|----------------|
+| **500 Error on Banking/GST/Journal** | UUID double conversion | Removed redundant `UUID(org_id)` calls | 3 view files |
+| **SQL Syntax Error** | PostgreSQL NULL in SET LOCAL | Changed `NULL` → `''` | middleware |
+| **Test Assertion Failures** | JsonResponse has no `.data` | Use `json.loads(response.content)` | tests |
+| **Missing Org Membership** | No UserOrganisation fixture | Added complete test fixtures | tests |
+| **Poor Error Visibility** | No exception logging | Enhanced `wrap_response` logging | common/views |
+
+### Technical Details
+
+**Root Cause:**
+Django's URL path converter `<uuid:org_id>` automatically converts URL parameters to UUID objects. The views were trying to convert them again with `UUID(org_id)`, causing:
+```
+'UUID' object has no attribute 'replace'
+```
+
+**Files Fixed:**
+- `apps/banking/views.py` — Removed multiple `UUID(org_id)` calls
+- `apps/gst/views.py` — Removed 13 `UUID(org_id)` calls
+- `apps/journal/views.py` — Removed 7 `UUID(org_id)` calls
+- `common/middleware/tenant_context.py` — Fixed SQL NULL syntax
+- `common/views.py` — Enhanced error logging
+- `tests/middleware/test_rls_context.py` — Complete rewrite with proper fixtures
+
+### Test Results
+
+```bash
+pytest tests/middleware/test_rls_context.py -v --reuse-db --no-migrations
+
+# Results:
+tests/middleware/test_rls_context.py::TestRLSContextMiddleware::test_rls_context_not_set_when_user_unauthenticated PASSED
+tests/middleware/test_rls_context.py::TestRLSContextMiddleware::test_rls_context_set_when_user_authenticated PASSED
+tests/middleware/test_rls_context.py::TestRLSContextMiddleware::test_jwt_token_extraction_in_middleware PASSED
+tests/middleware/test_rls_context.py::TestBankingEndpointsWithRLS::test_bank_account_list_returns_200 PASSED
+tests/middleware/test_rls_context.py::TestBankingEndpointsWithRLS::test_tax_code_list_returns_200 PASSED
+tests/middleware/test_rls_context.py::TestJournalEndpointsWithRLS::test_journal_entries_list_returns_200 PASSED
+
+============================== 6 passed in 1.49s ==============================
+```
+
+### Key Lessons
+
+1. **Django URL Path Converters**: `<uuid:org_id>` automatically converts to UUID — don't wrap with `UUID()`
+2. **PostgreSQL SET LOCAL**: Requires string values: `SET LOCAL app.current_org_id = ''` not `NULL`
+3. **JsonResponse**: Use `.content` and parse with `json.loads()`, not `.data`
+4. **RLS Testing**: Requires proper UserOrganisation membership with `accepted_at` timestamp
+
+### Documentation
+
+- `TDD_RLS_FIXES_SUBPLAN.md` — Complete TDD implementation plan
+- `TDD_VIEW_LAYER_FIXES_SUBPLAN.md` — UUID fix documentation
+- `TDD_IMPLEMENTATION_REPORT.md` — Implementation details
+- `RLS_FIX_VALIDATION_REPORT.md` — Validation results
+
+---
 
 ---
 
@@ -800,6 +866,101 @@ curl -X GET "$API_BASE/..." \
     }
   }
 }
+```
+
+---
+
+## Troubleshooting
+
+### UUID Formatting
+
+**Symptoms:** 500 errors with UUID-related messages when calling endpoints
+
+**Root Cause:** Django's URL path converter `<uuid:org_id>` automatically converts URL parameters to UUID objects. Views were attempting to convert them again with `UUID(org_id)`.
+
+**Error:**
+```
+'UUID' object has no attribute 'replace'
+```
+
+**Fix:**
+```python
+# Wrong: Redundant conversion
+def get(self, request, org_id):
+    org_uuid = UUID(org_id)  # ❌ Already a UUID object!
+    ...
+
+# Right: Use the parameter directly
+def get(self, request, org_id):
+    # org_id is already a UUID object from the URL converter
+    service = BankAccountService(org_id)  # ✅ Use as-is
+    ...
+```
+
+### Decimal Precision Errors
+
+**Symptoms:** 400 Bad Request when creating invoices or payments
+
+**Error:**
+```json
+{ "error": { "message": "Invalid decimal format" } }
+```
+
+**Fix:** Always use strings with exactly 4 decimal places:
+```json
+# Wrong:
+{ "amount": 10000 }           # ❌ Integer
+{ "amount": "10000" }         # ❌ Missing decimals
+{ "amount": 10000.00 }        # ❌ Float
+
+# Right:
+{ "amount": "10000.0000" }    # ✅ String with 4 decimals
+```
+
+**Helper:** Use the CLI format_amount function:
+```bash
+format_amount() {
+  printf "%.4f" $1
+}
+
+# Usage:
+AMOUNT=$(format_amount 10000)
+echo "{ \"amount\": \"$AMOUNT\" }"  # Returns: { "amount": "10000.0000" }
+```
+
+### CORS Errors
+
+**Symptoms:** Browser console shows CORS errors
+
+**Fix:** For frontend development, ensure the backend has CORS configured. For CLI usage, ensure you're not blocked by preflight issues. The backend handles OPTIONS requests without auth in `CORSJWTAuthentication`.
+
+### 403 Forbidden on Valid Requests
+
+**Symptoms:** Getting 403 errors despite valid tokens
+
+**Causes:**
+1. **Missing org_id**: Every org-scoped endpoint requires `{orgId}` in URL path
+2. **No RLS context**: The middleware sets PostgreSQL session variables
+3. **Not org member**: User must have UserOrganisation with `accepted_at` timestamp
+
+**Fix:**
+```bash
+# Check org membership
+curl "$API_BASE/auth/organisations/" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Response should show:
+{ "data": [{ "id": "uuid", "name": "...", "role": "..." }] }
+```
+
+### 500 Internal Server Error
+
+**Symptoms:** Server returns 500 without helpful message
+
+**Fix:** Check the logs. The `wrap_response` decorator now logs exceptions:
+```
+ERROR:common.views:Internal Server Error at /api/v1/{orgId}/banking/accounts/
+Traceback: ...
 ```
 
 ---

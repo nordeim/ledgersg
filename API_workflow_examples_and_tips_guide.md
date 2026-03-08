@@ -2,10 +2,64 @@
 
 ## For Accounting AI Agents — Non-GST Registered Singapore SMBs
 
-**Version:** 1.0.0  
-**Last Updated:** 2026-03-08  
-**Status:** ✅ Production Ready — Validated Against Codebase  
+**Version:** 1.0.0
+**Last Updated:** 2026-03-08
+**Status:** ✅ Production Ready — Validated Against Codebase — RLS Fixed
 **Supplements:** [`API_CLI_Usage_Guide.md`](./API_CLI_Usage_Guide.md)
+
+---
+
+## 🎉 Recent Milestone: RLS & View Layer Fixes ✅ COMPLETE (2026-03-08)
+
+### What Was Fixed
+
+| Fix | Status | Impact |
+|-----|--------|--------|
+| **SQL NULL Syntax** | ✅ Fixed | `SET LOCAL app.current_org_id = ''` (PostgreSQL requires strings, not NULL) |
+| **Test Assertions** | ✅ Fixed | Changed `response.data` → `json.loads(response.content)` (3 locations) |
+| **Org Membership Fixtures** | ✅ Fixed | Added Organisation, Role, UserOrganisation test fixtures |
+| **UUID Double Conversion** | ✅ Fixed | Removed 20+ redundant `UUID(org_id)` calls in banking, gst, journal views |
+| **Error Logging** | ✅ Enhanced | Added proper exception logging to `wrap_response` decorator |
+| **Test Results** | ✅ **6/6 Passing** | 100% success rate on RLS + endpoint tests |
+
+### Root Cause: UUID Double Conversion
+
+**Problem:** Django's `<uuid:org_id>` path converter automatically converts URL parameters to UUID objects, but views were trying to convert them again with `UUID(org_id)`.
+
+**Error Message:**
+```
+'UUID' object has no attribute 'replace'
+```
+
+**Solution:** Removed all redundant `UUID(org_id)` calls:
+- `apps/banking/views.py`: Multiple occurrences
+- `apps/gst/views.py`: 13 occurrences
+- `apps/journal/views.py`: 7 occurrences
+
+### Lessons Learned
+
+1. **Django URL Path Converters**: `<uuid:org_id>` automatically converts to UUID — no need for `UUID()` wrapper
+2. **PostgreSQL SET LOCAL**: Requires string values, not SQL NULL keyword
+3. **JsonResponse**: Has `.content` (bytes), not `.data` attribute
+4. **TDD Methodology**: RED → GREEN → REFACTOR cycle successfully identified all root causes
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `common/middleware/tenant_context.py` | Fixed SQL NULL syntax |
+| `common/views.py` | Enhanced error logging |
+| `tests/middleware/test_rls_context.py` | Complete rewrite with fixtures |
+| `apps/banking/views.py` | Removed UUID() calls |
+| `apps/gst/views.py` | Removed UUID() calls (13) |
+| `apps/journal/views.py` | Removed UUID() calls (7) |
+
+### Documentation Created
+
+- `TDD_RLS_FIXES_SUBPLAN.md` — Comprehensive TDD plan for RLS fixes
+- `TDD_VIEW_LAYER_FIXES_SUBPLAN.md` — TDD plan for view layer UUID fixes
+- `TDD_IMPLEMENTATION_REPORT.md` — Implementation details
+- `RLS_FIX_VALIDATION_REPORT.md` — Validation evidence
 
 ---
 
@@ -1642,8 +1696,34 @@ sleep 60  # Wait for rate limit reset
 { "debit": "10000.0000" }     # ✅ 4 decimals as string
 
 # Use helper:
-format_amount 10000  # Returns "10000.0000"
+format_amount 10000 # Returns "10000.0000"
 ```
+
+#### 500 Internal Server Error — UUID Double Conversion
+
+**Symptoms:**
+```json
+{
+  "error": {
+    "code": "internal_error",
+    "message": "'UUID' object has no attribute 'replace'"
+  }
+}
+```
+
+**Root Cause:** Django's `<uuid:org_id>` path converter automatically converts URL parameters to UUID objects, but the backend code was trying to convert them again with `UUID(org_id)`.
+
+**When This Happens:**
+- Accessing banking endpoints (`/api/v1/{org_id}/banking/bank-accounts/`)
+- Accessing GST endpoints (`/api/v1/{org_id}/gst/tax-codes/`)
+- Accessing journal endpoints (`/api/v1/{org_id}/journal-entries/entries/`)
+
+**Solution:** This has been fixed in the backend. If you encounter this error:
+1. Ensure backend is updated to latest version
+2. Check that views don't have redundant `UUID(org_id)` calls
+3. Restart backend server after code changes
+
+**Status:** ✅ Fixed as of 2026-03-08
 
 ### CORS Errors
 

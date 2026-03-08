@@ -41,6 +41,27 @@
 | **Testing** | — | ✅ **538+ Passing** | **305 Frontend + 233 Backend** tests verified |
 | **Overall** | — | ✅ **Platform Ready** | **538+ tests**, WCAG AAA, IRAS Compliant, **100% Security** |
 
+### Recent Milestone: RLS & View Layer Fixes ✅ COMPLETE
+**Date**: 2026-03-08
+**Status**: All RLS Tests Passing (6/6), Endpoint 500 Errors Fixed
+
+| Fix | Impact |
+|-----|--------|
+| **SQL NULL Syntax** | Fixed `SET LOCAL app.current_org_id = NULL` → `''` (PostgreSQL requires strings) |
+| **Test Assertions** | Fixed `response.data` → `json.loads(response.content)` (JsonResponse has no `.data`) |
+| **Org Membership Fixtures** | Added Organisation, Role, UserOrganisation fixtures for proper test setup |
+| **UUID Double Conversion** | Removed 20+ redundant `UUID(org_id)` calls (banking, gst, journal views) |
+| **Error Logging** | Enhanced `wrap_response` decorator with exception logging for debugging |
+| **TDD Methodology** | RED → GREEN → REFACTOR cycle for all fixes |
+| **Test Results** | **6/6 tests passing** (100% success rate) |
+
+**Technical Details**:
+- Root Cause: Django's `<uuid:org_id>` path converter auto-converts to UUID, but views tried to convert again
+- Solution: Removed all redundant `UUID(org_id)` calls across banking, gst, and journal views
+- Files Modified: `common/middleware/tenant_context.py`, `common/views.py`, `tests/middleware/test_rls_context.py`, `apps/banking/views.py`, `apps/gst/views.py`, `apps/journal/views.py`
+- Documentation: Created `TDD_RLS_FIXES_SUBPLAN.md`, `TDD_VIEW_LAYER_FIXES_SUBPLAN.md`
+- Lessons Learned: Django URL path converters auto-convert; PostgreSQL SET LOCAL requires strings not NULL; Always validate actual error messages in development
+
 ### Recent Milestone: CORS Authentication Fix ✅ COMPLETE
 **Date**: 2026-03-07
 **Status**: Dashboard Loading Issue Resolved - CORS Preflight Working
