@@ -77,8 +77,8 @@ class TenantContextMiddleware:
             logger.warning(f"No authenticated user for {request.path}, setting RLS to NULL")
             try:
                 with connection.cursor() as cursor:
-                    cursor.execute("SET LOCAL app.current_org_id = NULL")
-                    cursor.execute("SET LOCAL app.current_user_id = NULL")
+                    cursor.execute("SET LOCAL app.current_org_id = ''")
+                    cursor.execute("SET LOCAL app.current_user_id = ''")
                     logger.debug("RLS context set to NULL for unauthenticated request")
             except Exception as e:
                 logger.error(f"Failed to set RLS context: {e}")

@@ -131,6 +131,10 @@ Awesome job on your meticulous review, analysis and planning. Please keep up the
 
 ---
 
+Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously plan to validate your findings below against the actual codebase to confirm the root causes, then meticulously create a sub-plan to fix the validated root causes to pass the test. use TDD in your sub-plan to test the necessary changes to close the validated root causes. review and validate the sub-plan against the codebase again before proceeding to execute it meticulously.
+
+---
+
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.
 
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT_BRIEF.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.
