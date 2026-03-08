@@ -17,19 +17,23 @@ def wrap_response(func: Callable) -> Callable:
     """
     Decorator that wraps view methods to handle common exceptions
     and standardize response format.
-    
+
     Handles:
     - ValidationError -> 400 Bad Request
     - ResourceNotFound -> 404 Not Found
     - DuplicateResource -> 409 Conflict
     - Generic exceptions -> 500 Internal Server Error
-    
+
     Usage:
-        @wrap_response
-        def get(self, request, org_id):
-            # Your view logic
-            return Response(data)
+    @wrap_response
+    def get(self, request, org_id):
+        # Your view logic
+        return Response(data)
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     @wraps(func)
     def wrapper(*args, **kwargs) -> Response:
         try:
@@ -42,7 +46,7 @@ def wrap_response(func: Callable) -> Callable:
                         "message": e.message,
                     }
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except ResourceNotFound as e:
             return Response(
@@ -52,7 +56,7 @@ def wrap_response(func: Callable) -> Callable:
                         "message": e.message,
                     }
                 },
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
         except DuplicateResource as e:
             return Response(
@@ -62,10 +66,12 @@ def wrap_response(func: Callable) -> Callable:
                         "message": e.message,
                     }
                 },
-                status=status.HTTP_409_CONFLICT
+                status=status.HTTP_409_CONFLICT,
             )
         except Exception as e:
-            # Log the error in production
+            # Log the actual error for debugging
+            logger.error(f"View error in {func.__name__}: {e}", exc_info=True)
+            # Return generic error message for security (actual error logged)
             return Response(
                 {
                     "error": {
@@ -73,6 +79,7 @@ def wrap_response(func: Callable) -> Callable:
                         "message": "An internal error occurred",
                     }
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
     return wrapper

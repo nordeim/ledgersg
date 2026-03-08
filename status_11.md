@@ -196,3 +196,128 @@ Phase 3: Add Org Membership (15 minutes)
 - Update request URLs to use actual org.id
 Ready for Execution
 
+---
+
+# Todos
+[✓] Validate SQL NULL syntax issue in middleware against PostgreSQL docs
+[✓] Validate test assertion bug (response.data vs JsonResponse)
+[✓] Validate missing org membership in test setup
+[✓] Create comprehensive sub-plan with TDD approach
+[✓] Validate sub-plan against codebase before execution
+[✓] Execute Phase 1: Fix SQL NULL syntax in middleware
+[✓] Execute Phase 2: Fix test assertions
+[✓] Execute Phase 3: Add org membership to tests
+[✓] Run full test suite to verify all fixes
+--- 
+
+## ✅ TDD Execution Complete - Summary 
+
+### Results 
+
+| Phase | Fix | Status | Result | 
+|-------|-----|--------|--------| 
+| Phase 1 | SQL NULL Syntax | ✅ COMPLETE | Changed NULL to '' in middleware | 
+| Phase 2 | Test Assertions | ✅ COMPLETE | Changed response.data to json.loads(response.content) | 
+| Phase 3 | Org Membership | ✅ COMPLETE | Added fixtures for Organisation, Role, UserOrganisation | 
+
+### Test Results 
+
+| Test | Before | After | 
+|------|--------|-------| 
+| test_rls_context_not_set_when_user_unauthenticated | ❌ FAILED | ✅ PASSED | 
+| test_rls_context_set_when_user_authenticated | ❌ FAILED | ✅ PASSED | 
+| test_jwt_token_extraction_in_middleware | ✅ PASSED | ✅ PASSED | 
+| test_bank_account_list_returns_200 | ❌ FAILED | ❌ FAILED (500) | 
+| test_tax_code_list_returns_200 | ❌ FAILED | ❌ FAILED (500) | 
+| test_journal_entries_list_returns_200 | ❌ FAILED | ❌ FAILED (500) | 
+
+### Key Achievement RLS middleware tests are now 100% passing (3/3). The RLS context is correctly set for: 
+- Unauthenticated users (empty string) 
+- Authenticated users with org membership The remaining 500 errors on banking/tax/journal endpoints are view/service layer issues, not RLS issues. 
+This confirms the original finding from RLS_FIX_VALIDATION_REPORT.md: 
+> "The RLS fix IS WORKING! The TenantContextMiddleware is now correctly setting the RLS context. However, the endpoints are still returning 500 errors due to different issues in the view/service layer." 
+
+### Files Modified 
+1. apps/backend/common/middleware/tenant_context.py - Changed NULL to '' for SQL syntax fix 
+2. apps/backend/tests/middleware/test_rls_context.py - Complete rewrite with proper fixtures and assertions 
+
+### Next Steps 
+The view/service layer issues are a separate problem requiring: 
+1. Adding error handling to views to expose actual exceptions 
+2. Debugging why banking/tax/journal endpoints return 500 
+3. Verifying database schema and data exist for test orgs
+
+---
+
+✅ ROOT CAUSE FOUND! Error: 'UUID' object has no attribute 'replace' Location: apps/banking/views.py:60 python org_id=UUID(org_id), # Line 60  Root Cause: org_id is already a UUID object (passed from the URL pattern), but the code tries to convert it to UUID again with UUID(org_id). This fails because UUID() constructor expects a string, not a UUID object. Let me verify this is the case in the view:
+→ Read apps/backend/apps/banking/views.py [limit=20, offset=48]
+Now let me check the other endpoints (tax codes and journal entries):
+✱ Glob "**/gst/views.py" in apps/backend (1 match)
+✱ Glob "**/journal/views.py" in apps/backend (1 match)
+✱ Grep "UUID\(org_id\)" in apps/backend/apps/gst/views.py (13 matches)
+✱ Grep "UUID\(org_id\)" in apps/backend/apps/journal/views.py (7 matches)
+✅ VALIDATION COMPLETE - Root Cause Confirmed The problem is consistent across all three modules: | File | Pattern | Count | |------|---------|-------| | apps/banking/views.py | UUID(org_id) | Multiple | | apps/gst/views.py | UUID(org_id) | 13 occurrences | | apps/journal/views.py | UUID(org_id) | 7 occurrences | Root Cause: The URL routing in Django converts UUID path parameters to UUID objects automatically, but the views try to convert them again with UUID(org_id). This fails because UUID() expects a string, not a UUID object. Let me verify the URL pattern:
+✱ Grep "path.*org_id" in apps/backend/apps/banking 
+→ Read apps/backend/apps/banking/urls.py [limit=30]
+Let me check the main URL configuration to see how org_id is passed:
+→ Read apps/backend/config/urls.py [limit=50]
+✱ Grep "org_id.*uuid" in apps/backend/config 
+→ Read apps/backend/config/urls.py [limit=80, offset=50]
+→ Read apps/backend/config/urls.py [limit=30, offset=130]
+Found it! Line 151: python path("api/v1/<uuid:org_id>/", include(org_scoped_urlpatterns)),  The <uuid:org_id> path converter automatically converts the URL parameter to a UUID object. But the views are trying to convert it again with UUID(org_id). --- Now let me create a comprehensive sub-plan:
+
+---
+
+# Todos
+[✓] Validate root cause of 500 errors in banking endpoint
+[✓] Validate root cause of 500 errors in tax code endpoint
+[✓] Validate root cause of 500 errors in journal endpoint
+[✓] Create TDD sub-plan for view/service layer fixes
+[✓] Execute fixes and verify tests pass
+[✓] Restore production error handling in wrap_response
+---
+✅ TDD Execution Complete - Summary
+Test Results
+Test	Before
+test_rls_context_not_set_when_user_unauthenticated	❌ FAILED
+test_rls_context_set_when_user_authenticated	❌ FAILED
+test_jwt_token_extraction_in_middleware	✅ PASSED
+test_bank_account_list_returns_200	❌ FAILED (500)
+test_tax_code_list_returns_200	❌ FAILED (500)
+test_journal_entries_list_returns_200	❌ FAILED (500)
+Result: 6/6 tests passing (100%)
+Issues Fixed
+Issue 1: SQL NULL Syntax (Phase 1)
+- File: common/middleware/tenant_context.py
+- Fix: Changed SET LOCAL app.current_org_id = NULL to SET LOCAL app.current_org_id = ''
+Issue 2: Test Assertions (Phase 2)
+- File: tests/middleware/test_rls_context.py
+- Fix: Changed response.data to json.loads(response.content)
+Issue 3: Missing Org Membership (Phase 3)
+- File: tests/middleware/test_rls_context.py
+- Fix: Added fixtures for Organisation, Role, UserOrganisation
+Issue 4: UUID Double Conversion (Phase 4)
+- Files: apps/banking/views.py, apps/gst/views.py, apps/journal/views.py
+- Root Cause: Django's <uuid:org_id> path converter already converts to UUID, but views tried to convert again
+- Fix: Removed all UUID(org_id) calls (replaced with org_id)
+Issue 5: Error Logging (Bonus)
+- File: common/views.py
+- Fix: Added proper logging to wrap_response decorator for debugging
+Files Modified Summary
+File
+common/middleware/tenant_context.py
+common/views.py
+tests/middleware/test_rls_context.py
+apps/banking/views.py
+apps/gst/views.py
+apps/journal/views.py
+Documentation Created
+1. TDD_RLS_FIXES_SUBPLAN.md - RLS middleware fixes plan
+2. TDD_VIEW_LAYER_FIXES_SUBPLAN.md - View layer fixes plan
+Key Learnings
+1. Django UUID Path Converter: <uuid:org_id> automatically converts URL parameters to UUID objects
+2. PostgreSQL SET LOCAL: Requires string values, not SQL NULL
+3. JsonResponse: Has .content (bytes), not .data
+4. RLS Context: Must be set for ALL requests (including unauthenticated)
+---
+Status: All RLS-related tests now passing. The platform is ready for continued development.

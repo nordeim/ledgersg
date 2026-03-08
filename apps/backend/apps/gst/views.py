@@ -63,7 +63,7 @@ class TaxCodeListCreateView(APIView):
         
         from uuid import UUID
         tax_codes = TaxCodeService.list_tax_codes(
-            org_id=UUID(org_id),
+            org_id=org_id,
             is_active=is_active,
             is_gst_charged=is_gst_charged,
             include_system=include_system
@@ -93,7 +93,7 @@ class TaxCodeListCreateView(APIView):
             rate = Decimal(str(rate))
         
         tax_code = TaxCodeService.create_tax_code(
-            org_id=UUID(org_id),
+            org_id=org_id,
             code=data["code"],
             name=data["name"],
             rate=rate,
@@ -129,7 +129,7 @@ class TaxCodeDetailView(APIView):
     def get(self, request, org_id: str, tax_code_id: str) -> Response:
         """Get tax code details."""
         from uuid import UUID
-        tax_code = TaxCodeService.get_tax_code(UUID(org_id), UUID(tax_code_id))
+        tax_code = TaxCodeService.get_tax_code(org_id, UUID(tax_code_id))
         return Response(TaxCodeDetailSerializer(tax_code).data)
     
     @wrap_response
@@ -142,7 +142,7 @@ class TaxCodeDetailView(APIView):
         serializer.is_valid(raise_exception=True)
         
         tax_code = TaxCodeService.update_tax_code(
-            UUID(org_id),
+            org_id,
             UUID(tax_code_id),
             **serializer.validated_data
         )
@@ -155,7 +155,7 @@ class TaxCodeDetailView(APIView):
         self._check_permission(request, "can_manage_coa")
         
         from uuid import UUID
-        tax_code = TaxCodeService.deactivate_tax_code(UUID(org_id), UUID(tax_code_id))
+        tax_code = TaxCodeService.deactivate_tax_code(org_id, UUID(tax_code_id))
         
         return Response({
             "message": "Tax code deactivated",
@@ -276,7 +276,7 @@ class GSTReturnListCreateView(APIView):
         
         from uuid import UUID
         returns = GSTReturnService.list_returns(
-            org_id=UUID(org_id),
+            org_id=org_id,
             status=status_filter,
             year=year
         )
@@ -298,7 +298,7 @@ class GSTReturnListCreateView(APIView):
         
         data = serializer.validated_data
         created = GSTReturnService.create_return_periods(
-            org_id=UUID(org_id),
+            org_id=org_id,
             filing_frequency=data["filing_frequency"],
             start_date=data["start_date"],
             periods=data["periods"]
@@ -322,7 +322,7 @@ class GSTReturnDetailView(APIView):
     def get(self, request, org_id: str, return_id: str) -> Response:
         """Get GST return with F5 data."""
         from uuid import UUID
-        gst_return = GSTReturnService.get_return(UUID(org_id), UUID(return_id))
+        gst_return = GSTReturnService.get_return(org_id, UUID(return_id))
         return Response(GSTReturnDetailSerializer(gst_return).data)
     
     @wrap_response
@@ -332,7 +332,7 @@ class GSTReturnDetailView(APIView):
         force = request.query_params.get("force", "false").lower() == "true"
         
         gst_return = GSTReturnService.generate_f5(
-            org_id=UUID(org_id),
+            org_id=org_id,
             return_id=UUID(return_id),
             force_recalculate=force
         )
@@ -364,7 +364,7 @@ class GSTReturnFileView(APIView):
             }
         
         gst_return = GSTReturnService.file_return(
-            org_id=UUID(org_id),
+            org_id=org_id,
             return_id=UUID(return_id),
             filed_by_id=request.user.id,
             filing_reference=data.get("filing_reference"),
@@ -393,7 +393,7 @@ class GSTReturnAmendView(APIView):
         serializer.is_valid(raise_exception=True)
         
         gst_return = GSTReturnService.amend_return(
-            org_id=UUID(org_id),
+            org_id=org_id,
             return_id=UUID(return_id),
             reason=serializer.validated_data["reason"]
         )
@@ -423,7 +423,7 @@ class GSTReturnPayView(APIView):
         data = serializer.validated_data
         
         gst_return = GSTReturnService.pay_return(
-            org_id=UUID(org_id),
+            org_id=org_id,
             return_id=UUID(return_id),
             payment_date=data["payment_date"],
             payment_amount=Decimal(str(data["payment_amount"])),
@@ -451,7 +451,7 @@ class GSTReturnDeadlinesView(APIView):
         days = int(request.query_params.get("days", 30))
         
         deadlines = GSTReturnService.get_upcoming_deadlines(
-            org_id=UUID(org_id),
+            org_id=org_id,
             days=days
         )
         

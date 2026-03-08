@@ -57,7 +57,7 @@ class BankAccountListView(APIView):
             is_active_bool = is_active.lower() in ("true", "1", "yes")
 
         accounts = BankAccountService.list(
-            org_id=UUID(org_id),
+            org_id=org_id,
             is_active=is_active_bool,
             currency=currency,
             search=search,
@@ -77,12 +77,12 @@ class BankAccountListView(APIView):
 
         serializer = BankAccountCreateSerializer(
             data=request.data,
-            context={"org_id": UUID(org_id)},
+            context={"org_id": org_id},
         )
         serializer.is_valid(raise_exception=True)
 
         account = BankAccountService.create(
-            org_id=UUID(org_id),
+            org_id=org_id,
             data=serializer.validated_data,
             user_id=request.user.id if request.user else None,
         )
@@ -107,7 +107,7 @@ class BankAccountDetailView(APIView):
     def get(self, request, org_id: str, account_id: str) -> Response:
         """Get a single bank account."""
         account = BankAccountService.get(
-            org_id=UUID(org_id),
+            org_id=org_id,
             account_id=UUID(account_id),
         )
 
@@ -126,12 +126,12 @@ class BankAccountDetailView(APIView):
         serializer = BankAccountUpdateSerializer(
             data=request.data,
             partial=True,
-            context={"org_id": UUID(org_id)},
+            context={"org_id": org_id},
         )
         serializer.is_valid(raise_exception=True)
 
         account = BankAccountService.update(
-            org_id=UUID(org_id),
+            org_id=org_id,
             account_id=UUID(account_id),
             data=serializer.validated_data,
             user_id=request.user.id if request.user else None,
@@ -150,7 +150,7 @@ class BankAccountDetailView(APIView):
             )
 
         account = BankAccountService.deactivate(
-            org_id=UUID(org_id),
+            org_id=org_id,
             account_id=UUID(account_id),
             user_id=request.user.id if request.user else None,
         )
@@ -205,7 +205,7 @@ class PaymentListView(APIView):
             date_to_parsed = dt.strptime(date_to, "%Y-%m-%d").date()
 
         payments = PaymentService.list(
-            org_id=UUID(org_id),
+            org_id=org_id,
             payment_type=payment_type,
             contact_id=UUID(contact_id) if contact_id else None,
             bank_account_id=UUID(bank_account_id) if bank_account_id else None,
@@ -257,19 +257,19 @@ class ReceivePaymentView(APIView):
 
         serializer = PaymentReceiveSerializer(
             data=request.data,
-            context={"org_id": UUID(org_id)},
+            context={"org_id": org_id},
         )
         serializer.is_valid(raise_exception=True)
 
         payment = PaymentService.create_received(
-            org_id=UUID(org_id),
+            org_id=org_id,
             data=serializer.validated_data,
             user_id=request.user.id if request.user else None,
         )
 
         if serializer.validated_data.get("allocations"):
             PaymentService.allocate(
-                org_id=UUID(org_id),
+                org_id=org_id,
                 payment_id=payment.id,
                 allocations=serializer.validated_data["allocations"],
                 user_id=request.user.id if request.user else None,
@@ -300,19 +300,19 @@ class MakePaymentView(APIView):
 
         serializer = PaymentMakeSerializer(
             data=request.data,
-            context={"org_id": UUID(org_id)},
+            context={"org_id": org_id},
         )
         serializer.is_valid(raise_exception=True)
 
         payment = PaymentService.create_made(
-            org_id=UUID(org_id),
+            org_id=org_id,
             data=serializer.validated_data,
             user_id=request.user.id if request.user else None,
         )
 
         if serializer.validated_data.get("allocations"):
             PaymentService.allocate(
-                org_id=UUID(org_id),
+                org_id=org_id,
                 payment_id=payment.id,
                 allocations=serializer.validated_data["allocations"],
                 user_id=request.user.id if request.user else None,
@@ -336,7 +336,7 @@ class PaymentDetailView(APIView):
     def get(self, request, org_id: str, payment_id: str) -> Response:
         """Get a single payment with allocations."""
         payment = PaymentService.get(
-            org_id=UUID(org_id),
+            org_id=org_id,
             payment_id=UUID(payment_id),
         )
 
@@ -372,12 +372,12 @@ class PaymentAllocateView(APIView):
                 "payment_id": payment_id,
                 "allocations": request.data.get("allocations", []),
             },
-            context={"org_id": UUID(org_id)},
+            context={"org_id": org_id},
         )
         serializer.is_valid(raise_exception=True)
 
         payment = PaymentService.allocate(
-            org_id=UUID(org_id),
+            org_id=org_id,
             payment_id=UUID(payment_id),
             allocations=serializer.validated_data["allocations"],
             user_id=request.user.id if request.user else None,
@@ -410,7 +410,7 @@ class PaymentVoidView(APIView):
         serializer.is_valid(raise_exception=True)
 
         payment = PaymentService.void(
-            org_id=UUID(org_id),
+            org_id=org_id,
             payment_id=UUID(payment_id),
             reason=serializer.validated_data["reason"],
             user_id=request.user.id if request.user else None,
@@ -457,7 +457,7 @@ class BankTransactionListView(APIView):
             date_to_parsed = dt.strptime(date_to, "%Y-%m-%d").date()
 
         transactions = ReconciliationService.list_transactions(
-            org_id=UUID(org_id),
+            org_id=org_id,
             bank_account_id=UUID(bank_account_id) if bank_account_id else None,
             date_from=date_from_parsed,
             date_to=date_to_parsed,
@@ -490,7 +490,7 @@ class BankTransactionImportView(APIView):
 
         serializer = BankTransactionImportSerializer(
             data=request.data,
-            context={"org_id": UUID(org_id)},
+            context={"org_id": org_id},
         )
         serializer.is_valid(raise_exception=True)
 
@@ -502,7 +502,7 @@ class BankTransactionImportView(APIView):
             )
 
         result = ReconciliationService.import_csv(
-            org_id=UUID(org_id),
+            org_id=org_id,
             bank_account_id=serializer.validated_data["bank_account_id"],
             csv_file=csv_file,
             user_id=request.user.id if request.user else None,
@@ -532,12 +532,12 @@ class BankTransactionReconcileView(APIView):
 
         serializer = BankTransactionReconcileSerializer(
             data=request.data,
-            context={"org_id": UUID(org_id)},
+            context={"org_id": org_id},
         )
         serializer.is_valid(raise_exception=True)
 
         transaction_obj = ReconciliationService.reconcile(
-            org_id=UUID(org_id),
+            org_id=org_id,
             transaction_id=UUID(transaction_id),
             payment_id=serializer.validated_data["payment_id"],
             user_id=request.user.id if request.user else None,
@@ -567,7 +567,7 @@ class BankTransactionUnreconcileView(APIView):
             )
 
         transaction_obj = ReconciliationService.unreconcile(
-            org_id=UUID(org_id),
+            org_id=org_id,
             transaction_id=UUID(transaction_id),
             user_id=request.user.id if request.user else None,
         )
@@ -598,7 +598,7 @@ class BankTransactionSuggestMatchesView(APIView):
             tolerance = Decimal("1.00")
 
         suggestions = ReconciliationService.suggest_matches(
-            org_id=UUID(org_id),
+            org_id=org_id,
             transaction_id=UUID(transaction_id),
             tolerance=tolerance,
         )

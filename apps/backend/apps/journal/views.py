@@ -63,7 +63,7 @@ class JournalEntryListCreateView(APIView):
             source_id = UUID(source_id)
 
         entries = JournalService.list_entries(
-            org_id=UUID(org_id),
+            org_id=org_id,
             source_type=source_type,
             fiscal_period_id=fiscal_period_id,
             account_id=account_id,
@@ -96,7 +96,7 @@ class JournalEntryListCreateView(APIView):
             source_id = UUID(str(source_id))
 
         entry = JournalService.create_entry(
-            org_id=UUID(org_id),
+            org_id=org_id,
             entry_date=data["entry_date"],
             source_type=data["source_type"],
             narration=data["narration"],
@@ -131,7 +131,7 @@ class JournalEntryDetailView(APIView):
         """Get journal entry details."""
         from uuid import UUID
 
-        entry = JournalService.get_entry(UUID(org_id), UUID(entry_id))
+        entry = JournalService.get_entry(org_id, UUID(entry_id))
         return Response(JournalEntryDetailSerializer(entry).data)
 
 
@@ -154,7 +154,7 @@ class JournalEntryReversalView(APIView):
         data = serializer.validated_data
 
         reversal = JournalService.create_reversal(
-            org_id=UUID(org_id),
+            org_id=org_id,
             original_entry_id=UUID(entry_id),
             reversal_date=data["reversal_date"],
             reason=data["reason"],
@@ -188,7 +188,7 @@ class TrialBalanceView(APIView):
         if date_to:
             date_to = date.fromisoformat(date_to)
 
-        entries = JournalService.get_trial_balance(org_id=UUID(org_id), date_to=date_to)
+        entries = JournalService.get_trial_balance(org_id=org_id, date_to=date_to)
 
         total_debits = sum(Decimal(e["total_debits"]) for e in entries)
         total_credits = sum(Decimal(e["total_credits"]) for e in entries)
@@ -225,7 +225,7 @@ class AccountBalanceView(APIView):
             date_to = date.fromisoformat(date_to)
 
         balance = JournalService.get_account_balance(
-            org_id=UUID(org_id), account_id=UUID(account_id), date_to=date_to
+            org_id=org_id, account_id=UUID(account_id), date_to=date_to
         )
 
         from apps.core.models import Account
@@ -276,7 +276,7 @@ class JournalEntrySummaryView(APIView):
         from uuid import UUID
         from django.db.models import Count, Sum
 
-        org_uuid = UUID(org_id)
+        org_uuid = org_id
 
         type_counts = (
             JournalEntry.objects.filter(org_id=org_uuid)
