@@ -91,3 +91,136 @@ Route (app)
 ○  (Static)  prerendered as static content
 ●  (SSG)     prerendered as static HTML (uses generateStaticParams)
 
+---
+
+# Check Redis via docker exec
+$ docker exec ledgersg_redis redis-cli ping
+PONG
+
+---
+
+$ curl -s -X POST "http://localhost:8000/api/v1/auth/login/" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@ledgersg.sg", "password": "admin123"}' 2>&1 | head -c 500
+
+---
+
+# Check existing users in database
+$ docker exec -e PGPASSWORD=ledgersg_secret_to_change ledgersg_db psql -U ledgersg -d ledgersg_dev -c "SELECT id, email, is_superuser FROM core.app_user LIMIT 5;" 2>&1
+id                  |       email       | is_superuser
+--------------------------------------+-------------------+--------------
+ ee2cdc44-503f-4864-9a36-005df148e650 | test@example.com  | f
+ 02e2e395-0adb-4ffd-8bf9-faef7aa51e1c | noorg@example.com | f
+(2 rows)
+# List core schema tables
+$ docker exec -e PGPASSWORD=ledgersg_secret_to_change ledgersg_db psql -U ledgersg -d ledgersg_dev -c "\dt core.*" 2>&1 | head -20
+List of relations
+ Schema |         Name         | Type  |  Owner
+--------+----------------------+-------+----------
+ core   | app_user             | table | ledgersg
+ core   | currency             | table | ledgersg
+ core   | document_sequence    | table | ledgersg
+ core   | exchange_rate        | table | ledgersg
+ core   | fiscal_period        | table | ledgersg
+ core   | fiscal_year          | table | ledgersg
+ core   | organisation         | table | ledgersg
+ core   | organisation_setting | table | ledgersg
+ core   | role                 | table | ledgersg
+ core   | user_organisation    | table | ledgersg
+(10 rows)
+Click to collapse
+Thinking: Good, there are existing users. Let me check if the test user password is set properly or if I need to create a new user with a known password. Let me also check if tax codes exist
+# Check existing tax codes
+$ docker exec -e PGPASSWORD=ledgersg_secret_to_change ledgersg_db psql -U ledgersg -d ledgersg_dev -c "SELECT id, code, name, rate FROM coa.tax_code ORDER BY code;" 2>&1
+ERROR:  relation "coa.tax_code" does not exist
+LINE 1: SELECT id, code, name, rate FROM coa.tax_code ORDER BY code;
+                                         ^
+# Check account types
+$ docker exec -e PGPASSWORD=ledgersg_secret_to_change ledgersg_db psql -U ledgersg -d ledgersg_dev -c "SELECT id, code, name FROM coa.account_type ORDER BY code;" 2>&1
+id |     code      |        name
+----+---------------+--------------------
+  1 | ASSET         | Asset
+  5 | COGS          | Cost of Goods Sold
+  3 | EQUITY        | Equity
+  6 | EXPENSE       | Expense
+  2 | LIABILITY     | Liability
+  8 | OTHER_EXPENSE | Other Expense
+  7 | OTHER_INCOME  | Other Income
+  4 | REVENUE       | Revenue
+
+  ---
+  
+  # List all schemas
+$ docker exec -e PGPASSWORD=ledgersg_secret_to_change ledgersg_db psql -U ledgersg -d ledgersg_dev -c "\dn" 2>&1
+List of schemas
+   Name    |       Owner       
+-----------+-------------------
+ audit     | ledgersg
+ banking   | ledgersg
+ coa       | ledgersg
+ core      | ledgersg
+ gst       | ledgersg
+ invoicing | ledgersg
+ journal   | ledgersg
+…
+Click to expand
+# List GST schema tables
+$ docker exec -e PGPASSWORD=ledgersg_secret_to_change ledgersg_db psql -U ledgersg -d ledgersg_dev -c "\dt gst.*" 2>&1
+List of relations
+ Schema |          Name           | Type  |  Owner   
+--------+-------------------------+-------+----------
+ gst    | peppol_transmission_log | table | ledgersg
+ gst    | return                  | table | ledgersg
+ gst    | tax_code                | table | ledgersg
+ gst    | threshold_snapshot      | table | ledgersg
+(4 rows) …
+
+# Check test user password hash
+$ docker exec -e PGPASSWORD=ledgersg_secret_to_change ledgersg_db psql -U ledgersg -d ledgersg_dev -c "SELECT id, email, password FROM core.app_user WHERE email='test@example.com';" 2>&1
+id                  |      email       |                                         password
+--------------------------------------+------------------+-------------------------------------------------------------------------------------------
+ ee2cdc44-503f-4864-9a36-005df148e650 | test@example.com | pbkdf2_sha256$1200000$zcRARKkJC4v6g1hXSJtBYs$OS6dVCw3fD4E/lBYHAz9wB6hDs5JdofQnzjuiM9/WvI=
+(1 row)
+
+$ docker exec -e PGPASSWORD=ledgersg_secret_to_change ledgersg_db psql -U ledgersg -d ledgersg_dev -c "\d gst.tax_code" 2>&1
+Table "gst.tax_code"
+      Column       |           Type           | Collation | Nullable |      Default       
+-------------------+--------------------------+-----------+----------+--------------------
+ id                | uuid                     |           | not null | gen_random_uuid()
+ org_id            | uuid                     |           |          | 
+ code              | character varying(10)    |           | not null | 
+ name              | character varying(150)   |           |          | 
+ description       | character varying(150)   |           | not null | 
+ rate              | numeric(5,4)             |           | not null | 
+ is_gst_charged    | boolean                  |           | not null | true
+…
+
+# Try login with common test password
+$ curl -s -X POST "http://localhost:8000/api/v1/auth/login/" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "testpass123"}' 2>&1
+{"error":{"code":"validation_error","message":"Invalid email or password."}}
+
+---
+
+# Test login with reset password
+$ curl -s -X POST "http://localhost:8000/api/v1/auth/login/" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "testpass123"}' | jq '.' 2>&1
+{
+  "user": {
+    "id": "ee2cdc44-503f-4864-9a36-005df148e650",
+    "email": "test@example.com",
+    "full_name": "Test User",
+    "phone": "",
+    "created_at": "2026-03-08T00:51:16.075645+08:00"
+  },
+  "tokens": {
+    "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcyOTQwNTkzLCJpYXQiOjE3NzI5MzY5OTMsImp0aSI6ImI1OGZiZWZjZTlmYzRiYTliM2YzZTQ5YWYzZTJhZjAyIiwidXNlcl9pZCI6ImVlMmNkYzQ0LTUwM2YtNDg2NC05YTM2LTAwNWRmMTQ4ZTY1MCIsImRlZmF1bHRfb3JnX2lkIjoiNjVhYmJjZDYtNjEyOS00MWVmLTgyZWQtOWU4NGEzNDQyYzdmIiwiZGVmYXVsdF9vcmdfbmFtZSI6IlRlc3QgT3JnYW5pc2F0aW9uIn0.A5MKTg_aGm5Mjg2aqesus_GTJigu07Au2DiDWDM_Dn0",
+…
+Click to expand
+Thinking: Excellent! Login works. Now I have a valid access token. Let me extract the token and test some of the workflow steps. Let me also note the organisation ID from the token: `65abbcd6-6129-41ef-82ed-9e84a3442c7
+# Set token and org ID for testing
+$ export TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcyOTQwNTkzLCJpYXQiOjE3NzI5MzY5OTMsImp0aSI6ImI1OGZiZWZjZTlmYzRiYTliM2YzZTQ5YWYzZTJhZjAyIiwidXNlcl9pZCI6ImVlMmNkYzQ0LTUwM2YtNDg2NC05YTM2LTAwNWRmMTQ4ZTY1MCIsImRlZmF1bHRfb3JnX2lkIjoiNjVhYmJjZDYtNjEyOS00MWVmLTgyZWQtOWU4NGEzNDQyYzdmIiwiZGVmYXVsdF9vcmdfbmFtZSI6IlRlc3QgT3JnYW5pc2F0aW9uIn0.A5MKTg_aGm5Mjg2aqesus_GTJigu07Au2DiDWDM_Dn0" && export ORG_ID="65abbcd6-6129-41ef-82ed-9e84a3442c7f" && echo "Token and Org ID set"
+Token and Org ID set
+
