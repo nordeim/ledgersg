@@ -1,176 +1,233 @@
 # LedgerSG — Project Architecture Document (PAD)
 
-> **Single Source of Truth for New Developers and Coding Agents**  
-> **Version**: 1.1.0  
-> **Last Updated**: 2026-02-27  
+> **Single Source of Truth for Developers and Coding Agents**  
+> **Version**: 2.2.0  
+> **Last Updated**: 2026-03-08  
 > **Status**: Production Ready ✅  
-> **Scope**: Complete architecture reference for LedgerSG accounting platform
+> **Security Score**: 100% (SEC-001/002/003 Remediated)  
+> **Compliance**: IRAS 2026 (GST F5, InvoiceNow, BCRS)
 
 ---
 
 ## 📋 Table of Contents
 
 1. [Executive Summary](#executive-summary)
-2. [System Architecture Overview](#system-architecture-overview)
-3. [Project Structure](#project-structure)
-4. [Frontend Architecture](#frontend-architecture)
-5. [Backend Architecture](#backend-architecture)
-6. [Database Architecture](#database-architecture)
-7. [API Architecture](#api-architecture)
+2. [Architectural Principles](#architectural-principles)
+3. [System Architecture](#system-architecture)
+4. [File Hierarchy & Key Files](#file-hierarchy--key-files)
+5. [Frontend Architecture](#frontend-architecture)
+6. [Backend Architecture](#backend-architecture)
+7. [Database Architecture](#database-architecture)
 8. [Security Architecture](#security-architecture)
-9. [Development Guidelines](#development-guidelines)
-10. [Testing Strategy](#testing-strategy)
-11. [Troubleshooting](#troubleshooting)
-12. [Quick Start Guide](#quick-start-guide)
+9. [Developer Handbook](#developer-handbook)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Executive Summary
 
-**LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs. Built with Next.js 16 and Django 6.0.2, it provides comprehensive IRAS 2026 compliance including GST F5 returns, InvoiceNow (Peppol) support, and BCRS deposit handling.
+**LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs. It eliminates the complexity of IRAS compliance through a "SQL-First" design philosophy and a distinctive "Illuminated Carbon" neo-brutalist UI.
 
-### Current Status
-
-| Component | Status | Version | Key Metrics |
-|-----------|--------|---------|-------------|
-| **Frontend** | ✅ Production Ready | v0.1.0 | 18 pages, 114 tests |
-| **Backend** | ✅ Production Ready | v0.3.1 | 57 API endpoints |
-| **Database** | ✅ Complete | v1.0.2 | 7 schemas, 28 tables, 20+ patches |
-| **Integration** | ✅ Complete | v0.4.0 | 100% API coverage |
-| **Overall** | ✅ Platform Ready | — | WCAG AAA, IRAS Compliant |
+### Key Metrics
+| Metric | Value | Details |
+|--------|-------|---------|
+| **Test Coverage** | **645+ Tests** | 305 Frontend + 340 Backend (100% Pass Rate) |
+| **API Surface** | **83 Endpoints** | RESTful, JSON-API compliant |
+| **Security** | **100% Score** | CSP, Rate Limiting, RLS, 3-Layer Auth |
+| **Database** | **7 Schemas** | 28 Tables, Row-Level Security Enforced |
+| **Performance** | **<100ms** | P95 Response Time (Redis Caching Active) |
 
 ---
 
-## System Architecture Overview
+## Architectural Principles
 
-### High-Level System Context
+These mandates are non-negotiable. They define the "Soul" of the system.
+
+### 1. SQL-First & Unmanaged Models
+*   **The Rule**: The `database_schema.sql` file is the **absolute source of truth**.
+*   **The Mechanism**: All Django models are `managed = False`.
+*   **The Prohibition**: NEVER run `makemigrations`. Schema changes are manual SQL patches.
+*   **Why?**: Ensures strict data integrity, optimal indexing, and prevents ORM-induced performance degradation.
+
+### 2. Service Layer Supremacy
+*   **The Rule**: Views are thin controllers; Logic lives in `services/`.
+*   **The Pattern**: 
+    *   **View**: Deserializes input -> Calls Service -> Serializes output.
+    *   **Service**: Validates business rules -> Executes DB atomic transaction -> Returns Domain Object.
+*   **Why?**: Decouples business logic from the HTTP transport layer, enabling easy testing and CLI usage.
+
+### 3. Financial Precision
+*   **The Rule**: `NUMERIC(10,4)` for everything.
+*   **The Prohibition**: **NO FLOATS.** All Python math must use `common.decimal_utils.money()`.
+*   **Why?**: Floating point errors are unacceptable in accounting.
+
+### 4. Defense-in-Depth Security
+*   **The Rule**: Security at every layer.
+*   **Layers**:
+    1.  **Frontend**: AuthProvider Redirects.
+    2.  **Network**: CSP Headers & Rate Limiting.
+    3.  **Application**: JWT Validation.
+    4.  **Database**: Row-Level Security (RLS) policies.
+
+---
+
+## System Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Client["Client Layer"]
-        A[Next.js 16 PWA]
-        B[React 19.2]
-        C[Tailwind CSS 4]
-        D[Zustand + TanStack Query]
+    subgraph Client ["Client Layer (Next.js 16)"]
+        UI[React 19 UI]
+        Zustand[Zustand Store]
+        Query[TanStack Query]
+        NextServer[Next.js Server Components]
     end
 
-    subgraph Security["Security Layer"]
-        E[JWT Auth 15min]
-        F[HttpOnly Cookie 7d]
-        G[CSRF Protection]
-        H[Rate Limiting]
+    subgraph Security ["Security Perimeter"]
+        CSP[CSP Headers]
+        RL[Rate Limiting]
+        WAF[WAF / Proxy]
     end
 
-    subgraph API["API Layer - Django"]
-        I[DRF Views 57 endpoints]
-        J[Service Layer]
-        K[Middleware RLS]
-        L[Async Tasks - Celery]
+    subgraph Backend ["Backend Layer (Django 6)"]
+        DRF[DRF Views]
+        Auth[JWT Auth]
+        Service[Service Layer]
+        Celery[Celery Workers]
     end
 
-    subgraph Data["Data Layer - PostgreSQL"]
-        M[(7 Schemas)]
-        N[RLS Session Vars]
-        O[NUMERIC 10,4]
+    subgraph Data ["Data Layer (PostgreSQL 16)"]
+        Schemas[(7 Domain Schemas)]
+        RLS[Row-Level Security]
+        Redis[Redis Cache]
     end
 
-    A -->|HTTPS + Bearer Token| E
-    E --> F
-    F --> G
-    G --> I
-    I --> J
-    J --> K
-    K --> M
-    M --> N
-    M --> O
+    UI -->|Interactivity| Zustand
+    UI -->|Data Fetch| Query
+    Query -->|API Calls| NextServer
+    NextServer -->|HTTPS + JWT| WAF
+    WAF --> RL
+    RL --> DRF
+    DRF -->|Auth| Auth
+    DRF -->|Logic| Service
+    Service -->|Async| Celery
+    Service -->|SQL| Schemas
+    Schemas -->|Enforce| RLS
+    Service -->|Cache| Redis
+    Celery -->|Write| Schemas
 
     style Client fill:#1a1a1a,stroke:#00E585,stroke-width:2px,color:#fff
-    style Security fill:#1a1a1a,stroke:#00E585,stroke-width:2px,color:#fff
-    style API fill:#1a1a1a,stroke:#00E585,stroke-width:2px,color:#fff
-    style Data fill:#1a1a1a,stroke:#00E585,stroke-width:2px,color:#fff
-```
-
-### Request Flow Architecture
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Frontend as Next.js Frontend
-    participant API as Django API
-    participant Middleware as TenantContext
-    participant Service as Service Layer
-    participant Task as Celery Worker
-    participant DB as PostgreSQL
-
-    User->>Frontend: Access /dashboard
-    Frontend->>API: GET /api/v1/{orgId}/dashboard/metrics/
-    API->>Middleware: SET LOCAL app.current_org_id
-    API->>Service: DashboardService.get_metrics(orgId)
-    Service->>DB: Query with RLS
-    DB-->>Service: Return Data
-    API-->>Frontend: JSON Response
-    
-    User->>Frontend: Click "Send Invoice"
-    Frontend->>API: POST /api/v1/{orgId}/invoicing/documents/{id}/send/
-    API->>Service: DocumentService.send_email(docId)
-    Service->>Task: Queue send_invoice_email_task
-    API-->>Frontend: 200 OK (Queued)
-    Task->>Service: DocumentService.generate_pdf(docId)
-    Task->>User: Send Email with PDF
+    style Backend fill:#1a1a1a,stroke:#3b82f6,stroke-width:2px,color:#fff
+    style Data fill:#1a1a1a,stroke:#f59e0b,stroke-width:2px,color:#fff
 ```
 
 ---
 
-## Project Structure
+## File Hierarchy & Key Files
 
-### Technology Stack
+```text
+/home/project/Ledger-SG/
+├── apps/
+│   ├── backend/                  # Django 6.0.2 Project
+│   │   ├── apps/                 # Domain Modules
+│   │   │   ├── banking/          # Bank Accounts, Payments, Recon
+│   │   │   ├── coa/              # Chart of Accounts
+│   │   │   ├── core/             # Org, User, Auth, RLS Middleware
+│   │   │   ├── gst/              # Tax Codes, F5 Returns
+│   │   │   ├── invoicing/        # Invoices, Credit Notes
+│   │   │   ├── journal/          # General Ledger (Double Entry)
+│   │   │   ├── peppol/           # InvoiceNow Integration
+│   │   │   └── reporting/        # Dashboard & Financial Reports
+│   │   ├── common/               # Shared Utilities (Money, Base Models)
+│   │   │   ├── middleware/       # CRITICAL: tenant_context.py
+│   │   │   └── decimal_utils.py  # CRITICAL: money() function
+│   │   ├── config/               # Settings (Base, Dev, Prod)
+│   │   ├── database_schema.sql   # ★ SOURCE OF TRUTH ★
+│   │   └── manage.py
+│   └── web/                      # Next.js 16.1.6 Project
+│       ├── src/
+│       │   ├── app/              # App Router (Pages & Layouts)
+│       │   ├── components/       # Shadcn/Radix UI Components
+│       │   ├── hooks/            # Custom React Hooks
+│       │   ├── lib/              # Utilities
+│       │   │   └── api-client.ts # Typed API Client
+│       │   ├── providers/        # Context Providers (Auth, Theme)
+│       │   └── shared/           # Zod Schemas & Types
+│       ├── public/
+│       ├── next.config.ts
+│       └── middleware.ts         # CSP & Security Headers
+├── docker/                       # Container Configuration
+├── docs/                         # Documentation
+├── ACCOMPLISHMENTS.md            # Progress Tracker
+├── AGENT_BRIEF.md                # Developer Guidelines
+└── GEMINI.md                     # AI Persona & Mandates
+```
 
-| Layer | Technology | Version | Purpose |
-|-------|------------|---------|---------|
-| **Frontend** | Next.js | 16.1.6 | App Router, SSG |
-| **UI Library** | React | 19.2.3 | Components |
-| **Styling** | Tailwind CSS | 4.0 | CSS-first theming |
-| **Backend** | Django | 6.0.2 | Web framework |
-| **API** | DRF | 3.16.1 | REST endpoints |
-| **Auth** | SimpleJWT | Latest | JWT tokens |
-| **Database** | PostgreSQL | 16+ | Primary store |
-| **Tasks** | Celery + Redis | 5.4+/7+ | Async processing |
-| **PDF** | WeasyPrint | 68.1 | Document generation |
+---
+
+## Frontend Architecture
+
+**Stack**: Next.js 16.1.6 (App Router), React 19, Tailwind 4, Shadcn/Radix UI.
+
+### Authentication Flow
+1.  **Initial Load**: `AuthProvider` calls `/api/v1/auth/me/`.
+    *   Success: Sets `user` and `organisations` context.
+    *   Failure (401): Redirects to `/login`.
+2.  **Protected Routes**: `DashboardLayout` checks `isAuthenticated`.
+    *   False: Returns `null` (prevents flash) and redirects.
+3.  **API Requests**: `api-client.ts` handles JWT.
+    *   Attaches `Authorization: Bearer <token>`.
+    *   On 401: Attempts silent refresh via HttpOnly cookie (`/api/v1/auth/refresh/`).
+    *   On Refresh Fail: Logs out and redirects.
+
+### Data Fetching Strategy
+*   **Server Components**: Fetch initial data.
+*   **Client Components**: Use **TanStack Query v5** for dynamic data and mutations.
+    *   **Pattern**: `useQuery({ queryKey: ['entity', orgId], queryFn: ... })`.
+    *   **Mutations**: Use `isPending` (not `isLoading`) for loading state.
 
 ---
 
 ## Backend Architecture
 
-### Design Principles
+**Stack**: Django 6.0.2, DRF 3.16, Celery 5.4, Redis 7.
 
-| Principle | Implementation | Critical Notes |
-|-----------|----------------|----------------|
-| **Unmanaged Models** | `managed = False` | Schema is DDL-managed via SQL. No Django migrations. |
-| **Service Layer** | `services/` modules | ALL business logic lives in services. Views are thin. |
-| **RLS Security** | PostgreSQL session variables | `SET LOCAL app.current_org_id` per request. |
-| **Money Precision** | `NUMERIC(10,4)` | Strict precision for IRAS compliance. Rejects floats. |
+### Middleware Chain (Request Lifecycle)
+The order is critical for security and RLS.
 
-### Code Pattern: Service Method
+1.  `SecurityMiddleware`: Basic security headers.
+2.  `CSPMiddleware`: Enforces Content Security Policy (SEC-003).
+3.  `SessionMiddleware` / `CommonMiddleware`: Standard Django.
+4.  `CorsMiddleware`: Handles Cross-Origin requests.
+5.  `AuthenticationMiddleware`: DRF JWT Auth (Sets `request.user`).
+    *   *Note*: `CORSJWTAuthentication` skips auth for `OPTIONS` requests.
+6.  **`TenantContextMiddleware` (CRITICAL)**:
+    *   Extracts `org_id` from URL.
+    *   Verifies `UserOrganisation` membership.
+    *   **Sets PostgreSQL RLS Variables**:
+        ```python
+        cursor.execute("SET LOCAL app.current_org_id = %s", [str(org_id)])
+        cursor.execute("SET LOCAL app.current_user_id = %s", [str(user_id)])
+        ```
+    *   Sets `''` (empty string) for unauthenticated requests to ensure safe RLS denial.
+
+### Service Layer Pattern
+**Location**: `apps/<module>/services.py`
 
 ```python
-from common.decimal_utils import money
-from django.db import transaction
-
+# Example: Creating an Invoice
 class InvoiceService:
     @staticmethod
     def create_invoice(org_id: UUID, data: dict) -> InvoiceDocument:
-        """Create invoice with validation and GST calculation."""
-        # Validate using money() - rejects floats
-        total = money(data['total'])  # Decimal('100.0000')
-
+        # 1. Validation & Data Prep (Use money()!)
+        total_excl = money(data['total_excl'])
+        
         with transaction.atomic():
-            invoice = InvoiceDocument.objects.create(
-                org_id=org_id,
-                total=total,
-                # ...
-            )
-            # Create journal entries
+            # 2. DB Operation
+            invoice = InvoiceDocument.objects.create(...)
+            
+            # 3. Cross-Domain Logic (Journal Posting)
             JournalService.post_invoice(org_id, invoice)
+            
         return invoice
 ```
 
@@ -178,97 +235,98 @@ class InvoiceService:
 
 ## Database Architecture
 
-### Row-Level Security (RLS)
+**Engine**: PostgreSQL 16+.
 
-**CRITICAL**: All queries must include org_id filter or rely on RLS session variable.
+### Schemas
+| Schema | Purpose | Key Tables |
+|--------|---------|------------|
+| `core` | Multi-tenancy | `organisation`, `app_user`, `user_organisation` |
+| `coa` | Accounting | `account`, `account_type` |
+| `journal`| General Ledger | `journal_entry`, `journal_line` (Immutable) |
+| `invoicing`| Sales/Purchases | `document`, `line_item`, `contact` |
+| `banking` | Cash Mgmt | `bank_account`, `payment`, `bank_transaction` |
+| `gst` | Compliance | `tax_code`, `gst_return` |
+| `audit` | Security | `event_log` (Append-Only) |
+
+### RLS Policies
+Every table has RLS enabled. Policies look like this:
 
 ```sql
--- Django middleware sets this per request:
-SET LOCAL app.current_org_id = 'org-uuid-here';
-
--- RLS Policy Example
-CREATE POLICY org_isolation ON core.organisation
-FOR ALL
-USING (id = core.current_org_id());
-```
-
-### Schema Hardening (Latest Updates)
-- **Soft Delete**: All core tables now include `deleted_at` and `deleted_by`.
-- **Model Alignment**: Added `account_type` to `coa.account` and `company_name` to `invoicing.contact`.
-- **Auth Compatibility**: `core.app_user` contains standard Django fields (`password`, `is_staff`, `is_superuser`).
-- **Circular Deps**: Resolved via `ALTER TABLE` constraints at the end of the SQL script.
-
----
-
-## API Architecture
-
-### Workflow Operations (Live)
-```
-POST /api/v1/{orgId}/invoicing/documents/{id}/approve/  -- Finalizes invoice & creates journal
-POST /api/v1/{orgId}/invoicing/documents/{id}/void/     -- Reverses entries & cancels document
-GET  /api/v1/{orgId}/invoicing/documents/{id}/pdf/      -- Returns live-generated PDF binary
-POST /api/v1/{orgId}/invoicing/documents/{id}/send/     -- Queues async email delivery with PDF
+CREATE POLICY tenant_isolation ON invoicing.document
+    USING (org_id = core.current_org_id());
 ```
 
 ---
 
-## Testing Strategy
+## Security Architecture
 
-### Backend Tests (Unmanaged Database Workflow)
+*   **100% Security Score** achieved via:
+    *   **SEC-001**: Full validation of Banking endpoints.
+    *   **SEC-002**: `django-ratelimit` on all Auth endpoints (Login: 10/min).
+    *   **SEC-003**: Strict CSP (`default-src 'none'`, `script-src 'self'`).
+*   **CORS**: Custom `CORSJWTAuthentication` allows unauthenticated Preflight (`OPTIONS`) but strictly enforces JWT for all others.
 
-Standard Django test runners fail on unmanaged models because they attempt to run migrations on empty databases.
+---
 
-**Workflow for Verification:**
+## Developer Handbook
+
+### 1. Environment Setup
+
+**Backend**:
 ```bash
-# 1. Manually initialize the test database
+cd apps/backend
+python -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"
+# Initialize DB (Manual!)
 export PGPASSWORD=ledgersg_secret_to_change
-dropdb -h localhost -U ledgersg test_ledgersg_dev || true
+dropdb -h localhost -U ledgersg ledgersg_dev || true
+createdb -h localhost -U ledgersg ledgersg_dev
+psql -h localhost -U ledgersg -d ledgersg_dev -f database_schema.sql
+python manage.py runserver
+```
+
+**Frontend**:
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+### 2. Testing (The "Meticulous" Way)
+Backend tests **MUST** use the following command to avoid migration errors:
+
+```bash
+# Initialize Test DB first!
+dropdb -h localhost -U ledgersg test_ledgersg_dev
 createdb -h localhost -U ledgersg test_ledgersg_dev
 psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 
-# 2. Run tests with reuse flags
-source /opt/venv/bin/activate
-cd apps/backend
+# Run Tests
 pytest --reuse-db --no-migrations
 ```
+
+**Frontend Tests**: `npm test` (Vitest).
 
 ---
 
 ## Troubleshooting
 
-### Database Issues
-- **relation "core.app_user" does not exist**: The test database is empty. Load `database_schema.sql`.
-- **AttributeError: 'InvoiceDocument' object has no attribute 'X'**: Check `db_column` mappings in the model. Models must be manually synced with SQL schema changes.
-- **DataError: invalid input value for enum**: Django model choices must match PostgreSQL `TYPE ... AS ENUM` exactly (case-sensitive).
+### "Relation does not exist" in Tests
+*   **Cause**: You didn't initialize the test database with SQL. `pytest-django` cannot create tables for `managed=False` models.
+*   **Fix**: Run the `psql ... -f database_schema.sql` command against `test_ledgersg_dev`.
 
----
+### "UUID object has no attribute 'replace'" (500 Error)
+*   **Cause**: Django URL dispatcher already converted the ID to a UUID object.
+*   **Fix**: Remove `UUID(org_id)` from your view. Use `org_id` directly.
 
-## Quick Start Guide
+### Dashboard Stuck on "Loading..."
+*   **Cause**: CORS Preflight failure.
+*   **Fix**: Ensure `CORSJWTAuthentication` is in `DEFAULT_AUTHENTICATION_CLASSES` and `CorsMiddleware` is before `CommonMiddleware`.
 
-### For New Developers
-
-1. **Clone Repository**
-   ```bash
-   git clone https://github.com/nordeim/ledgersg.git
-   cd ledgersg
-   ```
-
-2. **Setup Backend**
-   ```bash
-   cd apps/backend
-   source /opt/venv/bin/activate
-   pip install -e ".[dev]"
-   # Load schema into development DB
-   psql -h localhost -U ledgersg -d ledgersg_dev -f database_schema.sql
-   python manage.py runserver
-   ```
-
-3. **Setup Frontend**
-   ```bash
-   cd apps/web
-   npm install
-   npm run dev
-   ```
+### "Permission Denied" (403) despite valid token
+*   **Cause**: The RLS context isn't set.
+*   **Fix**: Ensure `TenantContextMiddleware` is active and the user has an accepted `UserOrganisation` record.
 
 ---
 
