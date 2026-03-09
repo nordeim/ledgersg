@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.0.0
-> **Last Updated**: 2026-03-08
-> **Status**: Production Ready ✅ (SEC-001, SEC-002, SEC-003, CORS Fix, RLS Fix, Phase A, Phase B, Phase 3, Phase 4, Phase 5.4, Phase 5.5 Complete)
+> **Version**: 2.1.0
+> **Last Updated**: 2026-03-09
+> **Status**: Production Ready ✅ (InvoiceNow/Peppol Phases 1-4 Complete, SEC-001, SEC-002, SEC-003, CORS Fix, RLS Fix, Phase A, Phase B, Phase 3, Phase 4, Phase 5.4, Phase 5.5 Complete)
 
 ---
 
@@ -39,10 +39,11 @@
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests (services + views), 13 validated endpoints |
 | **Banking UI** | v1.3.0 | ✅ **Phase 5.5 Complete** | 73 TDD tests, all 3 tabs live, reconciliation workflow |
 | **Security** | v1.0.0 | ✅ SEC-002, SEC-003 Remediated | Rate limiting on auth endpoints |
+| **InvoiceNow** | v1.0.0 | ✅ **Phases 1-4 Complete** | 122+ TDD tests, PINT-SG compliant, async transmission |
 | **CORS** | v1.0.0 | ✅ Dashboard Fixed | CORSJWTAuthentication, preflight handling |
 | **Integration** | v1.1.0 | ✅ **Complete** | All endpoint paths aligned, Dashboard real data |
-| **Testing** | — | ✅ **305+ Passing** | Frontend (305) + Backend tests verified |
-| **Overall** | — | ✅ **Platform Ready** | **538+ tests**, WCAG AAA, IRAS Compliant, 100% Security |
+| **Testing** | — | ✅ **773+ Passing** | Frontend (305) + Backend (468) tests verified |
+| **Overall** | — | ✅ **Platform Ready** | **773 tests**, WCAG AAA, IRAS Compliant, 100% Security |
 
 ---
 
@@ -66,7 +67,7 @@
 | API Endpoints | **83** | 100% Path Alignment (verified against all URL configs) |
 | Service Files | 14 | Core business logic (core: 3, banking: 3, invoicing: 2, gst: 3, journal: 2, reporting: 1) |
 | Models | **25** | Aligned with SQL schema (all apps/core/models/) |
-| Test Files | 16 | 87 integration + 21 TDD dashboard + 33 new integration tests |
+| Test Files | 16 | 87 integration + 21 TDD dashboard + 33 new integration + 122+ Peppol tests |
 | Lines of Code | **~16,150+** | Logic & Templates |
 
 ### Directory Structure

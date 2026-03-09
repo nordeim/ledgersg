@@ -271,7 +271,7 @@ class DocumentService:
             raise ResourceNotFound(f"Account {account_id} not found")
 
         # Get next line number
-        last_line = document.lines.order_by('-line_number').first()
+        last_line = document.lines.order_by("-line_number").first()
         line_number = (last_line.line_number + 1) if last_line else 1
 
         # Calculate line totals
@@ -289,7 +289,7 @@ class DocumentService:
         line_amount = quantity * unit_price
         gst_amount = gst_result["gst_amount"]
         total_amount = line_amount + gst_amount
-        
+
         line = InvoiceLine.objects.create(
             org_id=org_id,
             document=document,
@@ -372,7 +372,14 @@ class DocumentService:
                 document.approved_by_id = user_id
 
                 # Post journal entry (for invoices/credit notes)
-                if document.document_type in ["SALES_INVOICE", "SALES_CREDIT_NOTE", "SALES_DEBIT_NOTE", "PURCHASE_INVOICE", "PURCHASE_CREDIT_NOTE", "PURCHASE_DEBIT_NOTE"]:
+                if document.document_type in [
+                    "SALES_INVOICE",
+                    "SALES_CREDIT_NOTE",
+                    "SALES_DEBIT_NOTE",
+                    "PURCHASE_INVOICE",
+                    "PURCHASE_CREDIT_NOTE",
+                    "PURCHASE_DEBIT_NOTE",
+                ]:
                     DocumentService._post_journal_entry(org_id, document)
 
             elif new_status == "VOID":
@@ -578,10 +585,14 @@ class DocumentService:
             document.approved_at = timezone.now()
             document.save()
 
-            # Create journal entries
-            DocumentService._create_journal_entry(org_id, document)
+        # Create journal entries
+        DocumentService._create_journal_entry(org_id, document)
 
-            return document
+        # Queue for Peppol transmission if configured (InvoiceNow integration)
+        if document.document_type == "SALES_INVOICE":
+            DocumentService._queue_peppol_transmission(document, org_id)
+
+        return document
 
     @staticmethod
     def void_document(org_id: UUID, document_id: UUID, user, reason: str) -> InvoiceDocument:
@@ -657,27 +668,27 @@ class DocumentService:
             ResourceNotFound: If document doesn't exist
         """
         context = DocumentService._get_pdf_context(org_id, document_id)
-        
+
         # Render HTML string
         html_string = render_to_string("invoicing/invoice_pdf.html", context)
-        
+
         # Create PDF in memory
         output = io.BytesIO()
         HTML(string=html_string).write_pdf(target=output)
         output.seek(0)
-        
+
         return output
 
     @staticmethod
     def _get_pdf_context(org_id: UUID, document_id: UUID) -> Dict[str, Any]:
         """Gather all data needed for PDF rendering."""
         from apps.core.models import Organisation
-        
+
         document = DocumentService.get_document(org_id, document_id)
         org = Organisation.objects.get(id=org_id)
         contact = document.contact
         lines = document.lines.all().order_by("line_number")
-        
+
         return {
             "document": document,
             "org": org,
@@ -704,7 +715,7 @@ class DocumentService:
             ValidationError: If email data is invalid
         """
         from apps.invoicing.tasks import send_invoice_email_task
-        
+
         document = DocumentService.get_document(org_id, document_id)
 
         # Validate recipients
@@ -811,3 +822,48 @@ class DocumentService:
         """
         # TODO: Implement in Journal module
         pass
+
+    @staticmethod
+    def _queue_peppol_transmission(document, org_id):
+        """
+        Queue document for Peppol transmission if configured.
+
+        Called automatically when a sales invoice is approved.
+        Creates transmission log and queues async task if Peppol
+        is enabled and configured for the organization.
+
+        Args:
+            document: InvoiceDocument instance (must be SALES_INVOICE)
+            org_id: Organisation ID
+
+        Returns:
+            str: Celery task ID if queued, None otherwise
+        """
+        from apps.peppol.models import OrganisationPeppolSettings, PeppolTransmissionLog
+        from apps.peppol.tasks import transmit_peppol_invoice_task
+
+        # Check if Peppol enabled and configured
+        settings = OrganisationPeppolSettings.objects.filter(org_id=org_id).first()
+
+        if not settings or not settings.is_configured:
+            return None
+
+        if not settings.auto_transmit:
+            return None
+
+        # Check if recipient has Peppol ID
+        if not document.contact or not document.contact.peppol_id:
+            return None
+
+        # Create transmission log
+        log = PeppolTransmissionLog.objects.create(
+            org_id=org_id,
+            document_id=document.id,
+            status="PENDING",
+            access_point_provider=settings.access_point_provider,
+            attempt_number=1,
+        )
+
+        # Queue async task
+        task = transmit_peppol_invoice_task.delay(str(log.id), str(org_id))
+        return task.id
