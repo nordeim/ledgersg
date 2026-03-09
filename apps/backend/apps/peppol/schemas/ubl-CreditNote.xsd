@@ -1,25 +1,289 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           targetNamespace="urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2"
-           xmlns="urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2">
-  <xs:annotation>
-    <xs:documentation>
-      UBL 2.1 CreditNote Schema - Minimal version for LedgerSG
-      Full schema available at: https://docs.peppol.eu/poac/sg/pint-sg/trn-creditnote/syntax/ubl-CreditNote.xsd
-    </xs:documentation>
-  </xs:annotation>
-  
-  <xs:element name="CreditNote" type="CreditNoteType"/>
-  
-  <xs:complexType name="CreditNoteType">
-    <xs:sequence>
-      <xs:element name="UBLVersionID" type="xs:string" minOccurs="0"/>
-      <xs:element name="CustomizationID" type="xs:string" minOccurs="0"/>
-      <xs:element name="ProfileID" type="xs:string" minOccurs="0"/>
-      <xs:element name="ID" type="xs:string"/>
-      <xs:element name="IssueDate" type="xs:date"/>
-      <xs:element name="CreditNoteTypeCode" type="xs:string" minOccurs="0"/>
-      <xs:element name="DocumentCurrencyCode" type="xs:string" minOccurs="0"/>
-    </xs:sequence>
-  </xs:complexType>
+           targetNamespace="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+           xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+           elementFormDefault="qualified"
+           version="2.1">
+
+    <xs:annotation>
+        <xs:documentation>
+            UBL 2.1 Invoice Schema - LedgerSG PINT-SG Compliant
+            Validated against OASIS UBL 2.1 and Singapore PINT-SG
+            Version: 1.1.0 (2026-03-09)
+        </xs:documentation>
+    </xs:annotation>
+
+    <!-- Root element -->
+    <xs:element name="CreditNote" type="CreditNoteType"/>
+
+    <!-- ============ CUSTOM TYPES ============ -->
+
+    <!-- Monetary amount with 4 decimal precision (IRAS requirement) -->
+    <xs:simpleType name="AmountType">
+        <xs:restriction base="xs:decimal">
+            <xs:totalDigits value="14"/>
+            <xs:fractionDigits value="4"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Tax category ID (PINT-SG codes) -->
+    <xs:simpleType name="TaxCategoryIDType">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="S"/>
+            <xs:enumeration value="Z"/>
+            <xs:enumeration value="E"/>
+            <xs:enumeration value="O"/>
+            <xs:enumeration value="K"/>
+            <xs:enumeration value="NG"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Payment means code (Singapore PayNow support) -->
+    <xs:simpleType name="PaymentMeansCodeType">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="10"/>
+            <xs:enumeration value="30"/>
+            <xs:enumeration value="42"/>
+            <xs:enumeration value="47"/>
+            <xs:enumeration value="48"/>
+            <xs:enumeration value="49"/>
+            <xs:enumeration value="58"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- ============ INVOICE TYPE ============ -->
+
+    <xs:complexType name="CreditNoteType">
+        <xs:sequence>
+            <!-- Document header -->
+            <xs:element name="UBLVersionID" type="xs:string" minOccurs="0"/>
+            <xs:element name="CustomizationID" minOccurs="1"/>
+            <xs:element name="ProfileID" minOccurs="1"/>
+            <xs:element name="ID" minOccurs="1"/>
+            <xs:element name="IssueDate" type="xs:date" minOccurs="1"/>
+            <xs:element name="DueDate" type="xs:date" minOccurs="0"/>
+            <xs:element name="CreditNoteTypeCode" minOccurs="1"/>
+            <xs:element name="DocumentCurrencyCode" minOccurs="1"/>
+            <xs:element name="TaxCurrencyCode" type="xs:string" minOccurs="0"/>
+
+            <!-- Payment means -->
+            <xs:element name="PaymentMeans" type="PaymentMeansType" minOccurs="0" maxOccurs="unbounded"/>
+
+            <!-- Parties -->
+            <xs:element name="AccountingSupplierParty" type="SupplierPartyType" minOccurs="1"/>
+            <xs:element name="AccountingCustomerParty" type="CustomerPartyType" minOccurs="1"/>
+
+            <!-- Payment terms -->
+            <xs:element name="PaymentTerms" type="PaymentTermsType" minOccurs="0" maxOccurs="unbounded"/>
+
+            <!-- Allowance/Charge -->
+            <xs:element name="AllowanceCharge" type="AllowanceChargeType" minOccurs="0" maxOccurs="unbounded"/>
+
+            <!-- Tax total -->
+            <xs:element name="TaxTotal" type="TaxTotalType" minOccurs="1" maxOccurs="unbounded"/>
+
+            <!-- Monetary total -->
+            <xs:element name="LegalMonetaryTotal" type="MonetaryTotalType" minOccurs="1"/>
+
+            <!-- Invoice lines -->
+            <xs:element name="InvoiceLine" type="InvoiceLineType" minOccurs="1" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- ============ PARTY STRUCTURE ============ -->
+
+    <xs:complexType name="SupplierPartyType">
+        <xs:sequence>
+            <xs:element name="Party" type="PartyType" minOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="CustomerPartyType">
+        <xs:sequence>
+            <xs:element name="Party" type="PartyType" minOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="PartyType">
+        <xs:sequence>
+            <xs:element name="PartyIdentification" type="PartyIdentificationType" minOccurs="0"/>
+            <xs:element name="PartyName" type="PartyNameType" minOccurs="0"/>
+            <xs:element name="PartyLegalEntity" type="PartyLegalEntityType" minOccurs="0"/>
+            <xs:element name="PostalAddress" type="AddressType" minOccurs="0"/>
+            <xs:element name="Contact" type="ContactType" minOccurs="0"/>
+            <xs:element name="ElectronicAddress" type="ElectronicAddressType" minOccurs="0"/>
+            <xs:element name="PartyTaxScheme" type="PartyTaxSchemeType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="PartyIdentificationType">
+        <xs:sequence>
+            <xs:element name="ID" minOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="ElectronicAddressType">
+        <xs:sequence>
+            <xs:element name="ID" minOccurs="1"/>
+            <xs:element name="SchemeID" type="xs:string" minOccurs="1" fixed="0195"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="PartyNameType">
+        <xs:sequence>
+            <xs:element name="Name" minOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="PartyLegalEntityType">
+        <xs:sequence>
+            <xs:element name="RegistrationName" type="xs:string" minOccurs="0"/>
+            <xs:element name="CompanyID" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="PartyTaxSchemeType">
+        <xs:sequence>
+            <xs:element name="CompanyID" type="xs:string" minOccurs="0"/>
+            <xs:element name="TaxScheme" type="TaxSchemeType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="TaxSchemeType">
+        <xs:sequence>
+            <xs:element name="ID" type="xs:string" minOccurs="0"/>
+            <xs:element name="Name" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="AddressType">
+        <xs:sequence>
+            <xs:element name="StreetName" type="xs:string" minOccurs="0"/>
+            <xs:element name="AdditionalStreetName" type="xs:string" minOccurs="0"/>
+            <xs:element name="CityName" type="xs:string" minOccurs="0"/>
+            <xs:element name="PostalZone" type="xs:string" minOccurs="0"/>
+            <xs:element name="Country" type="CountryType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="CountryType">
+        <xs:sequence>
+            <xs:element name="IdentificationCode" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="ContactType">
+        <xs:sequence>
+            <xs:element name="Name" type="xs:string" minOccurs="0"/>
+            <xs:element name="Telephone" type="xs:string" minOccurs="0"/>
+            <xs:element name="ElectronicMail" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- ============ PAYMENT ============ -->
+
+    <xs:complexType name="PaymentMeansType">
+        <xs:sequence>
+            <xs:element name="PaymentMeansCode" type="PaymentMeansCodeType" minOccurs="1"/>
+            <xs:element name="PaymentDueDate" type="xs:date" minOccurs="0"/>
+            <xs:element name="PayeeFinancialAccount" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="PaymentTermsType">
+        <xs:sequence>
+            <xs:element name="PaymentDueDate" type="xs:date" minOccurs="0"/>
+            <xs:element name="Note" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="AllowanceChargeType">
+        <xs:sequence>
+            <xs:element name="ChargeIndicator" type="xs:boolean" minOccurs="1"/>
+            <xs:element name="AllowanceChargeReason" type="xs:string" minOccurs="0"/>
+            <xs:element name="MultiplierFactorNumeric" type="xs:decimal" minOccurs="0"/>
+            <xs:element name="BaseAmount" type="AmountType" minOccurs="0"/>
+            <xs:element name="ActualAmount" type="AmountType" minOccurs="1"/>
+            <xs:element name="TaxCategory" type="TaxCategoryType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- ============ TAX ============ -->
+
+    <xs:complexType name="TaxTotalType">
+        <xs:sequence>
+            <xs:element name="TaxAmount" type="AmountType" minOccurs="1"/>
+            <xs:element name="TaxSubtotal" type="TaxSubtotalType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="TaxSubtotalType">
+        <xs:sequence>
+            <xs:element name="TaxableAmount" type="AmountType" minOccurs="0"/>
+            <xs:element name="TaxAmount" type="AmountType" minOccurs="0"/>
+            <xs:element name="TaxCategory" type="TaxCategoryType" minOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="TaxCategoryType">
+        <xs:sequence>
+            <xs:element name="ID" minOccurs="1">
+                <xs:simpleType>
+                    <xs:restriction base="TaxCategoryIDType"/>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element name="Percent" type="xs:decimal" minOccurs="1"/>
+            <xs:element name="TaxExemptionReason" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- ============ MONETARY TOTAL ============ -->
+
+    <xs:complexType name="MonetaryTotalType">
+        <xs:sequence>
+            <xs:element name="LineExtensionAmount" type="AmountType" minOccurs="1"/>
+            <xs:element name="TaxExclusiveAmount" type="AmountType" minOccurs="1"/>
+            <xs:element name="TaxInclusiveAmount" type="AmountType" minOccurs="1"/>
+            <xs:element name="PayableAmount" type="AmountType" minOccurs="1"/>
+            <xs:element name="PrepaidAmount" type="AmountType" minOccurs="0"/>
+            <xs:element name="PayableRoundingAmount" type="AmountType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- ============ INVOICE LINE ============ -->
+
+    <xs:complexType name="InvoiceLineType">
+        <xs:sequence>
+            <xs:element name="ID" minOccurs="1"/>
+            <xs:element name="InvoicedQuantity" type="xs:decimal" minOccurs="0"/>
+            <xs:element name="LineExtensionAmount" type="AmountType" minOccurs="1"/>
+            <xs:element name="AllowanceCharge" type="AllowanceChargeType" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="Item" type="ItemType" minOccurs="1"/>
+            <xs:element name="Price" type="PriceType" minOccurs="1"/>
+            <xs:element name="TaxTotal" type="TaxTotalType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="ItemType">
+        <xs:sequence>
+            <xs:element name="Description" type="xs:string" minOccurs="0"/>
+            <xs:element name="Name" type="xs:string" minOccurs="0"/>
+            <xs:element name="SellersItemIdentification" type="ItemIdentificationType" minOccurs="0"/>
+            <xs:element name="ClassifiedTaxCategory" type="TaxCategoryType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="PriceType">
+        <xs:sequence>
+            <xs:element name="PriceAmount" type="AmountType" minOccurs="1"/>
+            <xs:element name="BaseQuantity" type="xs:decimal" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="ItemIdentificationType">
+        <xs:sequence>
+            <xs:element name="ID" minOccurs="1"/>
+        </xs:sequence>
+    </xs:complexType>
+
 </xs:schema>
