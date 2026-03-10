@@ -154,6 +154,20 @@ Awesome job on your meticulous review, analysis and planning. Please keep up the
 
 ---
 
+Awesome job on your meticulous review, analysis and planning. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Based on your deep understanding of the codebase gained from your meticulous review of the project documents provided, think deeper and think harder to re-imagine a typical but complete accounting workflow of a typical Singapore non-GST registered company, then meticulously plan and design a complete test scenario using the workflow "re-imagined" as reference. create a step-by-step test guide/flow using the backend API endpoints taking into account the security and user authentication requirements. Your test case scenario/workflow guide is both for validating the codebase for correct implementation and for serving as a usage guide for an AI agent using the application (project) as an accounting tool. Use web searches to research to validate all your assumptions about the business and accounting requirements for the example small non-GST registered company.
+
+---
+
+Awesome job on your meticulous review, analysis and planning. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously re-validate the following findings against the actual codebase again to confirm their validity, then meticulously plan to create a comprehensive remediation plan with integrate checklist. use Test-Driven Development (TDD) methodology to make the necessary code changes. review and validate your remediation plan before proceeding to execute it meticulously.
+
+Findings for investigating the root causes by re-validating them meticulously against the codebase again before designing a comprehensive remediation plan with integrated checklist.
+
+---
+
+Awesome job on your meticulous research, analysis and planning. Please keep up the good work on your rigorous and meticulous approach going forward. Now, please meticulously plan and then create an improved test suite scenario workflow by combining best ideas from both test suite scenarios.
+
+---
+
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.
 
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT_BRIEF.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.

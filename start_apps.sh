@@ -240,3 +240,13 @@ $ curl -s -X POST "http://localhost:8000/api/v1/auth/login/" \
   -d '{"email": "test@example.com", "password": "testpass123"}' | jq -r '.tokens.access' 2>/dev/null
 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcyOTQ5ODE3LCJpYXQiOjE3NzI5NDYyMTcsImp0aSI6IjMzNmFkMWU5MjBlYTQxYzk4YWYxMDYzMzIxMmFjODU1IiwidXNlcl9pZCI6ImVlMmNkYzQ0LTUwM2YtNDg2NC05YTM2LTAwNWRmMTQ4ZTY1MCIsImRlZmF1bHRfb3JnX2lkIjoiNjVhYmJjZDYtNjEyOS00MWVmLTgyZWQtOWU4NGEzNDQyYzdmIiwiZGVmYXVsdF9vcmdfbmFtZSI6IlRlc3QgT3JnYW5pc2F0aW9uIn0.3k6SSn82QZj3yftMGM19st2VjXIzVh42uZbf1EQASxU
 
+---
+
+# Run all auth tests from web directory
+$ cd /home/project/Ledger-SG/apps/web && npm test -- src/lib/__tests__/api-client-auth.test.ts --reporter=verbose 2>&1
+
+---
+
+# Run organisations architecture tests from web directory
+$ cd /home/project/Ledger-SG/apps/web && npm test -- src/lib/__tests__/api-client-organisations.test.ts --reporter=verbose 2>&1
+

@@ -106,6 +106,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
+/**
+ * Attempt to refresh the access token using the refresh token.
+ *
+ * The backend returns tokens in a nested structure:
+ *   { tokens: { access: "...", refresh: "..." } }
+ *
+ * We support both nested and flat structures for backward compatibility
+ * and resilience against API changes.
+ *
+ * @returns {Promise<boolean>} True if token was refreshed successfully
+ */
 async function tryRefreshToken(): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh/`, {
@@ -114,13 +125,31 @@ async function tryRefreshToken(): Promise<boolean> {
       headers: { "Content-Type": "application/json" },
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      setAccessToken(data.access);
-      return true;
+    if (!response.ok) {
+      console.error(`[Auth] Token refresh failed with status ${response.status}`);
+      return false;
     }
-    return false;
-  } catch {
+
+    const data = await response.json();
+
+    // Extract access token from response
+    // Backend returns: {tokens: {access: "...", refresh: "..."}}
+    // Fallback to flat structure: {access: "...", refresh: "..."} for backward compatibility
+    const accessToken = data.tokens?.access || data.access;
+
+    if (!accessToken || typeof accessToken !== "string") {
+      console.error(
+        "[Auth] Invalid or missing access token in refresh response. Expected data.tokens.access or data.access",
+        data
+      );
+      return false;
+    }
+
+    setAccessToken(accessToken);
+    console.debug("[Auth] Access token refreshed successfully");
+    return true;
+  } catch (error) {
+    console.error("[Auth] Token refresh error:", error);
     return false;
   }
 }
