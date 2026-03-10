@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.1.0
+> **Version**: 2.2.0
 > **Last Updated**: 2026-03-10
-> **Status**: Production Ready ✅ (Frontend-BE Integration Remediation Complete, InvoiceNow/Peppol Phases 1-4 Complete, SEC-001, SEC-002, SEC-003, CORS Fix, RLS Fix, Phase A, Phase B, Phase 3, Phase 4, Phase 5.4, Phase 5.5 Complete)
+> **Status**: Production Ready ✅ (SMB Workflow Remediation Complete, Frontend-BE Integration Remediation Complete, InvoiceNow/Peppol Phases 1-4 Complete, SEC-001, SEC-002, SEC-003, CORS Fix, RLS Fix, Phase A, Phase B, Phase 3, Phase 4, Phase 5.4, Phase 5.5 Complete)
 
 ---
 
@@ -32,19 +32,17 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.1 | ✅ Production Ready | 12 pages (including Banking), dynamic org context, 10 test files |
-| **Backend** | v0.3.3 | ✅ Production Ready | **83 API endpoints**, 16 test files |
-| **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
-| **Dashboard** | v1.0.0 | ✅ Production Ready | **36 TDD tests** (21 service + 15 cache), 100% coverage |
-| **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests (services + views), 13 validated endpoints |
-| **Banking UI** | v1.3.0 | ✅ **Phase 5.5 Complete** | 73 TDD tests, all 3 tabs live, reconciliation workflow |
-| **Security** | v1.0.0 | ✅ SEC-002, SEC-003 Remediated | Rate limiting on auth endpoints |
-| **InvoiceNow** | v1.0.0 | ✅ **Phases 1-4 Complete** | 122+ TDD tests, PINT-SG compliant, async transmission |
-| **CORS** | v1.0.0 | ✅ Dashboard Fixed | CORSJWTAuthentication, preflight handling |
-| **Integration** | v1.1.0 | ✅ **Complete** | All endpoint paths aligned, Dashboard real data |
-| **Frontend-BE Integration** | v1.2.0 | ✅ **Remediation Complete** | Auth token refresh fixed, +16 TDD tests, TDD methodology |
-| **Testing** | — | ✅ **789+ Passing** | Frontend (321) + Backend (468) tests verified |
-| **Overall** | — | ✅ **Platform Ready** | **773 tests**, WCAG AAA, IRAS Compliant, 100% Security |
+| **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, **321 tests**, WCAG AAA |
+| **Backend** | v0.3.3 | ✅ Production Ready | **84 API endpoints**, **468 tests** |
+| **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, **29 tables** |
+| **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | **36 TDD tests**, Redis caching |
+| **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests, 13 validated endpoints |
+| **Banking UI** | v1.3.0 | ✅ **Phase 5.5 Complete** | 73 TDD tests, all 3 tabs live, reconciliation |
+| **Security** | v1.0.0 | ✅ SEC-002, SEC-003 Remediated | 100% Security Score |
+| **InvoiceNow** | v1.0.0 | ✅ **Phases 1-4 Complete** | 122+ TDD tests, PINT-SG compliant |
+| **SMB Workflow** | v1.0.0 | ✅ **Remediation Complete** | **Full Q1 workflow validated**, Ledger active |
+| **Testing** | — | ✅ **789 Passing** | **321 Frontend + 468 Backend** tests verified |
+| **Overall** | — | ✅ **Platform Ready** | **789 tests**, WCAG AAA, IRAS Compliant |
 
 ---
 
@@ -237,6 +235,12 @@ pytest --reuse-db --no-migrations
 
 ## 🔧 Troubleshooting
 
+### SMB Workflow & Accounting Logic
+- **Dashboard/Reports show zero**: Invoices are in `DRAFT`. **Solution**: Approve them via the `/approve/` endpoint to post to ledger.
+- **TypeError: UUID not JSON serializable**: Custom JSON encoder missing support. **Solution**: Use `DecimalSafeJSONEncoder` in `common/renderers.py`.
+- **IntegrityError on contact_type**: `contact_type` enum not set. **Solution**: Call `ContactService.create_contact`; it auto-calculates the type.
+- **CSV Import missing rows**: Header mismatch (e.g., "Date" vs "date"). **Solution**: Use normalized lowercase headers in `ReconciliationService`.
+
 ### CORS & Dashboard Loading Issues
 - **Dashboard stuck at "Loading..."**: CORS preflight rejection. Test: `curl -X OPTIONS http://localhost:8000/api/v1/auth/me/ -i`. Should return 200 with CORS headers.
 - **CORS preflight returns 401**: JWT auth rejecting OPTIONS. Solution: CORSJWTAuthentication class skips OPTIONS requests.
@@ -273,9 +277,18 @@ pytest --reuse-db --no-migrations
 
 ---
 
-## 🚀 Recent Milestones
+### Recent Milestones
+
+### Singapore SMB Workflow Remediation ✅ COMPLETE (2026-03-10)
+- **Full Validation**: Executed Q1 workflow for "Meridian Consulting Pte Ltd" (Non-GST).
+- **Logic Gaps Filled**: Implemented journal posting for Invoices and Payments (previously stubbed).
+- **Serializer Alignment**: Synchronized `Invoicing`, `Banking`, and `GST` serializers with the SQL-First schema.
+- **Reporting Engine**: Replaced stubs with live SQL aggregations for P&L and Balance Sheet.
+- **Robustness**: Fixed UUID serialization errors, contact integrity violations, and CSV header case-sensitivity.
+- **Total Tests**: **789 tests passing** across the entire platform.
 
 ### Phase 3: Bank Transactions Tab Integration ✅ COMPLETE (2026-03-06)
+
 - **TDD Integration Tests**: 7 comprehensive tests (RED → GREEN → REFACTOR)
 - **Full Implementation**: Replaced placeholder with complete BankTransactionsTab
 - **Components Integrated**: TransactionList, TransactionFilters, ReconciliationSummary, ImportTransactionsForm, ReconcileForm

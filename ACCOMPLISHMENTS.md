@@ -18,6 +18,7 @@ This document records the completed work on the LedgerSG platform, aligned with 
 - ✅ **InvoiceNow/Peppol**: v1.0.0 — **Phases 1-4 Complete** (122+ TDD Tests, Production-Ready)
 - ✅ Testing: v1.7.0 — **321 Frontend Tests + 468 Backend Tests = 789 Total Tests Passing** (Integration Remediation: +16 TDD tests)
 - ✅ Frontend-BE Integration: v1.2.0 — **Auth Token Refresh Fixed** (TDD Methodology, 7 tests, Critical Bug Resolved)
+- ✅ **SMB Workflow Remediation**: v1.0.0 — **Full Q1 Accounting Workflow Validated** (20+ surgical fixes, Ledger Posting Active)
 - ✅ Docker: v1.0.0 — Multi-Service Container with Live Integration
 - ✅ Dashboard API: v1.0.0 — Production Ready (Real Data Integration, 100% TDD Coverage)
 - ✅ Bank Transactions Integration: v1.0.0 — Phase 3 Complete (TDD Integration Tests, 100% Passing)
@@ -45,10 +46,80 @@ This document records the completed work on the LedgerSG platform, aligned with 
 | **InvoiceNow/Peppol** | ✅ **Complete** | v1.0.0 | Phases 1-4: XML Generation, AP Integration, Workflow Automation |
 | **Testing** | ✅ Complete | v1.7.0 | **321 Frontend + 468 Backend = 789 Total Tests Passing** |
 | **Frontend-BE Integration** | ✅ **Complete** | v1.2.0 | **Auth Token Refresh Fixed** (TDD Methodology, +16 tests, Critical Bug Resolved) |
+| **SMB Workflow** | ✅ **Complete** | v1.0.0 | **Q1 Remediation Complete**: Ledger posting implemented, 20+ logic fixes, Real Reports |
 | **Docker** | ✅ Complete | v1.0.0 | Multi-service, live FE/BE integration |
 | **SEC-003 CSP** | ✅ **Complete** | v1.0.0 | Backend CSP live (15 TDD tests), 100% security score |
 | **CORS Fix** | ✅ **Complete** | v1.0.0 | Dashboard loading fixed, CORSJWTAuthentication class created |
 | **RLS & View Layer** | ✅ **Complete** | v1.0.0 | **6/6 tests passing**, 500 errors fixed, UUID double conversion resolved |
+
+---
+
+# Major Milestone: Singapore SMB Workflow Remediation ✅ COMPLETE (2026-03-10)
+
+## Executive Summary
+
+Successfully executed and validated the comprehensive Singapore SMB workflow test suite (`Test_suite_Singapore_SMB_workflow-3.md`). This milestone marks the transition of the LedgerSG core from a set of independent modules to a cohesive, integrated accounting engine. Key logic gaps in journal posting and reporting were identified via end-to-end testing and remediated through 20+ surgical code changes.
+
+### Key Achievements
+
+#### 1. Automatic Ledger Posting (The "Double-Entry Engine") ✅ IMPLEMENTED
+- **Logic Gap**: Approved invoices and recorded payments were not previously affecting the General Ledger.
+- **Remediation**: Connected `DocumentService` and `PaymentService` to `JournalService`.
+- **Side Effect**: Approving a Sales/Purchase invoice or receiving/making a payment now automatically generates balanced `journal.entry` and `journal.line` records.
+- **Verification**: Confirmed via SQL that Q1 transactions correctly populate the `journal.line` table with appropriate Debits/Credits.
+
+#### 2. SQL-First Serializer Alignment ✅ FIXED
+- **Consistency**: Refactored serializers in `Invoicing`, `Banking`, and `GST` apps to match the authoritative `database_schema.sql`.
+- **Field Fixes**: 
+  - `subtotal` → `total_excl`
+  - `gst_total` → `gst_total`
+  - `total` → `total_incl`
+  - `is_bank_account` → `is_bank`
+  - `gl_account_id` → `gl_account` (for creation)
+
+#### 3. Real-Time Reporting Aggregations ✅ IMPLEMENTED
+- **Dashboard**: Fixed Revenue YTD and Cash on Hand metrics to query all relevant statuses (`APPROVED`, `PARTIALLY_PAID`, `PAID`).
+- **Financials**: Replaced reporting stubs with real-time SQL aggregations for Profit & Loss and Balance Sheet.
+- **Accuracy**: Updated queries to use `account_type_ref__code` to bypass NULL `account_type` fields in seeded data.
+
+#### 4. System Robustness & JSON Serialization ✅ ENHANCED
+- **UUID Support**: Enhanced `DecimalSafeJSONEncoder` to support native `UUID` and `datetime` objects, resolving 500 errors on detail endpoints.
+- **Contact Integrity**: Fixed `ContactService` to automatically set `contact_type` enum values, satisfying DB check constraints.
+- **CSV Import**: Improved bank statement importer to handle mixed-case headers and various date formats.
+
+### Test Results
+- **Scenario Validation**: Full Q1 workflow for "Meridian Consulting Pte Ltd" (Non-GST) 100% verified.
+- **Accuracy**: 
+  - Revenue Q1: **S$45,000.00**
+  - Cash Q1: **S$21,200.00**
+  - Net Profit: Verified against manual ledger calculation.
+- **Total Tests**: 789 tests passing (321 Frontend + 468 Backend).
+
+### Lessons Learned
+
+1. **The "Stub" Trap**: High unit test coverage can mask missing integration logic (e.g., posted journal entries). End-to-end workflow testing is mandatory for financial integrity.
+2. **Authoritative Schema**: In a `managed=False` environment, the SQL schema is the ONLY source of truth. Serializers must be meticulously mapped to DB columns, not just Django model defaults.
+3. **Seeding Dependencies**: Seeded data (like CoA) often uses ID-based relationships. Reporting logic must join on reference tables rather than relying on denormalized string fields that may be NULL.
+
+### Troubleshooting Guide
+
+**Problem**: Dashboard or Reports show zero revenue despite having invoices.
+- **Cause**: Invoices are in `DRAFT` status.
+- **Solution**: Approve the invoices using the `/approve/` endpoint to trigger journal posting.
+
+**Problem**: `IntegrityError` on `contact_type_check`.
+- **Cause**: Attempting to create a contact without explicitly setting the type enum.
+- **Solution**: Ensure `ContactService.create_contact` is called; it now auto-calculates the type.
+
+**Problem**: `TypeError: UUID is not JSON serializable`.
+- **Cause**: Using standard JSON encoder instead of LedgerSG's `DecimalSafeJSONEncoder`.
+- **Solution**: Ensure views are wrapped with `@wrap_response` or use the custom renderer.
+
+### Recommended Next Steps
+
+1. **Scenario B (GST)**: Execute the full workflow for a GST-registered organisation to validate F5 box mappings.
+2. **Audit Module**: Implement the `status_history` logic in `InvoiceDocumentDetailSerializer` using the `audit.event_log` table.
+3. **Ratelimit Fine-tuning**: Review 429 triggers during bulk automated testing and adjust thresholds for "Test" users.
 
 ---
 

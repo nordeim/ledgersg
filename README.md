@@ -100,17 +100,25 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, 321 tests, WCAG AAA |
-| **Backend** | v0.3.3 | ✅ Production Ready | 85+ endpoints, 468 tests |
-| **Database** | v1.0.3 | ✅ Complete | 7 schemas, 29 tables, RLS enforced |
+| **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, **321 tests**, WCAG AAA |
+| **Backend** | v0.3.3 | ✅ Production Ready | **84 API endpoints**, **468 tests** |
+| **Database** | v1.0.3 | ✅ Complete | 7 schemas, **29 tables**, RLS enforced |
 | **Banking** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching |
 | **InvoiceNow** | v1.0.0 | ✅ Phases 1-4 Complete | 122+ TDD tests, PINT-SG compliant |
 | **Security** | v1.0.0 | ✅ 100% Score | SEC-001, SEC-002, SEC-003 Remediated |
+| **SMB Workflow** | v1.0.0 | ✅ **Remediation Complete** | **Full Q1 validated**, Ledger posting active |
 | **Frontend-BE Integration** | v1.2.0 | ✅ **Remediation Complete** | Auth token refresh fixed, +16 TDD tests |
 | **Overall** | — | ✅ **Platform Ready** | **789 Tests**, IRAS Compliant |
 
 ### Latest Milestones
+
+**🎉 Singapore SMB Workflow Remediation** — 2026-03-10
+- ✅ **Full Q1 Accounting Workflow Validated** (Registration, Organisation, CoA, Banking, Invoices, Payments, Reports)
+- ✅ **Automatic Ledger Posting Active** (Approved invoices and payments now post to `journal.line`)
+- ✅ **SQL-First Schema Alignment** (20+ surgical fixes to align serializers with DB constraints)
+- ✅ **Real-Time Financial Reports** (P&L and Balance Sheet implemented with live SQL aggregations)
+- ✅ **789 Total Tests** (321 frontend + 468 backend)
 
 **🎉 Frontend-Backend Integration Remediation** — 2026-03-10
 - ✅ **Critical Auth Bug Fixed** (Token refresh response structure mismatch)
@@ -870,7 +878,7 @@ LedgerSG follows the **Meticulous Approach** — rigorous, systematic planning a
 
 1. **Create Feature Branch**: `git checkout -b feature/invoice-approval`
 2. **Follow TDD**: Write tests first, then implementation
-3. **Run Full Test Suite**: Ensure all 773 tests pass
+3. **Run Full Test Suite**: Ensure all 789 tests pass
 4. **Update Documentation**: Update relevant .md files
 5. **Security Review**: Verify no JWT exposure, input validation
 6. **Submit PR**: Link to related issues, describe changes
@@ -894,7 +902,7 @@ LedgerSG follows the **Meticulous Approach** — rigorous, systematic planning a
 ### QA Checklist
 
 Before submitting PR:
-- [ ] All tests passing (773 total)
+- [ ] All tests passing (789 total)
 - [ ] No JWT exposure in client code
 - [ ] Input validation on all endpoints
 - [ ] SQL-first database changes

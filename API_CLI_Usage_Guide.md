@@ -2,75 +2,28 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 2.0.0
-> **Last Updated**: 2026-03-08
-> **Status**: Production Ready ✅ (SEC-001, SEC-002, SEC-003, Phase B, Phase 5.5, RLS Fix Complete)
+> **Version**: 2.1.0
+> **Last Updated**: 2026-03-10
+> **Status**: Production Ready ✅ (SEC-001/002/003, Phase B, Phase 5.5, RLS Fix, SMB Workflow Complete)
 
 ---
 
-## 🎉 Recent Milestone: RLS & View Layer Fixes ✅ COMPLETE (2026-03-08)
+## 🎉 Recent Milestone: SMB Workflow Remediation ✅ COMPLETE (2026-03-10)
 
 ### Summary
 
-Successfully fixed Row Level Security (RLS) middleware issues and view layer 500 errors across banking, GST, and journal endpoints. All critical endpoints now return proper 200 responses instead of 500 Internal Server Error.
+Successfully completed a full end-to-end validation of the Singapore SMB accounting workflow. This involved fixing several critical gaps in the service layer, aligning serializers with the SQL-First schema, and implementing the core double-entry posting engine.
 
-### Issues Fixed
+### Key Knowledge & Fixes
 
-| Issue | Root Cause | Solution | Files Modified |
-|-------|------------|----------|----------------|
-| **500 Error on Banking/GST/Journal** | UUID double conversion | Removed redundant `UUID(org_id)` calls | 3 view files |
-| **SQL Syntax Error** | PostgreSQL NULL in SET LOCAL | Changed `NULL` → `''` | middleware |
-| **Test Assertion Failures** | JsonResponse has no `.data` | Use `json.loads(response.content)` | tests |
-| **Missing Org Membership** | No UserOrganisation fixture | Added complete test fixtures | tests |
-| **Poor Error Visibility** | No exception logging | Enhanced `wrap_response` logging | common/views |
-
-### Technical Details
-
-**Root Cause:**
-Django's URL path converter `<uuid:org_id>` automatically converts URL parameters to UUID objects. The views were trying to convert them again with `UUID(org_id)`, causing:
-```
-'UUID' object has no attribute 'replace'
-```
-
-**Files Fixed:**
-- `apps/banking/views.py` — Removed multiple `UUID(org_id)` calls
-- `apps/gst/views.py` — Removed 13 `UUID(org_id)` calls
-- `apps/journal/views.py` — Removed 7 `UUID(org_id)` calls
-- `common/middleware/tenant_context.py` — Fixed SQL NULL syntax
-- `common/views.py` — Enhanced error logging
-- `tests/middleware/test_rls_context.py` — Complete rewrite with proper fixtures
-
-### Test Results
-
-```bash
-pytest tests/middleware/test_rls_context.py -v --reuse-db --no-migrations
-
-# Results:
-tests/middleware/test_rls_context.py::TestRLSContextMiddleware::test_rls_context_not_set_when_user_unauthenticated PASSED
-tests/middleware/test_rls_context.py::TestRLSContextMiddleware::test_rls_context_set_when_user_authenticated PASSED
-tests/middleware/test_rls_context.py::TestRLSContextMiddleware::test_jwt_token_extraction_in_middleware PASSED
-tests/middleware/test_rls_context.py::TestBankingEndpointsWithRLS::test_bank_account_list_returns_200 PASSED
-tests/middleware/test_rls_context.py::TestBankingEndpointsWithRLS::test_tax_code_list_returns_200 PASSED
-tests/middleware/test_rls_context.py::TestJournalEndpointsWithRLS::test_journal_entries_list_returns_200 PASSED
-
-============================== 6 passed in 1.49s ==============================
-```
-
-### Key Lessons
-
-1. **Django URL Path Converters**: `<uuid:org_id>` automatically converts to UUID — don't wrap with `UUID()`
-2. **PostgreSQL SET LOCAL**: Requires string values: `SET LOCAL app.current_org_id = ''` not `NULL`
-3. **JsonResponse**: Use `.content` and parse with `json.loads()`, not `.data`
-4. **RLS Testing**: Requires proper UserOrganisation membership with `accepted_at` timestamp
-
-### Documentation
-
-- `TDD_RLS_FIXES_SUBPLAN.md` — Complete TDD implementation plan
-- `TDD_VIEW_LAYER_FIXES_SUBPLAN.md` — UUID fix documentation
-- `TDD_IMPLEMENTATION_REPORT.md` — Implementation details
-- `RLS_FIX_VALIDATION_REPORT.md` — Validation results
-
----
+| Category | Finding / Issue | Resolution / Knowledge |
+|:---|:---|:---|
+| **Accounting Logic** | Journal Posting was stubbed. | Implemented automatic ledger posting for Invoices and Payments. |
+| **Data Consistency** | Field mismatches (e.g., `is_bank_account` vs `is_bank`). | Standardized all serializers to match the `database_schema.sql` exactly. |
+| **Response Parsing** | List endpoints wrap results in a `data` key. | **CRITICAL**: Use `jq '.data'` when parsing list responses (e.g., Accounts, Tax Codes). |
+| **DB Integrity** | `contact_type` constraint violations. | `ContactService` now auto-calculates type from boolean flags. |
+| **Serialization** | UUID objects caused 500 errors in JSON. | Fixed `DecimalSafeJSONEncoder` to support `UUID` and `datetime`. |
+| **Importing** | CSV headers were case-sensitive. | Improved `import_csv` service to normalize headers (mixed-case support). |
 
 ---
 
@@ -84,12 +37,6 @@ tests/middleware/test_rls_context.py::TestJournalEndpointsWithRLS::test_journal_
 - ✅ Bulk data operations
 - ✅ CI/CD pipeline integration
 - ✅ Debugging frontend-backend issues
-
-### When NOT to Use This Guide
-- ❌ Standard user workflows (use the web UI)
-- ❌ Complex forms requiring validation
-- ❌ Real-time collaborative editing
-- ❌ Features requiring frontend state (caching, optimistic updates)
 
 ---
 
@@ -114,39 +61,9 @@ LedgerSG uses **JWT Authentication** with:
 - **Access Token**: 15-minute expiration (stored in memory)
 - **Refresh Token**: 7-day expiration (HttpOnly cookie)
 
-### Authentication Flow
-
-```mermaid
-sequenceDiagram
-    participant CLI
-    participant API
-    participant DB
-
-    CLI->>API: POST /auth/login/ {email, password}
-    API->>DB: Validate credentials
-    DB-->>API: User valid
-    API-->>CLI: Access Token + Refresh Token
-
-    Note over CLI,API: Store tokens securely
-
-    loop API Requests
-        CLI->>API: Request with Bearer {access_token}
-        API->>API: Validate JWT
-        API-->>CLI: Response
-    end
-
-    alt Token Expired (401)
-        CLI->>API: POST /auth/refresh/ {refresh}
-        API-->>CLI: New Access Token
-        CLI->>API: Retry original request
-    end
-```
-
 ### Login
 
 **Endpoint**: `POST /api/v1/auth/login/`
-
-**Rate Limit**: 10 requests/minute per IP + 30 requests/minute per user
 
 **Request:**
 ```bash
@@ -161,69 +78,13 @@ curl -X POST http://localhost:8000/api/v1/auth/login/ \
 **Response:**
 ```json
 {
-  "user": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "email": "user@example.com",
-    "full_name": "John Doe",
-    "phone": "+65 1234 5678",
-    "created_at": "2026-03-02T10:00:00Z"
-  },
+  "user": { "id": "...", "email": "..." },
   "tokens": {
-    "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-    "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-    "access_expires": "2026-03-02T10:15:00Z"
+    "access": "eyJ...",
+    "refresh": "...",
+    "access_expires": "2026-03-10T10:15:00Z"
   }
 }
-```
-
-**Store tokens in environment variables:**
-```bash
-export LEDGERSG_ACCESS="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
-export LEDGERSG_REFRESH="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
-```
-
-### Refresh Token
-
-**When**: Access token expires (15 minutes)
-
-**Endpoint**: `POST /api/v1/auth/refresh/`
-
-**Rate Limit**: 20 requests/minute per IP
-
-**Request:**
-```bash
-curl -X POST http://localhost:8000/api/v1/auth/refresh/ \
-  -H "Content-Type: application/json" \
-  -d '{"refresh": "'$LEDGERSG_REFRESH'"}'
-```
-
-**Response:**
-```json
-{
-  "tokens": {
-    "access": "new_access_token_here",
-    "refresh": "new_refresh_token_here",
-    "access_expires": "2026-03-02T10:30:00Z"
-  }
-}
-```
-
-**Update environment:**
-```bash
-export LEDGERSG_ACCESS="new_access_token_here"
-export LEDGERSG_REFRESH="new_refresh_token_here"
-```
-
-### Logout
-
-**Endpoint**: `POST /api/v1/auth/logout/`
-
-**Request:**
-```bash
-curl -X POST http://localhost:8000/api/v1/auth/logout/ \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $LEDGERSG_ACCESS" \
-  -d '{"refresh": "'$LEDGERSG_REFRESH'"}'
 ```
 
 ---
@@ -234,14 +95,9 @@ curl -X POST http://localhost:8000/api/v1/auth/logout/ \
 
 **URL Pattern**: `/api/v1/{orgId}/...`
 
-The backend uses **Row-Level Security (RLS)** via PostgreSQL session variables:
-```sql
-SET LOCAL app.current_org_id = '{orgId}';
-```
-
 ### Getting Your Organizations
 
-**Endpoint**: `GET /api/v1/organisations/` (or `/api/v1/auth/organisations/` for detailed membership)
+**Endpoint**: `GET /api/v1/organisations/`
 
 **Request:**
 ```bash
@@ -249,26 +105,17 @@ curl -X GET http://localhost:8000/api/v1/organisations/ \
   -H "Authorization: Bearer $LEDGERSG_ACCESS"
 ```
 
-**Response:**
+**Response (List Wrapper):**
 ```json
 {
   "data": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440001",
-      "name": "My Company Pte Ltd",
-      "uen": "202312345A",
-      "gst_registered": true,
-      "entity_type": "PRIVATE_LIMITED",
-      "base_currency": "SGD"
+      "name": "My Company Pte Ltd"
     }
   ],
   "count": 1
 }
-```
-
-**Store org_id:**
-```bash
-export LEDGERSG_ORG_ID="550e8400-e29b-41d4-a716-446655440001"
 ```
 
 ---
@@ -277,27 +124,26 @@ export LEDGERSG_ORG_ID="550e8400-e29b-41d4-a716-446655440001"
 
 ### Standard Headers
 
-All org-scoped requests require:
-
 ```bash
 -H "Authorization: Bearer $LEDGERSG_ACCESS" \
 -H "Content-Type: application/json"
 ```
 
-### Response Format
+### Response Format (The "Data" Wrapper)
 
-**Success (200/201):**
+LedgerSG uses a consistent wrapper for list responses and some detail responses.
+
+**List Response:**
 ```json
 {
-  "id": "uuid",
-  "field1": "value1",
-  "field2": "value2",
-  "created_at": "2024-01-01T00:00:00Z",
-  "updated_at": "2024-01-01T00:00:00Z"
+  "data": [...],
+  "count": 10,
+  "next": null,
+  "previous": null
 }
 ```
 
-**Error (400/401/403/404):**
+**Error Response:**
 ```json
 {
   "error": {
@@ -307,915 +153,66 @@ All org-scoped requests require:
 }
 ```
 
-### Permission Requirements
-
-Org-scoped endpoints require:
-1. Valid JWT token (`IsAuthenticated`)
-2. Org membership (`IsOrgMember`)
-3. Specific role permissions (varies by endpoint)
-
-**Permission Denied (403):**
-```json
-{
-  "error": {
-    "code": "permission_denied",
-    "message": "You do not have permission to perform this action"
-  }
-}
-```
-
 ---
 
 ## API Endpoints Reference
 
-### Authentication Endpoints (10)
-
-| Method | Endpoint | Auth | Rate Limit | Description |
-|--------|----------|------|------------|-------------|
-| POST | `/api/v1/auth/register/` | No | 5/hour per IP | Create user account |
-| POST | `/api/v1/auth/login/` | No | 10/min per IP, 30/min per user | Authenticate, get tokens |
-| POST | `/api/v1/auth/logout/` | Yes | - | Invalidate tokens |
-| POST | `/api/v1/auth/refresh/` | No | 20/min per IP | Refresh access token |
-| GET | `/api/v1/auth/me/` | Yes | - | Get current user profile |
-| PATCH | `/api/v1/auth/me/` | Yes | - | Update user profile |
-| POST | `/api/v1/auth/change-password/` | Yes | - | Change password |
-| GET | `/api/v1/auth/organisations/` | Yes | - | List user's org memberships |
-| POST | `/api/v1/auth/set-default-org/` | Yes | - | Set default organization |
-| GET | `/api/v1/auth/profile/` | Yes | - | Get user profile (alias for /me/) |
-
-### Organization Endpoints (11)
-
-| Method | Endpoint | Permissions | Description |
-|--------|----------|-------------|-------------|
-| GET | `/api/v1/organisations/` | Authenticated | List user's orgs |
-| POST | `/api/v1/organisations/` | Authenticated | Create org (seeds CoA) |
-| GET | `/api/v1/{orgId}/` | IsOrgMember | Get org details |
-| GET | `/api/v1/{orgId}/gst/` | IsOrgMember | Get GST registration info |
-| GET | `/api/v1/{orgId}/fiscal-years/` | IsOrgMember | List fiscal years |
-| GET | `/api/v1/{orgId}/fiscal-periods/` | IsOrgMember | List fiscal periods |
-| POST | `/api/v1/{orgId}/fiscal-years/{id}/close/` | CanManageOrg | Close fiscal year |
-| POST | `/api/v1/{orgId}/fiscal-periods/{id}/close/` | CanManageOrg | Close fiscal period |
-| GET | `/api/v1/{orgId}/summary/` | IsOrgMember | Organisation high-level summary |
-| GET/PUT/PATCH | `/api/v1/{orgId}/settings/` | IsOrgMember | Organisation settings |
-
-### Chart of Accounts Endpoints (8)
-
-| Method | Endpoint | Permissions | Description |
-|--------|----------|-------------|-------------|
-| GET | `/api/v1/{orgId}/accounts/` | IsOrgMember | List accounts |
-| POST | `/api/v1/{orgId}/accounts/` | CanManageCoA | Create account |
-| GET | `/api/v1/{orgId}/accounts/search/` | IsOrgMember | Search accounts |
-| GET | `/api/v1/{orgId}/accounts/types/` | IsOrgMember | Get account types |
-| GET | `/api/v1/{orgId}/accounts/hierarchy/` | IsOrgMember | Get account hierarchy |
-| GET | `/api/v1/{orgId}/accounts/{id}/` | IsOrgMember | Get account details |
-| GET | `/api/v1/{orgId}/accounts/{id}/balance/` | IsOrgMember | Get account balance |
-| GET | `/api/v1/{orgId}/accounts/trial-balance/` | IsOrgMember | Trial balance |
-
-### GST Endpoints (13)
-
-| Method | Endpoint | Permissions | Description |
-|--------|----------|-------------|-------------|
-| GET | `/api/v1/{orgId}/gst/tax-codes/` | IsOrgMember | List tax codes |
-| POST | `/api/v1/{orgId}/gst/tax-codes/` | CanManageOrg | Create tax code |
-| GET | `/api/v1/{orgId}/gst/tax-codes/iras-info/` | IsOrgMember | IRAS tax code info |
-| GET | `/api/v1/{orgId}/gst/tax-codes/{id}/` | IsOrgMember | Get tax code |
-| POST | `/api/v1/{orgId}/gst/calculate/` | IsOrgMember | Calculate line GST |
-| POST | `/api/v1/{orgId}/gst/calculate/document/` | IsOrgMember | Calculate document GST |
-| GET | `/api/v1/{orgId}/gst/returns/` | IsOrgMember | List GST returns |
-| POST | `/api/v1/{orgId}/gst/returns/` | CanFileGST | Create GST return |
-| GET | `/api/v1/{orgId}/gst/returns/{id}/` | IsOrgMember | Get GST return |
-| POST | `/api/v1/{orgId}/gst/returns/{id}/file/` | CanFileGST | File F5 return |
-| POST | `/api/v1/{orgId}/gst/returns/{id}/amend/` | CanFileGST | Amend GST return |
-| POST | `/api/v1/{orgId}/gst/returns/{id}/pay/` | CanFileGST | Record GST payment |
-| GET | `/api/v1/{orgId}/gst/returns/deadlines/` | IsOrgMember | Filing deadlines |
-
-### Invoicing Endpoints (16)
-
-| Method | Endpoint | Permissions | Description |
-|--------|----------|-------------|-------------|
-| GET | `/api/v1/{orgId}/invoicing/contacts/` | IsOrgMember | List contacts |
-| POST | `/api/v1/{orgId}/invoicing/contacts/` | CanCreateInvoices | Create contact |
-| GET | `/api/v1/{orgId}/invoicing/contacts/{id}/` | IsOrgMember | Get contact |
-| PUT/PATCH/DELETE | `/api/v1/{orgId}/invoicing/contacts/{id}/` | CanCreateInvoices | Update/delete contact |
-| GET | `/api/v1/{orgId}/invoicing/documents/` | IsOrgMember | List invoices |
-| POST | `/api/v1/{orgId}/invoicing/documents/` | CanCreateInvoices | Create invoice |
-| GET | `/api/v1/{orgId}/invoicing/documents/summary/` | IsOrgMember | Document summary |
-| GET | `/api/v1/{orgId}/invoicing/documents/status-transitions/` | IsOrgMember | Valid status transitions |
-| GET | `/api/v1/{orgId}/invoicing/documents/{id}/` | IsOrgMember | Get invoice |
-| PATCH | `/api/v1/{orgId}/invoicing/documents/{id}/` | CanCreateInvoices | Update invoice draft |
-| POST | `/api/v1/{orgId}/invoicing/documents/{id}/status/` | CanApproveInvoices | Manual status update |
-| POST | `/api/v1/{orgId}/invoicing/documents/{id}/lines/` | CanCreateInvoices | Add line item |
-| DELETE | `/api/v1/{orgId}/invoicing/documents/{id}/lines/{lineId}/` | CanCreateInvoices | Remove line item |
-| POST | `/api/v1/{orgId}/invoicing/documents/{id}/approve/` | CanApproveInvoices | Approve invoice |
-| POST | `/api/v1/{orgId}/invoicing/documents/{id}/void/` | CanVoidInvoices | Void invoice |
-| GET | `/api/v1/{orgId}/invoicing/documents/{id}/pdf/` | IsOrgMember | Download PDF |
-| POST | `/api/v1/{orgId}/invoicing/documents/{id}/send/` | IsOrgMember | Send via email |
-| POST | `/api/v1/{orgId}/invoicing/documents/{id}/send-invoicenow/` | IsOrgMember | Send via Peppol |
-| GET | `/api/v1/{orgId}/invoicing/documents/{id}/invoicenow-status/` | IsOrgMember | Check Peppol status |
-| POST | `/api/v1/{orgId}/invoicing/quotes/convert/` | CanCreateInvoices | Convert quote → invoice |
-
-### Journal Endpoints (9)
-
-| Method | Endpoint | Permissions | Description |
-|--------|----------|-------------|-------------|
-| GET | `/api/v1/{orgId}/journal-entries/entries/` | IsOrgMember | List entries |
-| POST | `/api/v1/{orgId}/journal-entries/entries/` | CanCreateJournals | Create entry |
-| GET | `/api/v1/{orgId}/journal-entries/entries/summary/` | IsOrgMember | Entry summary |
-| GET | `/api/v1/{orgId}/journal-entries/entries/types/` | IsOrgMember | Entry types |
-| POST | `/api/v1/{orgId}/journal-entries/entries/validate/` | CanCreateJournals | Validate balance |
-| GET | `/api/v1/{orgId}/journal-entries/entries/{id}/` | IsOrgMember | Get entry |
-| POST | `/api/v1/{orgId}/journal-entries/entries/{id}/reverse/` | CanCreateJournals | Reverse entry |
-| GET | `/api/v1/{orgId}/journal-entries/trial-balance/` | IsOrgMember | Trial balance |
-| GET | `/api/v1/{orgId}/journal-entries/accounts/{id}/balance/` | IsOrgMember | Get account balance |
-
-### Banking Endpoints (13) ✅ SEC-001 REMEDIATED
-
-| Method | Endpoint | Permissions | Description |
-|--------|----------|-------------|-------------|
-| GET | `/api/v1/{orgId}/banking/bank-accounts/` | IsOrgMember | List bank accounts |
-| POST | `/api/v1/{orgId}/banking/bank-accounts/` | CanManageBanking | Create bank account |
-| GET | `/api/v1/{orgId}/banking/bank-accounts/{id}/` | IsOrgMember | Get bank account |
-| PATCH | `/api/v1/{orgId}/banking/bank-accounts/{id}/` | CanManageBanking | Update bank account |
-| DELETE | `/api/v1/{orgId}/banking/bank-accounts/{id}/` | CanManageBanking | Deactivate bank account |
-| GET | `/api/v1/{orgId}/banking/payments/` | IsOrgMember | List payments |
-| POST | `/api/v1/{orgId}/banking/payments/receive/` | CanManageBanking | Receive payment from customer |
-| POST | `/api/v1/{orgId}/banking/payments/make/` | CanManageBanking | Make payment to supplier |
-| GET | `/api/v1/{orgId}/banking/payments/{id}/` | IsOrgMember | Get payment details |
-| POST | `/api/v1/{orgId}/banking/payments/{id}/allocate/` | CanManageBanking | Allocate payment to invoices |
-| POST | `/api/v1/{orgId}/banking/payments/{id}/void/` | CanManageBanking | Void payment |
-| GET | `/api/v1/{orgId}/banking/bank-transactions/` | IsOrgMember | List bank transactions |
-| POST | `/api/v1/{orgId}/banking/bank-transactions/import/` | CanManageBanking | Import bank CSV |
-| POST | `/api/v1/{orgId}/banking/bank-transactions/{id}/reconcile/` | CanManageBanking | Reconcile transaction |
-| POST | `/api/v1/{orgId}/banking/bank-transactions/{id}/unreconcile/` | CanManageBanking | Unreconcile transaction |
-| GET | `/api/v1/{orgId}/banking/bank-transactions/{id}/suggest-matches/` | IsOrgMember | Suggest payment matches |
-
-### Dashboard & Reporting Endpoints (3)
-
-| Method | Endpoint | Permissions | Description |
-|--------|----------|-------------|-------------|
-| GET | `/api/v1/{orgId}/reports/dashboard/metrics/` | IsOrgMember | Dashboard metrics |
-| GET | `/api/v1/{orgId}/reports/dashboard/alerts/` | IsOrgMember | Compliance alerts |
-| GET | `/api/v1/{orgId}/reports/reports/financial/` | CanViewReports | Financial reports |
-
-### Peppol (InvoiceNow) Endpoints (2)
-
-| Method | Endpoint | Permissions | Description |
-|--------|----------|-------------|-------------|
-| GET | `/api/v1/{orgId}/peppol/transmission-log/` | IsOrgMember | Peppol transmission log |
-| GET/POST/PUT/PATCH | `/api/v1/{orgId}/peppol/settings/` | CanManageOrg | Peppol settings configuration |
-
-### Security & Infrastructure Endpoints (4) ✅ SEC-003 COMPLETE
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/health/` | No | System health check |
-| GET | `/api/v1/` | No | API root/info |
-| GET | `/api/v1/health/` | No | API health check |
-| POST | `/api/v1/security/csp-report/` | No | CSP violation reporting |
-
-**Total Endpoints: ~90** (varies by counting method)
-
-*Note: Some URL patterns handle multiple HTTP methods (e.g., GET/PATCH on same endpoint)*
-
----
-
-## CLI Examples
-
-### Complete Invoice Workflow
-
-```bash
-#!/bin/bash
-# complete_invoice_workflow.sh
-
-# Configuration
-API_BASE="http://localhost:8000/api/v1"
-
-# 1. Login
-echo "=== Step 1: Login ==="
-LOGIN_RESPONSE=$(curl -s -X POST "$API_BASE/auth/login/" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "your_password"
-  }')
-
-ACCESS_TOKEN=$(echo $LOGIN_RESPONSE | jq -r '.tokens.access')
-REFRESH_TOKEN=$(echo $LOGIN_RESPONSE | jq -r '.tokens.refresh')
-USER_ID=$(echo $LOGIN_RESPONSE | jq -r '.user.id')
-
-echo "✓ Logged in as: $USER_ID"
-
-# 2. Get Organization
-echo "=== Step 2: Get Organization ==="
-ORGS_RESPONSE=$(curl -s -X GET "$API_BASE/organisations/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN")
-
-ORG_ID=$(echo $ORGS_RESPONSE | jq -r '.data[0].id')
-
-echo "✓ Using organization: $ORG_ID"
-
-# 3. Get Contact
-echo "=== Step 3: Get Contact ==="
-CONTACTS_RESPONSE=$(curl -s -X GET "$API_BASE/$ORG_ID/invoicing/contacts/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN")
-
-CONTACT_ID=$(echo $CONTACTS_RESPONSE | jq -r '.results[0].id')
-
-echo "✓ Using contact: $CONTACT_ID"
-
-# 4. Get Tax Code
-echo "=== Step 4: Get Tax Code ==="
-TAX_CODES_RESPONSE=$(curl -s -X GET "$API_BASE/$ORG_ID/gst/tax-codes/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN")
-
-SR_TAX_CODE=$(echo $TAX_CODES_RESPONSE | jq -r '.results[] | select(.code == "SR") | .id')
-
-echo "✓ Using tax code: $SR_TAX_CODE"
-
-# 5. Create Invoice
-echo "=== Step 5: Create Invoice ==="
-INVOICE_RESPONSE=$(curl -s -X POST "$API_BASE/$ORG_ID/invoicing/documents/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"contact_id\": \"$CONTACT_ID\",
-    \"document_type\": \"SALES_INVOICE\",
-    \"issue_date\": \"$(date +%Y-%m-%d)\",
-    \"due_date\": \"$(date -d '+30 days' +%Y-%m-%d)\",
-    \"lines\": [
-      {
-        \"description\": \"Consulting Services\",
-        \"quantity\": 10,
-        \"unit_price\": \"500.0000\",
-        \"tax_code_id\": \"$SR_TAX_CODE\"
-      }
-    ]
-  }")
-
-INVOICE_ID=$(echo $INVOICE_RESPONSE | jq -r '.id')
-INVOICE_NUMBER=$(echo $INVOICE_RESPONSE | jq -r '.document_number')
-
-echo "✓ Created invoice: $INVOICE_NUMBER ($INVOICE_ID)"
-
-# 6. Calculate GST
-echo "=== Step 6: Calculate GST ==="
-GST_RESPONSE=$(curl -s -X POST "$API_BASE/$ORG_ID/gst/calculate/document/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"lines\": [
-      {
-        \"description\": \"Consulting Services\",
-        \"quantity\": 10,
-        \"unit_price\": \"500.0000\",
-        \"tax_code_id\": \"$SR_TAX_CODE\"
-      }
-    ]
-  }")
-
-TOTAL_GST=$(echo $GST_RESPONSE | jq -r '.total_gst')
-TOTAL_AMOUNT=$(echo $GST_RESPONSE | jq -r '.total_amount')
-
-echo "✓ Subtotal: SGD $TOTAL_AMOUNT"
-echo "✓ GST (9%): SGD $TOTAL_GST"
-
-# 7. Approve Invoice
-echo "=== Step 7: Approve Invoice ==="
-APPROVE_RESPONSE=$(curl -s -X POST "$API_BASE/$ORG_ID/invoicing/documents/$INVOICE_ID/approve/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json")
-
-APPROVED_STATUS=$(echo $APPROVE_RESPONSE | jq -r '.status')
-
-echo "✓ Invoice status: $APPROVED_STATUS"
-
-# 8. Generate PDF
-echo "=== Step 8: Generate PDF ==="
-# Returns FileResponse (binary)
-curl -s -o invoice_$INVOICE_NUMBER.pdf -X GET "$API_BASE/$ORG_ID/invoicing/documents/$INVOICE_ID/pdf/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
-
-echo "✓ PDF saved to invoice_$INVOICE_NUMBER.pdf"
-
-echo ""
-echo "=== Workflow Complete ==="
-echo "Invoice: $INVOICE_NUMBER"
-echo "Amount: SGD $TOTAL_AMOUNT"
-echo "Status: $APPROVED_STATUS"
-```
-
-### Bulk Create Contacts
-
-```bash
-#!/bin/bash
-# bulk_create_contacts.sh
-
-API_BASE="http://localhost:8000/api/v1"
-ORG_ID="your_org_id"
-ACCESS_TOKEN="your_access_token"
-
-# Create multiple contacts from CSV
-while IFS=',' read -r name email phone; do
-  echo "Creating contact: $name"
-  
-  curl -s -X POST "$API_BASE/$ORG_ID/invoicing/contacts/" \
-    -H "Authorization: Bearer $ACCESS_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{
-      \"name\": \"$name\",
-      \"email\": \"$email\",
-      \"phone\": \"$phone\",
-      \"is_customer\": true,
-      \"is_supplier\": false
-    }"
-    
-  echo "✓ Created"
-done < contacts.csv
-```
-
-### Banking Payment Workflow
-
-```bash
-#!/bin/bash
-# banking_payment_workflow.sh
-
-API_BASE="http://localhost:8000/api/v1"
-ORG_ID="your_org_id"
-ACCESS_TOKEN="your_access_token"
-
-# 1. Create Bank Account
-echo "=== Step 1: Create Bank Account ==="
-BANK_ACCOUNT=$(curl -s -X POST "$API_BASE/$ORG_ID/banking/bank-accounts/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "bank_name": "DBS Bank",
-    "account_name": "Operating Account",
-    "account_number": "1234567890",
-    "currency": "SGD",
-    "gl_account_id": "uuid-of-cash-account",
-    "is_active": true
-  }')
-
-BANK_ACCOUNT_ID=$(echo $BANK_ACCOUNT | jq -r '.id')
-echo "✓ Created bank account: $BANK_ACCOUNT_ID"
-
-# 2. Receive Payment from Customer
-echo "=== Step 2: Receive Payment ==="
-PAYMENT=$(curl -s -X POST "$API_BASE/$ORG_ID/banking/payments/receive/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"contact_id\": \"customer-uuid\",
-    \"bank_account_id\": \"$BANK_ACCOUNT_ID\",
-    \"payment_date\": \"$(date +%Y-%m-%d)\",
-    \"amount\": \"5000.0000\",
-    \"payment_method\": \"BANK_TRANSFER\",
-    \"reference\": \"INV-2024-001\"
-  }")
-
-PAYMENT_ID=$(echo $PAYMENT | jq -r '.id')
-PAYMENT_NUMBER=$(echo $PAYMENT | jq -r '.payment_number')
-echo "✓ Received payment: $PAYMENT_NUMBER ($PAYMENT_ID)"
-
-# 3. Allocation Payment to Invoices
-echo "=== Step 3: Allocate Payment ==="
-ALLOCATION=$(curl -s -X POST "$API_BASE/$ORG_ID/banking/payments/$PAYMENT_ID/allocate/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "allocations": [
-      {
-        "document_id": "invoice-uuid-1",
-        "amount": "3000.0000"
-      },
-      {
-        "document_id": "invoice-uuid-2",
-        "amount": "2000.0000"
-      }
-    ]
-  }')
-
-echo "✓ Payment allocated to invoices"
-```
-
-### Bank Reconciliation Workflow
-
-```bash
-#!/bin/bash
-# bank_reconciliation.sh
-
-API_BASE="http://localhost:8000/api/v1"
-ORG_ID="your_org_id"
-ACCESS_TOKEN="your_access_token"
-BANK_ACCOUNT_ID="your_bank_account_id"
-
-# 1. Import Bank Transactions (CSV)
-echo "=== Step 1: Import Bank Transactions ==="
-IMPORT_RESULT=$(curl -s -X POST "$API_BASE/$ORG_ID/banking/bank-transactions/import/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -F "file=@bank_statement.csv" \
-  -F "bank_account_id=$BANK_ACCOUNT_ID")
-
-IMPORTED_COUNT=$(echo $IMPORT_RESULT | jq -r '.imported_count')
-DUPLICATE_COUNT=$(echo $IMPORT_RESULT | jq -r '.duplicate_count')
-
-echo "✓ Imported $IMPORTED_COUNT transactions"
-echo "  ($DUPLICATE_COUNT duplicates skipped)"
-
-# 2. List Unreconciled Transactions
-echo "=== Step 2: List Unreconciled Transactions ==="
-UNRECONCILED=$(curl -s -X GET "$API_BASE/$ORG_ID/banking/bank-transactions/?unreconciled_only=true&bank_account_id=$BANK_ACCOUNT_ID" \
-  -H "Authorization: Bearer $ACCESS_TOKEN")
-
-echo "$UNRECONCILED" | jq '.results[] | {id, date, description, amount}'
-
-# 3. Get Suggested Matches for a Transaction
-echo "=== Step 3: Get Suggested Matches ==="
-TRANSACTION_ID="transaction-uuid"
-SUGGESTIONS=$(curl -s -X GET "$API_BASE/$ORG_ID/banking/bank-transactions/$TRANSACTION_ID/suggest-matches/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN")
-
-echo "Suggested matches:"
-echo "$SUGGESTIONS" | jq '.[]'
-
-# 4. Reconcile Transaction
-echo "=== Step 4: Reconcile ==="
-PAYMENT_ID="matching-payment-uuid"
-RECONCILED=$(curl -s -X POST "$API_BASE/$ORG_ID/banking/bank-transactions/$TRANSACTION_ID/reconcile/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"payment_id\": \"$PAYMENT_ID\"}")
-
-echo "✓ Transaction reconciled"
-```
-
-### Get GST F5 Report
-
-```bash
-#!/bin/bash
-# get_gst_f5.sh
-
-API_BASE="http://localhost:8000/api/v1"
-ORG_ID="your_org_id"
-ACCESS_TOKEN="your_access_token"
-
-# Create GST return for current quarter
-QUARTER=$(date +%q)
-YEAR=$(date +%Y)
-
-echo "Creating GST F5 return for Q$QUARTER $YEAR..."
-
-GST_RETURN=$(curl -s -X POST "$API_BASE/$ORG_ID/gst/returns/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"period_start\": \"$YEAR-$(($QUARTER * 3 - 2))-01\",
-    \"period_end\": \"$YEAR-$(($QUARTER * 3))-$(cal $(($QUARTER * 3)) $YEAR | xargs | awk '{print $NF}')\",
-    \"filing_frequency\": \"QUARTERLY\"
-  }")
-
-RETURN_ID=$(echo $GST_RETURN | jq -r '.id')
-
-echo "✓ Created return: $RETURN_ID"
-
-# Get calculated values
-echo "=== GST F5 Summary ==="
-echo $GST_RETURN | jq '{
-  "Box 1 (Standard-rated supplies)": .box_1_output_tax,
-  "Box 6 (Input tax claims)": .box_6_input_tax,
-  "Net GST Payable": .net_gst_payable,
-  "Total Supplies": .total_supplies
-}'
-```
-
----
-
-## Error Handling
-
-### Common HTTP Status Codes
-
-| Code | Meaning | Action |
-|------|---------|--------|
-| 200 | OK | Success |
-| 201 | Created | Resource created |
-| 400 | Bad Request | Check request body |
-| 401 | Unauthorized | Refresh token, re-login |
-| 403 | Forbidden | Check permissions |
-| 404 | Not Found | Resource doesn't exist |
-| 429 | Rate Limited | Wait and retry (see Retry-After header) |
-| 500 | Server Error | Contact admin |
-
-### Rate Limiting (SEC-002)
-
-**Rate limits are enforced on authentication endpoints:**
-
-| Endpoint | Rate Limit | Key |
-|----------|------------|-----|
-| `/auth/register/` | 5 requests/hour | IP address |
-| `/auth/login/` | 10 requests/minute | IP address |
-| `/auth/login/` | 30 requests/minute | User or IP |
-| `/auth/refresh/` | 20 requests/minute | IP address |
-| All other endpoints | 100 requests/minute | User |
-
-**429 Response Format:**
-```json
-{
-  "error": {
-    "code": "rate_limit_exceeded",
-    "message": "Rate limit exceeded. Please try again later.",
-    "details": {
-      "retry_after": 60
-    }
-  }
-}
-```
-
-**Rate Limit Headers:**
-```
-HTTP/1.1 429 Too Many Requests
-Retry-After: 60
-```
-
-### Authentication Errors
-
-**401 - Token Expired:**
-```bash
-# Refresh and retry
-NEW_TOKEN=$(curl -s -X POST "$API_BASE/auth/refresh/" \
-  -H "Content-Type: application/json" \
-  -d "{\"refresh\": \"$LEDGERSG_REFRESH\"}" | jq -r '.tokens.access')
-
-export LEDGERSG_ACCESS="$NEW_TOKEN"
-
-# Retry original request
-curl -X GET "$API_BASE/..." \
-  -H "Authorization: Bearer $LEDGERSG_ACCESS"
-```
-
-### Validation Errors (400)
-
-**Response:**
-```json
-{
-  "error": {
-    "code": "validation_error",
-    "message": "Email is required",
-    "errors": {
-      "email": ["This field is required."]
-    }
-  }
-}
-```
+### Chart of Accounts (CoA)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/{orgId}/accounts/` | List accounts (Use `?code=1100` for filtering) |
+| GET | `/api/v1/{orgId}/accounts/{id}/` | Get account details |
+
+### Invoicing
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/{orgId}/invoicing/contacts/` | List contacts |
+| POST | `/api/v1/{orgId}/invoicing/documents/` | Create invoice/bill |
+| POST | `/api/v1/{orgId}/invoicing/documents/{id}/approve/` | **Approving posts to GL** |
+
+### Banking
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/{orgId}/banking/bank-accounts/` | Create bank account |
+| POST | `/api/v1/{orgId}/banking/payments/receive/` | **Receiving posts to GL** |
+| POST | `/api/v1/{orgId}/banking/bank-transactions/import/` | Import CSV statement |
 
 ---
 
 ## Troubleshooting
 
-### UUID Formatting
+### "TypeError: Object of type UUID is not JSON serializable"
+**Status**: ✅ FIXED (2026-03-10)
+**Cause**: Earlier versions of the JSON encoder didn't handle native Python UUID or datetime objects.
+**Solution**: Ensure you are running the latest codebase where `common/renderers.py` has been updated.
 
-**Symptoms:** 500 errors with UUID-related messages when calling endpoints
+### "gl_account: This field is required" (Bank Account)
+**Cause**: Sending `gl_account_id` instead of `gl_account`.
+**Solution**: Use the key `gl_account` in the POST body for bank account creation.
 
-**Root Cause:** Django's URL path converter `<uuid:org_id>` automatically converts URL parameters to UUID objects. Views were attempting to convert them again with `UUID(org_id)`.
+### "IntegrityError: contact_type_check"
+**Cause**: Creating contacts with missing or empty `contact_type`.
+**Solution**: The service now auto-calculates this based on `is_customer` and `is_supplier` flags.
 
-**Error:**
-```
-'UUID' object has no attribute 'replace'
-```
+### "Empty Reports / Zero Revenue"
+**Cause**: Invoices were created as DRAFT but not APPROVED.
+**Solution**: You MUST call the `/approve/` endpoint to trigger the double-entry journal posting. Dashboard metrics only query POSTED entries.
 
-**Fix:**
-```python
-# Wrong: Redundant conversion
-def get(self, request, org_id):
-    org_uuid = UUID(org_id)  # ❌ Already a UUID object!
-    ...
-
-# Right: Use the parameter directly
-def get(self, request, org_id):
-    # org_id is already a UUID object from the URL converter
-    service = BankAccountService(org_id)  # ✅ Use as-is
-    ...
-```
-
-### Decimal Precision Errors
-
-**Symptoms:** 400 Bad Request when creating invoices or payments
-
-**Error:**
-```json
-{ "error": { "message": "Invalid decimal format" } }
-```
-
-**Fix:** Always use strings with exactly 4 decimal places:
-```json
-# Wrong:
-{ "amount": 10000 }           # ❌ Integer
-{ "amount": "10000" }         # ❌ Missing decimals
-{ "amount": 10000.00 }        # ❌ Float
-
-# Right:
-{ "amount": "10000.0000" }    # ✅ String with 4 decimals
-```
-
-**Helper:** Use the CLI format_amount function:
-```bash
-format_amount() {
-  printf "%.4f" $1
-}
-
-# Usage:
-AMOUNT=$(format_amount 10000)
-echo "{ \"amount\": \"$AMOUNT\" }"  # Returns: { "amount": "10000.0000" }
-```
-
-### CORS Errors
-
-**Symptoms:** Browser console shows CORS errors
-
-**Fix:** For frontend development, ensure the backend has CORS configured. For CLI usage, ensure you're not blocked by preflight issues. The backend handles OPTIONS requests without auth in `CORSJWTAuthentication`.
-
-### 403 Forbidden on Valid Requests
-
-**Symptoms:** Getting 403 errors despite valid tokens
-
-**Causes:**
-1. **Missing org_id**: Every org-scoped endpoint requires `{orgId}` in URL path
-2. **No RLS context**: The middleware sets PostgreSQL session variables
-3. **Not org member**: User must have UserOrganisation with `accepted_at` timestamp
-
-**Fix:**
-```bash
-# Check org membership
-curl "$API_BASE/auth/organisations/" \
-  -H "Authorization: Bearer $TOKEN"
-
-# Response should show:
-{ "data": [{ "id": "uuid", "name": "...", "role": "..." }] }
-```
-
-### 500 Internal Server Error
-
-**Symptoms:** Server returns 500 without helpful message
-
-**Fix:** Check the logs. The `wrap_response` decorator now logs exceptions:
-```
-ERROR:common.views:Internal Server Error at /api/v1/{orgId}/banking/accounts/
-Traceback: ...
-```
+### CSV Import Failures
+**Cause**: Missing headers or mixed case (e.g., "Date" vs "date").
+**Solution**: The importer now normalizes headers to lowercase. Ensure your CSV has at least `date`, `amount`, and `description`.
 
 ---
 
 ## Limitations & Gotchas
 
-### ⚠️ Frontend-Only Features
-
-These features **cannot** be used via CLI:
-
-1. **File Uploads** - PDF attachments, logo uploads
-   - Workaround: Upload via web UI first, then reference by ID
-
-2. **Real-time Notifications** - Toast messages
-   - Workaround: Check status via polling API
-
-3. **Client-side Calculations** - Live GST preview
-   - Must call `/gst/calculate/` API for GST values
-
-4. **Optimistic Updates** - Frontend cache invalidation
-   - Must manually refresh data after mutations
-
-5. **Session Persistence** - Frontend stores tokens
-   - Must manually manage tokens in CLI
-
-### ⚠️ Critical Requirements
-
-1. **org_id in URL** - Every org-scoped endpoint requires `{orgId}` in path
-   ```
-   ✅ /api/v1/550e8400-e29b-41d4-a716-446655440001/invoicing/documents/
-   ❌ /api/v1/invoicing/documents/
-   ```
-
-2. **Bearer Token** - Must include `Authorization: Bearer {token}` header
-
-3. **Content-Type** - POST/PUT/PATCH requests must include `Content-Type: application/json`
-
-4. **Decimal Precision** - All money values must be strings with 4 decimal places
-   ```json
-   { "amount": "100.0000" }  ✅
-   { "amount": 100 }          ❌
-   { "amount": 100.00 }       ❌
-   ```
-
-5. **UUID Format** - All IDs must be valid UUIDs
-   ```
-   ✅ 550e8400-e29b-41d4-a716-446655440001
-   ❌ 12345
-   ```
-
-6. **Status Transitions** - Must follow valid workflow
-   ```
-   DRAFT → APPROVED → SENT → PAID
-     ↓
-   VOID
-   ```
-
-### ⚠️ Rate Limiting
-
-**Authentication endpoints have strict rate limits:**
-- Registration: 5/hour per IP (prevents mass registration)
-- Login: 10/min per IP + 30/min per user (prevents brute-force)
-- Token Refresh: 20/min per IP (prevents token abuse)
-
-**General API rate limits:**
-- Authenticated users: 100 requests/minute
-- Anonymous users: 20 requests/minute
-
-**Rate limit handling:**
-```bash
-# Check response headers
-curl -I -X GET "$API_BASE/$ORG_ID/invoicing/documents/" \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
-
-# Response includes:
-# HTTP/1.1 429 Too Many Requests
-# Retry-After: 60
-```
-
-**Best practices:**
-1. Implement exponential backoff for retries
-2. Cache responses when possible
-3. Batch operations to reduce API calls
-4. Monitor `Retry-After` headers
-
-### ⚠️ RLS Enforcement
-
-If you get 403 errors on valid requests:
-1. Check URL includes `{orgId}`
-2. Verify user is member of org
-3. Check user has required role permissions
-
-### ⚠️ Token Storage
-
-**DO NOT:**
-- Commit tokens to version control
-- Log tokens to console
-- Share tokens between users
-- Use tokens beyond expiration
-
-**DO:**
-- Store in environment variables
-- Rotate tokens regularly
-- Implement automatic refresh logic
-
----
-
-## Advanced Usage
-
-### Pagination
-
-List endpoints support pagination:
-
-```bash
-# Get first page
-curl "$API_BASE/$ORG_ID/invoicing/documents/?page=1&page_size=20" \
-  -H "Authorization: Bearer $TOKEN"
-
-# Response includes:
-{
-  "results": [...],
-  "count": 100,
-  "next": ".../invoicing/documents/?page=2",
-  "previous": null
-}
-```
-
-### Filtering
-
-```bash
-# Filter invoices by status
-curl "$API_BASE/$ORG_ID/invoicing/documents/?status=APPROVED" \
-  -H "Authorization: Bearer $TOKEN"
-
-# Filter by date range
-curl "$API_BASE/$ORG_ID/invoicing/documents/?issue_date_after=2024-01-01&issue_date_before=2024-12-31" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### Sorting
-
-```bash
-# Sort by due date
-curl "$API_BASE/$ORG_ID/invoicing/documents/?ordering=due_date" \
-  -H "Authorization: Bearer $TOKEN"
-
-# Sort descending
-curl "$API_BASE/$ORG_ID/invoicing/documents/?ordering=-created_at" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### Webhook Integration (Future)
-
-```bash
-# Register webhook for invoice events
-curl -X POST "$API_BASE/$ORG_ID/webhooks/" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://your-server.com/webhook",
-    "events": ["invoice.approved", "invoice.paid"],
-    "secret": "your_webhook_secret"
-  }'
-```
-
----
-
-## Quick Reference
-
-### Environment Setup
-
-```bash
-# Required environment variables
-export LEDGERSG_API_BASE="http://localhost:8000/api/v1"
-export LEDGERSG_ACCESS="your_access_token"
-export LEDGERSG_REFRESH="your_refresh_token"
-export LEDGERSG_ORG_ID="your_org_id"
-```
-
-### Common Commands
-
-```bash
-# Test connectivity
-curl -I "$LEDGERSG_API_BASE/../health/"
-
-# Check auth
-curl "$LEDGERSG_API_BASE/auth/me/" \
-  -H "Authorization: Bearer $LEDGERSG_ACCESS"
-
-# List organizations
-curl "$LEDGERSG_API_BASE/organisations/" \
-  -H "Authorization: Bearer $LEDGERSG_ACCESS"
-
-# List invoices
-curl "$LEDGERSG_API_BASE/$LEDGERSG_ORG_ID/invoicing/documents/" \
-  -H "Authorization: Bearer $LEDGERSG_ACCESS"
-
-# List bank accounts
-curl "$LEDGERSG_API_BASE/$LEDGERSG_ORG_ID/banking/bank-accounts/" \
-  -H "Authorization: Bearer $LEDGERSG_ACCESS"
-
-# Get dashboard metrics
-curl "$LEDGERSG_API_BASE/$LEDGERSG_ORG_ID/reports/dashboard/metrics/" \
-  -H "Authorization: Bearer $LEDGERSG_ACCESS"
-```
-
-### Total Endpoints: ~90 (varies by counting method)
-
-| Module | Endpoints | Status |
-|--------|-----------|--------|
-| Authentication | 10 | ✅ Production (SEC-002) |
-| Organizations | 10 | ✅ Production (Phase B) |
-| Chart of Accounts | 8 | ✅ Production |
-| GST | 13 | ✅ Production |
-| Invoicing | 16 | ✅ Production |
-| Journal | 9 | ✅ Production |
-| Banking | 13 | ✅ Production (SEC-001) |
-| Peppol (InvoiceNow) | 2 | ✅ Production |
-| Dashboard/Reports | 3 | ✅ Production |
-| Security/Infrastructure | 3 | ✅ Production (SEC-003) |
-
-### Testing Checklist
-
-- [x] Can login and get tokens
-- [x] Can refresh expired token
-- [x] Can list organizations
-- [x] Can access org-scoped endpoints
-- [x] Can create invoice
-- [x] Can approve invoice
-- [x] Proper error handling (401, 403, 404, 429)
-- [x] Token auto-refresh works
-- [x] RLS enforcement working
-- [x] Decimal precision maintained
-- [x] CSP report endpoint working (SEC-003)
-
----
-
-## Support
-
-For API-related questions:
-1. Check this guide first
-2. Review error messages carefully
-3. Verify JWT token validity
-4. Confirm organization membership
-5. Check permission requirements
-6. Monitor CSP violation reports
+1. **Decimal Precision**: All money values MUST be strings with 4 decimal places (e.g., `"100.0000"`).
+2. **Rate Limiting**: If running heavy automated tests, you may hit 429 errors. Set `RATELIMIT_ENABLE=False` in `base.py` for local testing.
+3. **Filtering**: When filtering accounts by code, use `GET /accounts/?code=1100`. The response is a list, so use `jq -r '.data[0].id'`.
 
 ---
 
 **End of Guide**
-
-*Last validated against codebase: 2026-03-08*  
-*Validation report: API_CLI_USAGE_GUIDE_VALIDATION_REPORT.md*  
-*Security status: SEC-001 ✅, SEC-002 ✅, SEC-003 ✅, Phase B ✅, Phase 5.5 ✅, Authentication ✅*  
-*API Version: 2.0.0*  
-*Total Endpoints: ~90 (94 URL patterns)*  
-*Security Score: 100%*  
-*Total Tests: 548+*

@@ -1,9 +1,9 @@
 # LedgerSG — Agent & Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.1.0
-> **Last Updated**: 2026-03-07
-> **Status**: Production Ready ✅ (SEC-001, SEC-002, SEC-003, Phase A, Phase B, Phase 3, Phase 4, Phase 5.4, Phase 5.5 Complete)
+> **Version**: 2.2.0
+> **Last Updated**: 2026-03-10
+> **Status**: Production Ready ✅ (SMB Workflow Remediation Complete, SEC-001, SEC-002, SEC-003, Phase A, Phase B, Phase 3, Phase 4, Phase 5.4, Phase 5.5 Complete)
 
 ---
 
@@ -31,17 +31,39 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.1 | ✅ Production Ready | 12 pages (including Banking), dynamic org context, **305 tests** |
-| **Backend** | v0.3.3 | ✅ Production Ready | **83 API endpoints**, **233+ tests** |
-| **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, 28 tables |
+| **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, **321 tests**, WCAG AAA |
+| **Backend** | v0.3.3 | ✅ Production Ready | **84 API endpoints**, **468 tests** |
+| **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, **29 tables** |
 | **Banking** | v0.6.0 | ✅ SEC-001 Fully Remediated | 55 tests, 13 validated endpoints |
 | **Banking UI** | v1.3.0 | ✅ **Phase 5.5 Complete** | **73 TDD tests**, all 3 tabs live, reconciliation workflow |
 | **Security** | v1.0.0 | ✅ **SEC-002, SEC-003 Remediated** | Rate limiting + CSP headers |
 | **CORS** | v1.0.0 | ✅ **Dashboard Fixed** | CORSJWTAuthentication, preflight handling |
 | **InvoiceNow** | v1.0.0 | ✅ **Phases 1-4 Complete** | 122+ TDD tests, PINT-SG compliant XML |
-| **Frontend-BE Integration** | v1.2.0 | ✅ **Remediation Complete** | Auth token refresh fixed, +16 TDD tests, TDD methodology |
+| **Frontend-BE Integration** | v1.2.0 | ✅ **Remediation Complete** | Auth token refresh fixed, +16 TDD tests |
+| **SMB Workflow** | v1.0.0 | ✅ **Remediation Complete** | **Full Q1 workflow validated**, Ledger posting active |
 | **Testing** | — | ✅ **789 Passing** | **321 Frontend + 468 Backend** tests verified |
-| **Overall** | — | ✅ **Platform Ready** | **538+ tests**, WCAG AAA, IRAS Compliant, **100% Security** |
+| **Overall** | — | ✅ **Platform Ready** | **789 tests**, WCAG AAA, IRAS Compliant, **100% Security** |
+
+### Recent Milestone: Singapore SMB Workflow Remediation ✅ COMPLETE
+**Date**: 2026-03-10
+**Status**: Core Accounting Engine Validated - Ledger Posting Active
+
+| Fix / Enhancement | Impact |
+|-----|--------|
+| **Journal Posting** | Connected Invoicing/Banking to JournalService; Ledger now reflects all transactions |
+| **SQL-First Alignment** | Fixed 20+ serializer field name mismatches to align with DB schema |
+| **JSON Serialization** | Support for UUID and datetime objects added to DecimalSafeJSONEncoder |
+| **Reporting Engine** | Replaced stubs with real-time SQL aggregations for P&L and Balance Sheet |
+| **Data Integrity** | `contact_type` now automatically determined based on flags |
+| **Workflow Validation** | Full Q1 lifecycle for Non-GST SMB verified (S$45k Revenue / S$21k Cash) |
+| **Test Results** | **789 total tests** (321 frontend + 468 backend) passing |
+
+**Technical Details**:
+- **Logic Remediation**: Implemented `DocumentService._post_journal_entry` and connected `PaymentService` to `JournalService`.
+- **Field Fixes**: Standardized `subtotal` → `total_excl`, `total` → `total_incl`, and `is_bank_account` → `is_bank`.
+- **Reporting Fix**: Switched reporting queries to `account_type_ref__code` to avoid NULL issues in seeded data.
+- **Robustness**: Header normalization in CSV importer and UUID support in custom JSON renderer.
+- **Lessons Learned**: unit tests can pass while side-effects (GL) are missing; trust the SQL schema over Django defaults.
 
 ### Recent Milestone: RLS & View Layer Fixes ✅ COMPLETE
 **Date**: 2026-03-08

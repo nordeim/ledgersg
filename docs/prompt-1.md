@@ -178,6 +178,10 @@ Feel free to drop the current application database and its schemas and then crea
 
 ---
 
+Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously plan to document down your experience in the test suite execution, the issues encountered and how you troubleshoot and resolve them, the code changes necessary to pass the test suite, justifications for the changes made to complete the test suite successfully lessons learned, pitfalls in the test suite or the code and how they can be avoided. meticulously plan and create a comprehensive test suite completion report as a markdown file with an appropriate markdown file. your test suite execution report should help another developer or AI coding agent to avoid all the issues and pitfalls you encountered or help any developer or agent to write a successful test suite or an actual workflow execution script. this is a very important task so please think carefully to create an awesomely useful report document to capture all your knowledge and experiences.
+
+---
+
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.
 
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT_BRIEF.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.
