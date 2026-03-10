@@ -1117,18 +1117,33 @@ curl -s -X GET "http://localhost:8000/api/v1/$ORG_ID/reports/reports/financial/"
 
 ```bash
 echo "=== Q1 2026 Expected Results ==="
-cat << 'EOF'
+
+# Fetch data
+DASHBOARD=$(curl -s -X GET "http://localhost:8000/api/v1/$ORG_ID/reports/dashboard/metrics/" -H "Authorization: Bearer $ACCESS_TOKEN")
+PL_REPORT=$(curl -s -X GET "http://localhost:8000/api/v1/$ORG_ID/reports/reports/financial/?report_type=profit_loss&start_date=2026-01-01&end_date=2026-03-31" -H "Authorization: Bearer $ACCESS_TOKEN")
+BS_REPORT=$(curl -s -X GET "http://localhost:8000/api/v1/$ORG_ID/reports/reports/financial/?report_type=balance_sheet&as_at_date=2026-03-31" -H "Authorization: Bearer $ACCESS_TOKEN")
+RECON_STATS=$(curl -s -X GET "http://localhost:8000/api/v1/$ORG_ID/banking/bank-transactions/?bank_account_id=$BANK_ACCOUNT_UUID" -H "Authorization: Bearer $ACCESS_TOKEN")
+JE_BALANCE_CHECK=$(curl -s -X GET "http://localhost:8000/api/v1/$ORG_ID/journal-entries/entries/" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r '.results | map(select(.total_debit != .total_credit)) | if length == 0 then "Yes" else "No (\(length) unbalanced)" end')
+
+# Calculate reconciliation rate
+RECON_RATE=$(echo $RECON_STATS | jq -r 'if .count > 0 then (([.results[] | select(.is_reconciled == true)] | length) / .count * 100 | floor | tostring + "%") else "0%" end')
+
+# Check Balance Sheet
+BS_BALANCED=$(echo $BS_REPORT | jq -r 'if .data.assets.Total == (.data.liabilities.Total + .data.equity.Total) then "Yes" else "No" end')
+
+# Output table
+cat << EOF
 | Metric                    | Expected  | Actual (from API) |
 |---------------------------|-----------|-------------------|
-| Total Revenue             | 45,000.00 | [API call needed] |
-| Total Expenses            | 24,300.00 | [API call needed] |
-| Net Profit                | 20,700.00 | [API call needed] |
-| Cash on Hand              | 75,550.00 | [API call needed] |
-| Outstanding Receivables   | 0.00      | [API call needed] |
-| Outstanding Payables      | 0.00      | [API call needed] |
-| Bank Reconciliation Rate  | 100%      | [API call needed] |
-| Journal Entries Balanced  | Yes       | [API call needed] |
-| Balance Sheet Balanced    | Yes       | [API call needed] |
+| Total Revenue             | 45,000.00 | $(echo $PL_REPORT | jq -r '.data.revenue.Total') |
+| Total Expenses            | 24,300.00 | $(echo $PL_REPORT | jq -r '.data.expenses.Total') |
+| Net Profit                | 20,700.00 | $(echo $PL_REPORT | jq -r '.data.net_profit') |
+| Cash on Hand              | 75,550.00 | $(echo $DASHBOARD | jq -r '.cash_on_hand') |
+| Outstanding Receivables   | 0.00      | $(echo $DASHBOARD | jq -r '.outstanding_receivables') |
+| Outstanding Payables      | 0.00      | $(echo $DASHBOARD | jq -r '.outstanding_payables') |
+| Bank Reconciliation Rate  | 100%      | $RECON_RATE |
+| Journal Entries Balanced  | Yes       | $JE_BALANCE_CHECK |
+| Balance Sheet Balanced    | Yes       | $BS_BALANCED |
 EOF
 ```
 
