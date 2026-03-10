@@ -1,111 +1,89 @@
-# LedgerSG — Global Context & Project Status
+# LedgerSG — Global Context & Single Source of Truth (SSOT)
 
-> **Single Source of Truth for Gemini CLI & Developers**  
-> **Version**: 2.2.0  
-> **Last Updated**: 2026-03-08  
-> **Status**: Production Ready ✅  
-> **Security Score**: 100% (SEC-001, SEC-002, SEC-003 remediated)  
-> **Testing**: 651 Tests (305 Frontend + 346 Backend) — 100% Pass Rate
-
----
-
-## 🎯 Project Mission
-**LedgerSG** is a high-integrity, double-entry accounting platform for Singapore SMBs, purpose-built for **IRAS 2026 compliance** (GST F5, InvoiceNow, BCRS). It features a distinctive "Illuminated Carbon" neo-brutalist UI.
+> **Version**: 3.0.0  
+> **Last Updated**: 2026-03-10  
+> **Status**: Production Ready ✅ (Remediation Phase Complete)  
+> **Security Score**: 100% (SEC-001/002/003 Remediated)  
+> **Total Tests**: 789 (321 Frontend + 468 Backend) — 100% Pass Rate
 
 ---
 
-## 💻 Tech Stack & Architecture
+## 🎯 Executive Summary
+**LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs. It transforms IRAS 2026 compliance (GST F5, InvoiceNow, BCRS) into a seamless experience with a distinctive "Illuminated Carbon" neo-brutalist UI.
 
-### **Frontend (Next.js 16.1.6 + React 19)**
-- **Architecture**: App Router, Server Components for data fetching (zero JWT exposure to JS).
-- **UI/UX**: Tailwind CSS 4.0 + Shadcn/Radix UI.
-- **State**: Zustand (UI) + TanStack Query v5 (Server State).
-- **Security**: CSP Middleware with dynamic nonces, `strict-dynamic`, and Layer 2 auth guards.
+---
 
-### **Backend (Django 6.0.2 + DRF 3.16.1)**
-- **Architecture**: Service Layer Pattern (logic in `services/`, thin views).
-- **Database**: PostgreSQL 16+ with 7 domain schemas (`core`, `coa`, `gst`, `journal`, `invoicing`, `banking`, `audit`).
-- **Isolation**: Row-Level Security (RLS) via `app.current_org_id` session variable.
-- **Financials**: `NUMERIC(10,4)` precision. Floats are prohibited. Use `common.decimal_utils.money()`.
+## 📊 Verified Metrics & Status
+| Component | Status | Version | Key Metrics |
+| :--- | :--- | :--- | :--- |
+| **Frontend** | ✅ Production | v0.1.2 | 12 Pages, 321 Tests, WCAG AAA |
+| **Backend** | ✅ Production | v0.3.3 | 84 API Endpoints, 468 Tests |
+| **Database** | ✅ Complete | v1.0.3 | 7 Schemas, 29 Tables, RLS Enforced |
+| **Banking UI** | ✅ Complete | v1.3.0 | 3 Tabs, 73 TDD Tests, Reconciliation Live |
+| **InvoiceNow** | ✅ Complete | v1.0.0 | Phases 1-4, PINT-SG Compliant, 122+ Tests |
+| **Security** | ✅ 100% Score | v1.0.0 | CSP (SEC-003), Ratelimit (SEC-002) |
 
 ---
 
 ## 🏗 Architectural Mandates (Core Rules)
-
-1.  **SQL-First Design**: `database_schema.sql` is the source of truth. Models are `managed = False`. NEVER use `makemigrations`.
-2.  **Service Layer**: All business logic MUST reside in `apps/backend/apps/*/services/`.
-3.  **RLS Context**: Every request sets the PG session variable via `TenantContextMiddleware`.
-4.  **Security Hierarchy**:
-    - **Layer 1**: AuthProvider (Client-side redirect).
-    - **Layer 2**: DashboardLayout (Route guard).
-    - **Layer 3**: Backend (CORSJWTAuthentication + RLS).
-5.  **TDD Workflow**: RED → GREEN → REFACTOR. Backend requires manual DB initialization:
-    `dropdb test_ledgersg_dev && createdb test_ledgersg_dev && psql -d test_ledgersg_dev -f database_schema.sql`
+1. **SQL-First Design**: `database_schema.sql` is the absolute source of truth. Models are `managed = False`. **NEVER** run `makemigrations`.
+2. **Service Layer Supremacy**: Views are thin controllers; **ALL** business logic resides in `apps/backend/apps/*/services/`.
+3. **RLS Context**: Every request sets PostgreSQL session variables (`app.current_org_id`) via `TenantContextMiddleware`.
+4. **Financial Precision**: `NUMERIC(10,4)` for all currency. **NO FLOATS.** Use `common.decimal_utils.money()`.
+5. **Double-Entry Integrity**: Enforced at database level; debits **must** equal credits.
 
 ---
 
-## 📊 Current Status & Metrics
+## 🔒 Security & Authentication
+**Defense-in-Depth Hierarchy**:
+- **Layer 1 (Client)**: `AuthProvider` redirects unauthenticated users to `/login`.
+- **Layer 2 (Client)**: `DashboardLayout` guard prevents flash of protected content.
+- **Layer 3 (Server)**: `CORSJWTAuthentication` validates JWT and handles preflight `OPTIONS` (401 bypass for preflight).
+- **Layer 4 (Database)**: Row-Level Security (RLS) restricts data access to authorized `org_id`.
 
-| Component | Status | Version | Metrics |
-| :--- | :--- | :--- | :--- |
-| **Frontend** | ✅ Production | v0.1.0 | 12 Pages, 305 Passed Tests, WCAG AAA |
-| **Backend** | ✅ Production | v1.0.0 | 96+ Endpoints, 346 Passed Tests |
-| **Banking UI** | ✅ Complete | v1.3.0 | 3 Tabs (Accounts, Payments, Transactions), 73 Tests |
-| **Dashboard** | ✅ Complete | v1.1.0 | Real data, Redis caching (5m TTL), 36 Tests |
-| **Security** | ✅ 100% Score | v1.0.0 | Ratelimit (SEC-002), CSP (SEC-003), RLS Fixes |
-
----
-
-## 🛠 Milestone Implementation Registry
-
-### **Phase A: Journal & SQL Alignment** ✅
-- Synchronized Service Layer field names (`narration`, `source_type`) with PostgreSQL schema.
-- Fixed `JournalEntry`/`JournalLine` models to correctly map to unmanaged tables.
-
-### **Phase B: Dynamic Organization Context** ✅
-- Eliminated `DEFAULT_ORG_ID`. Organization selection is now dynamic via JWT claims.
-- Implemented `POST /api/v1/auth/set-default-org/` and Org Selector UI in sidebar.
-
-### **Phase 5.5: Banking & Reconciliation** ✅
-- Full CRUD for Bank Accounts with Singapore PayNow badges.
-- Reconciliation workflow: Match suggestions, CSV import, and real-time balance tracking.
-
-### **CORS & Auth Flow Remediation** ✅
-- **CORS Fix**: Created `CORSJWTAuthentication` to handle unauthenticated OPTIONS preflight.
-- **Auth Flow**: Implemented 3-layer defense-in-depth to prevent unauthenticated access.
-- **RLS Fix**: Fixed middleware to set RLS context to `''` for unauthenticated requests (PostgreSQL compliance).
-- **UUID Fix**: Removed redundant `UUID()` re-conversions in views (Django URL converters handle this).
+**Verified Policies**:
+- **CSP**: Strict `default-src 'none'`, `script-src 'self'`. Violation tracking at `/api/v1/security/csp-report/`.
+- **Rate Limiting**: Auth endpoints (Login: 10/min per IP).
 
 ---
 
-## 📁 Critical Files & Commands
-
-- **DB Schema**: `database_schema.sql`
-- **Auth Client**: `apps/web/src/lib/api-client.ts`
-- **RLS Middleware**: `apps/backend/common/middleware/tenant_context.py`
-- **Auth Logic**: `apps/backend/apps/core/authentication.py`
-
-**Testing Commands:**
-- **Backend**: `pytest --reuse-db --no-migrations` (Requires manual DB init first).
-- **Frontend**: `npm test` (Vitest).
+## 💻 Technology Stack
+- **Frontend**: Next.js 16.1.6 (App Router), React 19.2, Tailwind 4.0, Shadcn/Radix, Zustand, TanStack Query v5.
+- **Backend**: Django 6.0.2, DRF 3.16.1, Celery 5.6.2, Redis 6.4.0, WeasyPrint 68.1.
+- **Data**: PostgreSQL 16+, 7 Schemas, RLS, 29 Tables.
 
 ---
 
-## 💡 Troubleshooting Reference
+## 🧪 Development Lifecycle & Testing
+**TDD Methodology**: RED → GREEN → REFACTOR is mandatory for all business logic.
 
-- **UUID Error**: `AttributeError: 'UUID' object has no attribute 'replace'`. Fix: Remove `UUID(org_id)` in view; it's already a UUID.
-- **CORS 401**: OPTIONS request fails. Fix: Use `CORSJWTAuthentication` (returns `None` for OPTIONS).
-- **RLS 403**: User exists but has no access. Fix: Check `UserOrganisation.accepted_at` is not NULL.
-- **DB Sync**: `relation "X" does not exist`. Fix: Models out of sync with `database_schema.sql`.
+**Backend Test Workflow**:
+Manual database initialization is required before running pytest:
+```bash
+dropdb test_ledgersg_dev && createdb test_ledgersg_dev && psql -d test_ledgersg_dev -f apps/backend/database_schema.sql
+pytest --reuse-db --no-migrations
+```
+
+**Frontend Test Workflow**:
+```bash
+npm test # Vitest + RTL
+```
 
 ---
 
-## 🚀 Strategic Roadmap (Next Steps)
-
-1.  **SEC-004**: Expand frontend test coverage for complex hooks and forms.
-2.  **SEC-005**: Implement PII encryption at rest (pgcrypto) for GST/UEN/Bank Account numbers.
-3.  **Peppol XML**: Finalize InvoiceNow (PINT-SG) transmission logic.
-4.  **CI/CD**: Automate the manual test database initialization in GitHub Actions.
+## 🚀 Latest Milestone: Frontend-Backend Remediation (2026-03-10)
+- ✅ **Auth Refresh Fixed**: Resolved critical token refresh bug (`data.access` vs `data.tokens.access`).
+- ✅ **Backward Compatibility**: Supports both nested and flat API response structures.
+- ✅ **Tests Added**: +16 TDD tests documenting auth and organisation endpoint behavior.
+- ✅ **Technical Debt**: Organisation endpoints documented for future refactor to standard `/org/<id>/` pattern.
 
 ---
-**Summary**: LedgerSG is a production-grade platform with 651 verified tests and 100% security score. It strictly follows a SQL-First, Service-Layer architecture with RLS-enforced multi-tenancy.
+
+## 💡 Troubleshooting & Knowledge Base
+- **UUID Errors**: Django URL converters already return UUID objects. **Do not** double-convert with `UUID(org_id)`.
+- **CORS 401**: OPTIONS preflight failures require checking `CORSJWTAuthentication` in settings.
+- **RLS 403**: Check if `UserOrganisation.accepted_at` is set (middleware requirement).
+- **TanStack Query v5**: Mutations use `isPending` instead of `isLoading`.
+
+---
+**Summary**: LedgerSG is a hardened, production-ready platform with 789 verified tests. It strictly adheres to SQL-First, Service-Layer, and RLS mandates.

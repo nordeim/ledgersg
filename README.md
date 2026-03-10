@@ -1,6 +1,6 @@
 # LedgerSG — Enterprise Accounting Platform for Singapore SMBs
 
-[![Tests](https://img.shields.io/badge/tests-773%20passed-success)]()
+[![Tests](https://img.shields.io/badge/tests-789%20passed-success)]()
 [![Security](https://img.shields.io/badge/security-100%25-brightgreen)]()
 [![IRAS](https://img.shields.io/badge/IRAS-2026%20Compliant-red)]()
 [![WCAG](https://img.shields.io/badge/WCAG-AAA-success)]()
@@ -102,7 +102,7 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, 321 tests, WCAG AAA |
 | **Backend** | v0.3.3 | ✅ Production Ready | 85+ endpoints, 468 tests |
-| **Database** | v1.0.3 | ✅ Complete | 7 schemas, 28 tables, RLS enforced |
+| **Database** | v1.0.3 | ✅ Complete | 7 schemas, 29 tables, RLS enforced |
 | **Banking** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching |
 | **InvoiceNow** | v1.0.0 | ✅ Phases 1-4 Complete | 122+ TDD tests, PINT-SG compliant |
@@ -526,11 +526,11 @@ pytest --reuse-db --no-migrations
 | Test Suite | Status | Count | Coverage |
 |------------|--------|-------|----------|
 | Backend Unit | ✅ Passing | 468 | Core models, services, Dashboard API |
-| Frontend Unit | ✅ Passing | 305 | GST Engine 100% |
+| Frontend Unit | ✅ Passing | 321 | GST Engine 100% |
 | Integration | ✅ Verified | PDF/Email | Binary stream verified |
 | InvoiceNow TDD | ✅ Passing | 122+ | 100% test coverage |
 | Banking UI TDD | ✅ Passing | 73 | 100% test coverage |
-| **Total** | **✅ Passing** | **773** | **100%** |
+| **Total** | **✅ Passing** | **789** | **100%** |
 
 ---
 

@@ -1,8 +1,8 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**  
-> **Version**: 2.2.0  
-> **Last Updated**: 2026-03-08  
+> **Version**: 2.3.0  
+> **Last Updated**: 2026-03-10  
 > **Status**: Production Ready ✅  
 > **Security Score**: 100% (SEC-001/002/003 Remediated)  
 > **Compliance**: IRAS 2026 (GST F5, InvoiceNow, BCRS)
@@ -31,10 +31,10 @@
 ### Key Metrics
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **645+ Tests** | 305 Frontend + 340 Backend (100% Pass Rate) |
-| **API Surface** | **83 Endpoints** | RESTful, JSON-API compliant |
+| **Test Coverage** | **789 Tests** | 321 Frontend + 468 Backend (100% Pass Rate) |
+| **API Surface** | **84 Endpoints** | RESTful, JSON-API compliant |
 | **Security** | **100% Score** | CSP, Rate Limiting, RLS, 3-Layer Auth |
-| **Database** | **7 Schemas** | 28 Tables, Row-Level Security Enforced |
+| **Database** | **7 Schemas** | 29 Tables, Row-Level Security Enforced |
 | **Performance** | **<100ms** | P95 Response Time (Redis Caching Active) |
 
 ---
@@ -189,7 +189,7 @@ flowchart TB
 
 ## Backend Architecture
 
-**Stack**: Django 6.0.2, DRF 3.16, Celery 5.4, Redis 7.
+**Stack**: Django 6.0.2, DRF 3.16, Celery 5.6, Redis 6.4.
 
 ### Middleware Chain (Request Lifecycle)
 The order is critical for security and RLS.
@@ -249,7 +249,7 @@ class InvoiceService:
 | `audit` | Security | `event_log` (Append-Only) |
 
 ### RLS Policies
-Every table has RLS enabled. Policies look like this:
+Every table (29 total) has RLS enabled. Policies look like this:
 
 ```sql
 CREATE POLICY tenant_isolation ON invoicing.document
