@@ -2,8 +2,8 @@
 
 > **Single Source of Truth** for coding agents and human developers
 > **Version**: 2.1.0
-> **Last Updated**: 2026-03-09
-> **Status**: Production Ready ✅ (InvoiceNow/Peppol Phases 1-4 Complete, SEC-001, SEC-002, SEC-003, CORS Fix, RLS Fix, Phase A, Phase B, Phase 3, Phase 4, Phase 5.4, Phase 5.5 Complete)
+> **Last Updated**: 2026-03-10
+> **Status**: Production Ready ✅ (Frontend-BE Integration Remediation Complete, InvoiceNow/Peppol Phases 1-4 Complete, SEC-001, SEC-002, SEC-003, CORS Fix, RLS Fix, Phase A, Phase B, Phase 3, Phase 4, Phase 5.4, Phase 5.5 Complete)
 
 ---
 
@@ -42,7 +42,8 @@
 | **InvoiceNow** | v1.0.0 | ✅ **Phases 1-4 Complete** | 122+ TDD tests, PINT-SG compliant, async transmission |
 | **CORS** | v1.0.0 | ✅ Dashboard Fixed | CORSJWTAuthentication, preflight handling |
 | **Integration** | v1.1.0 | ✅ **Complete** | All endpoint paths aligned, Dashboard real data |
-| **Testing** | — | ✅ **773+ Passing** | Frontend (305) + Backend (468) tests verified |
+| **Frontend-BE Integration** | v1.2.0 | ✅ **Remediation Complete** | Auth token refresh fixed, +16 TDD tests, TDD methodology |
+| **Testing** | — | ✅ **789+ Passing** | Frontend (321) + Backend (468) tests verified |
 | **Overall** | — | ✅ **Platform Ready** | **773 tests**, WCAG AAA, IRAS Compliant, 100% Security |
 
 ---

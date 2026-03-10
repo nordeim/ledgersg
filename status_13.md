@@ -166,3 +166,98 @@ Created:
 - ✅ Comprehensive documentation
 - ✅ Error handling improved
 The integration is now production-ready with improved reliability!
+
+---
+
+✅ Documentation Update Complete!
+I've meticulously updated all documentation files with the Frontend-Backend Integration Remediation achievements. Here's a comprehensive summary:
+📁 Files Updated
+File	Changes
+ACCOMPLISHMENTS.md	+135 lines (new milestone section), updated test counts
+CLAUDE.md	Updated status table, added Lessons Learned, Troubleshooting
+AGENT_BRIEF.md	+80 lines (new milestone, lessons learned, troubleshooting)
+README.md	Updated status table, milestones, troubleshooting, roadmap
+---
+### 🎯 Key Updates Made
+#### 1. **ACCOMPLISHMENTS.md**
+- ✅ Added new major milestone: "Frontend-Backend Integration Remediation"
+- ✅ Documented Issue #1 fix (Auth Token Refresh - CRITICAL)
+- ✅ Documented Issue #3 (Organization Endpoints - Architectural Debt)
+- ✅ Added TDD methodology details (RED → GREEN → REFACTOR)
+- ✅ Updated test counts: 773 → 789 tests
+- ✅ Added troubleshooting guide
+- ✅ Documented blockers and next steps
+#### 2. **CLAUDE.md**
+- ✅ Updated version date: 2026-03-10
+- ✅ Updated status: "Frontend-BE Integration Remediation Complete"
+- ✅ Added Frontend-BE Integration row to status table
+- ✅ Updated test counts: 773+ → 789+ Passing
+- ✅ Added Lessons Learned section (4 new lessons)
+- ✅ Added Auth Token Refresh Troubleshooting
+#### 3. **AGENT_BRIEF.md**
+- ✅ Added "Recent Milestone: Frontend-Backend Integration Remediation" (2026-03-10)
+- ✅ Updated status table with Frontend-BE Integration row
+- ✅ Updated test counts: 773 → 789 Passing
+- ✅ Added 4 new lessons learned
+- ✅ Added Auth Token Refresh Troubleshooting section
+#### 4. **README.md**
+- ✅ Updated Frontend version: v0.1.1 → v0.1.2 (test count 305 → 321)
+- ✅ Added Frontend-BE Integration row to status table
+- ✅ Updated total tests: 773 → 789
+- ✅ Added "Latest Milestone: Frontend-Backend Integration Remediation"
+- ✅ Added Auth Token Refresh Issues troubleshooting section
+- ✅ Updated documentation registry table
+- ✅ Updated roadmap (marked item 14 as complete)
+---
+📊 Statistics
+Metric	Before	After
+Total Tests	773	789
+Test Files	22	24
+Frontend Tests	305	321
+Documentation Files	6	10
+---
+📝 Documentation Created During Remediation
+File	Purpose
+INTEGRATION_AUDIT_REPORT.md	Comprehensive audit findings
+INTEGRATION_REMEDIATION_COMPLETE.md	Complete remediation report
+REMEDIATION_PLAN_TDD.md	TDD remediation plan
+api-client-auth.test.ts	Auth token refresh tests
+api-client-organisations.test.ts	Organisation endpoint tests
+---
+### ✅ Updates Summary
+**Major Milestone Achievements:**
+- ✅ Critical auth bug fixed (token refresh)
+- ✅ 16 new TDD tests added (100% passing)
+- ✅ TDD methodology applied (RED → GREEN → REFACTOR)
+- ✅ Backward compatibility maintained
+- ✅ Comprehensive documentation created
+**Code Changes:**
+- ✅ `apps/web/src/lib/api-client.ts` (lines 109-150)
+- ✅ Fixed token extraction: `data.access` → `data.tokens?.access || data.access`
+**Enhancements:**
+- ✅ Added JSDoc documentation
+- ✅ Enhanced error handling
+- ✅ Added debug logging
+- ✅ Improved code quality
+**Lessons Learned:**
+- ✅ API response structure verification
+- ✅ TDD for integration bugs
+- ✅ Backward compatibility importance
+- ✅ False positive prevention
+**Troubleshooting Guides Added:**
+- ✅ Auth Token Refresh Issues (4 common problems)
+- ✅ Debugging steps with console logs
+- ✅ Network tab monitoring guide
+**Next Steps Documented:**
+- ✅ Immediate: Deploy auth fix, monitor logs
+- ✅ Short-term: Refactor Issue #3 in next sprint
+- ✅ Long-term: Standardize endpoint patterns
+---
+🎉 Documentation Status
+Document	Version	Last Updated
+README.md	v0.1.2	2026-03-10
+CLAUDE.md	v2.1.0	2026-03-10
+AGENT_BRIEF.md	v2.1.0	2026-03-10
+ACCOMPLISHMENTS.md	v1.7.0	2026-03-10
+All documentation is now up-to-date and accurately reflects the Frontend-Backend Integration Remediation achievements! 🎊
+

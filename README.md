@@ -100,16 +100,24 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.1 | ✅ Production Ready | 12 pages, 305 tests, WCAG AAA |
+| **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, 321 tests, WCAG AAA |
 | **Backend** | v0.3.3 | ✅ Production Ready | 85+ endpoints, 468 tests |
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, 28 tables, RLS enforced |
 | **Banking** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching |
 | **InvoiceNow** | v1.0.0 | ✅ Phases 1-4 Complete | 122+ TDD tests, PINT-SG compliant |
 | **Security** | v1.0.0 | ✅ 100% Score | SEC-001, SEC-002, SEC-003 Remediated |
-| **Overall** | — | ✅ **Platform Ready** | **773 Tests**, IRAS Compliant |
+| **Frontend-BE Integration** | v1.2.0 | ✅ **Remediation Complete** | Auth token refresh fixed, +16 TDD tests |
+| **Overall** | — | ✅ **Platform Ready** | **789 Tests**, IRAS Compliant |
 
 ### Latest Milestones
+
+**🎉 Frontend-Backend Integration Remediation** — 2026-03-10
+- ✅ **Critical Auth Bug Fixed** (Token refresh response structure mismatch)
+- ✅ **16 New TDD Tests** (7 auth + 9 organisations, 100% passing)
+- ✅ **TDD Methodology Applied** (RED → GREEN → REFACTOR cycle)
+- ✅ **Backward Compatibility** (Supports both nested and flat structures)
+- ✅ **789 Total Tests** (321 frontend + 468 backend)
 
 **🎉 InvoiceNow/Peppol Integration (Phases 1-4)** — 2026-03-09
 - ✅ **122+ TDD Tests Passing** (Phase 1: 21, Phase 2: 85, Phase 3: 23, Phase 4: 14)
@@ -781,6 +789,23 @@ docker run -p 3000:3000 -p 8000:8000 -p 5432:5432 -p 6379:6379 ledgersg:latest
 | 404 for JS chunks | Static files not copied | `cp -r .next/static .next/standalone/.next/` |
 | API Error | CORS not configured | Verify `.env.local` has correct API URL |
 
+### Auth Token Refresh Issues
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| Users logged out after 15 minutes | Token refresh silently failing | Fixed in api-client.ts - now extracts `data.tokens.access` |
+| "undefined" in Authorization header | Wrong response structure parsing | Changed `data.access` → `data.tokens?.access \|\| data.access` |
+| Refresh requests not triggering | Missing credentials in fetch | Ensure `credentials: "include"` is set |
+| Token refresh test failures | Mock response structure wrong | Mock both structures: `{tokens: {access: "..."}}` and `{access: "..."}` |
+| `[Auth] No access token` error | Backend response missing access token | Check backend auth.py returns `{"tokens": {"access": "..."}}` |
+
+**Debugging Token Refresh:**
+1. Enable debug logging in browser console (should see `[Auth]` messages)
+2. Check Network tab for `/api/v1/auth/refresh/` requests
+3. Verify response contains `tokens.access` not just `access`
+4. Check that refresh_token cookie is being sent
+5. Monitor for `[Auth] Access token refreshed successfully` message
+
 ### InvoiceNow/Peppol Issues
 
 | Problem | Cause | Solution |
@@ -889,6 +914,9 @@ Before submitting PR:
 | [Project_Architecture_Document.md](Project_Architecture_Document.md) | System Architecture | ✅ Complete |
 | [API_workflow_examples_and_tips_guide.md](API_workflow_examples_and_tips_guide.md) | API Examples | ✅ Complete |
 | [UUID_PATTERNS_GUIDE.md](UUID_PATTERNS_GUIDE.md) | UUID Handling Best Practices | ✅ Complete |
+| [INTEGRATION_AUDIT_REPORT.md](INTEGRATION_AUDIT_REPORT.md) | Frontend-BE Integration Audit | ✅ Complete |
+| [INTEGRATION_REMEDIATION_COMPLETE.md](INTEGRATION_REMEDIATION_COMPLETE.md) | TDD Remediation Report | ✅ Complete |
+| [REMEDIATION_PLAN_TDD.md](REMEDIATION_PLAN_TDD.md) | TDD Remediation Plan | ✅ Complete |
 
 ---
 
@@ -915,9 +943,11 @@ Before submitting PR:
 ### Long-term (Low Priority)
 
 13. ~~InvoiceNow Transmission~~ ✅ COMPLETE (Phases 1-4)
-14. **PII Encryption**: Encrypt GST numbers and bank accounts at rest (SEC-005)
-15. **Analytics**: Add dashboard analytics tracking
-16. **Mobile**: Optimize banking pages for mobile devices
+14. ~~**Frontend-BE Integration Remediation**~~ ✅ COMPLETE (2026-03-10)
+15. **PII Encryption**: Encrypt GST numbers and bank accounts at rest (SEC-005)
+16. **Analytics**: Add dashboard analytics tracking
+17. **Mobile**: Optimize banking pages for mobile devices
+18. **Organisation Endpoint Refactor**: Standardise pattern to match banking/invoicing (Issue #3)
 
 ### InvoiceNow Next Steps (Immediate Priority)
 

@@ -39,7 +39,8 @@
 | **Security** | v1.0.0 | ✅ **SEC-002, SEC-003 Remediated** | Rate limiting + CSP headers |
 | **CORS** | v1.0.0 | ✅ **Dashboard Fixed** | CORSJWTAuthentication, preflight handling |
 | **InvoiceNow** | v1.0.0 | ✅ **Phases 1-4 Complete** | 122+ TDD tests, PINT-SG compliant XML |
-| **Testing** | — | ✅ **773 Passing** | **305 Frontend + 468 Backend** tests verified |
+| **Frontend-BE Integration** | v1.2.0 | ✅ **Remediation Complete** | Auth token refresh fixed, +16 TDD tests, TDD methodology |
+| **Testing** | — | ✅ **789 Passing** | **321 Frontend + 468 Backend** tests verified |
 | **Overall** | — | ✅ **Platform Ready** | **538+ tests**, WCAG AAA, IRAS Compliant, **100% Security** |
 
 ### Recent Milestone: RLS & View Layer Fixes ✅ COMPLETE
@@ -62,6 +63,28 @@
 - Files Modified: `common/middleware/tenant_context.py`, `common/views.py`, `tests/middleware/test_rls_context.py`, `apps/banking/views.py`, `apps/gst/views.py`, `apps/journal/views.py`
 - Documentation: Created `TDD_RLS_FIXES_SUBPLAN.md`, `TDD_VIEW_LAYER_FIXES_SUBPLAN.md`
 - Lessons Learned: Django URL path converters auto-convert; PostgreSQL SET LOCAL requires strings not NULL; Always validate actual error messages in development
+
+### Recent Milestone: Frontend-Backend Integration Remediation ✅ COMPLETE
+**Date**: 2026-03-10
+**Status**: Critical Auth Bug Fixed Using TDD Methodology — 16 New Tests
+
+| Fix | Impact |
+|-----|--------|
+| **Issue #1: Token Refresh** | Fixed `data.access` → `data.tokens?.access` extraction (CRITICAL) |
+| **Backward Compatibility** | Supports both nested and flat response structures |
+| **TDD Tests** | 7 auth tests + 9 org tests = 16 new tests (100% passing) |
+| **Code Quality** | Added JSDoc, error handling, debug logging (api-client.ts) |
+| **False Positive** | Issue #2 already existed (no action needed) |
+| **Architecture Debt** | Issue #3 documented with tests (deferred to future) |
+| **Test Results** | **789 total tests** (321 frontend + 468 backend) |
+
+**Technical Details**:
+- Root Cause: Backend returns `{tokens: {access: "..."}}` but frontend expected `{access: "..."}`
+- Solution: Changed `setAccessToken(data.access)` → `data.tokens?.access || data.access`
+- Files Modified: `apps/web/src/lib/api-client.ts` (lines 109-150)
+- Files Created: `api-client-auth.test.ts` (7 tests), `api-client-organisations.test.ts` (9 tests)
+- TDD Cycle: RED (tests fail) → GREEN (fix implemented) → REFACTOR (code quality)
+- Lessons Learned: Always verify API response structure; tests serve as documentation
 
 ### Recent Milestone: InvoiceNow/Peppol Integration (Phases 1-4) ✅ COMPLETE
 **Date**: 2026-03-09
@@ -529,6 +552,28 @@ psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 **Cause**: Invalid or missing API key
 **Solution**: Verify api_key in organisation_peppol_settings matches Storecove credentials
 
+### Auth Token Refresh Troubleshooting
+
+**Problem**: Users unexpectedly logged out after 15 minutes
+**Cause**: Token refresh failing silently due to response structure mismatch
+**Solution**: Fixed in api-client.ts line 119 - now extracts from `data.tokens.access`
+**Verification**: Check browser console for `[Auth]` debug logs
+
+**Problem**: "undefined" token in API request headers after refresh
+**Cause**: `data.access` returns undefined from nested response
+**Solution**: Changed to `data.tokens?.access || data.access`
+**Verification**: Monitor network tab - Authorization header should have valid token
+
+**Problem**: Token refresh requests not triggering
+**Cause**: Backend returns 401 but refresh logic not executed
+**Solution**: Ensure `credentials: "include"` is set in fetch options
+**Verification**: Check that refresh_token cookie is being sent
+
+**Problem**: Tests for token refresh failing
+**Cause**: Mock response structure doesn't match backend
+**Solution**: Mock both structures: `{tokens: {access: "..."}}` and `{access: "..."}`
+**Verification**: Run `npm test -- src/lib/__tests__/api-client-auth.test.ts`
+
 ### Phase 3 Integration Lessons (Frontend Testing)
 
 **Problem**: Radix UI Tabs not activating in integration tests.
@@ -699,6 +744,32 @@ vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
 - **Discovery**: Multiple elements matching selector caused errors
 - **Lesson**: Use `findAllByRole` when multiple elements match
 - **Pattern**: `const buttons = await screen.findAllByRole("button", { name: /text/i })`
+
+### Frontend-BE Integration Remediation (2026-03-10)
+
+#### 1. API Response Structure Verification
+- **Discovery**: Backend returned `{tokens: {access: "..."}}` but frontend expected `{access: "..."}`
+- **Lesson**: Always verify API response structure before writing client code
+- **Pattern**: Check backend view returns, use console.log for debugging
+- **Impact**: Token refresh was silently failing, causing unexpected logouts
+
+#### 2. TDD for Integration Bugs
+- **Discovery**: Writing failing tests first revealed the exact issue
+- **Lesson**: TDD works for integration bugs, not just unit tests
+- **Pattern**: RED (write failing test) → GREEN (minimal fix) → REFACTOR (improve)
+- **Result**: 7 comprehensive tests documenting the fix
+
+#### 3. Backward Compatibility
+- **Discovery**: Fix might break if backend changes structure
+- **Lesson**: Support both old and new structures during transition
+- **Pattern**: `data.tokens?.access || data.access` (optional chaining + fallback)
+- **Benefit**: Resilient to API changes, graceful degradation
+
+#### 4. False Positives in Code Review
+- **Discovery**: Reported missing `useUpdateContact` hook, but it already existed
+- **Lesson**: Always verify actual code before reporting issues
+- **Pattern**: Read the source file completely, grep for function names
+- **Savings**: Avoided unnecessary work, focused on real issues
 
 ---
 

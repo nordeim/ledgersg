@@ -16,7 +16,8 @@ This document records the completed work on the LedgerSG platform, aligned with 
 - ✅ Dashboard: v1.1.0 — Phase 4 Complete (Field Remediation + Redis Caching, 36 tests)
 - ✅ Banking Frontend: v1.3.0 — Phase 5.4 & 5.5 Complete (73 TDD tests total, All Tabs Live)
 - ✅ **InvoiceNow/Peppol**: v1.0.0 — **Phases 1-4 Complete** (122+ TDD Tests, Production-Ready)
-- ✅ Testing: v1.6.0 — **305 Frontend Tests + 468 Backend Tests = 773 Total Tests Passing**
+- ✅ Testing: v1.7.0 — **321 Frontend Tests + 468 Backend Tests = 789 Total Tests Passing** (Integration Remediation: +16 TDD tests)
+- ✅ Frontend-BE Integration: v1.2.0 — **Auth Token Refresh Fixed** (TDD Methodology, 7 tests, Critical Bug Resolved)
 - ✅ Docker: v1.0.0 — Multi-Service Container with Live Integration
 - ✅ Dashboard API: v1.0.0 — Production Ready (Real Data Integration, 100% TDD Coverage)
 - ✅ Bank Transactions Integration: v1.0.0 — Phase 3 Complete (TDD Integration Tests, 100% Passing)
@@ -42,11 +43,148 @@ This document records the completed work on the LedgerSG platform, aligned with 
 | **Banking Frontend** | ✅ **Complete** | v1.3.0 | Phase 5.5: All Tabs Complete (73 tests total), Full Reconciliation UI |
 | **Phase 3 Integration** | ✅ **Complete** | v1.0.0 | BankTransactionsTab fully integrated, 7 new tests, TDD methodology |
 | **InvoiceNow/Peppol** | ✅ **Complete** | v1.0.0 | Phases 1-4: XML Generation, AP Integration, Workflow Automation |
-| **Testing** | ✅ Complete | v1.7.0 | **305 Frontend + 468 Backend = 773 Total Tests Passing** |
+| **Testing** | ✅ Complete | v1.7.0 | **321 Frontend + 468 Backend = 789 Total Tests Passing** |
+| **Frontend-BE Integration** | ✅ **Complete** | v1.2.0 | **Auth Token Refresh Fixed** (TDD Methodology, +16 tests, Critical Bug Resolved) |
 | **Docker** | ✅ Complete | v1.0.0 | Multi-service, live FE/BE integration |
 | **SEC-003 CSP** | ✅ **Complete** | v1.0.0 | Backend CSP live (15 TDD tests), 100% security score |
 | **CORS Fix** | ✅ **Complete** | v1.0.0 | Dashboard loading fixed, CORSJWTAuthentication class created |
 | **RLS & View Layer** | ✅ **Complete** | v1.0.0 | **6/6 tests passing**, 500 errors fixed, UUID double conversion resolved |
+
+---
+
+# Major Milestone: Frontend-Backend Integration Remediation ✅ COMPLETE (2026-03-10)
+
+## Executive Summary
+
+Successfully resolved critical authentication token refresh bug using Test-Driven Development (TDD) methodology. The issue caused users to be unexpectedly logged out after 15 minutes when the access token expired, as the frontend expected `data.access` but the backend returned `data.tokens.access`. Fixed with backward compatibility support and comprehensive test coverage.
+
+### Key Achievements
+
+#### Issue #1: Auth Token Refresh Response Parsing ✅ FIXED (CRITICAL)
+- **Root Cause**: Frontend parsed `data.access` but backend returned `data.tokens.access`
+- **Impact**: Users logged out unexpectedly after 15 minutes; silent auth failures
+- **Solution**: Fixed token extraction to support both nested and flat structures
+- **Code Change**: Line 119 in `api-client.ts`: `data.access` → `data.tokens?.access || data.access`
+- **TDD Tests**: 7 comprehensive tests (RED → GREEN → REFACTOR)
+- **Status**: 100% passing, production ready
+
+#### Issue #3: Organization Endpoints Architecture 📋 DOCUMENTED
+- **Root Cause**: Inconsistent pattern between organisations vs banking/invoicing endpoints
+- **Impact**: Developer confusion, architectural debt (functional, works correctly)
+- **Solution**: Documented as technical debt with 9 comprehensive tests
+- **Status**: Working, deferred to future sprint for consistency refactor
+
+### Test Results
+- **Total New Tests**: 16 (7 auth + 9 organisations)
+- **Test Success Rate**: 100% passing (16/16)
+- **Overall Test Suite**: 789 tests (321 frontend + 468 backend)
+- **No Regressions**: All existing 305 tests still passing
+
+### Technical Implementation
+
+#### Files Modified
+1. `apps/web/src/lib/api-client.ts` (lines 109-150)
+   - Fixed `tryRefreshToken()` function
+   - Added JSDoc documentation
+   - Enhanced error handling with descriptive messages
+   - Added debug logging
+   - Implemented backward compatibility (flat structure support)
+
+#### Files Created
+1. `apps/web/src/lib/__tests__/api-client-auth.test.ts` (7 tests, 275 lines)
+   - Token refresh with nested structure
+   - Backward compatibility with flat structure
+   - Missing token error handling
+   - Token retry logic
+   - Failed refresh redirect
+   - Both structures support
+
+2. `apps/web/src/lib/__tests__/api-client-organisations.test.ts` (9 tests, 200+ lines)
+   - Current behavior documentation
+   - Inconsistency with banking pattern
+   - URL alignment with backend
+   - Technical debt documentation
+
+### Code Changes
+
+**Before (Broken):**
+```typescript
+if (response.ok) {
+  const data = await response.json();
+  setAccessToken(data.access);  // ❌ Returns undefined
+  return true;
+}
+```
+
+**After (Fixed):**
+```typescript
+if (response.ok) {
+  const data = await response.json();
+  
+  // Backend returns: {tokens: {access: "...", refresh: "..."}}
+  // Support both nested and flat structures for backward compatibility
+  const accessToken = data.tokens?.access || data.access;
+  
+  if (!accessToken) {
+    console.error("[Auth] No access token in refresh response", data);
+    return false;
+  }
+  
+  setAccessToken(accessToken);
+  console.debug("[Auth] Access token refreshed successfully");
+  return true;
+}
+```
+
+### Lessons Learned
+
+#### TDD Methodology Success
+1. **Write tests first** - Forces understanding of the problem
+2. **Watch tests fail** - Confirms the bug exists
+3. **Fix the code** - Minimal change to make tests pass
+4. **Refactor** - Improve code quality while tests pass
+
+#### Key Insights
+1. **Response Structure Matters** - Always verify API response format
+2. **Backward Compatibility** - Support both old and new structures
+3. **Error Handling** - Graceful degradation with clear error messages
+4. **Documentation** - Tests serve as living documentation
+5. **Logging** - Debug logs help identify issues in production
+
+### Troubleshooting Guide
+
+**Problem**: Users unexpectedly logged out after 15 minutes
+- **Cause**: Token refresh failing silently
+- **Solution**: Fixed token extraction logic (see above)
+- **Verification**: Check console for `[Auth]` logs
+
+**Problem**: "undefined" token in API requests
+- **Cause**: `data.access` returns undefined from nested response
+- **Solution**: Use `data.tokens?.access || data.access`
+- **Verification**: Enable debug logging
+
+### Blockers Encountered
+
+**Issue #2: Missing Contact Update Hook** - FALSE POSITIVE
+- **Discovery**: `useUpdateContact` already exists in codebase
+- **Lesson**: Always verify actual code before reporting issues
+
+### Recommended Next Steps
+
+#### Immediate (High Priority)
+1. ✅ Deploy auth fix to production
+2. Monitor auth refresh logs for 48 hours
+3. Verify users stay logged in > 15 minutes
+
+#### Short-term (Medium Priority)
+1. Consider Issue #3 refactor in next sprint
+2. Standardize endpoint patterns across all modules
+3. Add E2E tests for complete auth flow
+
+#### Documentation
+1. ✅ API documentation updated
+2. ✅ Troubleshooting guide added
+3. Add auth flow diagram to docs
 
 ---
 
