@@ -282,7 +282,7 @@ class JournalService:
         expense_revenue_accounts = {}
         gst_amount = Decimal("0.00")
 
-        for line in invoice.lines.filter(is_voided=False):
+        for line in invoice.lines.all():
             account_id = line.account_id
             amount = line.line_amount
 

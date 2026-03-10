@@ -5,11 +5,11 @@ Maps to gst schema tables for Peppol transmission tracking.
 SQL-First Architecture: managed = False
 """
 
+import uuid
 from django.db import models
-from common.models import TenantModel
 
 
-class PeppolTransmissionLog(TenantModel):
+class PeppolTransmissionLog(models.Model):
     """
     Peppol transmission log entry.
 
@@ -18,6 +18,9 @@ class PeppolTransmissionLog(TenantModel):
 
     Maps to: gst.peppol_transmission_log
     """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_column="id")
+    org = models.ForeignKey("core.Organisation", on_delete=models.CASCADE, db_column="org_id")
 
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
@@ -147,7 +150,7 @@ class PeppolTransmissionLog(TenantModel):
         return f"Transmission {self.id} - {self.status}"
 
 
-class OrganisationPeppolSettings(TenantModel):
+class OrganisationPeppolSettings(models.Model):
     """
     Peppol/InvoiceNow configuration per organisation.
 
@@ -156,6 +159,9 @@ class OrganisationPeppolSettings(TenantModel):
 
     Maps to: gst.organisation_peppol_settings
     """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, db_column="id")
+    org = models.ForeignKey("core.Organisation", on_delete=models.CASCADE, db_column="org_id")
 
     # Access Point Configuration
     access_point_provider = models.CharField(
