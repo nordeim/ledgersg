@@ -14,15 +14,17 @@ class TaxCodeListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for tax code list views."""
     
     rate_display = serializers.SerializerMethodField()
+    is_system = serializers.SerializerMethodField()
     
     class Meta:
         model = TaxCode
         fields = [
             "id", "code", "name", "rate", "rate_display",
             "is_gst_charged", "is_active", "is_system",
-            "box_mapping", "effective_from"
+            "f5_supply_box", "f5_purchase_box", "f5_tax_box",
+            "effective_from"
         ]
-        read_only_fields = ["id", "is_system"]
+        read_only_fields = ["id"]
     
     def get_rate_display(self, obj: TaxCode) -> str:
         """Get formatted rate display."""
@@ -30,20 +32,30 @@ class TaxCodeListSerializer(serializers.ModelSerializer):
             return "N/A"
         return f"{obj.rate * 100:.0f}%"
 
+    def get_is_system(self, obj: TaxCode) -> bool:
+        """Check if this is a system tax code (org_id is null)."""
+        return obj.org_id is None
+
 
 class TaxCodeDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for tax code views."""
+    
+    is_system = serializers.SerializerMethodField()
     
     class Meta:
         model = TaxCode
         fields = [
             "id", "code", "name", "rate", "is_gst_charged",
-            "description", "box_mapping",
-            "is_system", "is_active",
+            "description", "is_active", "is_system",
+            "f5_supply_box", "f5_purchase_box", "f5_tax_box",
             "effective_from", "effective_to",
             "created_at", "updated_at"
         ]
-        read_only_fields = ["id", "is_system", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_is_system(self, obj: TaxCode) -> bool:
+        """Check if this is a system tax code (org_id is null)."""
+        return obj.org_id is None
 
 
 class TaxCodeCreateSerializer(serializers.Serializer):
@@ -57,7 +69,9 @@ class TaxCodeCreateSerializer(serializers.Serializer):
     )
     is_gst_charged = serializers.BooleanField()
     description = serializers.CharField(max_length=500, required=False, allow_blank=True)
-    box_mapping = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    f5_supply_box = serializers.IntegerField(required=False, allow_null=True)
+    f5_purchase_box = serializers.IntegerField(required=False, allow_null=True)
+    f5_tax_box = serializers.IntegerField(required=False, allow_null=True)
     
     def validate_code(self, value: str) -> str:
         """Validate tax code format."""
@@ -160,6 +174,8 @@ class GSTReturnListSerializer(serializers.ModelSerializer):
     def get_days_until_due(self, obj: GSTReturn) -> int:
         """Get days until due date."""
         from datetime import date
+        if not obj.due_date:
+            return 0
         return (obj.due_date - date.today()).days
     
     def get_net_gst(self, obj: GSTReturn) -> str:

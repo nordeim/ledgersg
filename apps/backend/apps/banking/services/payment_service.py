@@ -120,8 +120,10 @@ class PaymentService:
             },
         )
 
-        # Note: Journal entry creation deferred until JournalService field alignment is complete
-        # PaymentService._create_payment_journal_entry(org_id, payment, user_id)
+        # Create journal entry
+        journal_entry = PaymentService._create_payment_journal_entry(org_id, payment, user_id)
+        payment.journal_entry = journal_entry
+        payment.save()
 
         return payment
 
@@ -188,8 +190,10 @@ class PaymentService:
             },
         )
 
-        # Note: Journal entry creation deferred until JournalService field alignment is complete
-        # PaymentService._create_payment_journal_entry(org_id, payment, user_id)
+        # Create journal entry
+        journal_entry = PaymentService._create_payment_journal_entry(org_id, payment, user_id)
+        payment.journal_entry = journal_entry
+        payment.save()
 
         return payment
 
@@ -532,13 +536,13 @@ class PaymentService:
             ar_account = payment.contact.receivable_account
             if not ar_account:
                 # Try to find default AR account
-                try:
-                    ar_account = Account.objects.get(
-                        org_id=org_id,
-                        code="1200",  # Standard AR code
-                        account_type="ASSET",
-                    )
-                except Account.DoesNotExist:
+                from django.db.models import Q
+                ar_account = Account.objects.filter(
+                    Q(org_id=org_id) & 
+                    (Q(code="1200") | Q(account_type="ASSET") | Q(account_type="ASSET_CURRENT"))
+                ).first()
+                
+                if not ar_account:
                     raise ValidationError(
                         f"No receivable account configured for contact {payment.contact.name}"
                     )
@@ -563,13 +567,13 @@ class PaymentService:
             ap_account = payment.contact.payable_account
             if not ap_account:
                 # Try to find default AP account
-                try:
-                    ap_account = Account.objects.get(
-                        org_id=org_id,
-                        code="2100",  # Standard AP code
-                        account_type="LIABILITY",
-                    )
-                except Account.DoesNotExist:
+                from django.db.models import Q
+                ap_account = Account.objects.filter(
+                    Q(org_id=org_id) & 
+                    (Q(code="2100") | Q(account_type="LIABILITY") | Q(account_type="LIABILITY_CURRENT"))
+                ).first()
+                
+                if not ap_account:
                     raise ValidationError(
                         f"No payable account configured for contact {payment.contact.name}"
                     )

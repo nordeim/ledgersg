@@ -172,6 +172,12 @@ Awesome job on your meticulous review, analysis and planning. Please keep up the
 
 ---
 
+Awesome job on your meticulous review, analysis and planning. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, meticulously review @start_apps.sh , @API_CLI_Usage_Guide.md and @API_workflow_examples_and_tips_guide.md to understand the correct way to run tests and to interact with the backend API interfaces, then meticulously execute the test suite @Test_suite_Singapore_SMB_workflow-3.md to validate its alignment with the codebase as well as to check for any logic errors/issues in the codebase.
+
+Feel free to drop the current application database and its schemas and then create new ones for the test suite verification. this is a development and testing environment, so no worry about any data loss due to database changes. Also feel free to seed any test data necessary to fully comply with the test suite requirements. now, please proceed meticulously to execute @Test_suite_Singapore_SMB_workflow-3.md
+
+---
+
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.
 
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT_BRIEF.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.

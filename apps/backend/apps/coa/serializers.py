@@ -21,7 +21,7 @@ class AccountListSerializer(serializers.ModelSerializer):
         model = Account
         fields = [
             "id", "code", "name", "account_type",
-            "is_system", "is_active", "is_bank_account",
+            "is_system", "is_active", "is_bank",
             "parent_id", "has_children", "balance",
         ]
         read_only_fields = ["id", "is_system"]
@@ -54,7 +54,7 @@ class AccountDetailSerializer(serializers.ModelSerializer):
             "id", "code", "name", "account_type", "description",
             "parent", "parent_id", "children",
             "gst_tax_code_id", "gst_tax_code_code",
-            "bank_account_id", "is_bank_account",
+            "bank_account_id", "is_bank",
             "is_system", "is_active", "created_at", "updated_at",
             "balance",
         ]
@@ -84,7 +84,7 @@ class AccountCreateSerializer(serializers.Serializer):
     parent_id = serializers.UUIDField(required=False, allow_null=True)
     gst_tax_code_id = serializers.UUIDField(required=False, allow_null=True)
     bank_account_id = serializers.UUIDField(required=False, allow_null=True)
-    is_bank_account = serializers.BooleanField(default=False)
+    is_bank = serializers.BooleanField(default=False)
     
     def validate_code(self, value: str) -> str:
         """Validate account code format."""
@@ -122,7 +122,7 @@ class AccountUpdateSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=10, required=False)
     description = serializers.CharField(max_length=500, required=False, allow_blank=True)
     gst_tax_code_id = serializers.UUIDField(required=False, allow_null=True)
-    is_bank_account = serializers.BooleanField(required=False)
+    is_bank = serializers.BooleanField(required=False)
     is_active = serializers.BooleanField(required=False)
     
     def validate_name(self, value: str) -> str:

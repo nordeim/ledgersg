@@ -16,50 +16,40 @@ class ContactListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contact
         fields = [
-            "id", "name", "company_name", "email", "phone",
-            "uen", "is_customer", "is_supplier", "is_active"
+            "id", "name", "contact_type", "is_customer", "is_supplier",
+            "email", "phone", "is_active", "city", "country"
         ]
+        read_only_fields = ["id"]
 
 
 class ContactDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for contact views."""
     
-    full_address = serializers.SerializerMethodField()
-    
     class Meta:
         model = Contact
         fields = [
-            "id", "name", "company_name", "email", "phone",
-            "address_line_1", "address_line_2", "city", "postal_code", "country",
-            "full_address",
-            "uen", "peppol_id",
+            "id", "name", "contact_type", "company_name", "legal_name", "uen",
+            "gst_reg_number", "is_gst_registered", "tax_code_default",
             "is_customer", "is_supplier", "is_active",
-            "payment_terms_days",
+            "email", "phone", "fax", "website",
+            "address_line_1", "address_line_2", "city", "state_province",
+            "postal_code", "country", "default_currency", "payment_terms_days",
+            "credit_limit", "receivable_account_id", "payable_account_id",
+            "peppol_id", "peppol_scheme_id", "notes",
             "created_at", "updated_at"
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
-    
-    def get_full_address(self, obj: Contact) -> str:
-        """Get formatted full address."""
-        parts = [
-            obj.address_line_1,
-            obj.address_line_2,
-            obj.city,
-            obj.postal_code,
-            obj.country
-        ]
-        return ", ".join(filter(None, parts))
 
 
 class ContactCreateSerializer(serializers.Serializer):
-    """Serializer for creating a contact."""
+    """Serializer for creating a new contact."""
     
     name = serializers.CharField(max_length=255)
     company_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
     phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    address_line_1 = serializers.CharField(max_length=255, required=False, allow_blank=True, source="address_line_1")
-    address_line_2 = serializers.CharField(max_length=255, required=False, allow_blank=True, source="address_line_2")
+    address_line_1 = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    address_line_2 = serializers.CharField(max_length=255, required=False, allow_blank=True)
     city = serializers.CharField(max_length=100, required=False, allow_blank=True)
     postal_code = serializers.CharField(max_length=20, required=False, allow_blank=True)
     country = serializers.CharField(max_length=2, default="SG")
@@ -67,15 +57,7 @@ class ContactCreateSerializer(serializers.Serializer):
     peppol_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
     is_customer = serializers.BooleanField(default=True)
     is_supplier = serializers.BooleanField(default=False)
-    payment_terms_days = serializers.IntegerField(min_value=0, max_value=365, default=30)
-    
-    def validate(self, data):
-        """Validate contact data."""
-        if not data.get("is_customer") and not data.get("is_supplier"):
-            raise serializers.ValidationError(
-                "Contact must be a customer, supplier, or both."
-            )
-        return data
+    payment_terms_days = serializers.IntegerField(default=30)
 
 
 class ContactUpdateSerializer(serializers.Serializer):
@@ -85,8 +67,8 @@ class ContactUpdateSerializer(serializers.Serializer):
     company_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
     phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    address_line1 = serializers.CharField(max_length=255, required=False, allow_blank=True)
-    address_line2 = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    address_line_1 = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    address_line_2 = serializers.CharField(max_length=255, required=False, allow_blank=True)
     city = serializers.CharField(max_length=100, required=False, allow_blank=True)
     postal_code = serializers.CharField(max_length=20, required=False, allow_blank=True)
     country = serializers.CharField(max_length=2, required=False)
@@ -94,42 +76,35 @@ class ContactUpdateSerializer(serializers.Serializer):
     peppol_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
     is_customer = serializers.BooleanField(required=False)
     is_supplier = serializers.BooleanField(required=False)
-    payment_terms_days = serializers.IntegerField(min_value=0, max_value=365, required=False)
     is_active = serializers.BooleanField(required=False)
+    payment_terms_days = serializers.IntegerField(required=False)
 
 
 class InvoiceLineSerializer(serializers.ModelSerializer):
-    """Serializer for invoice lines."""
+    """Serializer for invoice line items."""
     
     account_code = serializers.CharField(source="account.code", read_only=True)
     account_name = serializers.CharField(source="account.name", read_only=True)
-    tax_code = serializers.CharField(source="tax_code.code", read_only=True)
-    tax_rate = serializers.SerializerMethodField()
+    tax_code_code = serializers.CharField(source="tax_code.code", read_only=True)
     
     class Meta:
         model = InvoiceLine
         fields = [
-            "id", "account_id", "account_code", "account_name",
-            "description", "quantity", "unit_price", "amount",
-            "tax_code_id", "tax_code", "tax_rate", "gst_amount",
-            "is_bcrs_deposit", "is_voided"
+            "id", "line_number", "description", "account_id", "account_code",
+            "account_name", "quantity", "unit_price", "discount_pct",
+            "discount_amount", "line_amount", "tax_code_id", "tax_code_code",
+            "tax_rate", "gst_amount", "total_amount", "is_bcrs_deposit"
         ]
-        read_only_fields = ["amount", "gst_amount"]
-    
-    def get_tax_rate(self, obj: InvoiceLine) -> str:
-        """Get tax rate as percentage."""
-        if obj.tax_code and obj.tax_code.rate is not None:
-            return f"{obj.tax_code.rate * 100:.0f}%"
-        return "0%"
+        read_only_fields = ["id", "line_amount", "gst_amount", "total_amount"]
 
 
 class InvoiceLineCreateSerializer(serializers.Serializer):
-    """Serializer for creating invoice lines."""
+    """Serializer for creating a new invoice line."""
     
     account_id = serializers.UUIDField()
     description = serializers.CharField(max_length=500)
-    quantity = serializers.DecimalField(max_digits=15, decimal_places=4, default=1)
-    unit_price = serializers.DecimalField(max_digits=15, decimal_places=4)
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=4, default=Decimal("1.0000"))
+    unit_price = serializers.DecimalField(max_digits=10, decimal_places=4)
     tax_code_id = serializers.UUIDField()
     is_bcrs_deposit = serializers.BooleanField(default=False)
 
@@ -146,12 +121,11 @@ class InvoiceDocumentListSerializer(serializers.ModelSerializer):
             "id", "document_type", "document_number",
             "contact_id", "contact_name",
             "issue_date", "due_date", "status", "status_display",
-            "total", "currency"
+            "total_incl", "currency"
         ]
     
     def get_status_display(self, obj: InvoiceDocument) -> str:
-        """Get human-readable status."""
-        return obj.status.replace("_", " ").title()
+        return obj.get_status_display()
 
 
 class InvoiceDocumentDetailSerializer(serializers.ModelSerializer):
@@ -160,73 +134,61 @@ class InvoiceDocumentDetailSerializer(serializers.ModelSerializer):
     contact = ContactListSerializer(read_only=True)
     lines = InvoiceLineSerializer(many=True, read_only=True)
     status_history = serializers.SerializerMethodField()
+    peppol_status = serializers.CharField(source="invoicenow_status", read_only=True)
     
     class Meta:
         model = InvoiceDocument
         fields = [
             "id", "document_type", "document_number",
-            "contact", "contact_snapshot",
+            "contact",
             "issue_date", "due_date",
             "reference", "notes",
             "status", "lines",
-            "subtotal", "gst_total", "total", "currency",
+            "total_excl", "gst_total", "total_incl", "currency",
             "journal_entry_id", "peppol_status",
             "approved_at", "voided_at",
             "status_history",
             "created_at", "updated_at"
         ]
         read_only_fields = [
-            "id", "document_number", "subtotal", "gst_total", "total",
+            "id", "document_number", "total_excl", "gst_total", "total_incl",
             "created_at", "updated_at"
         ]
     
     def get_status_history(self, obj: InvoiceDocument) -> list:
-        """Get status change history."""
-        history = []
-        if obj.approved_at:
-            history.append({
-                "status": "APPROVED",
-                "date": obj.approved_at.isoformat() if obj.approved_at else None,
-                "by": str(obj.approved_by_id) if obj.approved_by_id else None
-            })
-        if obj.voided_at:
-            history.append({
-                "status": "VOIDED",
-                "date": obj.voided_at.isoformat() if obj.voided_at else None,
-                "by": str(obj.voided_by_id) if obj.voided_by_id else None
-            })
-        return history
+        """Get audit log for status changes."""
+        # TODO: Implement once audit module is ready
+        return []
 
 
 class InvoiceDocumentCreateSerializer(serializers.Serializer):
-    """Serializer for creating invoice documents."""
+    """Serializer for creating a new document."""
     
-    document_type = serializers.ChoiceField(choices=[
-        "SALES_INVOICE", "SALES_QUOTE", "SALES_CREDIT_NOTE", "SALES_DEBIT_NOTE",
-        "PURCHASE_INVOICE", "PURCHASE_QUOTE", "PURCHASE_CREDIT_NOTE", "PURCHASE_DEBIT_NOTE", "PURCHASE_ORDER"
-    ])
+    document_type = serializers.ChoiceField(choices=InvoiceDocument.DOCUMENT_TYPES)
     contact_id = serializers.UUIDField()
     issue_date = serializers.DateField()
     due_date = serializers.DateField(required=False, allow_null=True)
     reference = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    notes = serializers.CharField(max_length=2000, required=False, allow_blank=True)
-    lines = InvoiceLineCreateSerializer(many=True, min_length=1)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    lines = serializers.ListField(
+        child=serializers.DictField(),
+        required=False
+    )
 
 
 class InvoiceDocumentUpdateSerializer(serializers.Serializer):
-    """Serializer for updating documents."""
+    """Serializer for updating a document draft."""
     
     due_date = serializers.DateField(required=False)
     reference = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    notes = serializers.CharField(max_length=2000, required=False, allow_blank=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
 
 
 class StatusTransitionSerializer(serializers.Serializer):
-    """Serializer for status transitions."""
+    """Serializer for status transition request."""
     
-    status = serializers.ChoiceField(choices=[
-        "DRAFT", "SENT", "APPROVED", "PARTIALLY_PAID", "PAID", "OVERDUE", "VOID"
-    ])
+    status = serializers.CharField()
+    reason = serializers.CharField(required=False, allow_blank=True)
 
 
 class QuoteConversionSerializer(serializers.Serializer):
@@ -236,9 +198,8 @@ class QuoteConversionSerializer(serializers.Serializer):
 
 
 class DocumentSummarySerializer(serializers.Serializer):
-    """Serializer for document summary statistics."""
+    """Serializer for document status summary."""
     
-    total_count = serializers.IntegerField()
     by_status = serializers.DictField(child=serializers.IntegerField())
     by_type = serializers.DictField(child=serializers.IntegerField())
     total_outstanding = serializers.DecimalField(max_digits=15, decimal_places=2)

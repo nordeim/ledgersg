@@ -45,6 +45,7 @@ class AccountListCreateView(APIView):
         is_active = request.query_params.get("is_active")
         is_system = request.query_params.get("is_system")
         parent_id = request.query_params.get("parent_id")
+        code = request.query_params.get("code")
         search = request.query_params.get("search")
         order_by = request.query_params.get("order_by", "code")
         include_balance = request.query_params.get("include_balance", "false").lower() == "true"
@@ -68,6 +69,7 @@ class AccountListCreateView(APIView):
             is_active=is_active,
             is_system=is_system,
             parent_id=parent_id,
+            code=code,
             search=search,
             order_by=order_by
         )

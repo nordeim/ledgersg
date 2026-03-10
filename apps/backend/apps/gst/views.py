@@ -54,6 +54,7 @@ class TaxCodeListCreateView(APIView):
         """List tax codes."""
         is_active = request.query_params.get("is_active")
         is_gst_charged = request.query_params.get("is_gst_charged")
+        code = request.query_params.get("code")
         include_system = request.query_params.get("include_system", "true").lower() == "true"
         
         if is_active is not None:
@@ -66,7 +67,8 @@ class TaxCodeListCreateView(APIView):
             org_id=org_id,
             is_active=is_active,
             is_gst_charged=is_gst_charged,
-            include_system=include_system
+            include_system=include_system,
+            code=code
         )
         
         serializer = TaxCodeListSerializer(tax_codes, many=True)

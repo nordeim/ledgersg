@@ -104,6 +104,9 @@ class BankAccountCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(_("GL account not found in this organisation."))
 
         account_type_name = account.account_type.upper() if account.account_type else ""
+        if not account_type_name and account.account_type_ref:
+            account_type_name = account.account_type_ref.code.upper()
+
         if account_type_name != "ASSET":
             raise serializers.ValidationError(
                 _("GL account must be an Asset account for bank accounts.")

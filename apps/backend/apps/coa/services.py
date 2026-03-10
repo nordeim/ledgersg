@@ -63,23 +63,12 @@ class AccountService:
         is_active: Optional[bool] = None,
         is_system: Optional[bool] = None,
         parent_id: Optional[UUID] = None,
+        code: Optional[str] = None,
         search: Optional[str] = None,
         order_by: str = "code"
     ) -> List[Account]:
         """
         List accounts with optional filters.
-        
-        Args:
-            org_id: Organisation ID
-            account_type: Filter by account type (e.g., 'ASSET_CURRENT')
-            is_active: Filter by active status
-            is_system: Filter by system flag
-            parent_id: Filter by parent account
-            search: Search in code or name
-            order_by: Field to order by (default: 'code')
-            
-        Returns:
-            List of Account instances
         """
         queryset = Account.objects.filter(org_id=org_id)
         
@@ -92,10 +81,13 @@ class AccountService:
         if is_system is not None:
             queryset = queryset.filter(is_system=is_system)
         
+        if code:
+            queryset = queryset.filter(code=code)
+        
         if parent_id:
             queryset = queryset.filter(parent_id=parent_id)
-        else:
-            # Default: only top-level accounts
+        elif not code and not search:
+            # Default: only top-level accounts if no specific filter provided
             queryset = queryset.filter(parent__isnull=True)
         
         if search:

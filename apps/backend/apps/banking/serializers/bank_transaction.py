@@ -65,7 +65,8 @@ class BankTransactionImportSerializer(serializers.Serializer):
     bank_account_id = serializers.UUIDField()
     transactions = serializers.ListField(
         child=serializers.DictField(),
-        allow_empty=False,
+        required=False,
+        allow_empty=True,
     )
     import_source = serializers.ChoiceField(
         choices=["CSV", "OFX", "MT940", "API"],

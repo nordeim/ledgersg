@@ -6,6 +6,7 @@ to prevent precision loss in API responses.
 """
 
 import json
+import uuid
 from datetime import datetime, date
 from decimal import Decimal
 
@@ -14,15 +15,19 @@ from rest_framework.renderers import JSONRenderer
 
 class DecimalSafeJSONEncoder(json.JSONEncoder):
     """
-    Custom JSON encoder that handles Decimal and datetime values correctly.
+    Custom JSON encoder that handles Decimal, UUID, and datetime values correctly.
     
     Converts Decimal to string to preserve precision.
+    Converts UUID to string.
     Converts datetime to ISO format string.
     """
     
     def default(self, obj):
         if isinstance(obj, Decimal):
             # Convert Decimal to string to preserve precision
+            return str(obj)
+        if isinstance(obj, uuid.UUID):
+            # Convert UUID to string
             return str(obj)
         if isinstance(obj, datetime):
             # Convert datetime to ISO format

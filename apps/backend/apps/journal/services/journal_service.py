@@ -261,7 +261,7 @@ class JournalService:
         org_id: UUID, invoice: InvoiceDocument, user_id: Optional[UUID] = None
     ) -> JournalEntry:
         """
-        Create journal entry for approved invoice.
+        Create journal entry for approved invoice or purchase.
 
         Args:
             org_id: Organisation ID
@@ -271,60 +271,89 @@ class JournalService:
         Returns:
             Created JournalEntry instance
         """
-        ar_account = JournalService._get_ar_account(org_id)
+        is_purchase = invoice.document_type in ("PURCHASE_INVOICE", "PURCHASE_CREDIT_NOTE", "PURCHASE_DEBIT_NOTE")
+        
+        if is_purchase:
+            main_account = JournalService._get_ap_account(org_id)
+        else:
+            main_account = JournalService._get_ar_account(org_id)
 
         lines = []
-
-        revenue_accounts = {}
+        expense_revenue_accounts = {}
         gst_amount = Decimal("0.00")
 
         for line in invoice.lines.filter(is_voided=False):
             account_id = line.account_id
-            amount = line.amount
+            amount = line.line_amount
 
-            if account_id not in revenue_accounts:
-                revenue_accounts[account_id] = Decimal("0.00")
-            revenue_accounts[account_id] += amount
+            if account_id not in expense_revenue_accounts:
+                expense_revenue_accounts[account_id] = Decimal("0.00")
+            expense_revenue_accounts[account_id] += amount
 
             gst_amount += line.gst_amount
 
-        total_with_gst = invoice.total
-        lines.append(
-            {
-                "account_id": ar_account.id,
+        total_with_gst = invoice.total_incl
+        
+        # Main AR/AP line
+        if is_purchase:
+            # Liability increases (Credit)
+            lines.append({
+                "account_id": main_account.id,
+                "debit": Decimal("0.00"),
+                "credit": total_with_gst,
+                "description": f"AP for {invoice.document_number}",
+            })
+        else:
+            # Asset increases (Debit)
+            lines.append({
+                "account_id": main_account.id,
                 "debit": total_with_gst,
                 "credit": Decimal("0.00"),
                 "description": f"AR for {invoice.document_number}",
-            }
-        )
+            })
 
-        for account_id, amount in revenue_accounts.items():
-            lines.append(
-                {
+        # Expense/Revenue lines
+        for account_id, amount in expense_revenue_accounts.items():
+            if is_purchase:
+                # Expense increases (Debit)
+                lines.append({
+                    "account_id": account_id,
+                    "debit": amount,
+                    "credit": Decimal("0.00"),
+                    "description": f"Expense for {invoice.document_number}",
+                })
+            else:
+                # Revenue increases (Credit)
+                lines.append({
                     "account_id": account_id,
                     "debit": Decimal("0.00"),
                     "credit": amount,
                     "description": f"Revenue for {invoice.document_number}",
-                }
-            )
+                })
 
+        # Tax lines
         if gst_amount > 0:
-            gst_account = JournalService._get_gst_output_account(org_id)
-            lines.append(
-                {
+            if is_purchase:
+                # Input tax (Asset increases - Debit)
+                gst_account = JournalService._get_gst_input_account(org_id)
+                lines.append({
+                    "account_id": gst_account.id,
+                    "debit": gst_amount,
+                    "credit": Decimal("0.00"),
+                    "description": f"GST Input for {invoice.document_number}",
+                })
+            else:
+                # Output tax (Liability increases - Credit)
+                gst_account = JournalService._get_gst_output_account(org_id)
+                lines.append({
                     "account_id": gst_account.id,
                     "debit": Decimal("0.00"),
                     "credit": gst_amount,
                     "description": f"GST Output for {invoice.document_number}",
-                }
-            )
+                })
 
-        # Use SQL schema source_type values
-        source_type = "SALES_INVOICE"
-        if invoice.document_type in ("CREDIT_NOTE", "SALES_CREDIT_NOTE"):
-            source_type = "SALES_CREDIT_NOTE"
-        elif invoice.document_type in ("DEBIT_NOTE", "SALES_DEBIT_NOTE"):
-            source_type = "SALES_DEBIT_NOTE"
+        # Determine source_type
+        source_type = invoice.document_type
 
         journal_entry = JournalService.create_entry(
             org_id=org_id,
@@ -554,6 +583,54 @@ class JournalService:
             raise ResourceNotFound(f"Fiscal period {period_id} not found")
 
     @staticmethod
+    def _get_ap_account(org_id: UUID) -> Account:
+        """
+        Get Accounts Payable account.
+
+        Args:
+            org_id: Organisation ID
+
+        Returns:
+            Account instance
+        """
+        from django.db.models import Q
+        ap_account = Account.objects.filter(
+            Q(org_id=org_id) & 
+            (Q(code="2100") | Q(account_type="LIABILITY_CURRENT") | Q(account_type="LIABILITY"))
+        ).first()
+
+        if not ap_account:
+            raise ValidationError(
+                "No Accounts Payable account found. Please set up Chart of Accounts."
+            )
+
+        return ap_account
+
+    @staticmethod
+    def _get_gst_input_account(org_id: UUID) -> Account:
+        """
+        Get GST Input Tax account.
+
+        Args:
+            org_id: Organisation ID
+
+        Returns:
+            Account instance
+        """
+        from django.db.models import Q
+        gst_account = Account.objects.filter(
+            Q(org_id=org_id) & 
+            (Q(code__startswith="120") | Q(account_type="ASSET_CURRENT") | Q(account_type="ASSET"))
+        ).first()
+
+        if not gst_account:
+            raise ValidationError(
+                "No GST Input Tax account found. Please set up Chart of Accounts."
+            )
+
+        return gst_account
+
+    @staticmethod
     def _get_ar_account(org_id: UUID) -> Account:
         """
         Get Accounts Receivable account.
@@ -564,10 +641,11 @@ class JournalService:
         Returns:
             Account instance
         """
-        ar_account = Account.objects.filter(org_id=org_id, code="1200").first()
-
-        if not ar_account:
-            ar_account = Account.objects.filter(org_id=org_id, account_type="ASSET_CURRENT").first()
+        from django.db.models import Q
+        ar_account = Account.objects.filter(
+            Q(org_id=org_id) & 
+            (Q(code="1200") | Q(account_type="ASSET_CURRENT") | Q(account_type="ASSET"))
+        ).first()
 
         if not ar_account:
             raise ValidationError(
@@ -587,12 +665,11 @@ class JournalService:
         Returns:
             Account instance
         """
-        gst_account = Account.objects.filter(org_id=org_id, code__startswith="220").first()
-
-        if not gst_account:
-            gst_account = Account.objects.filter(
-                org_id=org_id, account_type="LIABILITY_CURRENT"
-            ).first()
+        from django.db.models import Q
+        gst_account = Account.objects.filter(
+            Q(org_id=org_id) & 
+            (Q(code__startswith="220") | Q(account_type="LIABILITY_CURRENT") | Q(account_type="LIABILITY"))
+        ).first()
 
         if not gst_account:
             raise ValidationError(

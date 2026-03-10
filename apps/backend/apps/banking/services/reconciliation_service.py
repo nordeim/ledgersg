@@ -138,19 +138,22 @@ class ReconciliationService:
 
         for row_num, row in enumerate(reader, start=2):
             try:
-                transaction_date = row.get("transaction_date") or row.get("date")
+                # Normalize keys to lowercase for easier lookup
+                row_lower = {k.lower().strip(): v for k, v in row.items() if k}
+                
+                transaction_date = row_lower.get("transaction_date") or row_lower.get("date")
                 if not transaction_date:
                     errors.append(f"Row {row_num}: Missing transaction_date")
                     skipped += 1
                     continue
 
-                amount_str = row.get("amount") or row.get("txn_amount")
+                amount_str = row_lower.get("amount") or row_lower.get("txn_amount")
                 if not amount_str:
                     errors.append(f"Row {row_num}: Missing amount")
                     skipped += 1
                     continue
 
-                description = row.get("description") or row.get("narration") or ""
+                description = row_lower.get("description") or row_lower.get("narration") or ""
                 if not description:
                     errors.append(f"Row {row_num}: Missing description")
                     skipped += 1
@@ -179,9 +182,9 @@ class ReconciliationService:
                     skipped += 1
                     continue
 
-                reference = row.get("reference", "").strip()
+                reference = row_lower.get("reference", "").strip()
                 external_id = (
-                    row.get("external_id") or row.get("txn_id") or row.get("reference_number") or ""
+                    row_lower.get("external_id") or row_lower.get("txn_id") or row_lower.get("reference_number") or ""
                 )
 
                 existing = BankTransaction.objects.filter(
@@ -196,7 +199,7 @@ class ReconciliationService:
                     continue
 
                 value_date = None
-                value_date_str = row.get("value_date")
+                value_date_str = row_lower.get("value_date")
                 if value_date_str:
                     try:
                         value_date = dt.strptime(value_date_str.strip(), "%Y-%m-%d").date()
@@ -204,7 +207,7 @@ class ReconciliationService:
                         pass
 
                 running_balance = None
-                running_balance_str = row.get("running_balance") or row.get("balance")
+                running_balance_str = row_lower.get("running_balance") or row_lower.get("balance")
                 if running_balance_str:
                     try:
                         running_balance = money(running_balance_str.replace(",", "").strip())

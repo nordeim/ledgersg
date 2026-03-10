@@ -40,29 +40,6 @@ def create_organisation(
 ) -> Organisation:
     """
     Create a new organisation with full setup.
-    
-    This function:
-    1. Creates the organisation
-    2. Seeds the Chart of Accounts via PostgreSQL function
-    3. Creates document sequences
-    4. Creates the first fiscal year with periods
-    5. Assigns the user as Owner
-    
-    Args:
-        user: The user creating the organisation (becomes Owner)
-        name: Organisation name
-        legal_name: Legal name (optional)
-        uen: UEN (optional)
-        entity_type: Entity type (optional)
-        gst_registered: Whether GST registered
-        gst_reg_number: GST registration number
-        gst_reg_date: GST registration date
-        fy_start_month: Fiscal year start month (1-12)
-        base_currency: Base currency code
-        **kwargs: Additional organisation fields
-        
-    Returns:
-        Created Organisation instance
     """
     # Set default entity_type if empty
     if not entity_type:
@@ -83,7 +60,7 @@ def create_organisation(
             **kwargs
         )
         
-        # Seed Chart of Accounts via PostgreSQL function (includes document sequences)
+        # Seed Chart of Accounts via PostgreSQL function
         _seed_chart_of_accounts(org.id, gst_registered)
         
         # Create first fiscal year
@@ -92,16 +69,15 @@ def create_organisation(
         # Assign user as Owner
         _assign_owner_role(org, user)
         
+        # Seed default tax codes
+        _seed_tax_codes(org.id)
+        
     return org
 
 
 def _seed_chart_of_accounts(org_id: uuid.UUID, gst_registered: bool) -> None:
     """
     Seed default Chart of Accounts via PostgreSQL function.
-    
-    Args:
-        org_id: Organisation ID
-        gst_registered: Whether GST is registered
     """
     with connection.cursor() as cursor:
         cursor.execute(
@@ -110,12 +86,17 @@ def _seed_chart_of_accounts(org_id: uuid.UUID, gst_registered: bool) -> None:
         )
 
 
+def _seed_tax_codes(org_id: uuid.UUID) -> None:
+    """
+    Seed default IRAS tax codes.
+    """
+    from apps.gst.services.tax_code_service import TaxCodeService
+    TaxCodeService.seed_default_tax_codes(org_id)
+
+
 def _create_document_sequences(org_id: uuid.UUID) -> None:
     """
     Create document sequences for the organisation.
-    
-    Args:
-        org_id: Organisation ID
     """
     sequences = [
         ("INVOICE", "INV", 1),
@@ -144,10 +125,6 @@ def _create_document_sequences(org_id: uuid.UUID) -> None:
 def _create_first_fiscal_year(org: Organisation, start_month: int) -> None:
     """
     Create the first fiscal year with periods.
-    
-    Args:
-        org: Organisation instance
-        start_month: Fiscal year start month (1-12)
     """
     current_year = date.today().year
     
@@ -184,12 +161,6 @@ def _create_fiscal_periods(
 ) -> None:
     """
     Create fiscal periods (months) for a fiscal year.
-    
-    Args:
-        org: Organisation instance
-        fiscal_year: FiscalYear instance
-        start_date: Year start date
-        end_date: Year end date
     """
     from calendar import month_name
     
@@ -230,10 +201,6 @@ def _create_fiscal_periods(
 def _assign_owner_role(org: Organisation, user: AppUser) -> None:
     """
     Assign the user as Owner of the organisation.
-    
-    Args:
-        org: Organisation instance
-        user: AppUser instance
     """
     # Create Owner role if it doesn't exist
     role, created = Role.objects.get_or_create(
@@ -269,13 +236,6 @@ def _assign_owner_role(org: Organisation, user: AppUser) -> None:
 def update_organisation(org: Organisation, **kwargs) -> Organisation:
     """
     Update organisation settings.
-    
-    Args:
-        org: Organisation instance
-        **kwargs: Fields to update
-        
-    Returns:
-        Updated Organisation instance
     """
     for key, value in kwargs.items():
         if hasattr(org, key):
@@ -293,18 +253,6 @@ def toggle_gst_registration(
 ) -> Organisation:
     """
     Toggle GST registration status.
-    
-    Args:
-        org: Organisation instance
-        registered: New GST registration status
-        reg_number: GST registration number (required if registered=True)
-        reg_date: GST registration date (required if registered=True)
-        
-    Returns:
-        Updated Organisation instance
-        
-    Raises:
-        ValidationError: If required fields missing when registering
     """
     if registered:
         if not reg_number:

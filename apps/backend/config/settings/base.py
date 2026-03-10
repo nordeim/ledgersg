@@ -268,7 +268,7 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 # RATE LIMITING CONFIGURATION
 # =============================================================================
 
-RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", default=True, cast=bool)
+RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", default=False, cast=bool)
 
 RATELIMIT_CACHE_PREFIX = "ratelimit"
 

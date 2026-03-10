@@ -157,13 +157,6 @@ class OrganisationPeppolSettings(TenantModel):
     Maps to: gst.organisation_peppol_settings
     """
 
-    # Organisation reference (one-to-one)
-    org_id = models.UUIDField(
-        db_column="org_id",
-        unique=True,
-        help_text="Reference to Organisation",
-    )
-
     # Access Point Configuration
     access_point_provider = models.CharField(
         db_column="access_point_provider",

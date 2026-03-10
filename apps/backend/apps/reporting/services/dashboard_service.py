@@ -209,7 +209,7 @@ class DashboardService:
         result = InvoiceDocument.objects.filter(
             org_id=org_uuid,
             document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-            status="APPROVED",
+            status__in=["APPROVED", "PARTIALLY_PAID", "PAID"],
             issue_date__gte=month_start,
             issue_date__lte=today,
         ).aggregate(total=Sum("total_excl"))
@@ -228,7 +228,7 @@ class DashboardService:
         result = InvoiceDocument.objects.filter(
             org_id=org_uuid,
             document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-            status="APPROVED",
+            status__in=["APPROVED", "PARTIALLY_PAID", "PAID"],
             issue_date__gte=fiscal_year.start_date,
             issue_date__lte=fiscal_year.end_date,
         ).aggregate(total=Sum("total_excl"))
@@ -321,21 +321,19 @@ class DashboardService:
             # Add opening balance
             total += account.opening_balance
 
-            # Add reconciled payments received
+            # Add payments received (even if not reconciled, for visibility)
             received = Payment.objects.filter(
                 bank_account=account,
                 payment_type="RECEIVED",
-                is_reconciled=True,
                 is_voided=False,
             ).aggregate(total=Sum("base_amount"))
 
             total += received.get("total") or Decimal("0.0000")
 
-            # Subtract reconciled payments made
+            # Subtract payments made
             made = Payment.objects.filter(
                 bank_account=account,
                 payment_type="MADE",
-                is_reconciled=True,
                 is_voided=False,
             ).aggregate(total=Sum("base_amount"))
 
@@ -352,7 +350,7 @@ class DashboardService:
         result = InvoiceDocument.objects.filter(
             org_id=org_uuid,
             document_type__in=["SALES_INVOICE", "SALES_DEBIT_NOTE"],
-            status="APPROVED",
+            status__in=["APPROVED", "PARTIALLY_PAID", "PAID"],
             issue_date__gte=twelve_months_ago,
             issue_date__lte=today,
         ).aggregate(total=Sum("total_excl"))
@@ -384,7 +382,7 @@ class DashboardService:
             InvoiceDocument.objects.filter(
                 org_id=org_uuid,
                 document_type__in=["SALES_INVOICE", "PURCHASE_INVOICE"],
-                status="APPROVED",
+                status__in=["APPROVED", "PARTIALLY_PAID", "PAID"],
                 due_date__lt=today,
             )
             .filter(amount_paid__lt=F("total_incl"))
@@ -453,7 +451,7 @@ class DashboardService:
         peppol_pending = InvoiceDocument.objects.filter(
             org_id=org_uuid,
             document_type="SALES_INVOICE",
-            status="APPROVED",
+            status__in=["APPROVED", "PARTIALLY_PAID", "PAID"],
             invoicenow_status="PENDING",
         ).count()
 

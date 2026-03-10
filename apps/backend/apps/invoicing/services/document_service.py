@@ -171,27 +171,11 @@ class DocumentService:
                 document_type=document_type,
                 document_number=document_number,
                 contact=contact,
-                contact_snapshot={
-                    "name": contact.name,
-                    "company_name": contact.company_name,
-                    "email": contact.email,
-                    "phone": contact.phone,
-                    "address": {
-                        "line1": contact.address_line_1,
-                        "line2": contact.address_line_2,
-                        "city": contact.city,
-                        "postal_code": contact.postal_code,
-                        "country": contact.country,
-                    },
-                    "uen": contact.uen,
-                    "peppol_id": contact.peppol_id,
-                },
                 issue_date=issue_date,
                 due_date=due_date,
                 reference=reference,
                 notes=notes,
                 status="DRAFT",
-                created_by_id=user_id,
             )
 
             # Add lines
@@ -520,18 +504,30 @@ class DocumentService:
         document.save()
 
     @staticmethod
-    def _post_journal_entry(org_id: UUID, document: InvoiceDocument) -> None:
+    def _post_journal_entry(org_id: UUID, document: InvoiceDocument, user_id: Optional[UUID] = None) -> None:
         """
         Post journal entry for approved document.
-
-        This is a placeholder - full implementation in Journal module.
 
         Args:
             org_id: Organisation ID
             document: InvoiceDocument instance
+            user_id: User ID performing the action
         """
-        # TODO: Implement in Journal module
-        pass
+        from apps.journal.services.journal_service import JournalService
+        JournalService.post_invoice(org_id, document, user_id)
+
+    @staticmethod
+    def _reverse_journal_entry(org_id: UUID, document: InvoiceDocument, user_id: Optional[UUID] = None) -> None:
+        """
+        Reverse journal entry for voided document.
+
+        Args:
+            org_id: Organisation ID
+            document: InvoiceDocument instance
+            user_id: User ID performing the action
+        """
+        from apps.journal.services.journal_service import JournalService
+        JournalService.void_document_entry(org_id, document, user_id)
 
     @staticmethod
     def approve_document(org_id: UUID, document_id: UUID, user) -> InvoiceDocument:
@@ -586,7 +582,7 @@ class DocumentService:
             document.save()
 
         # Create journal entries
-        DocumentService._create_journal_entry(org_id, document)
+        DocumentService._post_journal_entry(org_id, document, user.id)
 
         # Queue for Peppol transmission if configured (InvoiceNow integration)
         if document.document_type == "SALES_INVOICE":

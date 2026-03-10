@@ -141,9 +141,13 @@ class ContactService:
             if not ContactService._validate_peppol_id(peppol_id):
                 raise ValidationError(f"Invalid Peppol ID format: {peppol_id}")
         
+        # Determine contact type
+        contact_type = "BOTH" if is_customer and is_supplier else "CUSTOMER" if is_customer else "SUPPLIER"
+        
         # Create contact
         contact = Contact.objects.create(
             org_id=org_id,
+            contact_type=contact_type,
             name=name.strip(),
             company_name=company_name.strip(),
             email=email.strip().lower(),
@@ -206,6 +210,11 @@ class ContactService:
         for key, value in updates.items():
             if hasattr(contact, key):
                 setattr(contact, key, value)
+        
+        # Recalculate contact type
+        is_customer = updates.get("is_customer", contact.is_customer)
+        is_supplier = updates.get("is_supplier", contact.is_supplier)
+        contact.contact_type = "BOTH" if is_customer and is_supplier else "CUSTOMER" if is_customer else "SUPPLIER"
         
         contact.save()
         return contact
