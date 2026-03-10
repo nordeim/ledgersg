@@ -13,7 +13,7 @@
 
 SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IRAS Compliant
 
-> "Unlike traditional accounting software designed for human clicks, LedgerSG is designed for **AI agent automation** - making it the first accounting platform built for the AI-first era."
+> *Unlike traditional accounting software designed for human clicks, LedgerSG is designed for **AI agent automation** - making it the first accounting platform built for the AI-first era.*
 
 ---
 
