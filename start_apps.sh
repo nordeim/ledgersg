@@ -250,3 +250,13 @@ $ cd /home/project/Ledger-SG/apps/web && npm test -- src/lib/__tests__/api-clien
 # Run organisations architecture tests from web directory
 $ cd /home/project/Ledger-SG/apps/web && npm test -- src/lib/__tests__/api-client-organisations.test.ts --reporter=verbose 2>&1
 
+---
+
+# Check API endpoint test failures in /home/project/Ledger-SG/apps/backend
+$ source /opt/venv/bin/activate && pytest --reuse-db --no-migrations tests/test_api_endpoints.py -v 2>&1 | head -40
+
+---
+
+# Test core modules in /home/project/Ledger-SG/apps/backend
+$ source /opt/venv/bin/activate && pytest --reuse-db --no-migrations apps/banking/tests/ apps/core/tests/ apps/peppol/tests/ apps/reporting/tests/ -v 2>&1 | tail -5
+

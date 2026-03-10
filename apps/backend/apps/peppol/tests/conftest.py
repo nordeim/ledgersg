@@ -6,8 +6,8 @@ Ensures database is properly set up for tests.
 
 import pytest
 
-# Import fixtures from main tests conftest
-pytest_plugins = ["tests.conftest"]
+# NOTE: Fixtures from tests/conftest.py are automatically available via pytest's
+# conftest inheritance mechanism. Do NOT use pytest_plugins in non-root conftest files.
 
 
 @pytest.fixture(scope="session")
