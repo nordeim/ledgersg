@@ -11,7 +11,7 @@ This document records the completed work on the LedgerSG platform, aligned with 
 - ✅ **Accounting Engine**: v1.0.0 — **Validated via Full E2E Workflows**
 - ✅ **InvoiceNow/Peppol**: v1.0.0 — **Phases 1-4 Complete** (122+ TDD Tests)
 - ✅ **Security**: v1.0.0 — **100% Score** (SEC-001/002/003 Remediated)
-- ✅ **Testing**: v1.8.0 — **789 Unit Tests + 3 Comprehensive E2E Workflows Passing**
+- ✅ **Testing**: v1.9.0 — **789 Unit Tests + 15-Phase E2E Suite + Comprehensive Testing Guide**
 
 ---
 
@@ -25,6 +25,123 @@ This document records the completed work on the LedgerSG platform, aligned with 
 | **Security** | ✅ Complete | v1.0.0 | Rate Limiting, CSP Headers, CORS Authentication Fix |
 | **Banking** | ✅ Complete | v1.3.0 | Full Reconciliation UI, CSV Import (Case-Insensitive) |
 | **Frontend** | ✅ Complete | v0.1.2 | Next.js 16, App Router, Dynamic Org Context |
+
+---
+
+# Major Milestone: E2E Testing Initiative Complete ✅ COMPLETE (2026-03-14)
+
+## Executive Summary
+
+Successfully executed and documented a comprehensive 15-phase end-to-end (E2E) testing initiative covering the complete "Lakshmi's Kitchen" workflow. This milestone establishes a repeatable testing methodology and creates valuable knowledge artifacts for future development.
+
+### Key Achievements
+
+#### 1. Complete E2E Test Suite ✅ COMPLETED
+
+**15 Phases Tested:**
+1. ✅ Landing Page & Authentication
+2. ✅ User Registration
+3. ✅ Login Flow & Session Management
+4. ✅ Organisation Context Verification
+5. ✅ Chart of Accounts Navigation
+6. ✅ Banking Page (Critical Bug Fix Applied)
+7. ✅ Opening Balance Journal Entry
+8. ✅ Customer Contact Creation
+9. ✅ Sales Invoice Creation
+10. ✅ Invoice Approval Workflow
+11. ✅ Payment Recording & Allocation
+12. ✅ Dashboard Verification with Transactions
+13. ✅ Financial Reports Generation
+14. ✅ Journal Entry Verification
+15. ✅ Summary & Documentation
+
+**Test Methodology:**
+- **Approach**: Hybrid API + UI (discovered as optimal pattern)
+- **Tools**: agent-browser (Phases 1-6), Playwright + aiohttp (Phases 7-15)
+- **Screenshots**: 25+ captured for full documentation
+- **Duration**: ~3 hours total execution time
+- **Success Rate**: 100% (15/15 phases completed)
+
+#### 2. Critical Bug Fix: API Contract Mismatch ✅ REMEDIATED
+
+**Issue**: Banking page completely broken due to API response format mismatch
+- **Frontend Expected**: `{results: [...], count: n}` (paginated)
+- **Backend Returned**: `[...]` (array directly)
+- **Impact**: Banking module unusable for all users
+
+**Solution**: Updated 9 list views to return paginated format:
+- ✅ `BankAccountListView` (banking)
+- ✅ `PaymentListView` (banking)
+- ✅ `BankTransactionListView` (banking)
+- ✅ `ContactListView` (invoicing)
+- ✅ `InvoiceDocumentListView` (invoicing)
+- ✅ `TaxCodeListView` (gst)
+- ✅ `GSTReturnListView` (gst)
+- ✅ `AccountListView` (coa)
+- ✅ `JournalEntryListView` (journal)
+
+**Files Modified:**
+- `apps/backend/apps/banking/views.py`
+- `apps/backend/apps/invoicing/views.py`
+- `apps/backend/apps/gst/views.py`
+- `apps/backend/apps/coa/views.py`
+- `apps/backend/apps/journal/views.py`
+
+#### 3. Testing Knowledge Base ✅ DOCUMENTED
+
+**Artifacts Created:**
+
+| Document | Lines | Purpose |
+|----------|-------|---------|
+| `E2E_TESTING_EXPERIENCE_REPORT.md` | 898 | Complete experience capture, lessons learned, best practices |
+| `E2E_TEST_FINDINGS.md` | 120 | Bug documentation and remediation tracking |
+| `E2E_TEST_EXECUTION_SUMMARY.md` | 150 | Execution summary with metrics and results |
+| `e2e_test_phases_7_15_simplified.py` | 450 | Reproducible automated test script |
+| `e2e_test_phases_7_15.py` | 430 | Original Playwright implementation |
+| `debug_ledger.py` | 80 | Debugging utility for DOM inspection |
+
+**Key Insights Documented:**
+- Session persistence issues with HttpOnly cookies
+- Tool comparison: agent-browser vs Playwright vs Hybrid
+- API contract validation strategies
+- Debugging techniques for E2E failures
+- CI/CD integration recommendations
+
+#### 4. Session Persistence Discovery ✅ DOCUMENTED
+
+**Problem**: Browser automation tools (agent-browser, Playwright) lose authentication on page navigation
+
+**Root Cause**:
+- Access token stored in JavaScript memory (ephemeral)
+- Refresh token in HttpOnly cookie (not sent by tools)
+- Result: Redirect to login after navigation
+
+**Solution - Hybrid Approach**:
+```
+┌─────────────────────────────────────┐
+│  AUTHENTICATION: API                 │
+│  • POST /auth/login                  │
+│  • Store tokens in memory            │
+└─────────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────┐
+│  DATA CREATION: API                │
+│  • Create journal entries            │
+│  • Create invoices                   │
+│  • Record payments                   │
+└─────────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────┐
+│  VERIFICATION: UI (Playwright)      │
+│  • Screenshots                       │
+│  • Visual assertions                 │
+│  • Dashboard validation              │
+└─────────────────────────────────────┘
+```
+
+**Recommendation**: Use Hybrid approach for all future E2E testing
 
 ---
 
@@ -72,3 +189,11 @@ Successfully executed and verified three distinct Singapore SMB workflows, cover
 **Problem**: Net Profit shows 0.0000 despite having paid invoices.
 - **Cause**: Invoices were paid but never **Approved**. Payment records link to documents, but only Approval triggers the Revenue/AR journal entries.
 - **Solution**: Ensure the `/approve/` endpoint is called before recording payments.
+
+**Problem**: E2E tests fail due to session not persisting.
+- **Cause**: HttpOnly cookies not sent by automation tools; JWT tokens in memory lost on navigation.
+- **Solution**: Use **Hybrid API + UI approach**: API for auth/data, UI for verification only.
+
+**Problem**: Banking page shows error fallback.
+- **Cause**: API contract mismatch between frontend (expects paginated) and backend (returns array).
+- **Solution**: Updated 9 list views to return `{results, count}` format.

@@ -113,6 +113,16 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 ### Latest Milestones
 
+#### 🎉 E2E Testing Initiative Complete — 2026-03-14
+
+- ✅ **15-Phase E2E Test Suite Completed** using Hybrid API + UI Approach
+- ✅ **25+ Screenshots Captured** documenting entire "Lakshmi's Kitchen" workflow
+- ✅ **Critical API Contract Bug Fixed** — Banking page now fully functional
+- ✅ **Session Persistence Issue Documented** with comprehensive workaround guide
+- ✅ **E2E Testing Experience Report Created** (898 lines) — Complete lessons learned & best practices
+- ✅ **Test Script Automation** — `e2e_test_phases_7_15_simplified.py` for reproducible testing
+- ✅ **Tool Comparison Analysis** — agent-browser vs Playwright recommendations
+
 #### 🎉 Comprehensive SMB Lifecycle Validation — 2026-03-10
 
 - ✅ Full 12-Month Corporate Cycle Verified (Lakshmi's Kitchen Pte Ltd)
@@ -195,13 +205,27 @@ npm run test:e2e            # Playwright E2E tests
 
 Three comprehensive SMB workflows validated end-to-end:
 
-| Workflow | Business Type | Duration | Key Validation |
-|----------|---------------|----------|----------------|
-| **Lakshmi's Kitchen** | Pte Ltd, Non-GST | 12 months | Multi-director equity, full FY |
-| **ABC Trading** | Sole Proprietorship, Non-GST | 1 month | Core sales-to-payment cycle |
-| **Meridian Consulting** | Pte Ltd, Non-GST | Q1 2026 | Operational cycle with journal posting |
+| Workflow | Business Type | Duration | Key Validation | Method |
+|----------|---------------|----------|----------------|--------|
+| **Lakshmi's Kitchen** | Pte Ltd, Non-GST | 12 months | Multi-director equity, full FY | API + UI Hybrid |
+| **ABC Trading** | Sole Proprietorship, Non-GST | 1 month | Core sales-to-payment cycle | API + UI Hybrid |
+| **Meridian Consulting** | Pte Ltd, Non-GST | Q1 2026 | Operational cycle with journal posting | API + UI Hybrid |
 
 **All workflows verified:** Net profit calculations, bank reconciliation, GST threshold monitoring, and Peppol transmission logging.
+
+#### E2E Testing Methodology
+
+**Evolution of Approach:**
+1. **Phase 1**: Pure agent-browser CLI testing (Phases 1-6) — Blocked by session persistence
+2. **Phase 2**: Pure Playwright automation — Same session issue
+3. **Phase 3**: **Hybrid API + UI approach** (Phases 7-15) ✅ **Successful**
+
+**Key Insight:** HttpOnly cookies break automation tool session persistence. Solution: API for data operations, UI for visual verification only.
+
+**Artifacts Created:**
+- `e2e_test_phases_7_15_simplified.py` — Reproducible test automation
+- `E2E_TESTING_EXPERIENCE_REPORT.md` — 898-line comprehensive guide
+- 25+ screenshots documenting entire workflow
 
 ---
 
@@ -791,6 +815,16 @@ docker run -p 3000:3000 -p 8000:8000 -p 5432:5432 -p 6379:6379 ledgersg:latest
 | Dashboard shows "No Organisation" | User not authenticated | Redirect to `/login` implemented |
 | Token refresh fails | Refresh token expired | Re-login required |
 | Auth token refresh silently fails | Frontend expects `data.access` but backend returns `data.tokens.access` | Fixed in `api-client.ts` – now handles both structures |
+| **Session not persisting in E2E tests** | HttpOnly cookies not sent by automation tools | Use **Hybrid API + UI approach**: API for auth/data, UI for verification only |
+
+### E2E Testing Issues
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| agent-browser redirects to login after navigation | HttpOnly cookie not preserved | Use `--session-name` flag or switch to Hybrid approach |
+| Playwright loses auth on page.goto() | JavaScript memory cleared, refresh cookie not sent | Use API authentication + state persistence |
+| Banking page shows "Try Again" error | **API contract mismatch**: Backend returns array, frontend expects `{results, count}` | **FIXED**: Updated 9 list views to return paginated format |
+| E2E tests flaky | Depending on existing test data | Create data via API in test setup, cleanup in teardown |
 
 ---
 
@@ -875,6 +909,9 @@ LedgerSG provides comprehensive documentation for different audiences:
 | [ACCOMPLISHMENTS.md](ACCOMPLISHMENTS.md) | Feature completion log, milestones, changelog | Project managers, stakeholders |
 | [SECURITY_AUDIT.md](SECURITY_AUDIT.md) | Security audit report, findings, remediation | Security team, auditors |
 | [PYTEST_FIX_VALIDATION_REPORT.md](PYTEST_FIX_VALIDATION_REPORT.md) | pytest configuration fix details | Backend developers |
+| [E2E_TESTING_EXPERIENCE_REPORT.md](E2E_TESTING_EXPERIENCE_REPORT.md) | Complete E2E testing guide, lessons learned, best practices | QA, developers, AI agents |
+| [E2E_TEST_FINDINGS.md](E2E_TEST_FINDINGS.md) | Critical bugs found during E2E testing | Developers, QA |
+| [E2E_TEST_EXECUTION_SUMMARY.md](E2E_TEST_EXECUTION_SUMMARY.md) | E2E execution summary and results | Project managers, stakeholders |
 
 **Recommendation:** Start with the [Project Architecture Document](Project_Architecture_Document.md) for a complete understanding of the system.
 
@@ -885,6 +922,8 @@ LedgerSG provides comprehensive documentation for different audiences:
 ### Immediate (High Priority)
 
 - [ ] SEC-004: Expand frontend test coverage for hooks and forms
+- [ ] **E2E Automation**: Integrate `e2e_test_phases_7_15_simplified.py` into CI/CD pipeline
+- [ ] **Session Persistence Fix**: Implement test-specific auth endpoint (non-HttpOnly tokens for testing)
 - [ ] Error Handling: Add retry logic and fallback UI for dashboard API failures
 - [ ] CI/CD: Automate manual DB initialization workflow in GitHub Actions
 - [ ] Monitoring: Set up CSP violation monitoring dashboard

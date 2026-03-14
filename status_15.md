@@ -175,3 +175,97 @@ Key Recommendations:
 - For CI/CD: Playwright with API-first data creation
 The report serves as a comprehensive guide for future E2E testing initiatives and can be referenced by any developer joining the project.
 
+---
+
+Documentation Updates Complete! ✅ Successfully updated all four documentation files with E2E testing milestones: ### Summary of Updates: #### 1. README.md (948 lines)
+- ✅ Added E2E Testing Initiative milestone (2026-03-14)
+- ✅ Expanded E2E Workflow Validation section with methodology
+- ✅ Added E2E Testing Issues troubleshooting section
+- ✅ Updated documentation links to include E2E reports
+- ✅ Added E2E automation to roadmap (Immediate priority)
+- ✅ Added session persistence fix to roadmap
+2. CLAUDE.md (72 → expanded)
+- ✅ Added E2E Testing Initiative milestone with detailed achievements table
+- ✅ Created comprehensive Testing Strategy section with Hybrid approach
+- ✅ Updated Lessons Learned with E2E testing insights
+- ✅ Documented critical discoveries (session persistence, API contracts)
+3. AGENT_BRIEF.md (100 → expanded)
+- ✅ Added E2E Testing Initiative milestone with blockers (solved/persisting)
+- ✅ Updated Testing Strategy with best practices
+- ✅ Added Next Steps section for next agent
+- ✅ Updated Lessons Learned with actionable insights
+- ✅ Documented tool selection guidance
+4. ACCOMPLISHMENTS.md (74 → expanded)
+- ✅ Updated project status (Testing v1.9.0)
+- ✅ Added complete E2E Testing Initiative section (major milestone)
+- ✅ Documented 15 phases tested
+- ✅ Added API Contract Fix section (9 views updated)
+- ✅ Documented Knowledge Base artifacts (6 files created)
+- ✅ Added Session Persistence Discovery section
+- ✅ Updated troubleshooting guide with E2E-specific issues
+Key Information Added Across All Docs:
+1. Achievements: 15-phase E2E suite, 25+ screenshots, critical bug fixes
+2. Critical Bug Fixed: API contract mismatch in 9 list views (Banking, Invoicing, GST, COA, Journal)
+3. Key Discovery: HttpOnly cookies break automation - Hybrid approach documented
+4. Artifacts Created: E2E_TESTING_EXPERIENCE_REPORT.md (898 lines), test scripts, findings docs
+5. Lessons Learned: Session persistence, API contracts, tool selection, documentation drift
+6. Next Steps: Fix API 500 errors, add contract tests, integrate to CI/CD, create test auth endpoint
+7. Blockers: Session persistence (workaround documented), some API 500 errors (need fixing)
+All documentation now reflects the complete E2E testing journey with comprehensive lessons learned and actionable next steps for future development.
+
+---
+
+I need to update the API_CLI_Usage_Guide.md to include:
+1. API Contract Changes: The 9 list views now return {results: [...], count: n} instead of plain arrays
+2. Journal Endpoint URL: The correct URL is /journal-entries/entries/ not /journal/entries/
+3. Session Persistence Workaround: HttpOnly cookies break automation tools
+4. E2E Testing Methodology: Hybrid API + UI approach is now recommended
+
+# Todos
+[✓] Review current API_CLI_Usage_Guide.md
+[✓] Validate API contract changes in banking/views.py
+[✓] Validate API contract changes in invoicing/views.py
+[✓] Validate API contract changes in other modules
+[✓] Check journal entries endpoint URL
+[✓] Update API_CLI_Usage_Guide.md with validated changes
+
+Let me check what needs to be updated:
+1. API contract changes - I fixed the list views to return paginated format instead of arrays
+2. The journal entries endpoint URL - it's /journal-entries/ not /journal/
+
+---
+
+showing the key sections):
+- Line 11-24: New E2E Testing milestone with 4 key fixes documented
+- Lines 52-111: Complete troubleshooting guide for new issues
+- Lines 127-128: Updated journal entries endpoint URL (journal-entries vs journal)All changes have been meticulously validated against the backend codebase and documented with clear CLI examples and troubleshooting guidance. The guide is now current as of 2026-03-14 with Version 2.
+API_CLI_Usage_Guide.md Updated! ✅ Meticulously validated and documented all recent backend changes:
+Validated Backend Changes:
+Module	File	List Views Updated
+banking	views.py	3
+coa	views.py	1
+gst	views.py	2
+invoicing	views.py	2
+journal	views.py	1
+TOTAL	 	9 list views
+Journal Endpoint URL Confirmed:
+# config/urls.py line 106
+org_scoped_urlpatterns.append(path("journal-entries/", include("apps.journal.urls")))
+Actual URL: /api/v1/{orgId}/journal-entries/entries/ (not /journal/entries/)
+Updates Made to API_CLI_Usage_Guide.md:
+1. Version bumped: 2.2.0 → 2.3.0
+2. Date updated: 2026-03-10 → 2026-03-14
+3. Status updated: Includes E2E Testing Complete, API Contracts Fixed
+4. New Milestone Section: E2E Testing Initiative Complete (2026-03-14)
+   - API Contract fix documented
+   - Session persistence issue documented
+   - Journal endpoint clarification
+   - List endpoints response format
+5. New Troubleshooting Sections:
+   - API Contract Mismatch (FIXED 2026-03-14)
+   - Session Not Persisting in E2E Tests (KNOWN LIMITATION)
+   - Journal Entries Endpoint URL (CLARIFIED)
+6. CLI Examples Updated:
+   - Journal entries endpoint now uses correct URL: journal-entries/entries/
+All backend changes meticulously validated and documented!
+
