@@ -77,7 +77,7 @@ class ContactListCreateView(APIView):
         )
 
         serializer = ContactListSerializer(contacts, many=True)
-        return Response({"data": serializer.data, "count": len(serializer.data)})
+        return Response({"results": serializer.data, "count": len(serializer.data)})
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
@@ -87,7 +87,9 @@ class ContactListCreateView(APIView):
 
         from uuid import UUID
 
-        contact = ContactService.create_contact(org_id=UUID(str(org_id)), **serializer.validated_data)
+        contact = ContactService.create_contact(
+            org_id=UUID(str(org_id)), **serializer.validated_data
+        )
 
         return Response(ContactDetailSerializer(contact).data, status=status.HTTP_201_CREATED)
 
@@ -171,7 +173,7 @@ class InvoiceDocumentListCreateView(APIView):
         )
 
         serializer = InvoiceDocumentListSerializer(documents, many=True)
-        return Response({"data": serializer.data, "count": len(serializer.data)})
+        return Response({"results": serializer.data, "count": len(serializer.data)})
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
@@ -485,7 +487,10 @@ class InvoiceVoidView(APIView):
             raise ValidationError("Void reason is required.")
 
         document = DocumentService.void_document(
-            org_id=UUID(str(org_id)), document_id=UUID(str(document_id)), user=request.user, reason=reason
+            org_id=UUID(str(org_id)),
+            document_id=UUID(str(document_id)),
+            user=request.user,
+            reason=reason,
         )
 
         return Response(InvoiceDocumentDetailSerializer(document).data, status=status.HTTP_200_OK)
@@ -508,16 +513,15 @@ class InvoicePDFView(APIView):
 
         # Get document for filename
         document = DocumentService.get_document(UUID(str(org_id)), UUID(str(document_id)))
-        
-        # Generate PDF stream
-        pdf_stream = DocumentService.generate_pdf(org_id=UUID(str(org_id)), document_id=UUID(str(document_id)))
 
-        response = FileResponse(
-            pdf_stream,
-            content_type="application/pdf"
+        # Generate PDF stream
+        pdf_stream = DocumentService.generate_pdf(
+            org_id=UUID(str(org_id)), document_id=UUID(str(document_id))
         )
-        response['Content-Disposition'] = f'inline; filename="{document.sequence_number}.pdf"'
-        
+
+        response = FileResponse(pdf_stream, content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="{document.sequence_number}.pdf"'
+
         return response
 
 

@@ -64,7 +64,7 @@ class BankAccountListView(APIView):
         )
 
         serializer = BankAccountSerializer(accounts, many=True)
-        return Response(serializer.data)
+        return Response({"results": serializer.data, "count": len(serializer.data)})
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
@@ -216,7 +216,7 @@ class PaymentListView(APIView):
         )
 
         serializer = PaymentSerializer(payments, many=True)
-        return Response(serializer.data)
+        return Response({"results": serializer.data, "count": len(serializer.data)})
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
@@ -466,7 +466,7 @@ class BankTransactionListView(APIView):
         )
 
         serializer = BankTransactionSerializer(transactions, many=True)
-        return Response(serializer.data)
+        return Response({"results": serializer.data, "count": len(serializer.data)})
 
 
 class BankTransactionImportView(APIView):

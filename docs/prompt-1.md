@@ -188,6 +188,9 @@ Awesome job on your meticulous analysis, planning and execution. Please keep up 
 
 Please meticulously review @README.md , @GEMINI.md , @CLAUDE.md , @AGENT_BRIEF.md , @Project_Architecture_Document.md , @API_CLI_Usage_Guide.md , @Current_Project_Status.md , @API_workflow_examples_and_tips_guide.md , @TEST_SUITE_COMPLETION_REPORT.md  @status_14.md and @status_13.md to have a deep understanding of the WHAT, WHY and HOW of the project and its codebase design and architecture. Then meticulously validate @README.md against the actual codebase to check for correct and accurate alignment with the actual codebase.
 
+---
+
+Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and validate the following issues against the actual codebase to identify the actual root cause, then meticulously plan to create a remediation plan to fix the validated issues/blockers identified. review and validate the remediation plan against the codebase again to ensure accurate alignment with the actual codebase. then meticulously proceed to execute the remediation plan.
 
 ---
 

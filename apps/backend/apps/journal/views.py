@@ -73,7 +73,7 @@ class JournalEntryListCreateView(APIView):
         )
 
         serializer = JournalEntryListSerializer(entries, many=True)
-        return Response({"data": serializer.data, "count": len(serializer.data)})
+        return Response({"results": serializer.data, "count": len(serializer.data)})
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
