@@ -202,6 +202,10 @@ Awesome job on your meticulous analysis, planning and execution. Please keep up 
 
 ---
 
+Awesome job on your meticulous review, analysis and planning. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, meticulously plan to validate and debug 'the 500 errors in invoicing/journal endpoints' against the codebase to identify the root cause. please design tests to test and validate your findings, hypothesis and assumptions. Then meticulously plan to create a remediation plan to fix the validated root cause(s) identified and confirmed. review and validate your remediation plan before proceeding to execute meticulously. remember to use Test-Driven Development (TDD) methodology to make changes.
+
+---
+
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.
 
 Awesome job on your meticulous analysis, planning and execution. Please keep up the good work in your rigorous and meticulous approach to planning and execution. Now, please meticulously review and update @README.md , @CLAUDE.md, AGENT_BRIEF.md and @ACCOMPLISHMENTS.md with your major milestone achievements, include things like code changes (updates and additions), enhancements and fixes, lessons learned, troubleshooting guide, any blockers encountered (solved or still persist), any recommended next steps, etc.

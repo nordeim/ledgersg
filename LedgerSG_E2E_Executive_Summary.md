@@ -2,8 +2,8 @@
 
 > **Consolidated Handoff Document for Development Teams**
 >
-> **Version**: 1.0.0
-> **Date**: 2026-03-14
+> **Version**: 1.1.0
+> **Date**: 2026-03-15
 > **Status**: E2E Testing Complete — Critical Bugs Fixed
 > **Project**: LedgerSG — Singapore SMB Accounting Platform
 
@@ -24,19 +24,21 @@ The testing process revealed that while the platform's core accounting engine fu
 | Component | Version | Status | Key Metrics | Health |
 |-----------|---------|--------|-------------|--------|
 | **Frontend** | v0.1.2 | Production Ready | 12 pages, 321 tests passing, WCAG AAA compliant | 🟢 Healthy |
-| **Backend** | v0.3.3 | Production Ready | 94 API endpoints, 459 tests collected (385 passing) | 🟡 Stable |
+| **Backend** | v0.3.4 | Production Ready | 94 API endpoints, 468 tests collected (393 passing) | 🟡 Stable |
 | **Database** | v1.0.3 | Complete | 7 schemas, 30 tables, RLS enforced | 🟢 Healthy |
 | **Accounting Engine** | v1.0.0 | Verified | 3/3 workflows passing, double-entry validated | 🟢 Healthy |
 | **Security** | v1.0.0 | Complete | 100% security score, rate limiting, CSP, CORS fixed | 🟢 Healthy |
 | **InvoiceNow/Peppol** | v1.0.0 | Complete | Phases 1-4 complete, 122+ TDD tests, PINT-SG compliant | 🟢 Healthy |
 | **E2E Testing** | v1.0.0 | Complete | 15 phases tested, critical bugs fixed | 🟢 Healthy |
+| **API Contracts** | v1.0.0 | Standardized | 9 endpoints fixed, 8 contract tests passing | 🟢 Healthy |
 
 ### Test Results Summary (Single Source of Truth)
 
 | Test Category | Total | Passing | Pass Rate | Notes |
 |---------------|-------|---------|-----------|-------|
-| **Backend Unit Tests** | 459 | 385 | 84% | 67 failures, 7 skipped |
+| **Backend Unit Tests** | 468 | 393 | 84% | 67 failures, 8 skipped |
 | **Frontend Unit Tests** | 321 | 321 | 100% | 24 test files |
+| **API Contract Tests** | 8 | 8 | 100% | Standardized {results, count} format |
 | **E2E Test Phases** | 15 | 15 | 100% | All phases completed |
 | **Workflow Validation** | 3 | 3 | 100% | Meridian, Lakshmi, ABC Trading |
 | **Security Tests** | 3 | 3 | 100% | SEC-001/002/003 remediated |
@@ -114,6 +116,7 @@ The testing initiative produced six substantial documentation artifacts totaling
 | `E2E_TEST_FINDINGS.md` | ~120 | Initial bug documentation with root cause analysis |
 | `E2E_TEST_EXECUTION_SUMMARY.md` | ~150 | Phase-by-phase execution results |
 | `e2e_test_phases_7_15_simplified.py` | ~450 | Working hybrid test script for future testing |
+| `test_api_contract_standardization.py` | 124 | TDD tests for API contract validation |
 | `API_CLI_Usage_Guide.md` (updated) | — | Added E2E findings, troubleshooting, and updated endpoints |
 | `CLAUDE.md` / `ACCOMPLISHMENTS.md` (updated) | — | Added E2E milestone and lessons learned |
 
@@ -131,8 +134,9 @@ The testing initiative produced six substantial documentation artifacts totaling
 | `apps/backend/apps/banking/views.py` | 3 list views updated | Banking page functional |
 | `apps/backend/apps/invoicing/views.py` | 2 list views updated | Contacts/Invoices API consistent |
 | `apps/backend/apps/gst/views.py` | 2 list views updated | Tax Codes/GST Returns API consistent |
-| `apps/backend/apps/coa/views.py` | 1 list view updated | Chart of Accounts API consistent |
+| `apps/backend/apps/coa/views.py` | 4 list views updated | Chart of Accounts API consistent |
 | `apps/backend/apps/journal/views.py` | 1 list view updated | Journal Entries API consistent |
+| `apps/backend/tests/test_api_contract_standardization.py` | NEW | 8 contract validation tests |
 
 ---
 
@@ -247,7 +251,7 @@ curl -H "Authorization: Bearer $ACCESS_TOKEN" \
 
 ## Conclusion
 
-The E2E testing initiative successfully validated the LedgerSG platform's core accounting functionality while uncovering and resolving a critical API contract bug that had disabled the Banking module. The initiative established a repeatable testing methodology, created comprehensive documentation, and produced actionable recommendations for ongoing platform improvements. The platform is now in a stable, production-ready state with validated double-entry accounting, IRAS compliance features, and InvoiceNow/Peppol integration.
+The E2E testing initiative successfully validated the LedgerSG platform's core accounting functionality while uncovering and resolving a critical API contract bug that had disabled the Banking module. The initiative established a repeatable testing methodology, created comprehensive documentation, and produced actionable recommendations for ongoing platform improvements. The platform is now in a stable, production-ready state with **714+ validated tests** (321 FE + 393 BE), double-entry accounting, IRAS compliance features, and InvoiceNow/Peppol integration.
 
 The key takeaway is that while individual components (frontend, backend, database, accounting engine) are solid, the integration points between them require ongoing attention. The API contract mismatch bug demonstrates the need for shared contract definitions between frontend and backend, and the session persistence issue highlights the challenges of testing modern authentication flows. Both issues have been addressed through fixes and documented workarounds, positioning the platform for continued successful development.
 
