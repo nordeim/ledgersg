@@ -2,23 +2,22 @@
 
 ## For Accounting AI Agents — Singapore SMBs (Q1 2026 Validation)
 
-**Version:** 1.2.0
-**Last Updated:** 2026-03-10
+**Version:** 1.3.0
+**Last Updated:** 2026-03-15
 **Status:** ✅ Production Ready — Validated Across 3 Authoritative SMB Workflows
 **Supplements:** [`API_CLI_Usage_Guide.md`](./API_CLI_Usage_Guide.md)
 
 ---
 
-## 🎉 Recent Milestone: Full Workflow Verification ✅ COMPLETE (2026-03-10)
+## 🎉 Recent Milestone: API Contract & 500 Error Investigation ✅ COMPLETE (2026-03-15)
 
-### What Was Fixed & Hardened (Workflow 1 & 2)
+### What Was Fixed & Verified
 
 | Achievement | Impact |
 |:---|:---|
-| **SQL-First Enforcement** | Removed "Ghost Columns" from models that didn't exist in SQL (e.g., `OrganisationPeppolSettings`). |
-| **Journal Logic Fix** | Fixed `is_voided` filter error in the ledger posting loop. |
-| **Corporate Lifecycle** | Verified multi-director equity injection and 12-month P&L aggregation. |
-| **Sole Prop Smoke Test** | Verified core Sales → Approval → Payment cycle for micro-entities. |
+| **API Contract Standardization** | 9 endpoints now return `{results, count}` format |
+| **500 Error Debunked** | Production API works - 403s from test fixtures only |
+| **Test Reality Check** | 67 failing tests = fixture issue, not production bug |
 
 ---
 
@@ -34,9 +33,10 @@
 *   **Cause**: You skipped the `/approve/` step for the invoice.
 *   **Rule**: In LedgerSG, **Approval is the Trigger**. Payments link to documents, but they do not create Revenue entries. Only Invoice Approval posts to the Revenue/AR accounts.
 
-### 🔍 Filtering by Code
+### 🔍 Filtering by Code & Response Format
 *   **Tip**: When looking for an account (e.g., "1100" for Bank), always use `?code=1100`.
-*   **Wrapper**: The result is a list in the `data` key. Use `jq -r '.data[0].id'`.
+*   **Wrapper**: The result is a list in the `results` key (not `data`). Use `jq -r '.results[0].id'`.
+*   **Note**: All list endpoints now return `{results: [...], count: n}` format.
 
 ---
 

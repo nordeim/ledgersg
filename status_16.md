@@ -280,3 +280,28 @@ Files Created/Modified
 - apps/backend/tests/test_api_contract_standardization.py - NEW (8 tests)
 - Multiple documentation files updated
 
+---
+
+✅ Documentation Validation Complete
+Summary of Changes
+File	Issues Found
+API_CLI_Usage_Guide.md	- Version 2.3.0 → 2.4.0<br>- Date 2026-03-14 → 2026-03-15<br>- Used .data instead of .results<br>- Missing 500 error investigation
+API_workflow_examples_and_tips_guide.md	- Version 1.2.0 → 1.3.0<br>- Date 2026-03-10 → 2026-03-15<br>- Used .data instead of .results
+Verified Claims
+Claim
+Journal URL /journal-entries/entries/
+Response format {results, count}
+Test count 468/393
+API endpoints 94
+Key Updates Made
+1. API_CLI_Usage_Guide.md:
+   - Updated version to 2.4.0
+   - Added 500 error investigation findings
+   - Fixed jq command: .data → .results
+   - Added test metrics table
+2. API_workflow_examples_and_tips_guide.md:
+   - Updated version to 1.3.0
+   - Added 500 error investigation section
+   - Fixed jq command: .data → .results
+   - Added note about standardized response format
+
