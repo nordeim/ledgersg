@@ -1,1 +1,10 @@
 https://chat.qwen.ai/s/3b72b4df-cdc1-48c6-b715-3c8ef25fb50c?fev=0.2.7
+
+# New:
+https://chat.qwen.ai/s/e3973522-35c7-43ab-92bb-eb3ff40f263f?fev=0.2.14
+https://chat.deepseek.com/share/org773y64yp7o0bg98
+https://www.kimi.com/share/19ceef3b-b192-8006-8000-0000a0754c81
+https://chat.z.ai/s/e9321b53-947d-4f65-b8f5-1db93829fa07
+
+https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%221cj5dLpMWgb9f0DfZ7HXQEzA8XrwxYXKX%22%5D,%22action%22:%22open%22,%22userId%22:%22103961307342447084491%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing
+https://drive.google.com/file/d/1ihgPL2kUgRAVfxBNOVgnG70g6YgTLMXI/view?usp=sharing
