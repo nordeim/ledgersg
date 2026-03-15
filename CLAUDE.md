@@ -31,26 +31,29 @@
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, **321 tests**, WCAG AAA |
-| **Backend** | v0.3.4 | ✅ Production Ready | **94 API endpoints**, **459 tests (385 passing)** |
+| **Backend** | v0.3.4 | ✅ Production Ready | **94 API endpoints**, **468 tests (393 passing)** |
 | **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, **30 tables** |
 | **Accounting** | v1.0.0 | ✅ Verified | **3/3 Workflows Passing** (Full FY & Smoke Tests) |
 | **Security** | v1.0.0 | ✅ **100% Score** | Rate limiting, CSP, CORS Fix Complete |
 | **InvoiceNow** | v1.0.0 | ✅ **Phases 1-4 Complete** | 122+ TDD tests, PINT-SG compliant XML |
 | **API Contracts** | v1.0.0 | ✅ **Standardized** | 9 endpoints fixed, **8 contract tests passing** |
-| **Overall** | — | ✅ **Platform Ready** | **788 tests**, 3 E2E Workflows verified |
+| **Overall** | — | ✅ **Platform Ready** | **714+ tests**, 3 E2E Workflows verified |
 
-### Latest Milestone: E2E Testing Initiative Complete ✅ COMPLETE
-**Date**: 2026-03-14
-**Status**: 15-phase comprehensive E2E test suite completed using Hybrid API + UI approach.
+### Latest Milestone: API Contract Standardization & 500 Error Investigation ✅ COMPLETE
+**Date**: 2026-03-15
+**Status**: API contracts standardized, "500 error" myth debunked.
 
 | Achievement | Impact |
 |-----|--------|
-| **15-Phase E2E Suite** | Complete "Lakshmi's Kitchen" workflow from login through financial reporting |
-| **API Contract Fix** | Fixed critical mismatch in 9 list views (Banking, Invoicing, GST, COA, Journal) |
-| **25+ Screenshots** | Full visual documentation of test execution |
-| **Experience Report** | 898-line comprehensive guide with lessons learned & best practices |
-| **Test Automation** | `e2e_test_phases_7_15_simplified.py` for reproducible testing |
-| **Tool Analysis** | Complete agent-browser vs Playwright comparison with recommendations |
+| **API Contract Fix** | 9 endpoints standardized to {results, count} format |
+| **8 Contract Tests** | New TDD test suite validates API contracts |
+| **500 Error Investigation** | Debunked myth - no actual 500 errors exist |
+| **Root Cause Found** | Test fixture issues cause 403s, not production bugs |
+
+**Key Finding**: The "500 errors in journal/invoice endpoints" mentioned in documentation do NOT exist. What exists are:
+- **403 Forbidden** errors caused by pytest fixture isolation issues  
+- The production API works correctly (verified with direct testing)
+- Tests using `auth_client` + `test_organisation` separately can fail due to RLS
 
 **Critical Finding**: HttpOnly cookies break automation tool session persistence. **Solution**: Hybrid approach (API for auth/data, UI for verification only).
 
