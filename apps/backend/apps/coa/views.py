@@ -215,7 +215,7 @@ class AccountHierarchyView(APIView):
 
         hierarchy = AccountService.get_account_hierarchy(org_id, account_type=account_type)
 
-        return Response({"data": hierarchy, "count": len(hierarchy)})
+        return Response({"results": hierarchy, "count": len(hierarchy)})
 
 
 class AccountTypesView(APIView):
@@ -227,7 +227,7 @@ class AccountTypesView(APIView):
     permission_classes = [IsAuthenticated]
 
     @wrap_response
-    def get(self, request) -> Response:
+    def get(self, request, **kwargs) -> Response:
         """Get all account types."""
         types = AccountService.get_account_types()
 
@@ -241,7 +241,7 @@ class AccountTypesView(APIView):
             for key, info in types.items()
         ]
 
-        return Response({"data": data, "count": len(data)})
+        return Response({"results": data, "count": len(data)})
 
 
 class TrialBalanceView(APIView):
@@ -269,7 +269,7 @@ class TrialBalanceView(APIView):
 
         return Response(
             {
-                "data": trial_balance,
+                "results": trial_balance,
                 "count": len(trial_balance),
                 "totals": {
                     "debit": str(total_debit),
@@ -298,7 +298,7 @@ class AccountSearchView(APIView):
         limit = int(request.query_params.get("limit", 10))
 
         if not query:
-            return Response({"data": [], "count": 0})
+            return Response({"results": [], "count": 0})
 
         # Search in code and name
         accounts = Account.objects.filter(org_id=org_id, is_active=True)
@@ -312,7 +312,7 @@ class AccountSearchView(APIView):
 
         serializer = AccountListSerializer(accounts, many=True)
 
-        return Response({"data": serializer.data, "count": len(serializer.data)})
+        return Response({"results": serializer.data, "count": len(serializer.data)})
 
 
 # Import at end to avoid circular imports

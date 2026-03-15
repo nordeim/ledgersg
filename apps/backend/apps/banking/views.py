@@ -603,4 +603,4 @@ class BankTransactionSuggestMatchesView(APIView):
             tolerance=tolerance,
         )
 
-        return Response(suggestions)
+        return Response({"results": suggestions, "count": len(suggestions)})
