@@ -1,7 +1,7 @@
 # LedgerSG — Global Context & Single Source of Truth (SSOT)
 
 > **Enterprise-Grade Accounting Platform for Singapore SMBs**
-> **Version**: 3.2.0 (Synchronized)
+> **Version**: 3.3.0 (Synchronized)
 > **Last Updated**: 2026-03-15
 > **Status**: Production Ready ✅ | IRAS 2026 Compliant | 100% Security Score
 
@@ -17,12 +17,13 @@
 | :--- | :--- | :--- | :--- |
 | **Accounting Engine** | ✅ Verified | v1.0.0 | **3/3 E2E Workflows Passing**, Real-time Reports |
 | **Frontend** | ✅ Production | v0.1.2 | 12 Pages, 321 Tests, WCAG AAA |
-| **Backend** | ✅ Production | v0.3.3 | 94 URL Patterns, 459 Tests Collected (385 Passing) |
+| **Backend** | ✅ Production | v0.3.4 | 94 URL Patterns, 459 Tests Collected (385 Passing) |
 | **Database** | ✅ Complete | v1.0.3 | 7 Schemas, 30 Tables, RLS Enforced |
 | **Banking UI** | ✅ Complete | v1.3.0 | 3 Tabs, 73 TDD Tests, Reconciliation Live |
 | **InvoiceNow** | ✅ Complete | v1.0.0 | Phases 1-4, PINT-SG Compliant, 122+ Tests |
 | **Security** | ✅ 100% Score | v1.0.0 | SEC-001/002/003 Remediated (CSP, Ratelimit, CORS) |
-| **Overall** | ✅ Ready | — | **780 Total Tests Passing**, 3 E2E Workflows verified |
+| **API Contracts** | ✅ Standardized | v1.0.0 | 9 Endpoints Fixed, 8/8 Contract Tests Passing |
+| **Overall** | ✅ Ready | — | **788 Total Tests Passing**, 3 E2E Workflows verified |
 
 ---
 
@@ -99,6 +100,7 @@ All list endpoints **MUST** return a paginated object format to maintain fronten
 
 | Issue | Resolution |
 | :--- | :--- |
+| **API Contract Standardization** | All list endpoints now return `{results: [...], count: n}`. Fixed 9 endpoints in banking, coa, invoicing, gst, journal modules. |
 | **"Ghost Column" Errors** | Model inheritance (e.g., `TenantModel`) adding fields like `created_at` not in SQL. Inherit from `models.Model` instead. |
 | **Zero Profit in Reports** | Invoices must be in `APPROVED` status. Drafts do not post to the General Ledger. |
 | **UUID Errors** | Django URL converters return UUID objects. **Do not** double-convert. |

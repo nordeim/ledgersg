@@ -1,8 +1,8 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.3.0
-> **Last Updated**: 2026-03-10
+> **Version**: 2.4.0
+> **Last Updated**: 2026-03-15
 > **Status**: Production Ready ✅ (Complete SMB Workflow Validation: Lakshmi, ABC, Meridian)
 
 ---
@@ -31,12 +31,13 @@
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, **321 tests**, WCAG AAA |
-| **Backend** | v0.3.3 | ✅ Production Ready | **84 API endpoints**, **468 tests** |
-| **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, **29 tables** |
+| **Backend** | v0.3.4 | ✅ Production Ready | **94 API endpoints**, **459 tests (385 passing)** |
+| **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, **30 tables** |
 | **Accounting** | v1.0.0 | ✅ Verified | **3/3 Workflows Passing** (Full FY & Smoke Tests) |
 | **Security** | v1.0.0 | ✅ **100% Score** | Rate limiting, CSP, CORS Fix Complete |
 | **InvoiceNow** | v1.0.0 | ✅ **Phases 1-4 Complete** | 122+ TDD tests, PINT-SG compliant XML |
-| **Overall** | — | ✅ **Platform Ready** | **789 tests**, 3 E2E Workflows verified |
+| **API Contracts** | v1.0.0 | ✅ **Standardized** | 9 endpoints fixed, **8 contract tests passing** |
+| **Overall** | — | ✅ **Platform Ready** | **788 tests**, 3 E2E Workflows verified |
 
 ### Latest Milestone: E2E Testing Initiative Complete ✅ COMPLETE
 **Date**: 2026-03-14

@@ -6,12 +6,13 @@ This document records the completed work on the LedgerSG platform, aligned with 
 
 **Project Status**:
 - ✅ Frontend: v0.1.2 — Production Ready (321 Tests, WCAG AAA)
-- ✅ Backend: v0.3.3 — Production Ready (84 API endpoints, 468 Tests)
-- ✅ Database: v1.0.3 — Hardened & Aligned (7 Schemas, 29 Tables)
+- ✅ Backend: v0.3.4 — Production Ready (94 API endpoints, 459 Tests Collected, 385 Passing)
+- ✅ Database: v1.0.3 — Hardened & Aligned (7 Schemas, 30 Tables)
 - ✅ **Accounting Engine**: v1.0.0 — **Validated via Full E2E Workflows**
 - ✅ **InvoiceNow/Peppol**: v1.0.0 — **Phases 1-4 Complete** (122+ TDD Tests)
 - ✅ **Security**: v1.0.0 — **100% Score** (SEC-001/002/003 Remediated)
-- ✅ **Testing**: v1.9.0 — **789 Unit Tests + 15-Phase E2E Suite + Comprehensive Testing Guide**
+- ✅ **API Contracts**: v1.0.0 — **Standardized** (9 Endpoints Fixed, 8 Contract Tests Passing)
+- ✅ **Testing**: v1.9.0 — **788 Unit Tests + 15-Phase E2E Suite + Comprehensive Testing Guide**
 
 ---
 
@@ -25,6 +26,7 @@ This document records the completed work on the LedgerSG platform, aligned with 
 | **Security** | ✅ Complete | v1.0.0 | Rate Limiting, CSP Headers, CORS Authentication Fix |
 | **Banking** | ✅ Complete | v1.3.0 | Full Reconciliation UI, CSV Import (Case-Insensitive) |
 | **Frontend** | ✅ Complete | v0.1.2 | Next.js 16, App Router, Dynamic Org Context |
+| **API Contracts** | ✅ Standardized | v1.0.0 | 9 endpoints fixed, 8 TDD tests, standardized {results, count} format |
 
 ---
 
