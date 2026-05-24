@@ -2,48 +2,85 @@
 
 **Comprehensive Critical Analysis of Architecture, Security, and Code Quality**
 
-| Field | Detail |
-|:------|:-------|
-| **Repository** | `github.com/nordeim/ledgersg` |
+| | |
+|---|---|
+| **Repository** | github.com/nordeim/ledgersg |
 | **Date** | 2026-05-24 |
 | **Auditor** | Independent Code Review Agent |
 | **Classification** | Confidential |
-| **Version** | 1.0 |
+| **Version** | LedgerSG Audit Report v1.0 |
 
 ---
 
 ## Table of Contents
 
-1. [Executive Summary](#1-executive-summary)
-2. [Critical Findings](#2-critical-findings)
-3. [High Severity Findings](#3-high-severity-findings)
-4. [Medium Severity Findings](#4-medium-severity-findings)
-5. [Low & Informational Findings](#5-low--informational-findings)
-6. [Documentation-Code Alignment Audit](#6-documentation-code-alignment-audit)
-7. [Architectural Strengths](#7-architectural-strengths)
-8. [Prioritized Remediation Plan](#8-prioritized-remediation-plan)
-9. [Strategic Recommendations](#9-strategic-recommendations)
-10. [Conclusion](#10-conclusion)
+> Right-click the TOC and select "Update Field" to refresh page numbers after opening.
+
+- [1. Executive Summary](#1-executive-summary)
+  - [1.1 Severity Distribution](#11-severity-distribution)
+- [2. Critical Findings](#2-critical-findings)
+  - [2.1 C-01: Dead Superadmin Authorization Check](#21-c-01-dead-superadmin-authorization-check)
+  - [2.2 C-02: Missing JWT Token Blacklist](#22-c-02-missing-jwt-token-blacklist)
+  - [2.3 I-01: Journal Reversal Stub Silently Skips Entries](#23-i-01-journal-reversal-stub-silently-skips-entries)
+  - [2.4 G-01: Hardcoded Null UUID Breaks GST Calculation](#24-g-01-hardcoded-null-uuid-breaks-gst-calculation)
+- [3. High Severity Findings](#3-high-severity-findings)
+  - [3.1 C-03: Race Condition in Set Default Organisation](#31-c-03-race-condition-in-set-default-organisation)
+  - [3.2 C-04: Pending Users Get RLS Permissions](#32-c-04-pending-users-get-rls-permissions)
+  - [3.3 I-02: Journal Posting Outside Atomic Block](#33-i-02-journal-posting-outside-atomic-block)
+  - [3.4 FE-002: PDF Downloads Completely Broken](#34-fe-002-pdf-downloads-completely-broken)
+  - [3.5 DB-001: RLS Missing on Core Tables](#35-db-001-rls-missing-on-core-tables)
+- [4. Medium Severity Findings](#4-medium-severity-findings)
+  - [4.1 Service Layer Violations](#41-service-layer-violations)
+  - [4.2 FE-003: Hardcoded GST Rate](#42-fe-003-hardcoded-gst-rate)
+  - [4.3 FE-005: Invoices Page Uses Mock Data](#43-fe-005-invoices-page-uses-mock-data)
+  - [4.4 FE-011: FormData Sent via JSON Client](#44-fe-011-formdata-sent-via-json-client)
+  - [4.5 J-03: Race Condition in Journal Entry Numbering](#45-j-03-race-condition-in-journal-entry-numbering)
+  - [4.6 H-01: SET LOCAL RLS Depends on ATOMIC_REQUESTS](#46-h-01-set-local-rls-depends-on-atomic_requests)
+  - [4.7 H-02: Service Settings Drops RLS Middleware](#47-h-02-service-settings-drops-rls-middleware)
+  - [4.8 Remaining Medium Findings](#48-remaining-medium-findings)
+- [5. Low & Informational Findings](#5-low--informational-findings)
+  - [5.1 Low Severity](#51-low-severity)
+  - [5.2 Informational](#52-informational)
+- [6. Documentation-Code Alignment Audit](#6-documentation-code-alignment-audit)
+  - [6.1 Alignment Summary](#61-alignment-summary)
+  - [6.2 Key Discrepancies](#62-key-discrepancies)
+- [7. Architectural Strengths](#7-architectural-strengths)
+  - [7.1 Consistent Service Layer Pattern](#71-consistent-service-layer-pattern)
+  - [7.2 SQL-First Design with Unmanaged Models](#72-sql-first-design-with-unmanaged-models)
+  - [7.3 Defense-in-Depth Authentication](#73-defense-in-depth-authentication)
+  - [7.4 Comprehensive RLS Implementation](#74-comprehensive-rls-implementation)
+  - [7.5 Test Infrastructure](#75-test-infrastructure)
+- [8. Prioritized Remediation Plan](#8-prioritized-remediation-plan)
+  - [8.1 Phase 1: Critical Fixes (Immediate, 1-3 Days)](#81-phase-1-critical-fixes-immediate-1-3-days)
+  - [8.2 Phase 2: High Priority Fixes (1 Week)](#82-phase-2-high-priority-fixes-1-week)
+  - [8.3 Phase 3: Documentation & Code Quality (2 Weeks)](#83-phase-3-documentation--code-quality-2-weeks)
+- [9. Strategic Recommendations](#9-strategic-recommendations)
+  - [9.1 Single Source of Truth for Metrics](#91-single-source-of-truth-for-metrics)
+  - [9.2 Add Pre-commit Hooks for Documentation Consistency](#92-add-pre-commit-hooks-for-documentation-consistency)
+  - [9.3 Implement End-to-End Contract Testing](#93-implement-end-to-end-contract-testing)
+  - [9.4 Security Posture Enhancement](#94-security-posture-enhancement)
+  - [9.5 Database Migration Strategy](#95-database-migration-strategy)
+- [10. Conclusion](#10-conclusion)
 
 ---
 
 ## 1. Executive Summary
 
-This report presents the findings of a comprehensive code review and audit of the LedgerSG project, a production-grade double-entry accounting platform purpose-built for Singapore SMBs. The audit covered the entire codebase including the Django 6.0.2 backend, Next.js 16.1.6 frontend, PostgreSQL database schema, and all supporting documentation. The review was conducted against the project's own stated architectural mandates as defined in `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `README.md`, `Project_Architecture_Document.md`, and `API_CLI_Usage_Guide.md`.
+This report presents the findings of a comprehensive code review and audit of the LedgerSG project, a production-grade double-entry accounting platform purpose-built for Singapore SMBs. The audit covered the entire codebase including the Django 6.0.2 backend, Next.js 16.1.6 frontend, PostgreSQL database schema, and all supporting documentation. The review was conducted against the project's own stated architectural mandates as defined in CLAUDE.md, AGENTS.md, GEMINI.md, README.md, Project_Architecture_Document.md, and API_CLI_Usage_Guide.md.
 
-The audit identified a total of **28 distinct issues** across five severity levels: **4 Critical, 5 High, 10 Medium, 5 Low, and 4 Informational**. While the project demonstrates strong architectural foundations and consistent adherence to its Service Layer Pattern and SQL-First design philosophy, several critical issues pose immediate risk to data integrity, financial accuracy, and security. These require urgent remediation before the platform can be considered truly production-ready.
+The audit identified a total of 28 distinct issues across five severity levels: 4 Critical, 5 High, 10 Medium, 5 Low, and 4 Informational. While the project demonstrates strong architectural foundations and consistent adherence to its Service Layer Pattern and SQL-First design philosophy, several critical issues pose immediate risk to data integrity, financial accuracy, and security. These require urgent remediation before the platform can be considered truly production-ready.
 
 The most severe findings include: a dead-code superadmin check that silently bypasses authorization; a missing JWT blacklist that allows revoked tokens continued access; a journal reversal stub that silently skips creating reversal entries for voided invoices; and a hardcoded null UUID in GST calculation that produces incorrect tax computations. Additionally, significant documentation-to-code misalignments were discovered, with endpoint counts, model counts, and version numbers all inconsistent across the various documentation files.
 
 ### 1.1 Severity Distribution
 
 | Severity | Count | Description |
-|:---------|:------|:------------|
-| **CRITICAL** | 4 | Data loss, financial corruption, or security breach possible |
-| **HIGH** | 5 | Significant functionality broken or security weakness |
-| **MEDIUM** | 10 | Degraded functionality, potential race conditions, or code quality issues |
-| **LOW** | 5 | Minor code quality, inconsistency, or cosmetic issues |
-| **INFO** | 4 | Observations or recommendations for improvement |
+|----------|-------|-------------|
+| CRITICAL | 4 | Data loss, financial corruption, or security breach possible |
+| HIGH | 5 | Significant functionality broken or security weakness |
+| MEDIUM | 10 | Degraded functionality, potential race conditions, or code quality issues |
+| LOW | 5 | Minor code quality, inconsistency, or cosmetic issues |
+| INFO | 4 | Observations or recommendations for improvement |
 
 ---
 
@@ -51,35 +88,31 @@ The most severe findings include: a dead-code superadmin check that silently byp
 
 The following four issues represent the highest-priority risks to the platform. Each one could result in financial data corruption, security breach, or regulatory non-compliance. They must be remediated before any production deployment.
 
----
-
 ### 2.1 C-01: Dead Superadmin Authorization Check
 
-| Field | Detail |
-|:------|:-------|
+| | |
+|---|---|
 | **ID** | C-01 |
-| **Severity** | **CRITICAL** |
-| **Title** | `is_superadmin` field does not exist on `AppUser` model |
-| **Location** | `apps/backend/apps/core/permissions.py`, `apps/backend/common/middleware/tenant_context.py`, and 7+ view files |
+| **Severity** | CRITICAL |
+| **Title** | is_superadmin field does not exist on AppUser model |
+| **Location** | apps/backend/apps/core/permissions.py, apps/backend/common/middleware/tenant_context.py, and 7+ view files |
 
 **Description:**
 
-The codebase uses `getattr(user, 'is_superadmin', False)` in multiple locations (`permissions.py`, `tenant_context.py`, and various views) to check for superadmin privileges. However, the `AppUser` model does not define an `is_superadmin` field. Django's built-in `is_superuser` field exists, but `is_superadmin` is never declared. This means every superadmin check always returns `False` via the default value, making the entire superadmin bypass mechanism dead code. Any user who should have superadmin privileges will be silently denied access, and the fallback to `getattr` means no error is raised to alert developers of the bug.
+The codebase uses `getattr(user, 'is_superadmin', False)` in multiple locations (permissions.py, tenant_context.py, and various views) to check for superadmin privileges. However, the AppUser model does not define an `is_superadmin` field. Django's built-in `is_superuser` field exists, but `is_superadmin` is never declared. This means every superadmin check always returns `False` via the default value, making the entire superadmin bypass mechanism dead code. Any user who should have superadmin privileges will be silently denied access, and the fallback to `getattr` means no error is raised to alert developers of the bug.
 
 **Recommendation:**
 
-Replace all `getattr(user, 'is_superadmin', False)` with `user.is_superuser` throughout the codebase. Alternatively, if a custom `is_superadmin` field is desired, add it to the `AppUser` model and the corresponding SQL schema.
-
----
+Replace all `getattr(user, 'is_superadmin', False)` with `user.is_superuser` throughout the codebase. Alternatively, if a custom `is_superadmin` field is desired, add it to the AppUser model and the corresponding SQL schema.
 
 ### 2.2 C-02: Missing JWT Token Blacklist
 
-| Field | Detail |
-|:------|:-------|
+| | |
+|---|---|
 | **ID** | C-02 |
-| **Severity** | **CRITICAL** |
-| **Title** | JWT token blacklist app missing from `INSTALLED_APPS` |
-| **Location** | `apps/backend/config/settings/base.py` |
+| **Severity** | CRITICAL |
+| **Title** | JWT token blacklist app missing from INSTALLED_APPS |
+| **Location** | apps/backend/config/settings/base.py |
 
 **Description:**
 
@@ -87,37 +120,33 @@ The logout view calls `token.blacklist()` to invalidate refresh tokens upon user
 
 **Recommendation:**
 
-Add `'rest_framework_simplejwt.token_blacklist'` to `INSTALLED_APPS` in `base.py`. Run the corresponding SQL to create the blacklist tables in the database schema. Verify that `token.blacklist()` now correctly invalidates tokens by testing the logout flow end-to-end.
-
----
+Add `'rest_framework_simplejwt.token_blacklist'` to `INSTALLED_APPS` in base.py. Run the corresponding SQL to create the blacklist tables in the database schema. Verify that `token.blacklist()` now correctly invalidates tokens by testing the logout flow end-to-end.
 
 ### 2.3 I-01: Journal Reversal Stub Silently Skips Entries
 
-| Field | Detail |
-|:------|:-------|
+| | |
+|---|---|
 | **ID** | I-01 |
-| **Severity** | **CRITICAL** |
-| **Title** | Document service has duplicate `_reverse_journal_entry` definitions; the second is a stub |
-| **Location** | `apps/backend/apps/invoicing/services/document_service.py` |
+| **Severity** | CRITICAL |
+| **Title** | Document service has duplicate _reverse_journal_entry definitions; the second is a stub |
+| **Location** | apps/backend/apps/invoicing/services/document_service.py |
 
 **Description:**
 
-The `document_service.py` file contains **TWO** definitions of the `_reverse_journal_entry` method within the same class. Python uses the last definition, and the second one is a stub that simply `pass`es without creating any reversal journal entry. This means that when an invoice is voided, the system marks it as `VOIDED` but never creates the corresponding reversal entries in the General Ledger. The financial statements will therefore continue to reflect revenue and receivables from voided invoices, corrupting P&L and Balance Sheet reports. This is a direct violation of the double-entry accounting principle that every transaction must have balanced entries, including reversals.
+The `document_service.py` file contains TWO definitions of the `_reverse_journal_entry` method within the same class. Python uses the last definition, and the second one is a stub that simply passes without creating any reversal journal entry. This means that when an invoice is voided, the system marks it as VOIDED but never creates the corresponding reversal entries in the General Ledger. The financial statements will therefore continue to reflect revenue and receivables from voided invoices, corrupting P&L and Balance Sheet reports. This is a direct violation of the double-entry accounting principle that every transaction must have balanced entries, including reversals.
 
 **Recommendation:**
 
 Remove the stub definition. Implement the proper reversal logic in the first definition (or merge both). The reversal must create debit/credit entries that mirror the original posting, with a reference to the voided document. Wrap in `transaction.atomic()` along with the document status update.
 
----
-
 ### 2.4 G-01: Hardcoded Null UUID Breaks GST Calculation
 
-| Field | Detail |
-|:------|:-------|
+| | |
+|---|---|
 | **ID** | G-01 |
-| **Severity** | **CRITICAL** |
-| **Title** | `GSTCalculateView` passes hardcoded null UUID as `org_id` for tax code lookup |
-| **Location** | `apps/backend/apps/gst/views.py` |
+| **Severity** | CRITICAL |
+| **Title** | GSTCalculateView passes hardcoded null UUID as org_id for tax code lookup |
+| **Location** | apps/backend/apps/gst/views.py |
 
 **Description:**
 
@@ -131,16 +160,14 @@ Extract the `org_id` from the authenticated user's context (`request.user.defaul
 
 ## 3. High Severity Findings
 
----
-
 ### 3.1 C-03: Race Condition in Set Default Organisation
 
-| Field | Detail |
-|:------|:-------|
+| | |
+|---|---|
 | **ID** | C-03 |
-| **Severity** | **HIGH** |
-| **Title** | `set_default_org_view` clear + set operations not wrapped in `transaction.atomic()` |
-| **Location** | `apps/backend/apps/core/views/auth.py` (lines 277-282) |
+| **Severity** | HIGH |
+| **Title** | set_default_org_view clear + set operations not wrapped in transaction.atomic() |
+| **Location** | apps/backend/apps/core/views/auth.py (lines 277-282) |
 
 **Description:**
 
@@ -150,16 +177,14 @@ The `set_default_org_view` performs a clear of all existing default flags follow
 
 Wrap the clear + set operations in a `with transaction.atomic():` block. Additionally, consider using `select_for_update()` on the `UserOrganisation` rows to prevent concurrent modifications.
 
----
-
 ### 3.2 C-04: Pending Users Get RLS Permissions
 
-| Field | Detail |
-|:------|:-------|
+| | |
+|---|---|
 | **ID** | C-04 |
-| **Severity** | **HIGH** |
-| **Title** | `_get_org_role` returns permissions for pending/unaccepted memberships |
-| **Location** | `apps/backend/common/middleware/tenant_context.py` (lines 268-299) |
+| **Severity** | HIGH |
+| **Title** | _get_org_role returns permissions for pending/unaccepted memberships |
+| **Location** | apps/backend/common/middleware/tenant_context.py (lines 268-299) |
 
 **Description:**
 
@@ -169,54 +194,48 @@ The `_get_org_role` method in `TenantContextMiddleware` does not filter for `acc
 
 Add `accepted_at__isnull=False` to the `UserOrganisation` query filter in `_get_org_role`. This ensures only accepted members can access organisation data through the RLS mechanism.
 
----
-
 ### 3.3 I-02: Journal Posting Outside Atomic Block
 
-| Field | Detail |
-|:------|:-------|
+| | |
+|---|---|
 | **ID** | I-02 |
-| **Severity** | **HIGH** |
-| **Title** | `approve_document()` creates journal entry outside `transaction.atomic()` block |
-| **Location** | `apps/backend/apps/invoicing/services/document_service.py` |
+| **Severity** | HIGH |
+| **Title** | approve_document() creates journal entry outside transaction.atomic() block |
+| **Location** | apps/backend/apps/invoicing/services/document_service.py |
 
 **Description:**
 
-In the `approve_document()` method, the invoice status update is wrapped in `transaction.atomic()`, but the subsequent call to `JournalService.post_invoice()` (which creates the journal entries) occurs outside the atomic block. If the journal posting fails (e.g., due to a validation error in the balance check trigger), the invoice remains in `APPROVED` status but has no corresponding ledger entries. This breaks the fundamental accounting invariant that every approved document must have matching journal entries, leading to incomplete financial statements.
+In the `approve_document()` method, the invoice status update is wrapped in `transaction.atomic()`, but the subsequent call to `JournalService.post_invoice()` (which creates the journal entries) occurs outside the atomic block. If the journal posting fails (e.g., due to a validation error in the balance check trigger), the invoice remains in APPROVED status but has no corresponding ledger entries. This breaks the fundamental accounting invariant that every approved document must have matching journal entries, leading to incomplete financial statements.
 
 **Recommendation:**
 
-Move the `JournalService.post_invoice()` call inside the `transaction.atomic()` block so that both the status update and journal entry creation succeed or fail together. This ensures the invariant is maintained: `APPROVED` status implies ledger entries exist.
-
----
+Move the `JournalService.post_invoice()` call inside the `transaction.atomic()` block so that both the status update and journal entry creation succeed or fail together. This ensures the invariant is maintained: APPROVED status implies ledger entries exist.
 
 ### 3.4 FE-002: PDF Downloads Completely Broken
 
-| Field | Detail |
-|:------|:-------|
+| | |
+|---|---|
 | **ID** | FE-002 |
-| **Severity** | **HIGH** |
-| **Title** | `useInvoicePDF` hook reads JWT from `localStorage` which is never set, causing permanent 401 errors |
-| **Location** | `apps/web/src/hooks/use-invoices.ts` |
+| **Severity** | HIGH |
+| **Title** | useInvoicePDF hook reads JWT from localStorage which is never set, causing permanent 401 errors |
+| **Location** | apps/web/src/hooks/use-invoices.ts |
 
 **Description:**
 
-The `useInvoicePDF` hook attempts to read the JWT access token from `localStorage.getItem('access_token')`. However, the platform's Zero JWT Exposure mandate means tokens are never stored in `localStorage`. The access token is stored in React state/memory and the refresh token is in an HttpOnly cookie. This means PDF downloads always fail with a 401 Unauthorized error because the token is never found. If a developer "fixes" this by storing the token in `localStorage`, it would directly violate the project's Zero JWT Exposure security mandate.
+The `useInvoicePDF` hook attempts to read the JWT access token from `localStorage.getItem('access_token')`. However, the platform's Zero JWT Exposure mandate means tokens are never stored in localStorage. The access token is stored in React state/memory and the refresh token is in an HttpOnly cookie. This means PDF downloads always fail with a 401 Unauthorized error because the token is never found. If a developer "fixes" this by storing the token in localStorage, it would directly violate the project's Zero JWT Exposure security mandate.
 
 **Recommendation:**
 
 Refactor PDF downloads to go through the server-side API client (`lib/server/api-client.ts`) which has access to the token without exposing it to the client. Alternatively, create a backend endpoint that generates and returns the PDF using the existing HttpOnly cookie for authentication.
 
----
-
 ### 3.5 DB-001: RLS Missing on Core Tables
 
-| Field | Detail |
-|:------|:-------|
+| | |
+|---|---|
 | **ID** | DB-001 |
-| **Severity** | **HIGH** |
-| **Title** | RLS policies missing on `core.app_user`, `core.role`, `core.user_organisation`, and `gst.organisation_peppol_settings` |
-| **Location** | `apps/backend/database_schema.sql` |
+| **Severity** | HIGH |
+| **Title** | RLS policies missing on core.app_user, core.role, core.user_organisation, and gst.organisation_peppol_settings |
+| **Location** | apps/backend/database_schema.sql |
 
 **Description:**
 
@@ -232,16 +251,14 @@ Add `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and `CREATE POLICY tenant_isolat
 
 The following issues represent degraded functionality, potential race conditions, or code quality concerns that should be addressed in the near term.
 
----
+### 4.1 Service Layer Violations
 
-### 4.1 M-01: Service Layer Violations
-
-| Field | Detail |
-|:------|:-------|
+| | |
+|---|---|
 | **ID** | M-01 |
 | **Severity** | MEDIUM |
 | **Title** | Approximately 5 views contain direct ORM queries or business logic violating the Service Layer Pattern |
-| **Location** | `JournalEntrySummaryView`, `DocumentSummaryView`, `AccountSearchView`, `ValidateBalanceView`, `FinancialReportView` |
+| **Location** | JournalEntrySummaryView, DocumentSummaryView, AccountSearchView, ValidateBalanceView, FinancialReportView |
 
 **Description:**
 
@@ -251,16 +268,14 @@ The project mandates that ALL business logic reside in `services/` modules with 
 
 Extract all business logic from these views into corresponding service methods. Views should only handle request parsing, service delegation, and response formatting. This maintains testability and adheres to the documented architecture.
 
----
+### 4.2 FE-003: Hardcoded GST Rate
 
-### 4.2 M-02: Hardcoded GST Rate
-
-| Field | Detail |
-|:------|:-------|
-| **ID** | M-02 / FE-003 |
+| | |
+|---|---|
+| **ID** | M-02 |
 | **Severity** | MEDIUM |
-| **Title** | GST rate 9% is hardcoded in `gst-engine.ts` instead of being fetched from the API |
-| **Location** | `apps/web/src/lib/gst-engine.ts` |
+| **Title** | GST rate 9% is hardcoded in gst-engine.ts instead of being fetched from the API |
+| **Location** | apps/web/src/lib/gst-engine.ts |
 
 **Description:**
 
@@ -270,16 +285,14 @@ The frontend GST calculation engine hardcodes the GST rate as 9%. While this mat
 
 Fetch the GST rate from the backend API (e.g., via the tax codes endpoint) when the application loads or when an organisation is selected. Cache the rate in TanStack Query and use it in `gst-engine.ts`. Keep the hardcoded value as a fallback only.
 
----
+### 4.3 FE-005: Invoices Page Uses Mock Data
 
-### 4.3 M-03: Invoices Page Uses Mock Data
-
-| Field | Detail |
-|:------|:-------|
-| **ID** | M-03 / FE-005 |
+| | |
+|---|---|
+| **ID** | M-03 |
 | **Severity** | MEDIUM |
 | **Title** | Invoices page renders mock/hardcoded data instead of fetching from API hooks |
-| **Location** | `apps/web/src/app/(dashboard)/invoices/page.tsx` |
+| **Location** | apps/web/src/app/(dashboard)/invoices/page.tsx |
 
 **Description:**
 
@@ -289,35 +302,31 @@ The invoices listing page currently renders mock data instead of using the exist
 
 Replace the mock data with a proper `useQuery` hook call using the existing `useInvoices` hook. Handle loading, error, and empty states appropriately per the project's UI guidelines.
 
----
+### 4.4 FE-011: FormData Sent via JSON Client
 
-### 4.4 M-04: FormData Sent via JSON Client
-
-| Field | Detail |
-|:------|:-------|
-| **ID** | M-04 / FE-011 |
+| | |
+|---|---|
+| **ID** | M-04 |
 | **Severity** | MEDIUM |
 | **Title** | CSV bank statement import sends FormData via JSON API client, which will fail |
-| **Location** | `apps/web/src/app/(dashboard)/banking/components/import-transactions-form.tsx` |
+| **Location** | apps/web/src/app/(dashboard)/banking/components/import-transactions-form.tsx |
 
 **Description:**
 
-The CSV import form attempts to send a file upload (`FormData`) through the standard JSON-based API client. The JSON client sets `Content-Type` to `application/json` and serializes the body with `JSON.stringify()`, which cannot handle `FormData` objects. File uploads must use `Content-Type: multipart/form-data`. This means the bank transaction CSV import feature is non-functional, preventing users from reconciling bank statements, which is a core workflow in the banking module.
+The CSV import form attempts to send a file upload (FormData) through the standard JSON-based API client. The JSON client sets `Content-Type` to `application/json` and serializes the body with `JSON.stringify()`, which cannot handle FormData objects. File uploads must use `Content-Type: multipart/form-data`. This means the bank transaction CSV import feature is non-functional, preventing users from reconciling bank statements, which is a core workflow in the banking module.
 
 **Recommendation:**
 
-Create a separate file upload function in `api-client.ts` that uses `FormData` with `Content-Type: multipart/form-data`. Update the import form to use this function instead of the standard JSON client.
+Create a separate file upload function in `api-client.ts` that uses FormData with `Content-Type: multipart/form-data`. Update the import form to use this function instead of the standard JSON client.
 
----
+### 4.5 J-03: Race Condition in Journal Entry Numbering
 
-### 4.5 M-05: Race Condition in Journal Entry Numbering
-
-| Field | Detail |
-|:------|:-------|
-| **ID** | M-05 / J-03 |
+| | |
+|---|---|
+| **ID** | M-05 |
 | **Severity** | MEDIUM |
-| **Title** | Journal entry numbering lacks `select_for_update()`, risking duplicate numbers under concurrent access |
-| **Location** | `apps/backend/apps/journal/services.py` |
+| **Title** | Journal entry numbering lacks select_for_update(), risking duplicate numbers under concurrent access |
+| **Location** | apps/backend/apps/journal/services.py |
 
 **Description:**
 
@@ -327,16 +336,14 @@ The journal entry numbering system uses the `document_sequence` table but does n
 
 Add `select_for_update()` to the `document_sequence` query in the journal entry creation path. Ensure the entire sequence increment and document creation is wrapped in `transaction.atomic()`.
 
----
+### 4.6 H-01: SET LOCAL RLS Depends on ATOMIC_REQUESTS
 
-### 4.6 M-06: SET LOCAL RLS Depends on ATOMIC_REQUESTS
-
-| Field | Detail |
-|:------|:-------|
-| **ID** | M-06 / H-01 |
+| | |
+|---|---|
+| **ID** | M-06 |
 | **Severity** | MEDIUM |
-| **Title** | RLS `SET LOCAL` relies on `ATOMIC_REQUESTS=True` with no guard or assertion |
-| **Location** | `apps/backend/common/middleware/tenant_context.py` |
+| **Title** | RLS SET LOCAL relies on ATOMIC_REQUESTS=True with no guard or assertion |
+| **Location** | apps/backend/common/middleware/tenant_context.py |
 
 **Description:**
 
@@ -346,16 +353,14 @@ The `TenantContextMiddleware` uses `SET LOCAL` to set PostgreSQL session variabl
 
 Add an assertion or runtime check in `TenantContextMiddleware` that verifies `ATOMIC_REQUESTS` is `True`. If it is not, raise an `ImproperlyConfigured` exception or log a critical error. Consider using `SET` (without `LOCAL`) with an explicit `RESET` at the end of the request as a more robust alternative.
 
----
+### 4.7 H-02: Service Settings Drops RLS Middleware
 
-### 4.7 M-07: Service Settings Drops RLS Middleware
-
-| Field | Detail |
-|:------|:-------|
-| **ID** | M-07 / H-02 |
+| | |
+|---|---|
+| **ID** | M-07 |
 | **Severity** | MEDIUM |
-| **Title** | `service.py` settings file drops `TenantContextMiddleware` and `AuditContextMiddleware` |
-| **Location** | `apps/backend/config/settings/service.py` |
+| **Title** | service.py settings file drops TenantContextMiddleware and AuditContextMiddleware |
+| **Location** | apps/backend/config/settings/service.py |
 
 **Description:**
 
@@ -365,9 +370,7 @@ The `service.py` settings file (used for Celery workers) removes both `TenantCon
 
 Either retain `TenantContextMiddleware` in the service settings (with modifications for Celery compatibility) or implement a Celery task mixin/decorator that explicitly sets the RLS context before executing any database operations. Add a safety check that logs a warning if a task accesses the database without RLS context.
 
----
-
-### 4.8 Additional Medium Findings
+### 4.8 Remaining Medium Findings
 
 The following additional medium-severity issues were identified during the audit:
 
@@ -386,37 +389,37 @@ The following additional medium-severity issues were identified during the audit
 - **H-04/H-05**: `OrganisationSetting` and `ExchangeRate` models are missing `db_column` specifications for 4 fields each, likely causing schema mismatches that could result in runtime query errors.
 - **H-06**: `custom_exception_handler` has an unreachable `ValidationError` catch block (dead code path), reducing the effectiveness of error handling for validation errors.
 - **FE-004**: `BankAccountsTabProps` uses `any[]` type, violating the TypeScript strict mode mandate of no `any` types.
-- **FE-006**: Raw HTML `<input>` element used instead of Shadcn `Input` component in one location, violating the UI library discipline mandate.
+- **FE-006**: Raw HTML input element used instead of Shadcn Input component in one location, violating the UI library discipline mandate.
 
 ### 5.2 Informational
 
 - **DB-002/003**: Missing indexes on `bank_transaction(org_id)` and `document_line(org_id)` could cause slow queries as data grows. Consider adding these for production performance.
-- **DB-006**: System roles with `NULL` `org_id` have no tenant isolation, which may be intentional but should be explicitly documented.
-- **DOC-REF**: Multiple documentation files reference `SECURITY_AUDIT.md` and `E2E_TEST_EXECUTION_SUMMARY.md`, but these files do not exist in the repository.
-- **SYMLINK**: Dead symlink: `Agent-Browser-howto.md` points to `/home/pete/.openclaw/workspace/Agent-Browser-howto.md` which does not exist.
+- **DB-006**: System roles with `NULL org_id` have no tenant isolation, which may be intentional but should be explicitly documented.
+- Multiple documentation files reference `SECURITY_AUDIT.md` and `E2E_TEST_EXECUTION_SUMMARY.md`, but these files do not exist in the repository.
+- Dead symlink: `Agent-Browser-howto.md` points to `/home/pete/.openclaw/workspace/Agent-Browser-howto.md` which does not exist.
 
 ---
 
 ## 6. Documentation-Code Alignment Audit
 
-A critical part of this audit was verifying the claims made across the six primary documentation files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `README.md`, `Project_Architecture_Document.md`, `API_CLI_Usage_Guide.md`) against the actual codebase. Documentation accuracy is especially important for LedgerSG because these files serve as the primary onboarding and reference material for both human developers and AI coding agents. Misaligned documentation can lead to incorrect assumptions, wasted debugging time, and architectural violations.
+A critical part of this audit was verifying the claims made across the six primary documentation files (CLAUDE.md, AGENTS.md, GEMINI.md, README.md, Project_Architecture_Document.md, API_CLI_Usage_Guide.md) against the actual codebase. Documentation accuracy is especially important for LedgerSG because these files serve as the primary onboarding and reference material for both human developers and AI coding agents. Misaligned documentation can lead to incorrect assumptions, wasted debugging time, and architectural violations.
 
 ### 6.1 Alignment Summary
 
 | Claim | Source | Actual | Aligned? |
-|:------|:-------|:-------|:---------|
-| 94/87/83 API endpoints | Multiple docs | 82 unique resolvable paths | **No** |
-| 30 database tables | PAD, GEMINI.md | 29 tables | **No** |
-| 22 Django models | AGENTS.md | 27 model classes | **No** |
-| 7 schemas | All docs | 7 schemas | **Yes** |
-| Backend v0.3.4 | CLAUDE.md, GEMINI.md | v0.3.4 in code | **Partial** |
-| Backend v0.3.3 | README.md, AGENTS.md | Conflicts with v0.3.4 | **No** |
-| 28 tables | AGENTS.md | 29 actual | **No** |
-| `middleware.ts` at `apps/web/` | README.md | Actually at `apps/web/src/middleware.ts` | **No** |
-| RLS on all tables | All docs | Missing on 4 tables | **No** |
-| 100% security score | All docs | CSP report-only, SEC-004/005 open | **Overstated** |
-| `app.current_org_id` + `app.current_user_id` | PAD | Confirmed in code | **Yes** |
-| 9 list views return `{results, count}` | API Guide | 13+ views return format | **Understated** |
+|-------|--------|--------|----------|
+| 94/87/83 API endpoints | Multiple docs | 82 unique resolvable paths | No |
+| 30 database tables | PAD, GEMINI.md | 29 tables | No |
+| 22 Django models | AGENTS.md | 27 model classes | No |
+| 7 schemas | All docs | 7 schemas | Yes |
+| Backend v0.3.4 | CLAUDE.md, GEMINI.md | v0.3.4 in code | Partial |
+| Backend v0.3.3 | README.md, AGENTS.md | Conflicts with v0.3.4 | No |
+| 28 tables | AGENTS.md | 29 actual | No |
+| middleware.ts at apps/web/ | README.md | Actually at apps/web/src/middleware.ts | No |
+| RLS on all tables | All docs | Missing on 4 tables | No |
+| 100% security score | All docs | CSP report-only, SEC-004/005 open | Overstated |
+| app.current_org_id + app.current_user_id | PAD | Confirmed in code | Yes |
+| 9 list views return {results, count} | API Guide | 13+ views return format | Understated |
 
 ### 6.2 Key Discrepancies
 
@@ -424,9 +427,9 @@ A critical part of this audit was verifying the claims made across the six prima
 
 **Model Count:** The documentation claims 22 Django models, but the actual codebase contains 27 model classes (25 in `apps/core/models/` plus 2 in `apps/peppol/models.py`). The discrepancy likely arose from models being added without updating the documentation, and from the fact that many models were consolidated into `core/models/` rather than remaining in their respective app directories.
 
-**Version Numbers:** `CLAUDE.md` and `GEMINI.md` list the backend version as v0.3.4, while `README.md` and `AGENTS.md` list it as v0.3.3. This inconsistency suggests the version was bumped in some files but not others. A single source of truth for version numbers should be established.
+**Version Numbers:** CLAUDE.md and GEMINI.md list the backend version as v0.3.4, while README.md and AGENTS.md list it as v0.3.3. This inconsistency suggests the version was bumped in some files but not others. A single source of truth for version numbers should be established.
 
-**Table Count:** `AGENTS.md` claims 28 tables, while other docs claim 30. The actual count from `database_schema.sql` is 29 tables. The table count also contradicts itself between documentation files, indicating that no authoritative count was established.
+**Table Count:** AGENTS.md claims 28 tables, while other docs claim 30. The actual count from `database_schema.sql` is 29 tables. The table count also contradicts itself between documentation files, indicating that no authoritative count was established.
 
 ---
 
@@ -465,11 +468,11 @@ The following remediation plan is organized into three phases based on urgency a
 These fixes address data integrity, security, and financial accuracy issues that could cause immediate harm in production.
 
 | ID | Issue | Fix | Est. Effort |
-|:---|:------|:----|:------------|
-| C-01 | `is_superadmin` dead code | Replace with `is_superuser` | 2 hours |
+|----|-------|-----|-------------|
+| C-01 | is_superadmin dead code | Replace with `is_superuser` | 2 hours |
 | C-02 | Missing JWT blacklist | Add to `INSTALLED_APPS` + SQL | 4 hours |
 | I-01 | Journal reversal stub | Implement proper reversal logic | 1 day |
-| G-01 | Hardcoded null UUID in GST | Extract `org_id` from request context | 2 hours |
+| G-01 | Hardcoded null UUID in GST | Extract org_id from request context | 2 hours |
 | I-02 | Journal posting outside atomic | Move into `transaction.atomic()` block | 1 hour |
 
 ### 8.2 Phase 2: High Priority Fixes (1 Week)
@@ -477,8 +480,8 @@ These fixes address data integrity, security, and financial accuracy issues that
 These fixes address authorization bypasses, broken functionality, and significant security gaps.
 
 | ID | Issue | Fix | Est. Effort |
-|:---|:------|:----|:------------|
-| C-03 | Race condition `set_default_org` | Wrap in `transaction.atomic()` | 1 hour |
+|----|-------|-----|-------------|
+| C-03 | Race condition set_default_org | Wrap in `transaction.atomic()` | 1 hour |
 | C-04 | Pending users get RLS permissions | Add `accepted_at__isnull=False` filter | 1 hour |
 | FE-002 | PDF downloads broken | Refactor to server-side API client | 4 hours |
 | DB-001 | RLS missing on 4 tables | Add RLS policies to `database_schema.sql` | 3 hours |
@@ -488,7 +491,7 @@ These fixes address authorization bypasses, broken functionality, and significan
 These fixes address documentation misalignments, code quality issues, and architectural consistency.
 
 | ID | Issue | Fix | Est. Effort |
-|:---|:------|:----|:------------|
+|----|-------|-----|-------------|
 | DOC-01 | Endpoint count inconsistent | Count actual endpoints, update all docs | 3 hours |
 | DOC-02 | Model/table counts wrong | Count actual models/tables, update all docs | 2 hours |
 | DOC-03 | Version numbers inconsistent | Unify to single version across all docs | 1 hour |
