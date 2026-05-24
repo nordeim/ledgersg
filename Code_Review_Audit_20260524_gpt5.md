@@ -1,5 +1,3 @@
-I could not complete a local `git clone` here because the container cannot resolve `github.com`, so I inspected the repository directly on GitHub and read the requested docs from the source.
-
 **What LedgerSG is**
 LedgerSG is documented as a production-grade, double-entry accounting platform for Singapore SMBs, focused on IRAS 2026 compliance and workflows such as GST F5, InvoiceNow/Peppol, BCRS handling, bank reconciliation, audit trails, and multi-tenant isolation. The README, PAD, CLAUDE, and GEMINI all describe the same core mission: reduce compliance burden while keeping the accounting engine authoritative and auditable. ([GitHub][1])
 
