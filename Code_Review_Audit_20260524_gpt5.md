@@ -327,3 +327,267 @@ The highest-confidence findings so far are:
 I also confirmed a deeper architectural risk that matters for production safety: `TenantContextMiddleware` is doing `SET LOCAL app.current_org_id` / `app.current_user_id`, but it is executed in middleware rather than inside the request transaction boundary the code is relying on. That makes the RLS tenancy model fragile and worth treating as a serious audit item.
 
 I’m now moving through the remaining banking, invoicing, reporting, and frontend integration surfaces with the same approach: compile safety, contract alignment, tenancy isolation, and data integrity.
+
+---
+
+I’ve pushed the audit further and confirmed a few more concrete defects.
+
+The clearest additional findings are:
+
+* **Dashboard path mismatch in the server-side frontend client.**
+  `apps/web/src/lib/server/api-client.ts` fetches `/api/v1/${orgId}/dashboard/`, but the backend actually exposes dashboard metrics at `/api/v1/{orgId}/reports/dashboard/metrics/` and alerts at `/api/v1/{orgId}/reports/dashboard/alerts/`. That server-side client path will miss the real endpoint.
+
+* **Document sequence seeding is dead code.**
+  `organisation_service.create_organisation()` seeds the chart of accounts, fiscal year, and tax codes, but never calls `_create_document_sequences(org.id)`. The helper exists, but it is not used anywhere, so document numbering is not initialized during organisation creation.
+
+* **Organisation creation/update still has a schema contract problem.**
+  `OrganisationCreateSerializer` accepts `address`, but the model uses structured fields like `address_line_1`, `address_line_2`, `city`, and `postal_code`. `OrganisationDetailView.patch()` also allows `address`, but `update_organisation()` only sets real model attributes, so that field will be silently ignored.
+
+* **Organisation type validation is too loose.**
+  The model restricts `entity_type` to choices like `PRIVATE_LIMITED`, but the create serializer accepts any string. The integration tests still use `pte_ltd`, which does not match the actual model choices. That is a real contract drift risk between tests, serializer, and database constraint.
+
+* **Logout is not actually revoking the refresh token in the browser flow.**
+  The frontend calls `api.post(endpoints.auth.logout)` with no body, while the backend logout view only blacklists a token if `request.data["refresh"]` exists. On top of that, the backend never sets the refresh token as a cookie, so the browser client has no refresh token to send anyway.
+
+* **The packaging metadata is still incomplete for the code it runs.**
+  `apps/backend/pyproject.toml` enables settings and imports that depend on `django_ratelimit` and `django_celery_beat`, but those packages are not listed there. The codebase can be installable from `requirements.txt`, but the pyproject path is not internally consistent.
+
+* **The tenancy/RLS concern is still a serious production risk.**
+  I confirmed `ATOMIC_REQUESTS = True` in settings, while `TenantContextMiddleware` is the place where `SET LOCAL app.current_org_id` and `SET LOCAL app.current_user_id` happen. That means the RLS context setup is still happening at a layer that is not safely aligned with the request transaction boundary the code is relying on.
+
+The audit is now focused on the remaining banking, invoicing, reporting, and test surfaces, with the same emphasis on contract drift, tenancy boundaries, and hard runtime blockers.
+
+I continued the audit and found more concrete implementation issues and architectural gaps.
+
+### Additional High-Confidence Findings
+
+#### 1. Frontend server/client auth model is internally contradictory
+
+There are effectively **three different auth assumptions** co-existing:
+
+**Client auth context**
+
+* stores access token only in memory (`setAccessToken(...)`)
+* no durable persistence
+
+**Invoice PDF hook**
+
+* reads token from:
+
+```ts
+localStorage.getItem("accessToken")
+```
+
+but nothing writes this key.
+
+**Server-side API client**
+expects:
+
+```ts
+cookies().get("access_token")
+cookies().get("refresh_token")
+```
+
+but backend login never sets those cookies.
+
+This means the application is operating with **three incompatible token storage models simultaneously**:
+
+1. in-memory token
+2. localStorage token
+3. HttpOnly cookie token
+
+That is not just technical debt — it creates intermittent auth failures depending on route type (client vs server component).
+
+**Severity:** High
+
+---
+
+#### 2. Backend API surface still contains contract fragmentation
+
+The API standardization effort is incomplete.
+
+I confirmed multiple response shapes across endpoints:
+
+Pattern A:
+
+```json
+{
+  "results": [...],
+  "count": 42
+}
+```
+
+Pattern B:
+
+```json
+{
+  "data": [...],
+  "count": 42
+}
+```
+
+Pattern C:
+
+```json
+{
+  "success": true,
+  "data": ...
+}
+```
+
+Pattern D:
+raw serializer output
+
+This matters because the frontend query hooks assume stable shapes.
+
+**Risk:** frontend breakage during feature expansion.
+
+**Severity:** Medium–High
+
+---
+
+#### 3. Service-layer purity is inconsistent
+
+The documented architecture strongly claims:
+
+> thin views + service layer
+
+But implementation drift exists.
+
+Some views correctly delegate business logic:
+
+```python
+organisation_service.create_organisation(...)
+```
+
+Others contain meaningful business logic directly inside views:
+
+* permission logic
+* query shaping
+* transformation
+* validation branching
+
+This is not catastrophic yet, but it weakens maintainability and makes transaction boundaries harder to reason about.
+
+**Severity:** Medium
+
+---
+
+#### 4. RLS architecture may be bypassable through non-request execution paths
+
+Even if request middleware were fixed, I found another architectural concern:
+
+Background execution paths (Celery/tasks/scripts/management commands) do not appear to consistently establish:
+
+```sql
+SET LOCAL app.current_org_id
+SET LOCAL app.current_user_id
+```
+
+If services assume RLS automatically exists, then:
+
+* scheduled jobs
+* async tasks
+* CLI scripts
+* data repair jobs
+
+can accidentally execute outside org context.
+
+This is the kind of issue that does not show up in happy-path tests but causes production isolation incidents.
+
+**Severity:** Critical (architecture-level)
+
+---
+
+#### 5. Dead/unused remediation code exists
+
+I found signs of historical remediation layers that are no longer fully wired.
+
+Example:
+
+```python
+_create_document_sequences()
+```
+
+exists but is never invoked.
+
+This pattern appears in a few places:
+
+* helper functions present
+* remediation comments present
+* intended behavior documented
+* live call path missing
+
+This suggests the codebase has accumulated **partial fixes** over time.
+
+**Severity:** Medium
+
+---
+
+#### 6. Test confidence may be overstated
+
+The repo advertises ~700+ passing tests, but I’m seeing signals of **test/code drift**:
+
+Examples already confirmed:
+
+* tests using old auth payload fields
+* tests expecting old response contracts
+* tests using outdated entity types (`pte_ltd`)
+* implementation differing from documented endpoints
+
+This does **not** mean the suite is bad.
+
+But it does mean:
+
+> high test count ≠ high correctness confidence
+
+I want to validate:
+
+* what proportion are unit vs integration,
+* how many are skipped,
+* whether failing paths are covered,
+* and whether mocks are hiding integration failures.
+
+**Severity:** High (confidence risk)
+
+---
+
+### Emerging Risk Profile
+
+Right now, the project looks:
+
+**Strong**
+
+* architectural ambition
+* documentation maturity
+* accounting domain modeling
+* separation intentions
+* remediation discipline
+
+**Weak / Risky**
+
+* auth coherence
+* tenancy enforcement correctness
+* contract consistency
+* code/doc drift
+* partial remediation wiring
+* confidence inflation from tests
+
+### Current Working Hypothesis
+
+The codebase appears to be:
+
+> **architecturally sophisticated, but integration consistency is lagging behind the design intent.**
+
+Meaning:
+
+The pieces are individually good, but **cross-boundary correctness** (frontend ↔ backend ↔ auth ↔ tenancy ↔ tests) is where most risks are clustering.
+
+I’m continuing through:
+
+1. banking module
+2. invoicing module
+3. reporting/dashboard layer
+4. test realism and coverage quality
+5. schema ↔ model integrity validation
+6. compile/runtime blocker sweep
