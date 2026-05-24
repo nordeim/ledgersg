@@ -303,3 +303,27 @@ The strongest findings so far are:
 
 I’m continuing the audit through the remaining backend modules next, especially banking, invoicing, reporting, and the database/schema layer, to check for similar contract and invariant breaks.
 
+---
+
+I’ve continued the audit against the actual uploaded codebase and found more concrete issues.
+
+The highest-confidence findings so far are:
+
+* `apps/backend/apps/core/services/org_seed_service.py` has a real `IndentationError` in the account seeding loop. That file does not compile.
+* The auth contract is still inconsistent end-to-end:
+
+  * backend `login_view` returns `{"user": ..., "tokens": {...}}`
+  * backend `refresh_view` expects `refresh`
+  * backend `logout_view` also expects `refresh`
+  * backend `change_password_view` expects `old_password`
+  * backend integration tests still send `refresh_token` and `current_password`
+  * frontend login stores only an in-memory access token, while the server-side client expects `access_token` and `refresh_token` cookies that the backend does not set
+* `OrganisationCreateSerializer` accepts `address`, but the organisation model uses `address_line_1`, `address_line_2`, `city`, `postal_code`, and related fields. That makes organisation creation/update contract-wrong for address data.
+* `OrganisationDetailView.patch()` allows `"address"` in updates, but `organisation_service.update_organisation()` only sets real model attributes, so `address` updates will silently do nothing.
+* `toggle_gst_registration()` assigns `gst_reg_number` and then checks `if not org.gst_reg_number:` before seeding GST accounts. That seed path will never run after assignment.
+* `_create_document_sequences()` exists in `organisation_service.py` but is never called anywhere, so document numbering sequences are not initialized by organisation creation.
+* The project’s own API contract standardization tests expect collection endpoints to return `{"results": ..., "count": ...}`, but some implemented views still return `{"data": ..., "count": ...}`.
+
+I also confirmed a deeper architectural risk that matters for production safety: `TenantContextMiddleware` is doing `SET LOCAL app.current_org_id` / `app.current_user_id`, but it is executed in middleware rather than inside the request transaction boundary the code is relying on. That makes the RLS tenancy model fragile and worth treating as a serious audit item.
+
+I’m now moving through the remaining banking, invoicing, reporting, and frontend integration surfaces with the same approach: compile safety, contract alignment, tenancy isolation, and data integrity.
