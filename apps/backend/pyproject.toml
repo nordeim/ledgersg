@@ -33,8 +33,12 @@ dependencies = [
 
     # Async / Task Queue
     "celery[redis]==5.6.2",
-    # "django-celery-beat>=2.6,<3.0",
+    # django-celery-beat 2.9.0 supports Django 6 (2.8.1 pins Django<6 and
+    # downgrades the venv); settings import django_celery_beat (A-6)
+    "django-celery-beat==2.9.0",
     "redis==6.4.0",
+    # Rate limiting (SEC-002) — settings import django_ratelimit (A-6)
+    "django-ratelimit>=4.1,<5",
 
     # Decimal / Financial
     "py-moneyed==3.0",               # Currency-aware Decimal
