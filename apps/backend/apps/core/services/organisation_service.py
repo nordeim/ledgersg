@@ -86,40 +86,78 @@ def _seed_chart_of_accounts(org_id: uuid.UUID, gst_registered: bool) -> None:
         )
 
 
+def _seed_gst_control_accounts(org_id: uuid.UUID) -> None:
+    """
+    Seed the GST control accounts for a newly GST-registered org.
+
+    Mirrors the GST-conditional block of
+    core.seed_default_chart_of_accounts (1600 GST Input Tax, 2600 GST
+    Output Tax, 2610 GST Payable / Receivable) without re-running the
+    whole (non-idempotent) chart seed. Idempotent per account code.
+    """
+    from apps.core.models import Account, AccountSubType, AccountType
+
+    asset_type = AccountType.objects.get(code="ASSET")
+    liability_type = AccountType.objects.get(code="LIABILITY")
+    current_asset = AccountSubType.objects.get(code="CURRENT_ASSET")
+    tax_payable = AccountSubType.objects.get(code="TAX_PAYABLE")
+
+    assets_parent = Account.objects.filter(
+        org_id=org_id, code="1000"
+    ).first()
+    liabilities_parent = Account.objects.filter(
+        org_id=org_id, code="2000"
+    ).first()
+
+    definitions = [
+        (
+            "1600",
+            "GST Input Tax",
+            asset_type,
+            current_asset,
+            assets_parent,
+            "TX",
+        ),
+        (
+            "2600",
+            "GST Output Tax",
+            liability_type,
+            tax_payable,
+            liabilities_parent,
+            "SR",
+        ),
+        (
+            "2610",
+            "GST Payable / Receivable",
+            liability_type,
+            tax_payable,
+            liabilities_parent,
+            None,
+        ),
+    ]
+
+    for code, name, acc_type, sub_type, parent, tax_default in definitions:
+        Account.objects.get_or_create(
+            org_id=org_id,
+            code=code,
+            defaults={
+                "name": name,
+                "account_type": acc_type,
+                "account_sub_type": sub_type,
+                "parent": parent,
+                "is_system": True,
+                "tax_code_default": tax_default,
+                "is_active": True,
+            },
+        )
+
+
 def _seed_tax_codes(org_id: uuid.UUID) -> None:
     """
     Seed default IRAS tax codes.
     """
     from apps.gst.services.tax_code_service import TaxCodeService
     TaxCodeService.seed_default_tax_codes(org_id)
-
-
-def _create_document_sequences(org_id: uuid.UUID) -> None:
-    """
-    Create document sequences for the organisation.
-    """
-    sequences = [
-        ("INVOICE", "INV", 1),
-        ("CREDIT_NOTE", "CN", 1),
-        ("DEBIT_NOTE", "DN", 1),
-        ("PURCHASE_ORDER", "PO", 1),
-        ("QUOTE", "QUO", 1),
-        ("JOURNAL_ENTRY", "JE", 1),
-    ]
-    
-    with connection.cursor() as cursor:
-        for doc_type, prefix, start_num in sequences:
-            cursor.execute(
-                """
-                INSERT INTO core.document_sequence (
-                    id, org_id, document_type, prefix, next_number, 
-                    padding, fiscal_year_reset, created_at, updated_at
-                ) VALUES (
-                    gen_random_uuid(), %s, %s, %s, %s, 5, false, NOW(), NOW()
-                )
-                """,
-                [str(org_id), doc_type, prefix, start_num]
-            )
 
 
 def _create_first_fiscal_year(org: Organisation, start_month: int) -> None:
@@ -233,15 +271,47 @@ def _assign_owner_role(org: Organisation, user: AppUser) -> None:
     )
 
 
+# Fields the service layer may update (mirrors the PATCH view's allowlist;
+# regulatory fields like gst_registered/gst_reg_number belong to
+# toggle_gst_registration, and id/created_at/updated_at are immutable).
+UPDATABLE_ORG_FIELDS = {
+    "name",
+    "legal_name",
+    "uen",
+    "entity_type",
+    "address",
+    "contact_email",
+    "contact_phone",
+    "base_currency",
+    "peppol_participant_id",
+    "invoicenow_enabled",
+}
+
+
 def update_organisation(org: Organisation, **kwargs) -> Organisation:
     """
-    Update organisation settings.
+    Update organisation settings (allow-listed fields only, P5/M-6).
+
+    Unknown or protected keys are ignored (the HTTP layer filters too —
+    this is the service-boundary defence in depth; a direct caller must
+    not be able to setattr id/created_at/gst_* on the model).
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    applied = False
     for key, value in kwargs.items():
-        if hasattr(org, key):
+        if key in UPDATABLE_ORG_FIELDS:
             setattr(org, key, value)
-    
-    org.save()
+            applied = True
+        else:
+            logger.warning(
+                "update_organisation ignored non-updatable field %r", key
+            )
+
+    if applied:
+        org.save()
     return org
 
 
@@ -259,14 +329,20 @@ def toggle_gst_registration(
             raise ValidationError("GST registration number is required.")
         if not reg_date:
             raise ValidationError("GST registration date is required.")
-        
+
+        was_registered = org.gst_registered
         org.gst_registered = True
         org.gst_reg_number = reg_number
         org.gst_reg_date = reg_date
-        
-        # Seed GST accounts if newly registered
-        if not org.gst_reg_number:
-            _seed_chart_of_accounts(org.id, True)
+
+        # Seed the GST control accounts on a NEW registration (P5/M-5: the
+        # old `if not org.gst_reg_number` guard ran AFTER the assignment
+        # above and was always False — the accounts were never seeded and
+        # GST-bearing journal postings failed closed). Targeted insert: the
+        # full chart seed is not idempotent (sequences + accounts would
+        # collide with what create_organisation already seeded).
+        if not was_registered:
+            _seed_gst_control_accounts(org.id)
     else:
         org.gst_registered = False
         org.gst_reg_number = ""
