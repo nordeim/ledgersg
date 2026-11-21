@@ -1,12 +1,18 @@
 /**
  * LEDGERSG API CLIENT
- * 
+ *
  * Purpose: Typed fetch wrapper with error handling, retry logic, JWT refresh
  * All API calls flow through this client for consistency
- * 
+ *
  * Backend: Django 6.0 + DRF with JWT Authentication
- * - Access token: 15 min expiry, stored in memory
- * - Refresh token: 7 day expiry, HttpOnly cookie
+ * - Access token: 15 min expiry, held in module memory only (never storage)
+ * - Refresh token: 7 day expiry, set by the backend as an HttpOnly cookie
+ *   (login/register/refresh set + rotate it; logout and password change
+ *   expire it). The browser replays it via credentials:"include" — this
+ *   module never handles the refresh token in JavaScript (P4/E-1).
+ * - Refresh triggers on ANY 401, including the cold-reload state where no
+ *   access token is in memory — that is what makes sessions survive page
+ *   reloads.
  * - Org-scoped URLs: /api/v1/{org_id}/invoices/
  */
 
@@ -66,8 +72,13 @@ async function fetchWithAuth(
     credentials: "include", // Important for HttpOnly refresh cookie
   });
 
-  // Handle 401 - try to refresh token
-  if (response.status === 401 && accessToken) {
+  // Handle 401 — try to refresh the token. The refresh runs even when no
+  // access token is in memory: after a full page reload (cold start) the
+  // HttpOnly refresh cookie is the ONLY credential left, and refusing to
+  // attempt the refresh in that state is what dropped sessions on every
+  // reload pre-P4. tryRefreshToken is a plain fetch (not fetchWithAuth),
+  // so there is no retry loop (P4/E-1).
+  if (response.status === 401) {
     const refreshed = await tryRefreshToken();
     if (refreshed) {
       // Retry the original request with new token
@@ -115,13 +126,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 /**
- * Attempt to refresh the access token using the refresh token.
+ * Attempt to refresh the access token.
  *
- * The backend returns tokens in a nested structure:
+ * The refresh credential comes from the HttpOnly refresh cookie the backend
+ * set on login (and rotates on every refresh): the browser attaches it
+ * automatically through credentials:"include" — no body, and the refresh
+ * token is never handled in JavaScript (zero-JWT-exposure mandate).
+ *
+ * The backend returns (and rotates) the token pair:
  *   { tokens: { access: "...", refresh: "..." } }
- *
- * We support both nested and flat structures for backward compatibility
- * and resilience against API changes.
+ * Both nested and flat structures are supported for backward
+ * compatibility with API clients that used the body flow.
  *
  * @returns {Promise<boolean>} True if token was refreshed successfully
  */
