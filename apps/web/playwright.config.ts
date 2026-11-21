@@ -15,6 +15,11 @@ import { defineConfig, devices } from "@playwright/test";
  *   Mobile viewport coverage is always exercised by the responsive tests in
  *   e2e/navigation.spec.ts via setViewportSize, so the default set loses nothing.
  *
+ * Backend-dependent specs (auth error surfacing, the authenticated invoice
+ * form) read E2E_API_URL and skip when it is unset — same green-by-default
+ * philosophy. `npm run test:e2e:full` sets E2E_API_URL=http://127.0.0.1:8000
+ * and requires the Django backend + Redis to be running.
+ *
  * See https://playwright.dev/docs/test-configuration
  */
 

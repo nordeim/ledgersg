@@ -29,7 +29,8 @@
     "test:all": "vitest run && tsc --noEmit && playwright test",
     "================ UTILITY ======================================": "",
     "clean": "rm -rf .next dist",
-    "clean:all": "rm -rf .next dist node_modules package-lock.json"
+    "clean:all": "rm -rf .next dist node_modules package-lock.json",
+    "test:e2e:full": "E2E_API_URL=http://127.0.0.1:8000 playwright test"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.11.1",
