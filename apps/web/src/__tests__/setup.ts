@@ -53,6 +53,18 @@ Object.defineProperty(window, "ResizeObserver", {
   value: MockResizeObserver,
 });
 
+// Radix UI pointer-capture APIs missing in jsdom (Select/Menu/Dropdown
+// throw `target.hasPointerCapture is not a function` mid-interaction,
+// which can abort option rendering — masks real assertions)
+if (!Element.prototype.hasPointerCapture) {
+  Object.defineProperties(Element.prototype, {
+    hasPointerCapture: { value: vi.fn(() => false) },
+    setPointerCapture: { value: vi.fn() },
+    releasePointerCapture: { value: vi.fn() },
+    scrollIntoView: { value: vi.fn() },
+  });
+}
+
 // Suppress console errors during tests (optional)
 // vi.spyOn(console, "error").mockImplementation(() => {});
 // vi.spyOn(console, "warn").mockImplementation(() => {});

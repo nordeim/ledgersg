@@ -78,6 +78,7 @@ export function createInvoiceLine(): InvoiceLine {
     discount_pct: "0",
     tax_code: "SR" as TaxCode,
     is_bcrs_deposit: false,
+    account_id: "",
     line_subtotal: "0.0000",
     gst_amount: "0.0000",
     line_total: "0.0000",

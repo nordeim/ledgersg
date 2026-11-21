@@ -7,10 +7,11 @@ import {
   invoiceSchema,
   type Invoice,
   type InvoiceInput,
+  type TaxCode,
   createEmptyInvoice,
   createEmptyLine,
 } from "@/shared/schemas/invoice";
-import { InvoiceLineRow } from "./invoice-line-row";
+import { InvoiceLineRow, type LineAccountOption } from "./invoice-line-row";
 import { TaxBreakdownCard } from "./tax-breakdown-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { calculateFromLines } from "@/lib/gst-engine";
+import {
+  buildContactPayload,
+  buildDocumentPayload,
+  validateSubmissionReadiness,
+} from "@/lib/invoice-submit";
 import { useInvoiceStore } from "@/stores/invoice-store";
+import { useAuth } from "@/providers/auth-provider";
+import { useTaxCodes } from "@/hooks/use-tax-codes";
+import { useRevenueAccounts } from "@/hooks/use-accounts";
+import { useCreateContact } from "@/hooks/use-contacts";
+import { useCreateInvoice } from "@/hooks/use-invoices";
 
 interface InvoiceFormProps {
   initialData?: Partial<InvoiceInput>;
@@ -34,6 +45,9 @@ export function InvoiceForm({
   const { setHasUnsavedChanges } = useInvoiceStore();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const { currentOrg } = useAuth();
+  const orgId = currentOrg?.id ?? null;
 
   const defaultValues = React.useMemo(() => {
     const empty = createEmptyInvoice();
@@ -53,9 +67,16 @@ export function InvoiceForm({
     control,
     handleSubmit,
     watch,
-    setValue,
     formState: { isDirty },
   } = methods;
+
+  // Server-resolved tax codes in force on the document's own date (P3/D-3)
+  const issueDate = watch("issue_date");
+  const { data: taxCodes } = useTaxCodes(orgId, issueDate);
+  const { data: revenueAccounts } = useRevenueAccounts(orgId);
+
+  const createContact = useCreateContact(orgId ?? "");
+  const createInvoice = useCreateInvoice(orgId ?? "");
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -65,17 +86,34 @@ export function InvoiceForm({
   // Watch lines for real-time calculations
   const lines = watch("lines") || [];
 
+  // Rate overrides from the server-resolved rows (per tax code) drive the
+  // preview at the rate in force on the document date (P3/D-3).
+  const rateOverrides = React.useMemo<Partial<Record<TaxCode, string>> | undefined>(() => {
+    if (!taxCodes || taxCodes.length === 0) return undefined;
+    const map: Partial<Record<TaxCode, string>> = {};
+    for (const tc of taxCodes) {
+      map[tc.code] = tc.rate;
+    }
+    return map;
+  }, [taxCodes]);
+
   // Calculate totals
   const { totals } = React.useMemo(() => {
-    return calculateFromLines(lines as Invoice["lines"]);
-  }, [lines]);
+    return calculateFromLines(lines as Invoice["lines"], rateOverrides);
+  }, [lines, rateOverrides]);
 
   // Update form totals
+  const setTotals = React.useCallback(
+    (t: typeof totals) => {
+      methods.setValue("subtotal", t.subtotal);
+      methods.setValue("gst_amount", t.gst_amount);
+      methods.setValue("total_amount", t.total_amount);
+    },
+    [methods]
+  );
   React.useEffect(() => {
-    setValue("subtotal", totals.subtotal);
-    setValue("gst_amount", totals.gst_amount);
-    setValue("total_amount", totals.total_amount);
-  }, [totals, setValue]);
+    setTotals(totals);
+  }, [totals, setTotals]);
 
   // Track unsaved changes
   React.useEffect(() => {
@@ -94,34 +132,59 @@ export function InvoiceForm({
     }
   };
 
-  // Form submission
+  // Form submission (P3/D-1): create the contact, then the document, via
+  // the real API — the server recalculates every amount authoritatively.
   const onSubmit = async (data: InvoiceInput) => {
     setIsSubmitting(true);
     setError(null);
 
     try {
-      // TODO: Replace with actual API call in Milestone 4
-      console.log("Submitting invoice:", data);
+      const taxCodeIdByCode = new Map(
+        (taxCodes ?? []).map((tc) => [tc.code, tc.id] as const)
+      );
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const problems = validateSubmissionReadiness(data as Invoice, taxCodeIdByCode);
+      if (problems.length > 0) {
+        setError(problems[0]);
+        return;
+      }
 
-      // Generate a mock invoice ID
-      const invoiceId = crypto.randomUUID();
+      const contact = await createContact.mutateAsync(
+        buildContactPayload(data as Invoice)
+      );
+      const document = await createInvoice.mutateAsync(
+        buildDocumentPayload(data as Invoice, contact.id, taxCodeIdByCode)
+      );
 
-      onSuccess?.(invoiceId);
+      if (!document.id) {
+        setError("The server response did not include the created document id.");
+        return;
+      }
+      onSuccess?.(document.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save invoice");
+      setError(
+        err instanceof Error ? err.message : "Failed to save invoice"
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const onSaveDraft = async () => {
-    const data = methods.getValues();
-    console.log("Saving draft:", { ...data, status: "DRAFT" });
-    // TODO: Implement draft save
+  const onSaveDraft = () => {
+    // The create endpoint always creates a DRAFT document — "save draft"
+    // runs the same validated submission path.
+    handleSubmit(onSubmit)();
   };
+
+  const accountOptions: LineAccountOption[] = React.useMemo(
+    () =>
+      (revenueAccounts ?? []).map((acc) => ({
+        id: acc.id,
+        code: acc.code,
+        name: acc.name,
+      })),
+    [revenueAccounts]
+  );
 
   return (
     <FormProvider {...methods}>
@@ -237,10 +300,11 @@ export function InvoiceForm({
                   role="rowheader"
                 >
                   <div className="col-span-1"></div>
-                  <div className="col-span-4">Description</div>
+                  <div className="col-span-3">Description</div>
                   <div className="col-span-1 text-right">Qty</div>
                   <div className="col-span-2 text-right">Price</div>
                   <div className="col-span-1 text-right">Disc%</div>
+                  <div className="col-span-1">Account</div>
                   <div className="col-span-1">Tax</div>
                   <div className="col-span-1 text-right">Total</div>
                   <div className="col-span-1"></div>
@@ -254,6 +318,8 @@ export function InvoiceForm({
                       index={index}
                       isGSTRegistered={isGSTRegistered}
                       onRemove={() => handleRemoveLine(index)}
+                      accounts={accountOptions}
+                      taxCodes={taxCodes}
                     />
                   ))}
                 </div>

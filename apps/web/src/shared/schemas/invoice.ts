@@ -39,6 +39,9 @@ export const invoiceLineSchema = z.object({
     .default("0"),
   tax_code: z.enum(TAX_CODES).default("SR"),
   is_bcrs_deposit: z.boolean().default(false),
+  // Posting account (backend add_line requires account_id — P3/D-1).
+  // Empty string = not yet selected; the submit adapter validates it.
+  account_id: z.string().default(""),
   // Computed fields (client-side preview)
   line_subtotal: z.string(),
   gst_amount: z.string(),
@@ -126,6 +129,7 @@ export function createEmptyLine(): InvoiceLine {
     discount_pct: "0",
     tax_code: "SR",
     is_bcrs_deposit: false,
+    account_id: "",
     line_subtotal: "0.0000",
     gst_amount: "0.0000",
     line_total: "0.0000",

@@ -16,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, endpoints } from "@/lib/api-client";
 import { toast } from "@/hooks/use-toast";
 import type { Invoice, InvoiceInput } from "@/shared/schemas/invoice";
+import type { DocumentPayload } from "@/lib/invoice-submit";
 
 // List invoices with optional filters
 export function useInvoices(
@@ -62,11 +63,13 @@ export function useInvoice(orgId: string, invoiceId: string) {
 }
 
 // Create invoice
+// The mutationFn takes the backend create contract (mapped from the form
+// by lib/invoice-submit.ts — P3/D-1).
 export function useCreateInvoice(orgId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: InvoiceInput) => {
+    mutationFn: async (data: DocumentPayload) => {
       const response = await api.post<Invoice>(
         endpoints.invoices(orgId).list,
         data
@@ -292,15 +295,13 @@ export function useInvoiceNowStatus(orgId: string, invoiceId: string) {
 export function useInvoicePDF(orgId: string, invoiceId: string) {
   return useMutation({
     mutationFn: async () => {
-      const url = `${endpoints.invoices(orgId).pdf(invoiceId)}`;
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-        },
-      });
-      if (!response.ok) throw new Error("Failed to download PDF");
-      
-      const blob = await response.blob();
+      // Authorized through the api-client (in-memory token + 401 refresh)
+      // — never localStorage: the zero-JWT-exposure mandate forbids
+      // client-side token storage, and the token never lived there anyway
+      // (P3/D-2 fixed the old `localStorage.getItem("accessToken")` path
+      // that sent `Bearer null` on every download).
+      const blob = await api.blob(endpoints.invoices(orgId).pdf(invoiceId));
+
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = downloadUrl;
