@@ -285,6 +285,11 @@ export const endpoints = {
     detail: (id: string) => `/api/v1/${orgId}/invoicing/contacts/${id}/`,
   }),
 
+  // Journal (org-scoped) - P6/C-5: flat line-level ledger rows
+  journal: (orgId: string) => ({
+    ledger: `/api/v1/${orgId}/journal-entries/ledger/`,
+  }),
+
   // Dashboard (org-scoped) - FIXED: Added /reports/ prefix to match backend
   dashboard: (orgId: string) => ({
     metrics: `/api/v1/${orgId}/reports/dashboard/metrics/`,

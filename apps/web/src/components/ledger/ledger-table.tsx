@@ -15,95 +15,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronUp, ChevronDown, ChevronsUpDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { LedgerLine } from "@/hooks/use-ledger";
 
-interface JournalEntry {
-  id: string;
-  entry_number: string;
-  entry_date: string;
-  account_code: string;
-  account_name: string;
-  description: string;
-  debit: string;
-  credit: string;
-  reference: string;
+/**
+ * Real general-ledger table (P6/C-5 — replaced the mockData fixture).
+ * Props-driven: rows come from the backend ledger endpoint via useLedger
+ * in the page client; one row per journal line.
+ */
+
+function formatMoney(value: string) {
+  const n = Number(value);
+  if (Number.isNaN(n)) return value;
+  return n.toLocaleString("en-SG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
-// Mock data for display
-const mockData: JournalEntry[] = [
-  {
-    id: "1",
-    entry_number: "JE-2026-001",
-    entry_date: "2026-01-15",
-    account_code: "4100",
-    account_name: "Sales Revenue",
-    description: "Invoice INV-2026-001",
-    debit: "0.00",
-    credit: "5000.00",
-    reference: "INV-001",
-  },
-  {
-    id: "2",
-    entry_number: "JE-2026-001",
-    entry_date: "2026-01-15",
-    account_code: "1300",
-    account_name: "Accounts Receivable",
-    description: "Invoice INV-2026-001",
-    debit: "5450.00",
-    credit: "0.00",
-    reference: "INV-001",
-  },
-  {
-    id: "3",
-    entry_number: "JE-2026-001",
-    entry_date: "2026-01-15",
-    account_code: "2200",
-    account_name: "GST Output",
-    description: "Invoice INV-2026-001",
-    debit: "0.00",
-    credit: "450.00",
-    reference: "INV-001",
-  },
-  {
-    id: "4",
-    entry_number: "JE-2026-002",
-    entry_date: "2026-01-16",
-    account_code: "5100",
-    account_name: "Office Expenses",
-    description: "Office supplies purchase",
-    debit: "250.00",
-    credit: "0.00",
-    reference: "EXP-001",
-  },
-  {
-    id: "5",
-    entry_number: "JE-2026-002",
-    entry_date: "2026-01-16",
-    account_code: "1200",
-    account_name: "Cash on Hand",
-    description: "Office supplies purchase",
-    debit: "0.00",
-    credit: "272.50",
-    reference: "EXP-001",
-  },
-  {
-    id: "6",
-    entry_number: "JE-2026-002",
-    entry_date: "2026-01-16",
-    account_code: "2100",
-    account_name: "GST Input",
-    description: "Office supplies purchase",
-    debit: "22.50",
-    credit: "0.00",
-    reference: "EXP-001",
-  },
-];
+interface LedgerTableProps {
+  data: LedgerLine[];
+}
 
-export function LedgerTable() {
+export function LedgerTable({ data }: LedgerTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = React.useState("");
 
-  const columns: ColumnDef<JournalEntry>[] = [
+  const columns: ColumnDef<LedgerLine>[] = [
     {
       accessorKey: "entry_number",
       header: ({ column }) => (
@@ -124,7 +62,7 @@ export function LedgerTable() {
       ),
       cell: ({ row }) => (
         <span className="font-mono text-sm text-text-primary">
-          {row.getValue("entry_number")}
+          JE-{String(row.getValue("entry_number")).padStart(5, "0")}
         </span>
       ),
     },
@@ -184,14 +122,15 @@ export function LedgerTable() {
       ),
       cell: ({ row }) => {
         const value = row.getValue("debit") as string;
+        const isZero = Number(value) === 0;
         return (
           <span
             className={cn(
               "font-mono text-sm text-right tabular-nums slashed-zero block",
-              value !== "0.00" ? "text-text-primary" : "text-text-muted"
+              !isZero ? "text-text-primary" : "text-text-muted"
             )}
           >
-            {value !== "0.00" ? `S$ ${value}` : "-"}
+            {!isZero ? formatMoney(value) : "-"}
           </span>
         );
       },
@@ -216,14 +155,15 @@ export function LedgerTable() {
       ),
       cell: ({ row }) => {
         const value = row.getValue("credit") as string;
+        const isZero = Number(value) === 0;
         return (
           <span
             className={cn(
               "font-mono text-sm text-right tabular-nums slashed-zero block",
-              value !== "0.00" ? "text-text-primary" : "text-text-muted"
+              !isZero ? "text-text-primary" : "text-text-muted"
             )}
           >
-            {value !== "0.00" ? `S$ ${value}` : "-"}
+            {!isZero ? formatMoney(value) : "-"}
           </span>
         );
       },
@@ -240,7 +180,7 @@ export function LedgerTable() {
   ];
 
   const table = useReactTable({
-    data: mockData,
+    data,
     columns,
     state: {
       sorting,
@@ -313,7 +253,7 @@ export function LedgerTable() {
       {/* Pagination Info */}
       <div className="flex items-center justify-between text-sm text-text-secondary">
         <span>
-          Showing {table.getRowModel().rows.length} of {mockData.length} entries
+          Showing {table.getRowModel().rows.length} of {data.length} entries
         </span>
       </div>
     </div>
