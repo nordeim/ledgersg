@@ -106,7 +106,23 @@ class GSTCalculationRequestSerializer(serializers.Serializer):
     """Serializer for GST calculation request."""
 
     amount = serializers.DecimalField(max_digits=15, decimal_places=4)
-    tax_code_id = serializers.UUIDField(required=False)
+    tax_code = serializers.CharField(
+        required=False,
+        max_length=10,
+        help_text="IRAS tax code (e.g. 'SR') — resolved to the rate in force.",
+    )
+    # Legacy alias: the field always held a tax CODE (never a UUID) — kept as
+    # a string so existing callers are not broken by the canonical rename.
+    tax_code_id = serializers.CharField(
+        required=False,
+        max_length=10,
+        help_text="Deprecated alias of tax_code; holds the code (e.g. 'SR').",
+    )
+    document_date = serializers.DateField(
+        required=False,
+        allow_null=True,
+        help_text="Resolve the rate in force on this date (default: today).",
+    )
     rate = serializers.DecimalField(
         max_digits=5, decimal_places=4,
         required=False, allow_null=True
@@ -114,10 +130,14 @@ class GSTCalculationRequestSerializer(serializers.Serializer):
     is_bcrs_deposit = serializers.BooleanField(default=False)
 
     def validate(self, data):
-        """Validate that either tax_code_id or rate is provided."""
-        if not data.get("tax_code_id") and data.get("rate") is None:
+        """Validate that either a tax code or an explicit rate is provided."""
+        if (
+            not data.get("tax_code")
+            and not data.get("tax_code_id")
+            and data.get("rate") is None
+        ):
             raise serializers.ValidationError(
-                "Either tax_code_id or rate must be provided."
+                "Either tax_code or rate must be provided."
             )
         return data
 

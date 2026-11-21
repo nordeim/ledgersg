@@ -263,6 +263,16 @@ class DocumentService:
 
         # Get tax code and calculate GST
         tax_code = TaxCodeService.get_tax_code(org_id, tax_code_id)
+
+        # Fail closed on stale rate rows: the snapshot must reflect a code in
+        # force on the document's own date (B-3/H-04).
+        if not TaxCodeService.is_effective(tax_code, document.issue_date):
+            raise ValidationError(
+                f"Tax code {tax_code.code} is not effective on the document "
+                f"date {document.issue_date.isoformat()}; use the rate row in "
+                "force on that date."
+            )
+
         gst_result = GSTCalculationService.calculate_line_gst(
             amount=amount, rate=tax_code.rate or Decimal("0.00"), is_bcrs_deposit=is_bcrs_deposit
         )

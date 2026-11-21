@@ -104,12 +104,17 @@ class TaxCodeService:
         is_active: bool | None = None,
         is_gst_charged: bool | None = None,
         include_system: bool = True,
-        code: str | None = None
+        code: str | None = None,
+        effective_on: date | None = None,
     ) -> list[TaxCode]:
         """
         List tax codes for an organisation.
+
+        ``effective_on`` filters to the rows in force on that date (one row
+        per code for a typical history) — without it, every history row is
+        returned, newest rate first within each code (B-3/H-04).
         """
-        from django.db.models import Q
+        from django.db.models import F, Q
         queryset = TaxCode.objects.filter(Q(org_id=org_id) | Q(org_id__isnull=True))
 
         if is_active is not None:
@@ -124,7 +129,31 @@ class TaxCodeService:
         if not include_system:
             queryset = queryset.filter(org_id__isnull=False)
 
-        return list(queryset.order_by("code"))
+        if effective_on is not None:
+            queryset = queryset.filter(
+                Q(effective_from__isnull=True) | Q(effective_from__lte=effective_on)
+            ).filter(Q(effective_to__isnull=True) | Q(effective_to__gte=effective_on))
+
+        rows = queryset.order_by(
+            "code",
+            F("org_id").asc(nulls_last=True),
+            F("effective_from").desc(nulls_last=True),
+        )
+
+        if effective_on is not None:
+            # Resolve to the single row a document dated effective_on would
+            # use per code: org-scoped row beats the system row, newest
+            # effective_from wins within each scope.
+            seen_codes = set()
+            resolved = []
+            for row in rows:
+                if row.code in seen_codes:
+                    continue
+                seen_codes.add(row.code)
+                resolved.append(row)
+            return resolved
+
+        return list(rows)
 
     @staticmethod
     def get_tax_code(org_id: UUID, tax_code_id: UUID) -> TaxCode:
@@ -138,15 +167,51 @@ class TaxCodeService:
             raise ResourceNotFound(f"Tax code {tax_code_id} not found")
 
     @staticmethod
-    def get_tax_code_by_code(org_id: UUID, code: str) -> TaxCode | None:
+    def is_effective(tax_code: TaxCode, on_date: date) -> bool:
         """
-        Get tax code by code.
+        Whether a tax code row is in force on the given date.
+
+        A NULL effective_from means effective from the beginning; a NULL
+        effective_to means open-ended.
         """
-        from django.db.models import Q
+        from_start = tax_code.effective_from is None or tax_code.effective_from <= on_date
+        to_end = tax_code.effective_to is None or tax_code.effective_to >= on_date
+        return from_start and to_end
+
+    @staticmethod
+    def get_tax_code_by_code(
+        org_id: UUID, code: str, as_of: date | None = None
+    ) -> TaxCode | None:
+        """
+        Get the tax code row in force for ``code`` on ``as_of`` (default today).
+
+        Rate history lives as sibling rows keyed by effective_from/effective_to
+        (e.g. SR: 0.07 -> 2022-12-31, 0.08 -> 2023-12-31, 0.09 -> 2024-01-01).
+        Resolution rule (B-3/H-04): effective rows only; org-scoped rows win
+        over system rows (org_id IS NULL); within the winners, the latest
+        effective_from wins. Returns None when nothing is in force — callers
+        decide how to fail.
+        """
+        from django.db.models import F, Q
+
+        as_of = as_of or date.today()
         try:
-            return TaxCode.objects.filter(
-                Q(code=code.upper()) & (Q(org_id=org_id) | Q(org_id__isnull=True))
-            ).first()
+            return (
+                TaxCode.objects.filter(
+                    Q(code=code.upper())
+                    & (Q(org_id=org_id) | Q(org_id__isnull=True)),
+                    is_active=True,
+                    deleted_at__isnull=True,
+                )
+                .filter(
+                    Q(effective_from__isnull=True) | Q(effective_from__lte=as_of)
+                )
+                .filter(
+                    Q(effective_to__isnull=True) | Q(effective_to__gte=as_of)
+                )
+                .order_by(F("org_id").asc(nulls_last=True), "-effective_from")
+                .first()
+            )
         except TaxCode.DoesNotExist:
             return None
 

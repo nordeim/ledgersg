@@ -5,6 +5,10 @@ Tax code management, GST calculation, and GST return filing.
 """
 
 
+from datetime import date as date_type
+from decimal import Decimal
+from uuid import UUID
+
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -32,6 +36,7 @@ from apps.gst.services import (
     TaxCodeService,
 )
 from common.decimal_utils import money
+from common.exceptions import ResourceNotFound, ValidationError
 from common.views import wrap_response
 
 
@@ -46,16 +51,29 @@ class TaxCodeListCreateView(APIView):
 
     @wrap_response
     def get(self, request, org_id: str) -> Response:
-        """List tax codes."""
+        """List tax codes.
+
+        Query params: is_active, is_gst_charged, code, include_system, and
+        effective_on (ISO date — restrict to the rate rows in force on that
+        date, e.g. ?effective_on=2023-06-01 returns the 8% SR row only).
+        """
         is_active = request.query_params.get("is_active")
         is_gst_charged = request.query_params.get("is_gst_charged")
         code = request.query_params.get("code")
         include_system = request.query_params.get("include_system", "true").lower() == "true"
+        effective_on = request.query_params.get("effective_on")
 
         if is_active is not None:
             is_active = is_active.lower() == "true"
         if is_gst_charged is not None:
             is_gst_charged = is_gst_charged.lower() == "true"
+
+        effective_on_date = None
+        if effective_on:
+            try:
+                effective_on_date = date_type.fromisoformat(effective_on)
+            except ValueError:
+                raise ValidationError("effective_on must be an ISO date (YYYY-MM-DD).")
 
 
         tax_codes = TaxCodeService.list_tax_codes(
@@ -64,6 +82,7 @@ class TaxCodeListCreateView(APIView):
             is_gst_charged=is_gst_charged,
             include_system=include_system,
             code=code,
+            effective_on=effective_on_date,
         )
 
         serializer = TaxCodeListSerializer(tax_codes, many=True)
@@ -78,7 +97,6 @@ class TaxCodeListCreateView(APIView):
         serializer = TaxCodeCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        from decimal import Decimal
 
         data = serializer.validated_data
         rate = data.get("rate")
@@ -200,17 +218,25 @@ class GSTCalculateView(APIView):
         is_bcrs = data.get("is_bcrs_deposit", False)
 
         # Get rate from tax code or use provided rate
-        if data.get("tax_code_id"):
-            from uuid import UUID
+        code = data.get("tax_code") or data.get("tax_code_id")
+        if code:
+            # org_id arrives as UUID (URL kwarg) — never re-wrap
+            org_uuid = org_id if isinstance(org_id, UUID) else UUID(str(org_id))
 
+            # Resolve the rate in force on document_date (default today) —
+            # unknown codes fail closed with 404 instead of a silent 9%
+            # fallback (B-3/H-04: a wrong rate is worse than an error).
             tax_code = TaxCodeService.get_tax_code_by_code(
-                UUID(org_id),
-                str(data["tax_code_id"]),  # Actually expects code, not ID
+                org_uuid,
+                str(code),
+                as_of=data.get("document_date"),
             )
-            rate = tax_code.rate if tax_code else Decimal("0.09")
+            if tax_code is None:
+                raise ResourceNotFound(
+                    f"Tax code '{code}' is not in force on the requested date."
+                )
+            rate = tax_code.rate
         else:
-            from decimal import Decimal
-
             rate = Decimal(str(data.get("rate", "0.09")))
 
         result = GSTCalculationService.calculate_line_gst(
@@ -245,7 +271,6 @@ class GSTCalculateDocumentView(APIView):
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
-        from decimal import Decimal
 
         default_rate = Decimal(str(data.get("default_rate", "0.09")))
 
@@ -347,7 +372,6 @@ class GSTReturnFileView(APIView):
     @wrap_response
     def post(self, request, org_id: str, return_id: str) -> Response:
         """File GST return."""
-        from decimal import Decimal
         from uuid import UUID
 
         serializer = GSTReturnFileSerializer(data=request.data)
@@ -413,7 +437,6 @@ class GSTReturnPayView(APIView):
     @wrap_response
     def post(self, request, org_id: str, return_id: str) -> Response:
         """Record GST payment."""
-        from decimal import Decimal
         from uuid import UUID
 
         serializer = GSTReturnPaymentSerializer(data=request.data)
