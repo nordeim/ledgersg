@@ -1,15 +1,17 @@
 ---
 name: ledgersg
-description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the ten hard lessons of the 2026-11-21 P0 remediation, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 1.0.0
+description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
+version: 1.1.0
 last_updated: 2026-11-21
-project_state: "P0 remediated; 465 backend tests passing (26 documented fixture-debt failures); schema v1.0.2"
+project_state: "P1 remediated; suite fully green — 499 backend tests passing (0 failed, 5 skipped); schema v1.0.2"
 ---
 
 # LedgerSG — Engineering Skill
 
-> Distilled from the codebase and the 2026-11-21 audit + P0 remediation sprint
-> (`LedgerSG_Code_Review_Audit_Report_2026-11-21.md`, `docs/REMEDIATION_2026-11-21_REPORT.md`).
+> Distilled from the codebase, the 2026-11-21 audit + P0 remediation sprint
+> (`LedgerSG_Code_Review_Audit_Report_2026-11-21.md`, `docs/REMEDIATION_2026-11-21_REPORT.md`)
+> and the session-3 P1 sprint (`docs/REMEDIATION_PLAN_2026-11-21_P1.md`,
+> `docs/REMEDIATION_2026-11-21_P1_REPORT.md`).
 > Every claim below is verifiable against a file path or a runnable command.
 
 ---
@@ -70,10 +72,9 @@ cd apps/backend
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# Current state (2026-11-21): 26 failed (all tests/test_api_endpoints.py fixture debt),
-#                             465 passed, 5 skipped
-pytest tests/invariants -q   # 10 gates: atomic rollback, void net-zero, F5 tie-out,
-                             # schema conformance, journal balances
+# Current state (2026-11-21, post-P1): 0 failed, 499 passed, 5 skipped — SUITE GREEN
+pytest tests/invariants -q   # 15 gates: atomic rollback, void net-zero, F5 tie-out,
+                             # schema conformance, journal balances, CoA trial balance
 pytest tests/security -q     # 32: RLS transaction isolation, token lifecycle, settings gates
 ```
 
@@ -148,6 +149,17 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
 11. **Missing `user_id` on journal creates** — `posted_by` is NOT NULL.
 12. **`date.today()` in posting paths** — the fiscal period for today may be closed;
     fall back to the original entry's date.
+13. **`UserOrganisation` without `accepted_at`** — the tenant middleware filters on
+    `accepted_at__isnull=False`; a pending invitation 403s every org-scoped request.
+    Every fixture that creates a membership must set it (the root `tests/conftest.py`
+    does; a shadowed local fixture in `tests/test_api_endpoints.py` did not and cost
+    25 red tests). Prefer consuming root conftest fixtures over redefining them.
+14. **Red suites hide real bugs** — the 26 "known fixture debt" failures masked three
+    production defects (document-summary phantom attrs + invalid enum, CoA trial
+    balance on a phantom view, missing `org_id` kwarg). Never normalise a red suite.
+15. **Invalid enum literals travel in groups** — `PAID_PARTIAL` (vs `PARTIALLY_PAID`)
+    appeared in three places; `pte_ltd` (vs `PRIVATE_LIMITED`) in another. When you
+    find one wrong literal, sweep the codebase for it and for its siblings.
 
 ## 9. Debugging Guide
 
@@ -160,6 +172,11 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
 | `No open fiscal period found for date …` | Posting dated outside open periods | Date the document inside an open period (fixtures: Jan 2024) |
 | `No document sequence configured for org … type X` | Org fixture lacks the sequence | conftest now seeds all types; extend if you add one |
 | Test 404s on a route you "added" | Added to shadowed `apps/core/urls.py` | Add to the `apps/core/urls/` package module instead |
+| 403 on EVERY org-scoped URL in a test | Fixture created `UserOrganisation` without `accepted_at` | Set `accepted_at=timezone.now()` in the fixture (root conftest already does) |
+| 500 on `/{org}/documents/summary/` | Phantom attrs: `DOCUMENT_TYPE_CHOICES`, `total`; invalid `PAID_PARTIAL` literal | Use `DOCUMENT_TYPES`, `total_incl`, enum-correct outstanding set |
+| 500 on `/{org}/accounts/trial-balance/` | `get_trial_balance` joined phantom `coa.account_balance` | Aggregates `journal.line` JOIN `journal.entry` (fixed; keep it that way) |
+| 500 TypeError `unexpected keyword argument 'org_id'` | View signature missing the kwarg its org-scoped route passes | Add `org_id: str` to the view signature |
+| `ModuleNotFoundError: django_celery_beat` / `django_ratelimit` after fresh install | Settings import apps not declared in `pyproject.toml` | Both declared since P1 (beat 2.9.0 — 2.8.1 pins Django<6); pyproject is canonical, NOT root `requirements.txt` |
 | `UndefinedColumn "updated_at"` on ExchangeRate | BaseModel injects it; table lacks it | Don't inherit BaseModel for tables without timestamps |
 | Void 500s on `chk_void_reason` | Reason not persisted | `void_document()` does now; keep it that way |
 
@@ -177,7 +194,7 @@ ruff check <files you touched>
 Plus: no floats for money; enums from the vocabulary (never literals); every service
 write inside `transaction.atomic()`; new tests RED before the fix.
 
-## 11. Lessons Learnt (2026-11-21 sprint)
+## 11. Lessons Learnt (2026-11-21 sprints)
 
 1. A green test suite can mask RLS failure when the test harness itself provides the
    transaction production lacks — test the *mechanism* under production semantics.
@@ -189,6 +206,12 @@ write inside `transaction.atomic()`; new tests RED before the fix.
    failed pre-fix and pass post-fix.
 5. Schema CHECK constraints are a gift: encode the box identities and reversal rules
    in DDL, then the application cannot silently violate them.
+6. Fixture debt is not neutral: 25 of 26 "known" failures were one missing
+   `accepted_at`, and the red noise hid three live endpoint bugs. Fix red suites
+   before adding features on top of them.
+7. A clean-venv install is a packaging test: settings-imported packages MUST be
+   declared in the canonical manifest, and version pins must respect the framework
+   major (beat 2.8.1 vs Django 6).
 
 ## 12. Quick Reference Card
 
@@ -204,8 +227,10 @@ write inside `transaction.atomic()`; new tests RED before the fix.
 | Auth/JWT | `apps/core/services/auth_service.py`, `apps/core/urls/auth.py` |
 | Invariant gates | `tests/invariants/` |
 | Security gates | `tests/security/` |
-| Fixtures | `tests/conftest.py` (org seeds ALL document sequences) |
+| Fixtures | `tests/conftest.py` (org seeds ALL document sequences; memberships carry `accepted_at`) |
 | PG setup | `docs/setup_pg_z.sh` + `skills/rootless-postgresql/SKILL.md` |
-| Deferred debt | `docs/REMEDIATION_PLAN_2026-11-21.md` §4 |
-| Remediation report | `docs/REMEDIATION_2026-11-21_REPORT.md` |
+| Deferred debt | `docs/REMEDIATION_PLAN_2026-11-21.md` §4 + `docs/REMEDIATION_PLAN_2026-11-21_P1.md` §4 |
+| P0 remediation report | `docs/REMEDIATION_2026-11-21_REPORT.md` |
+| P1 remediation report | `docs/REMEDIATION_2026-11-21_P1_REPORT.md` |
 | Audit report | `LedgerSG_Code_Review_Audit_Report_2026-11-21.md` |
+| Env templates | `apps/backend/.env.example`, `apps/web/.env.example` (`.env*` files are gitignored) |
