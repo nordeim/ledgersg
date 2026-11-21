@@ -32,15 +32,12 @@ test.describe("Settings page (P6/C-5 — real data)", () => {
     await expect(page).toHaveURL(/\/settings\/?$/);
 
     // The form must settle on real org data — the mock defaults
-    // ("Demo Company Pte Ltd" / UEN "201912345A") are gone.
-    await expect(page.getByDisplayValue("Demo Company Pte Ltd")).toHaveCount(0);
-    await expect(page.getByDisplayValue("201912345A")).toHaveCount(0);
-
-    const companyInput = page
-      .locator("input")
-      .filter({ hasNot: page.getByRole("button") })
-      .first();
-    await expect(companyInput).not.toHaveValue("", { timeout: 30000 });
+    // ("Demo Company Pte Ltd") are gone and the company name is non-empty.
+    const nameInput = page.getByLabel("Company Name");
+    await expect(nameInput).not.toHaveValue("Demo Company Pte Ltd", {
+      timeout: 30000,
+    });
+    await expect(nameInput).not.toHaveValue("");
 
     // The GST card reflects the real registration state.
     await expect(

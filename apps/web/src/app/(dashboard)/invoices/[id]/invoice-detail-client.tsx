@@ -142,8 +142,10 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
     invoice.contact.email &&
     !sendInvoice.isPending &&
     !sending;
-  const isPartiallyPaid =
-    Number(invoice.amount_paid) > 0 && invoice.status !== "PAID";
+  // The payment state is truthful for every non-void document — an
+  // unpaid invoice owes its full total (P6/F-11: always surface it).
+  const showPaymentState = !isVoid;
+  const isPaid = invoice.status === "PAID";
 
   const handleSend = async () => {
     if (!invoice.contact.email) return;
@@ -373,29 +375,21 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
                   {formatAmount(invoice.total_incl)}
                 </span>
               </div>
-              {isPartiallyPaid && (
+              {showPaymentState && (
                 <>
                   <div className="flex justify-between text-sm">
                     <span className="text-text-secondary">Amount Paid</span>
-                    <span className="text-text-primary">
+                    <span className={isPaid ? "text-success" : "text-text-primary"}>
                       {formatAmount(invoice.amount_paid)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm font-medium">
                     <span className="text-text-secondary">Amount Due</span>
-                    <span className="text-alert">
+                    <span className={isPaid ? "text-success" : "text-alert"}>
                       {formatAmount(invoice.amount_due)}
                     </span>
                   </div>
                 </>
-              )}
-              {invoice.status === "PAID" && (
-                <div className="flex justify-between text-sm font-medium">
-                  <span className="text-success">Amount Paid</span>
-                  <span className="text-success">
-                    {formatAmount(invoice.amount_paid)}
-                  </span>
-                </div>
               )}
             </div>
           </div>
