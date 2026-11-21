@@ -1,0 +1,81 @@
+# ============================================================================
+# agent-sandbox EGRESS ALLOWLIST
+# ============================================================================
+# This single file defines every destination workspaces may reach.
+# To add a domain: append it here, then run:
+#     scripts/30-gateway.sh restart
+# (that command also syncs the Tier-2 host proxy if it is installed).
+#
+# Matching rules (Squid dstdomain — verified against Squid's own docs;
+# audit H-4: the old comment was wrong):
+#   * ".githubusercontent.com"  (LEADING DOT) matches every subdomain
+#   * "github.com" (bare) matches ONLY github.com, exactly — subdomains
+#     must be listed individually or covered by a leading-dot entry
+#   * "*.example.com" is NOT a wildcard — Squid treats it as a literal
+#     hostname that matches nothing. 30-gateway.sh allow rejects it.
+# Squid (dstdomain) resolves DNS itself — workspaces never need external DNS.
+# NOTE (Squid): do not list a subdomain (a.example.com) before its
+# leading-dot entry (.example.com) in this file — Squid treats that as a
+# fatal configuration error at parse time.
+# NOTE: the gateway proxies only ports 80 and 443. Services on other ports
+# (e.g. 8443) require a squid.conf change, not an allowlist line.
+
+# --- OS package mirrors (apt on host images and inside Tier-2 VMs) ----------
+deb.debian.org
+security.debian.org
+
+# --- Language runtimes and tool installers ----------------------------------
+deb.nodesource.com
+nodejs.org
+astral.sh
+bun.sh
+
+# --- Package registries ------------------------------------------------------
+registry.npmjs.org
+registry.yarnpkg.com
+pypi.org
+files.pythonhosted.org
+
+# --- Git hosting -------------------------------------------------------------
+# Bare entries are EXACT matches; the leading-dot entry covers the
+# raw/objects/release-asset CDNs (audit H-4: "*." matched nothing).
+github.com
+api.github.com
+codeload.github.com
+.githubusercontent.com
+gitlab.com
+
+# --- Prisma engine binaries (representative workload: budget-wiser) ----------
+# budget-wiser pins Prisma 6.19.3 with install scripts enabled; prisma /
+# @prisma/client postinstalls fetch engine binaries from this host. Without
+# it, `bun install` fails for a policy reason the docs used to deny
+# (audit M-3). Run the acceptance path to confirm the full domain set.
+binaries.prisma.sh
+
+# --- Playwright browser CDN --------------------------------------------------
+cdn.playwright.dev
+playwright.download.prss.microsoft.com
+
+# --- AI agent APIs (fill in the providers you actually use) -----------------
+api.anthropic.com
+claude.ai
+console.anthropic.com
+statsig.anthropic.com
+api.openai.com
+chatgpt.com
+auth.openai.com
+openai.com
+opencode.ai
+
+# --- Verification targets (used by scripts/50-verify.sh and the per-run
+# self-audit in files/ci-setup.sh; keep these) -------------------------------
+example.com
+example.org
+
+# --- Optional CI extras (see BLUEPRINT.md §12) --------------------------------
+# Uncomment per pipeline, only if that pipeline needs them — every line is a
+# standing grant to untrusted code. example.net stays DELIBERATELY absent:
+# the CI isolation audit uses it as the known-denied probe domain.
+#codecov.io
+#coveralls.io
+#sonarcloud.io
