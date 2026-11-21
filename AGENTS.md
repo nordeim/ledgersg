@@ -109,7 +109,8 @@ Backend Stack
 - WeasyPrint 68.1 for PDF generation
 Database Architecture (SQL-First)
 - PostgreSQL 16+ with 7 domain schemas
-- NUMERIC(10,4) for all monetary values (NO FLOATS)
+- NUMERIC(19,4) for monetary values, NUMERIC(12,6) for FX rates (NO FLOATS;
+  widened from NUMERIC(10,4) in the P3 sprint — see the conformance gate)
 - Row-Level Security (RLS) via session variables
 - Unmanaged Django models (managed = False)
 ---
@@ -270,7 +271,7 @@ apps/backend/
 ### 2.3 Database Architecture (SQL-First)
 - **Engine:** PostgreSQL 16+.
 - **Schema:** 7 Domain-Specific Schemas (`core`, `coa`, `gst`, `journal`, `invoicing`, `banking`, `audit`).
-- **Precision:** `NUMERIC(10,4)` for all monetary values. **Floats are strictly prohibited.**
+- **Precision:** `NUMERIC(19,4)` for monetary values, `NUMERIC(12,6)` for FX rates. **Floats are strictly prohibited.** (Widened from `NUMERIC(10,4)` in the P3 sprint — the old cap could not represent amounts above S$999,999.9999.)
 - **Multi-Tenancy:** **Row-Level Security (RLS)** enforced via session variables (`app.current_org_id`).
 - **Model Strategy:** **Unmanaged Models** (`managed = False`). The SQL schema (`database_schema.sql`) is the source of truth. Django models map to existing tables; Django migrations are disabled.
 

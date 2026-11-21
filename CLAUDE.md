@@ -3,7 +3,7 @@
 > **Single Source of Truth** for coding agents and human developers
 > **Version**: 2.10.0
 > **Last Updated**: 2026-11-21
-> **Status**: P5 Remediated 🟢 — all gates green (backend 567P/0F/5S, frontend vitest 358/358, typecheck 0 errors, e2e 17 total / 9+8skip default); truth restoration: real InvoiceNow wiring, amount_paid + void reversals, fail-closed control accounts, real dashboard data, repo hygiene (see `docs/REMEDIATION_2026-11-21_P5_REPORT.md`, plus the P0–P4 reports and `docs/ledgersg-audit-report.md`)
+> **Status**: P6 Remediated 🟢 — all gates green (backend 588P/0F/5S, frontend vitest 383/383, typecheck 0 errors, e2e 20 total / 9+11skip default); truth restoration: real InvoiceNow wiring, amount_paid + void reversals, fail-closed control accounts (incl. payment AR/AP), PARTIALLY_PAID allocations, unallocate recompute, every dashboard page on real data (C-5 closed), repo hygiene (see `docs/REMEDIATION_2026-11-22_P6_REPORT.md`, plus the P0–P5 reports and `docs/ledgersg-audit-report.md`)
 
 ---
 
@@ -30,8 +30,8 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.5 | ✅ Ready | 12 pages, 358 unit + 17 e2e tests (9 always + 8 backend-gated), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list (P5) |
-| **Backend** | v0.3.9 | ✅ Suite Fully Green | 88+ endpoints, **567 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth fixes (P5) |
+| **Frontend** | v0.1.6 | ✅ Ready | 12 pages, 383 unit + 20 e2e tests (9 always + 11 backend-gated), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6) |
+| **Backend** | v0.4.0 | ✅ Suite Fully Green | 89+ endpoints, **588 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth: exact payment control accounts, PARTIALLY_PAID allocations, unallocate recompute (P5/P6) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables, NUMERIC(19,4) money |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
 | **Security** | v1.2.0 | ✅ P0 Hardened + P4 Cookie Auth | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on (settings-driven login knobs), HttpOnly refresh cookie + `session_hint` evidence gate |

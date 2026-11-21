@@ -1,9 +1,9 @@
 ---
 name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 1.5.0
-last_updated: 2026-11-21
-project_state: "P5 remediated; all gates green — 567 backend tests (0 failed, 5 skipped), frontend 358 vitest + 17 e2e (9 default / 8 backend-gated), typecheck 0 errors; schema v1.1.0 NUMERIC(19,4) money; real InvoiceNow wiring + accounting truth (amount_paid, void reversals, fail-closed control accounts) + repo hygiene"
+version: 1.6.0
+last_updated: 2026-11-22
+project_state: "P6 remediated; all gates green — 588 backend tests (0 failed, 5 skipped), frontend 383 vitest + 20 e2e (9 default / 11 backend-gated), typecheck 0 errors; schema v1.1.0 NUMERIC(19,4) money; real InvoiceNow wiring + accounting truth (amount_paid, void reversals, fail-closed control accounts incl. payment AR/AP, PARTIALLY_PAID allocations, unallocate recompute) + every dashboard page on real data (C-5 closed: detail/ledger/settings) + settings-driven rate budgets"
 ---
 
 # LedgerSG — Engineering Skill
@@ -77,18 +77,21 @@ cd apps/backend
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# Current state (2026-11-21, post-P5): 0 failed, 567 passed, 5 skipped — SUITE GREEN
+# Current state (2026-11-22, post-P6): 0 failed, 588 passed, 5 skipped — SUITE GREEN
 pytest tests/invariants -q   # 20 gates: atomic rollback, void net-zero, F5 tie-out,
                              # schema conformance (incl. numeric precision), journal
                              # balances, CoA trial balance, monetary capacity
-pytest tests/security -q     # 47: RLS transaction isolation, token lifecycle, settings
-                             # gates, refresh-cookie + session_hint contracts
+pytest tests/security -q     # 51: RLS transaction isolation, token lifecycle, settings
+                             # gates (incl. the P6/E-1 throttle-posture gates),
+                             # refresh-cookie + session_hint contracts
 ```
 
-Frontend gates (`apps/web`): `npm test` (358 vitest), `npm run typecheck` (tsc, 0
+Frontend gates (`apps/web`): `npm test` (383 vitest), `npm run typecheck` (tsc, 0
 errors), `npm run test:e2e` (playwright; 9 tests green without a backend —
-backend-gated specs skip with reasons), `npm run test:e2e:full` (all 17 — needs
-the Django backend on :8000 + Redis; `npx playwright install chromium` first).
+backend-gated specs skip with reasons), `npm run test:e2e:full` (all 20 — needs
+the Django backend on :8000 + Redis; `npx playwright install chromium` first;
+development settings raise the refresh/DRF throttle budgets so the suite is
+not 429'd mid-run — production posture unchanged, P6/E-1).
 `PLAYWRIGHT_PROJECTS=all` opts into the 5-browser matrix.
 
 Gates before any PR: `manage.py check` (0 errors), invariants green, security green,
@@ -302,7 +305,7 @@ ruff check <files you touched>
 Plus: no floats for money; enums from the vocabulary (never literals); every service
 write inside `transaction.atomic()`; new tests RED before the fix.
 
-## 11. Lessons Learnt (2026-11-21 sprints)
+## 11. Lessons Learnt (2026-11-21 sprints; P6 lessons 15-19 below)
 
 1. A green test suite can mask RLS failure when the test harness itself provides the
    transaction production lacks — test the *mechanism* under production semantics.
@@ -347,6 +350,28 @@ write inside `transaction.atomic()`; new tests RED before the fix.
     refinement). The 401 handler is a state machine: evidence (in-memory token
     or `session_hint` cookie) gates the refresh; dead evidence must be expired
     server-side.
+
+
+15. (P6) A persisted status nobody can re-enter is a dead end: P5/H-1 wrote
+   PARTIALLY_PAID but the allocate guard still demanded APPROVED — the second
+   payment could never settle the remainder. When you add a state, grep every
+   guard that mentions its neighbours.
+16. (P6) A "fallback" resolver that broad-matches is a deferred misposting: the
+   payment JE's Q(account_type="ASSET").first() could land AR on 1010 Cash on
+   Hand the day account_type gets populated. Fix resolvers once at the seam
+   (JournalService._resolve_control_account) and route every caller through it.
+17. (P6) Allowlists that forward phantom keys fail silently: org PATCH accepted
+   `address` (no such model field — dropped on save) while filtering the real
+   address_line_1/2/city/postal_code/country. Mirror allowlists to the
+   serializer's field set, and test the round-trip, not just the 200.
+18. (P6) Settings modules must copy-on-write their REST_FRAMEWORK overrides:
+   testing.py's in-place assignment corrupted the shared base dict for every
+   other module in the process — the settings-gate posture test caught what
+   three sprints of green suites had normalized.
+19. (P6) Decorator literals are untestable budgets: the refresh throttle's
+   hardcoded 20/minute 429'd the e2e suite mid-run with no knob to turn.
+   Anything the e2e suite legitimately exercises must be a settings knob
+   (production posture unchanged, development budget raised).
 
 ## 12. Quick Reference Card
 

@@ -32,8 +32,8 @@
 ### Key Metrics
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **932 Tests Passing** | 567 Backend + 358 Frontend unit + 17 e2e (9 always + 8 backend-gated) |
-| **API Surface** | **94 Endpoints** | RESTful, JSON-API compliant |
+| **Test Coverage** | **991 Tests Passing** | 588 Backend + 383 Frontend unit + 20 e2e (9 always + 11 backend-gated) |
+| **API Surface** | **95 Endpoints** | RESTful, JSON-API compliant |
 | **Security** | **100% Score** | CSP, Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 30 Tables, Row-Level Security Enforced |
 | **Performance** | **<100ms** | P95 Response Time (Redis Caching Active) |
@@ -41,10 +41,10 @@
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 358 | 100% | Vitest + RTL | ✅ Passing |
-| **Backend (pytest)** | 567 passed / 5 skipped | 100% of run | pytest | ✅ Passing |
-| **E2E (Playwright)** | 17 (9 always + 8 backend-gated) | 100% | Playwright | ✅ Passing |
-| **Total Passing** | **932** | — | Mixed | ✅ Verified |
+| **Frontend Unit** | 383 | 100% | Vitest + RTL | ✅ Passing |
+| **Backend (pytest)** | 588 passed / 5 skipped | 100% of run | pytest | ✅ Passing |
+| **E2E (Playwright)** | 20 (9 always + 11 backend-gated) | 100% | Playwright | ✅ Passing |
+| **Total Passing** | **991** | — | Mixed | ✅ Verified |
 
 ---
 
@@ -224,6 +224,13 @@ flowchart TB
     *   **Pattern**: `useQuery({ queryKey: ['entity', orgId], queryFn: ... })`.
     *   **Mutations**: Use `isPending` (not `isLoading`) for loading state.
 
+### Page Data Truth (P6/C-5 — all pages render real backend data)
+Every dashboard page is wired to the real API — mock fixtures are deleted:
+*   **Invoices list** (P5): `useInvoices` → `{results, count}` list contract.
+*   **Invoice detail** (P6): `useInvoice` → detail serializer incl. `amount_paid`/`amount_due` (F-11); approve/void/send mutations; `await params` in the page component (route params are a Promise in this Next.js version).
+*   **General ledger** (P6): `useLedger` → the flat line-level `journal-entries/ledger/` endpoint (one row per journal line; the aggregated entries list cannot drive a line-level table).
+*   **Settings** (P6): `useOrganisation` → org detail + allowlisted PATCH updates + GST register/deregister (the GST endpoints seed the GST control accounts).
+
 ---
 
 ## Backend Architecture
@@ -365,7 +372,7 @@ psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 pytest --reuse-db --no-migrations
 
 # Expected Output:
-# ============================= 567 passed, 0 failed, 5 skipped =============================
+# ============================= 588 passed, 0 failed, 5 skipped =============================
 # (P1 fixed the 26 documented fixture failures; the suite has been fully green since)
 ```
 
