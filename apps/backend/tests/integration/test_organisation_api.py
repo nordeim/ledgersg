@@ -251,3 +251,51 @@ def test_organisation_creation_creates_fiscal_year(auth_client, test_user):
     fy = fiscal_years.first()
     periods = FiscalPeriod.objects.filter(fiscal_year=fy)
     assert periods.count() == 12  # Should have 12 months
+
+
+@pytest.mark.django_db
+def test_update_organisation_address_fields(auth_client, test_organisation):
+    """P6/F-10: the real address fields must be updatable via PATCH.
+
+    The view and service allowlists forwarded a phantom `address` key (the
+    model has no such field — it was silently dropped) while the real
+    address_line_1/2, city, postal_code, country fields were filtered out.
+    """
+    url = f"/api/v1/{test_organisation.id}/"
+    data = {
+        "address_line_1": "12 Marina Boulevard",
+        "address_line_2": "#05-01 Marina Bay Financial Centre",
+        "city": "Singapore",
+        "postal_code": "018982",
+        "country": "SG",
+    }
+
+    response = auth_client.patch(url, data, format="json")
+
+    assert response.status_code == status.HTTP_200_OK, response.data
+    assert response.data["address_line_1"] == "12 Marina Boulevard"
+    assert response.data["address_line_2"] == "#05-01 Marina Bay Financial Centre"
+    assert response.data["city"] == "Singapore"
+    assert response.data["postal_code"] == "018982"
+    assert response.data["country"] == "SG"
+
+    test_organisation.refresh_from_db()
+    assert test_organisation.address_line_1 == "12 Marina Boulevard"
+    assert test_organisation.city == "Singapore"
+    assert test_organisation.postal_code == "018982"
+
+
+@pytest.mark.django_db
+def test_update_organisation_phantom_address_is_noop(auth_client, test_organisation):
+    """P6/F-10: a PATCH carrying the old phantom `address` key must not
+    corrupt anything — the key does not map to a model field."""
+    url = f"/api/v1/{test_organisation.id}/"
+    original_line_1 = test_organisation.address_line_1
+
+    response = auth_client.patch(
+        url, {"address": "123 Nowhere Street"}, format="json"
+    )
+
+    assert response.status_code == status.HTTP_200_OK, response.data
+    test_organisation.refresh_from_db()
+    assert test_organisation.address_line_1 == original_line_1
