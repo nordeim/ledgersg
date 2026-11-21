@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.4.0
-> **Last Updated**: 2026-03-15
-> **Status**: Production Ready ✅ (Complete SMB Workflow Validation: Lakshmi, ABC, Meridian)
+> **Version**: 2.5.0
+> **Last Updated**: 2026-11-21
+> **Status**: P0 Remediated 🟡 — all four Critical audit findings fixed; P1/P2 in progress (see `docs/REMEDIATION_2026-11-21_REPORT.md`)
 
 ---
 
@@ -30,16 +30,31 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, **321 tests**, WCAG AAA |
-| **Backend** | v0.3.4 | ✅ Production Ready | **94 API endpoints**, **468 tests (393 passing)** |
-| **Database** | v1.0.3 | ✅ Complete | 7 schemas, RLS enforced, **30 tables** |
-| **Accounting** | v1.0.0 | ✅ Verified | **3/3 Workflows Passing** (Full FY & Smoke Tests) |
-| **Security** | v1.0.0 | ✅ **100% Score** | Rate limiting, CSP, CORS Fix Complete |
-| **InvoiceNow** | v1.0.0 | ✅ **Phases 1-4 Complete** | 122+ TDD tests, PINT-SG compliant XML |
-| **API Contracts** | v1.0.0 | ✅ **Standardized** | 9 endpoints fixed, **8 contract tests passing** |
-| **Overall** | — | ✅ **Platform Ready** | **714+ tests**, 3 E2E Workflows verified |
+| **Frontend** | v0.1.2 | ✅ Ready | 12 pages, 321 tests, WCAG AAA |
+| **Backend** | v0.3.5 | ✅ P0 Remediated | 88+ endpoints, **465 tests passing** (26 documented fixture-debt failures) |
+| **Database** | v1.0.2 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables |
+| **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
+| **Security** | v1.1.0 | ✅ P0 Hardened | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on; P1 open (CSP, MFA, PII) |
+| **API Contracts** | v1.1.0 | ✅ Standardized | {results, count} lists; auth contract aligned to tests 2026-11-21 |
 
-### Latest Milestone: API Contract Standardization & 500 Error Investigation ✅ COMPLETE
+### Latest Milestone: P0 Remediation Sprint ✅ — 2026-11-21
+
+All four Critical findings from the independent code audit were fixed test-first:
+
+| Fix | Impact |
+|-----|--------|
+| **C-04** | `wrap_response` re-raises; journal posting inside the approve atomic block — no more partial commits |
+| **C-02** | Void creates a real reversal entry; `void_reason` persisted; `PARTIALLY_PAID` voidable |
+| **C-03** | RLS `SET LOCAL` executes inside a request-spanning transaction — tenant isolation actually applies under autocommit |
+| **C-01/H-14** | GST F5 rebuilt on `invoicing.document*` with IRAS box convention; state machine `DRAFT→COMPUTED→REVIEWED→FILED→AMENDED` persists |
+| **H-01** | Trial balance / account balance endpoints work (FK + `is_posted` fixes) |
+| **H-05** | Refresh-token rotation + blacklist (schema §15b); logout and password-change revoke |
+| **H-06/H-07** | Production SECRET_KEY gate; rate limiting default-on |
+| **M-01** | Schema–model conformance gate in CI (`tests/invariants/test_schema_conformance.py`) — caught and fixed drifted `ExchangeRate`/`OrganisationSetting` models |
+
+**Deferred:** H-02/H-03/H-04/H-08/H-10/H-11/H-13, M-02…M-16, L-*, I-* — full register in `docs/REMEDIATION_PLAN_2026-11-21.md` §4.
+
+### Latest Milestone: API Contract Standardization & 500 Error Investigation ✅ COMPLETE (2026-03-15; superseded in part by the 2026-11-21 audit)
 **Date**: 2026-03-15
 **Status**: API contracts standardized, "500 error" myth debunked.
 

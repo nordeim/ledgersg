@@ -661,3 +661,52 @@ Testing Commands
 # Verify RLS tests
 pytest tests/middleware/test_rls_context.py -v --reuse-db --no-migrations
 
+## 2026-11-21 P0 Remediation — New Patterns & Lessons
+
+### Transaction-Scoped RLS (C-03 pattern — CRITICAL for any middleware touching session variables)
+`SET LOCAL` is transaction-scoped. Under `ATOMIC_REQUESTS`, the request transaction opens
+strictly INSIDE the view, after middleware runs. Any middleware that needs session variables
+(RLS or audit) must open `transaction.atomic()` itself and call `get_response()` inside it —
+Django's `make_view_atomic` then nests as a savepoint. Verified by
+`tests/security/test_rls_transaction_isolation.py` (TransactionTestCase = production semantics;
+pytest-django's wrapping transactions MASK this failure mode in TestCase tests).
+
+### wrap_response Contract (C-04)
+Typed exceptions (ValidationError/ResourceNotFound/DuplicateResource) map to 400/404/409.
+UNEXPECTED exceptions must PROPAGATE — converting them to a 500 Response inside
+ATOMIC_REQUESTS commits partial multi-step financial state. The rollback is worth more than
+a pretty error body.
+
+### Void = Reversal Entry (C-02)
+`DocumentService.void_document()` persists `void_reason` (DB CHECK `chk_void_reason`),
+uses enum-correct voidable statuses (`PARTIALLY_PAID`, never `PAID_PARTIAL`), and calls the
+SINGLE `_reverse_journal_entry` which delegates to `JournalService.void_document_entry()`.
+`create_reversal` must set `is_reversed = True` together with `reversed_by` (CHECK
+`chk_reversal_consistency`), and the reversal date must fall in an OPEN fiscal period.
+
+### GST F5 Box Convention (C-01 — matches schema CHECKs and IRAS)
+Box 1/2/3 = supplies (net), Box 4 = 1+2+3, Box 5 = total taxable purchases,
+Box 6 = output tax, Box 7 = input tax claimable (only `is_claimable` codes),
+Box 8 = 6 − 7, Box 13 = revenue, Box 14 = reverse charge.
+Drive ALL box placement from `gst.tax_code.f5_supply_box/f5_purchase_box/f5_tax_box` —
+never from literal tax-code strings. Statuses: DRAFT, COMPUTED, REVIEWED, FILED, AMENDED.
+
+### Schema–Model Conformance Gate (M-01)
+`tests/invariants/test_schema_conformance.py` introspects `information_schema.columns` and
+fails on any model/table drift. SQL-First means the model is a hand-maintained mirror —
+this gate is what catches the next drift before production does. Run it after ANY model edit.
+
+### Document Status/Type Vocabulary (M-08)
+`doc_status` enum: DRAFT, APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE, VOID.
+`doc_type` enum: SALES_INVOICE, SALES_CREDIT_NOTE, …, SALES_QUOTE. Never invent literals
+(`PAID_PARTIAL`, `INVOICE`) — they raise `invalid input value for enum` / CHECK violations.
+
+### Test Environment Prerequisites
+Redis on :6379 is REQUIRED for the suite (middleware membership cache + audit context use
+the configured cache). Without it every org-scoped request test fails with
+`tenant_context_error` 500s. PG on :5432 with schema v1.0.2 (includes token_blacklist tables §15b).
+
+### Refresh-Token Lifecycle (H-05)
+`refresh_access_token()` rotates and blacklists; `logout_user()` blacklists;
+`change_password()` revokes ALL outstanding tokens. The blacklist tables are hand-written DDL
+in `database_schema.sql` §15b (SQL-First; the simplejwt app's migrations are never run).

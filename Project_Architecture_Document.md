@@ -241,12 +241,16 @@ The order is critical for security and RLS.
 6.  **`TenantContextMiddleware` (CRITICAL)**:
     *   Extracts `org_id` from URL.
     *   Verifies `UserOrganisation` membership.
-    *   **Sets PostgreSQL RLS Variables**:
+    *   **Opens the request transaction itself** (C-03 remediation, 2026-11-21): `SET LOCAL` is transaction-scoped and Django's `make_view_atomic` opens the view transaction strictly INSIDE the view, so the middleware wraps `get_response()` in `transaction.atomic()` after setting:
         ```python
-        cursor.execute("SET LOCAL app.current_org_id = %s", [str(org_id)])
-        cursor.execute("SET LOCAL app.current_user_id = %s", [str(user_id)])
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL app.current_org_id = %s", [str(org_id)])
+                cursor.execute("SET LOCAL app.current_user_id = %s", [str(user_id)])
+            response = self.get_response(request)  # same transaction
         ```
-    *   Sets `''` (empty string) for unauthenticated requests to ensure safe RLS denial.
+    *   Sets `''` (empty string) for unauthenticated requests (fail-closed) in the same transactional pattern.
+    *   `AuditContextMiddleware` follows the same pattern for `app.client_ip/user_agent/request_path`.
 
 ### Service Layer Pattern
 **Location**: `apps/<module>/services.py`
@@ -294,6 +298,21 @@ Every table (30 total) has RLS enabled. Policies look like this:
 CREATE POLICY tenant_isolation ON invoicing.document
     USING (org_id = core.current_org_id());
 ```
+
+### GST F5 Box Model (IRAS convention — matches `gst.return` CHECK constraints)
+
+| Box | Meaning | Source |
+|-----|---------|--------|
+| 1 | Standard-rated supplies (net) | `tax_code.f5_supply_box = 1` on sales lines |
+| 2 | Zero-rated supplies | `f5_supply_box = 2` |
+| 3 | Exempt supplies | `f5_supply_box = 3` |
+| 4 | Total supplies = 1+2+3 | derived (`chk_box4_total`) |
+| 5 | Total taxable purchases | `f5_purchase_box = 5` on purchase lines |
+| 6 | Output tax due | `f5_tax_box = 6` |
+| 7 | Input tax claimed | `f5_tax_box = 7` AND `is_claimable` |
+| 8 | Net GST = 6 − 7 | derived (`chk_box8_net`) |
+| 13 | Total revenue | = Box 4 |
+| 14 | Reverse charge supplies | `is_reverse_charge` |
 
 ---
 

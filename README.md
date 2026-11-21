@@ -102,14 +102,14 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, **321 tests**, WCAG AAA |
-| **Backend** | v0.3.3 | ✅ Production Ready | **87 endpoints**, **459 tests collected** (385 passing) |
-| **Database** | v1.0.3 | ✅ Complete | 7 schemas, **30 tables**, RLS enforced |
-| **Accounting Engine** | v1.0.0 | ✅ Verified | **3/3 E2E Workflows** (Lakshmi, ABC, Meridian) |
+| **Backend** | v0.3.5 | ✅ P0 Remediated | 88+ endpoints, **465 tests passing**, SQL-First, RLS transaction-scoped |
+| **Database** | v1.0.2 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables |
+| **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching |
-| **InvoiceNow** | v1.0.0 | ✅ Phases 1-4 Complete | **122+ TDD tests**, PINT-SG compliant |
-| **Security** | v1.0.0 | ✅ **100% Score** | SEC-001, SEC-002, SEC-003 Remediated |
-| **Overall** | — | ✅ **Platform Ready** | **780 Tests Passing** (321 FE + 385 BE + 74 BE domain), IRAS Compliant |
+| **InvoiceNow** | v0.5.0 | ⚠️ Phases 1-4 Partial | XML generation complete; send endpoint returns not-configured (H-08 deferred) |
+| **Security** | v1.1.0 | ✅ P0 Hardened | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on |
+| **Overall** | — | 🟡 **P0 Remediated; P1/P2 in progress** | See `docs/REMEDIATION_2026-11-21_REPORT.md` and the audit report |
 
 ### Latest Milestones
 
@@ -175,6 +175,8 @@ LedgerSG employs comprehensive testing across multiple layers with **714+ total 
 
 ⚠️ **IMPORTANT:** Standard Django test runners fail on unmanaged models. Manual database initialization is required.
 
+**Prerequisites:** PostgreSQL on `:5432` with `database_schema.sql` loaded into `test_ledgersg_dev`, **and Redis on `:6379`** (the membership cache and audit context in the middleware use the configured cache; without Redis the suite fails with `tenant_context_error` 500s).
+
 ```bash
 # 1. Manually initialize the test database
 export PGPASSWORD=ledgersg_secret_to_change
@@ -187,10 +189,10 @@ source /opt/venv/bin/activate
 cd apps/backend
 pytest --reuse-db --no-migrations -v
 
-# Expected output: 393 passed, 67 failed, 8 skipped (468 collected)
+# Expected output (post 2026-11-21 remediation): 465 passed, 26 failed, 5 skipped
 ```
 
-**Note:** The 67 failing tests are primarily in `tests/test_api_endpoints.py` (fixture isolation issues). Domain-specific tests (banking, peppol, reporting) have a 98.8% pass rate (252/255 passing). **The production API works correctly** - verified with direct testing.
+**Note:** The 26 failing tests are all in `tests/test_api_endpoints.py` (pre-existing fixture isolation issues — `auth_client` + RLS interplay; see `docs/REMEDIATION_2026-11-21_REPORT.md` §3). New invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
 
 ### Frontend Test Execution
 
@@ -600,22 +602,28 @@ open http://localhost:3000
 
 ## 🔐 Security Posture
 
-### Security Audit Summary (2026-03-09)
+### Security Audit Summary (2026-03-09; corrected 2026-11-21)
 
-**Overall Score: 100%** ✅ Production Ready
+> **Correction (2026-11-21):** the earlier "100% score" claim was contradicted by the
+> 2026-11-21 independent audit (see `LedgerSG_Code_Review_Audit_Report_2026-11-21.md`).
+> The P0 security findings from that audit (RLS transaction scoping C-03, token
+> lifecycle H-05, SECRET_KEY gate H-06, rate-limit default H-07, mass-assignment
+> H-12) have been remediated — see `docs/REMEDIATION_2026-11-21_REPORT.md`. The
+> table below reflects the remediated state; P1/P2 items remain open and tracked
+> in the deferred debt register.
 
-| Security Domain | Score | Status |
-|-----------------|-------|--------|
-| Authentication & Session Management | 100% | ✅ Pass |
-| Authorization & Access Control | 100% | ✅ Pass |
-| Multi-Tenancy & RLS | 100% | ✅ Pass |
-| Input Validation & Sanitization | 100% | ✅ Pass |
-| Output Encoding & XSS Prevention | 100% | ✅ Pass |
-| SQL Injection Prevention | 100% | ✅ Pass |
-| CSRF Protection | 100% | ✅ Pass |
-| Cryptographic Storage | 100% | ✅ Pass |
-| Error Handling & Logging | 100% | ✅ Pass |
-| Data Protection & Privacy | 100% | ✅ Pass |
+| Security Domain | Status |
+|-----------------|--------|
+| Authentication & Session (JWT rotation + blacklist) | ✅ Remediated (H-05) |
+| Authorization & Access Control (box allow-list) | ✅ Remediated (H-12) |
+| Multi-Tenancy & RLS (transaction-scoped SET LOCAL) | ✅ Remediated (C-03) |
+| Input Validation & Sanitization | ✅ Pass |
+| Output Encoding & XSS Prevention | ⚠️ CSP report-only (M-11 deferred) |
+| SQL Injection Prevention | ✅ Pass |
+| CSRF Protection | ✅ Pass |
+| Cryptographic Storage | ⚠️ Argon2 available but not default (A04) |
+| Error Handling & Logging | ✅ Remediated (C-04 re-raise; L-04 partial) |
+| Data Protection & Privacy | ⚠️ PII encryption deferred (SEC-005) |
 
 ### Security Architecture
 
@@ -637,8 +645,8 @@ open http://localhost:3000
 | ID | Finding | Severity | Status |
 |----|---------|----------|--------|
 | SEC-001 | Banking stubs return unvalidated input | HIGH | ✅ Remediated |
-| SEC-002 | No rate limiting on authentication | MEDIUM | ✅ Remediated |
-| SEC-003 | Content Security Policy not configured | MEDIUM | ✅ Remediated |
+| SEC-002 | Rate limiting disabled by default | MEDIUM | ✅ Remediated 2026-11-21 (default on; H-07) |
+| SEC-003 | Content Security Policy not configured | MEDIUM | ⚠️ Report-only (M-11 deferred) |
 | SEC-004 | Frontend test coverage minimal | MEDIUM | ⚠️ In Progress |
 | SEC-005 | PII encryption at rest not implemented | LOW | 📋 Future Enhancement |
 
