@@ -299,3 +299,42 @@ def test_update_organisation_phantom_address_is_noop(auth_client, test_organisat
     assert response.status_code == status.HTTP_200_OK, response.data
     test_organisation.refresh_from_db()
     assert test_organisation.address_line_1 == original_line_1
+
+
+@pytest.mark.django_db
+def test_create_organisation_with_address_field_is_no_crash(auth_client):
+    """P7/F-3: the create serializer advertised an `address` field the
+    Organisation model does not have — POSTing it (a field the API itself
+    declared) crashed with TypeError -> 500. The phantom field is gone;
+    sending it is a clean no-op exactly like the PATCH path (P6/F-10)."""
+    url = "/api/v1/organisations/"
+    data = {
+        "name": "Address Sender Org",
+        "legal_name": "Address Sender Pte Ltd",
+        "uen": "53012345X",
+        "address": "12 Marina Boulevard",
+        "contact_email": "ops@address-sender.sg",
+        "contact_phone": "+65 6555 0000",
+    }
+
+    response = auth_client.post(url, data, format="json")
+
+    assert response.status_code == status.HTTP_201_CREATED, response.data
+    org = Organisation.objects.get(id=response.data["id"])
+    # The phantom key is ignored (no crash, no phantom attribute write).
+    assert not hasattr(org, "address")
+    # Real contact fields round-trip.
+    assert org.contact_email == "ops@address-sender.sg"
+    assert org.contact_phone == "+65 6555 0000"
+
+
+@pytest.mark.django_db
+def test_create_organisation_serializer_has_no_address_field():
+    """The serializer must not declare a field the model lacks (schema-truth
+    gate for the P7/F-3 fix)."""
+    from apps.core.serializers.organisation import OrganisationCreateSerializer
+
+    fields = OrganisationCreateSerializer().fields
+    assert "address" not in fields, fields.keys()
+    for real_field in ("name", "legal_name", "uen", "gst_registered"):
+        assert real_field in fields

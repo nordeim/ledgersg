@@ -48,7 +48,10 @@ class OrganisationCreateSerializer(serializers.Serializer):
     gst_reg_date = serializers.DateField(required=False, allow_null=True)
     fy_start_month = serializers.IntegerField(min_value=1, max_value=12, default=1)
     base_currency = serializers.CharField(max_length=3, default="SGD")
-    address = serializers.CharField(required=False, allow_blank=True)
+    # P7/F-3: no `address` here — the Organisation model has address_line_1/2,
+    # city, postal_code, country (declaring a phantom field crashed
+    # Organisation.objects.create(**kwargs) with a TypeError -> 500; the
+    # PATCH path fixed the same lie in P6/F-10).
     contact_email = serializers.EmailField(required=False, allow_blank=True)
     contact_phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
     
