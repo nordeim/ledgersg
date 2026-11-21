@@ -161,10 +161,17 @@ class TaxCodeService:
         f5_supply_box: int | None = None,
         f5_purchase_box: int | None = None,
         f5_tax_box: int | None = None,
+        is_input: bool = False,
+        is_output: bool = True,
         **kwargs
     ) -> TaxCode:
         """
         Create a custom tax code.
+
+        Custom codes default to the output (supply) side — the gst.tax_code
+        CHECK constraint chk_io_flag requires is_input or is_output (except
+        the literal 'NA' code), so callers creating purchase-side codes pass
+        is_input=True, is_output=False.
         """
         code = code.upper().strip()
 
@@ -173,6 +180,11 @@ class TaxCodeService:
 
         if code in IRAS_TAX_CODES:
             raise ValidationError(f"Tax code '{code}' is reserved.")
+
+        if not (is_input or is_output or code == "NA"):
+            raise ValidationError(
+                "Tax code must be an input code, an output code, or 'NA'."
+            )
 
         if TaxCode.objects.filter(org_id=org_id, code=code).exists():
             raise DuplicateResource(f"Tax code '{code}' already exists.")
@@ -187,6 +199,8 @@ class TaxCodeService:
             f5_supply_box=f5_supply_box,
             f5_purchase_box=f5_purchase_box,
             f5_tax_box=f5_tax_box,
+            is_input=is_input,
+            is_output=is_output,
             is_active=True,
             effective_from=date.today(),
             **kwargs

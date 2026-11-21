@@ -92,7 +92,9 @@ class TaxCodeListCreateView(APIView):
             rate=rate,
             is_gst_charged=data["is_gst_charged"],
             description=data.get("description", ""),
-            box_mapping=data.get("box_mapping") or None,
+            f5_supply_box=data.get("f5_supply_box"),
+            f5_purchase_box=data.get("f5_purchase_box"),
+            f5_tax_box=data.get("f5_tax_box"),
         )
 
         return Response(TaxCodeDetailSerializer(tax_code).data, status=status.HTTP_201_CREATED)
