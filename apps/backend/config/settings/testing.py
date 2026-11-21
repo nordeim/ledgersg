@@ -81,8 +81,14 @@ CELERY_TASK_EAGER_PROPAGATES = True
 # THROTTLING (Testing - Disabled)
 # =============================================================================
 
-REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
-REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {}
+# Copy-on-write (P6/E-1): never mutate the shared base dict — the in-place
+# assignment corrupted config.settings.base.REST_FRAMEWORK for every other
+# module in the process (the settings-gate posture test caught it).
+REST_FRAMEWORK = {
+    **REST_FRAMEWORK,
+    "DEFAULT_THROTTLE_CLASSES": [],
+    "DEFAULT_THROTTLE_RATES": {},
+}
 
 # =============================================================================
 # LOGGING (Testing - Minimal)

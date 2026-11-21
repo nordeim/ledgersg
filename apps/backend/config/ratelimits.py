@@ -31,3 +31,14 @@ def login_ip(group, request) -> str:
 def login_user(group, request) -> str:
     """Per-user (or IP fallback) login rate (settings knob; default 30/minute)."""
     return settings.LOGIN_RATELIMIT_USER
+
+
+def refresh_ip(group, request) -> str:
+    """Per-IP refresh rate (P6/E-1 settings knob; default 20/minute).
+
+    The refresh decorator referenced a hardcoded literal, so the full
+    e2e suite (which legitimately issues ~37 refreshes via the P4
+    session-persistence flow) 429'd mid-run against the local dev server
+    with no way to raise the budget without editing code.
+    """
+    return settings.REFRESH_RATELIMIT_IP

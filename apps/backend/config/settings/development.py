@@ -87,6 +87,23 @@ SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"] = timedelta(days=30)
 
 LOGIN_RATELIMIT_IP = "60/minute"
 
+# P6/E-1: raise the refresh + DRF throttle budgets for the local e2e
+# suite (npm run test:e2e:full legitimately issues ~37 refreshes and
+# ~25 logins per run; the DRF anonymous 20/min budget stacked on the
+# refresh endpoint on top of the decorator limit). Copy-on-write: never
+# mutate the shared base dict. Production posture in base is unchanged
+# (20/min anon, 100/min user, 20/min refresh).
+REFRESH_RATELIMIT_IP = "240/minute"
+
+REST_FRAMEWORK = {
+    **REST_FRAMEWORK,
+    "DEFAULT_THROTTLE_RATES": {
+        **REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"],
+        "anon": "240/minute",
+        "user": "600/minute",
+    },
+}
+
 # =============================================================================
 # SHELL PLUS (Django Extensions)
 # =============================================================================

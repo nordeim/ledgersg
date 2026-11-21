@@ -108,13 +108,14 @@ def login_view(request: Request) -> Response:
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
-@ratelimit(key="ip", rate="20/minute", block=True)
+@ratelimit(key="ip", rate="config.ratelimits.refresh_ip", block=True)
 def refresh_view(request: Request) -> Response:
     """
     Refresh access token.
 
     POST /api/v1/auth/refresh/
-    Rate limit: 20/min per IP.
+    Rate limit: 20/min per IP (settings knob REFRESH_RATELIMIT_IP —
+    P6/E-1; development raises the budget for the local e2e suite).
 
     Token sources (P4/E-1): the request body `refresh` field (API clients,
     unchanged contract) OR the HttpOnly `refresh_token` cookie the browser

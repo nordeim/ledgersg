@@ -287,6 +287,12 @@ LOGIN_RATELIMIT_IP = "10/minute"
 
 LOGIN_RATELIMIT_USER = "30/minute"
 
+# Refresh endpoint throttle (P6/E-1) — same knob pattern. The full e2e
+# suite legitimately issues ~37 refreshes against the local dev server
+# (session-persistence specs + token rotation); development.py raises the
+# budget. Production keeps 20/minute.
+REFRESH_RATELIMIT_IP = "20/minute"
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
