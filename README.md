@@ -101,19 +101,28 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, **324 unit tests + 6 e2e (chromium)**, WCAG axe-clean login flow |
-| **Backend** | v0.3.6 | ✅ Suite Fully Green | 88+ endpoints, **514 tests passing** (0 failed), SQL-First, RLS transaction-scoped |
-| **Database** | v1.0.2 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables |
+| **Frontend** | v0.1.3 | ✅ Production Ready | 12 pages, **349 unit tests + 13 e2e** (9 always + 4 backend-gated), typecheck clean, WCAG axe-clean login flow |
+| **Backend** | v0.3.7 | ✅ Suite Fully Green | 88+ endpoints, **519 tests passing** (0 failed), SQL-First, RLS transaction-scoped |
+| **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables, **NUMERIC(19,4) money** |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching |
 | **InvoiceNow** | v0.5.0 | ⚠️ Phases 1-4 Partial | XML generation complete; send endpoint returns not-configured (H-08 deferred) |
 | **Security** | v1.1.0 | ✅ P0 Hardened | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on |
-| **Overall** | — | 🟢 **P0+P1+P2 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1_REPORT.md`, `_P2_REPORT.md` and the audit report |
+| **Overall** | — | 🟢 **P0+P1+P2+P3 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1/_P2/_P3_REPORT.md` and the audit report |
 
 ### Latest Milestone
 
-#### 🎉 P2 Sprint: Test Gates & Rate-Effectiveness Truth — 2026-11-21 (session 5)
+#### 🎉 P3 Sprint: Monetary Capacity, Truthful Invoice Form & Suite Depth — 2026-11-21 (session 7)
+
+- ✅ **All 47 monetary columns widened to NUMERIC(19,4) — schema v1.1.0** (deferred H-03): `NUMERIC(10,4)` capped every value at S$999,999.9999, **below the S$1M GST registration threshold** — a GST-registered org's F5 Box 13 revenue or any ≥ S$1M line/document/journal amount raised `numeric field overflow` (verified live). §16 of the schema ships the idempotent in-place migration (incl. the `amount_due` generated-column drop → widen → re-add sequence); the schema-conformance gate now asserts numeric precision per model field, and `add_line` applies `discount_pct` server-side
+- ✅ **The New Invoice form actually creates documents** (D-1): the submit path was a TODO stub (`console.log` + mock UUID) with `useCreateInvoice` as dead code; now wired through the real contracts (per-line posting account select, contact → document adapter, server-authoritative recalculation, error banner)
+- ✅ **PDF downloads authorized through the api-client** (D-2): the old `localStorage.getItem("accessToken")` read violated the zero-JWT-exposure mandate and sent `Bearer null` on every download; `api.blob()` shares the single fetch+refresh auth path
+- ✅ **Server-effective tax codes in the invoice form** (D-3): the dropdown and the preview now use the rows in force on the document's date (`?effective_on=` wiring) instead of the hardcoded 9% map — backdated documents preview at the correct rate
+- ✅ **Both test suites extended** (D-5): new auth + invoice-form e2e specs (13 total, backend-gated via `E2E_API_URL` / `npm run test:e2e:full`, green without a backend by default) and 25 new vitest tests (hooks, engine, adapter, form submit)
+- ✅ **Fresh-host deployment guide** (`docs/DEPLOYMENT.md`) and complete backend `.env.example` (`ALLOWED_HOSTS`, D-4)
+
+#### P2 Sprint: Test Gates & Rate-Effectiveness Truth — 2026-11-21 (session 5)
 
 - ✅ **GST rate history resolved by effective date, fail-closed** (deferred H-04): `get_tax_code_by_code()` picked arbitrary history rows (verified returning the 2007 7% rate for SR instead of the current 9%); now resolves the row in force on the document date (org rows shadow system rows), `gst/calculate/` 404s on unknown codes instead of silently using 9%, and `add_line` rejects tax codes not in force on the document's own date
 - ✅ **Custom tax-code creation un-broken** (B-7): `POST /gst/tax-codes/` always 500'd on a phantom `box_mapping` kwarg; now returns 201 and persists the declared `f5_*` box fields
@@ -183,7 +192,7 @@ LedgerSG employs comprehensive testing across multiple layers with **714+ total 
 |-------|-------|-----------|----------|--------|
 | **Backend Core Tests** | 393 passing | pytest-django | Core models, services, API | ✅ 84% pass rate |
 | **Backend Domain Tests** | 252/255 passing | pytest | Banking, Peppol, Reporting | ✅ 98.8% pass rate |
-| **Frontend Unit Tests** | 324 passing | Vitest + RTL | Components, hooks, utilities | ✅ 100% pass rate |
+| **Frontend Unit Tests** | 349 passing | Vitest + RTL | Components, hooks, utilities | ✅ 100% pass rate |
 | **Frontend Typecheck** | 0 errors | tsc --noEmit | All src + e2e + configs | ✅ Green |
 | **API Contract Tests** | 8 passing | pytest | {results, count} format | ✅ 100% pass rate |
 | **InvoiceNow TDD** | 122+ | pytest | XML, AP integration, workflows | ✅ Passing |
@@ -209,21 +218,24 @@ source /opt/venv/bin/activate
 cd apps/backend
 pytest --reuse-db --no-migrations -v
 
-# Expected output (post 2026-11-21 P2 remediation): 514 passed, 0 failed, 5 skipped
+# Expected output (post 2026-11-21 P3 remediation): 519 passed, 0 failed, 5 skipped
 ```
 
-**Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). The P2 sprint (`docs/REMEDIATION_2026-11-21_P2_REPORT.md`) added rate-effectiveness regression tests and the custom tax-code create fix. Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance, balance queries) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
+**Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). The P2 sprint (`docs/REMEDIATION_2026-11-21_P2_REPORT.md`) added rate-effectiveness regression tests and the custom tax-code create fix. The P3 sprint (`docs/REMEDIATION_2026-11-21_P3_REPORT.md`) widened all monetary columns to NUMERIC(19,4) (schema v1.1.0, §16 in-place migration) and made `add_line` apply `discount_pct` server-side. Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance **incl. numeric precision**, balance queries, **monetary capacity**) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
 
 ### Frontend Test Execution
 
 ```bash
 cd apps/web
-npm test                    # Vitest unit suite (324 tests)
+npm test                    # Vitest unit suite (349 tests)
 npm run typecheck           # tsc --noEmit (0 errors)
 npm run test:coverage       # With coverage report
-npm run test:e2e            # Playwright e2e — chromium by default (6 tests)
+npm run test:e2e            # Playwright e2e — 9 tests green without a backend
+                            # (4 backend-gated specs skip with reasons)
                             # first run: npx playwright install chromium
-PLAYWRIGHT_PROJECTS=all npm run test:e2e   # full matrix (needs `npx playwright install`)
+npm run test:e2e:full       # all 13 tests — needs the backend on :8000 + Redis
+                            # (E2E_API_URL-gated auth + invoice-form specs)
+PLAYWRIGHT_PROJECTS=all npm run test:e2e   # full browser matrix (needs `npx playwright install`)
 ```
 
 ### E2E Workflow Validation
@@ -757,6 +769,8 @@ open http://localhost:3000
 ---
 
 ## 🐳 Deployment
+
+**Full fresh-host deployment guide:** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — step-by-step from `git clone` through rootless PostgreSQL (§4), schema load (§4b, incl. the v1.1.0 §16 in-place widening migration), Redis, backend, frontend, Celery, verification checklist and production notes.
 
 ### Docker Deployment
 

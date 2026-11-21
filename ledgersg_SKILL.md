@@ -1,9 +1,9 @@
 ---
 name: ledgersg
-description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 1.2.0
+description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
+version: 1.3.0
 last_updated: 2026-11-21
-project_state: "P2 remediated; all gates green — 514 backend tests (0 failed, 5 skipped), frontend 324 vitest + 6 e2e (chromium), typecheck 0 errors; schema v1.0.2"
+project_state: "P3 remediated; all gates green — 519 backend tests (0 failed, 5 skipped), frontend 349 vitest + 13 e2e (9 default / 4 backend-gated), typecheck 0 errors; schema v1.1.0 with NUMERIC(19,4) money"
 ---
 
 # LedgerSG — Engineering Skill
@@ -11,8 +11,10 @@ project_state: "P2 remediated; all gates green — 514 backend tests (0 failed, 
 > Distilled from the codebase, the 2026-11-21 audit + P0 remediation sprint
 > (`LedgerSG_Code_Review_Audit_Report_2026-11-21.md`, `docs/REMEDIATION_2026-11-21_REPORT.md`),
 > the session-3 P1 sprint (`docs/REMEDIATION_PLAN_2026-11-21_P1.md`,
-> `docs/REMEDIATION_2026-11-21_P1_REPORT.md`), and the session-5 P2 sprint
-> (`docs/REMEDIATION_PLAN_2026-11-21_P2.md`, `docs/REMEDIATION_2026-11-21_P2_REPORT.md`).
+> `docs/REMEDIATION_2026-11-21_P1_REPORT.md`), the session-5 P2 sprint
+> (`docs/REMEDIATION_PLAN_2026-11-21_P2.md`, `docs/REMEDIATION_2026-11-21_P2_REPORT.md`),
+> and the session-7 P3 sprint (`docs/REMEDIATION_PLAN_2026-11-21_P3.md`,
+> `docs/REMEDIATION_2026-11-21_P3_REPORT.md`).
 > Every claim below is verifiable against a file path or a runnable command.
 
 ---
@@ -73,15 +75,18 @@ cd apps/backend
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# Current state (2026-11-21, post-P2): 0 failed, 514 passed, 5 skipped — SUITE GREEN
-pytest tests/invariants -q   # 15 gates: atomic rollback, void net-zero, F5 tie-out,
-                             # schema conformance, journal balances, CoA trial balance
+# Current state (2026-11-21, post-P3): 0 failed, 519 passed, 5 skipped — SUITE GREEN
+pytest tests/invariants -q   # 20 gates: atomic rollback, void net-zero, F5 tie-out,
+                             # schema conformance (incl. numeric precision), journal
+                             # balances, CoA trial balance, monetary capacity
 pytest tests/security -q     # 32: RLS transaction isolation, token lifecycle, settings gates
 ```
 
-Frontend gates (`apps/web`): `npm test` (324 vitest), `npm run typecheck` (tsc, 0
-errors), `npm run test:e2e` (playwright, chromium by default — `PLAYWRIGHT_PROJECTS=all`
-for the 5-browser matrix; `npx playwright install chromium` first).
+Frontend gates (`apps/web`): `npm test` (349 vitest), `npm run typecheck` (tsc, 0
+errors), `npm run test:e2e` (playwright; 9 tests green without a backend —
+backend-gated specs skip with reasons), `npm run test:e2e:full` (all 13 — needs
+the Django backend on :8000 + Redis; `npx playwright install chromium` first).
+`PLAYWRIGHT_PROJECTS=all` opts into the 5-browser matrix.
 
 Gates before any PR: `manage.py check` (0 errors), invariants green, security green,
 full suite no worse than the documented baseline, `ruff check` clean on touched files.
@@ -189,6 +194,38 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
     only chromium is installed makes `test:e2e` fail on 24/30 tests before any
     assertion. Chromium-only default + `PLAYWRIGHT_PROJECTS=all` opt-in; axe scans
     must await the auth-redirect chain (`toHaveURL(/login/)`) before `.analyze()`.
+21. **Money width is a business-model contract** — `NUMERIC(10,4)` capped at
+    S$999,999.9999, below the S$1M GST registration threshold (P3/C-1). All
+    money is `NUMERIC(19,4)` since schema v1.1.0; the conformance gate asserts
+    DecimalField precision against `information_schema` (it caught
+    `JournalLine.exchange_rate` over-declaring 19,6 vs the real 12,6 on its
+    first run — schema is truth; align the model DOWN).
+22. **Generated columns block their inputs' ALTERs** — `amount_due` is
+    `GENERATED ALWAYS AS (total_amount - amount_paid) STORED`; widening its
+    inputs requires drop generated → alter → re-add with the identical
+    expression (schema §16 ships this as an idempotent in-place migration —
+    count-then-skip guard; never re-load the schema over live data).
+23. **Dead hooks signal unfinished wiring** — `useCreateInvoice` existed with
+    zero importers while the form's onSubmit was a `console.log` stub (P3/D-1).
+    When adding a hook, grep for its intended caller; when a form needs an
+    API, write a PURE payload adapter (`src/lib/invoice-submit.ts`) that maps
+    form state to the backend contract and drops client-computed preview
+    fields — the server recalculates authoritatively and owns numbering
+    (`document_sequence`), so the local `invoice_number` is display-only.
+24. **One auth path for every transport** — anything needing the token goes
+    through the api-client (`fetchWithAuth` + `api.blob()`); a second reader
+    (the old `localStorage.getItem("accessToken")` in `useInvoicePDF`)
+    violated the zero-JWT-exposure mandate AND read a location that is never
+    written (token lives in module memory) → `Bearer null` → 401 (P3/D-2).
+25. **Sessions are memory-only; e2e must walk the real path** — the backend
+    returns tokens in the login body and sets no cookie, so a `page.goto`
+    after login drops the session. Authed specs: UI login → dashboard →
+    sidebar `<Link>` → target, all client-side. Native validation is enforced
+    in headless chromium (an 8-char `minLength` silently blocks short
+    passwords — no event fires); the login rate limit (10/min per IP)
+    accumulates across dev iterations (flush Redis when a full run fails only
+    on login). Backend-dependent specs read `E2E_API_URL` and skip when unset
+    — the default suite stays green on a fresh clone (P3/D-5).
 
 ## 9. Debugging Guide
 
@@ -214,6 +251,12 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
 | `UnboundLocalError: Decimal` in a view branch | `from decimal import Decimal` imported inside the SIBLING branch | Imports are module-level in `apps/gst/views.py`; never function-local-import into one branch of a conditional |
 | Playwright `Executable doesn't exist` | Declared browser projects not installed | `npx playwright install chromium`, or stay on the chromium default; `PLAYWRIGHT_PROJECTS=all` needs the full install |
 | e2e axe scan flaky on `/` | Scan raced the `/` → `/dashboard` → `/login` redirect chain | `await expect(page).toHaveURL(/\/login/)` before `.analyze()` (fixed in `e2e/navigation.spec.ts`) |
+| `numeric field overflow … less than 10^6` | DB still on ≤ v1.0.2 (NUMERIC(10,4) money) | Apply schema §16 in-place widening (idempotent); both DBs |
+| Login button does nothing (no error, no request) | Native `minLength={8}` on the password input blocks the submit in chromium | Use an 8+ char password |
+| e2e authed test lands back on /login | Memory-only session — a `page.goto` after login drops the token | Walk client-side: UI login → dashboard → sidebar Link (see `e2e/invoices.spec.ts`) |
+| e2e full run fails only on login (429) | 7 logins/run vs the 10/min-per-IP rate limit | Flush the Redis cache (`redis-cli FLUSHDB`) or wait out the window |
+| jsdom: `target.hasPointerCapture is not a function` | Radix Select needs pointer-capture APIs jsdom lacks | Setup polyfills in `src/__tests__/setup.ts`; drive selection via `{ArrowDown}{Enter}` |
+| `cannot alter type of a column used by a generated column` | `amount_due` is GENERATED off total_amount/amount_paid | Drop generated → alter inputs → re-add identical expression (schema §16) |
 
 ## 10. Pre-Ship Checklist
 
@@ -256,12 +299,19 @@ write inside `transaction.atomic()`; new tests RED before the fix.
 10. Test toolchains drift: vitest runs Jest-typed test files fine at runtime while
     `tsc` is red — keep a typecheck gate or the drift compounds (P2/B-5: 25 errors
     accumulated silently).
+11. Capacity is a contract: a monetary column that cannot hold the business
+    model's real numbers (S$1M GST threshold) is a Critical defect even when
+    every current row fits. Encode the ceiling in a gate
+    (`test_numeric_capacity.py`), not in tribal knowledge (P3/C-1).
+12. Fully-implemented dead code (useCreateInvoice with zero importers) is the
+    signature of an unfinished wiring step — grep for callers before writing
+    a parallel implementation (P3/D-1).
 
 ## 12. Quick Reference Card
 
 | Thing | Where |
 |---|---|
-| Schema (truth) | `apps/backend/database_schema.sql` (v1.0.2) |
+| Schema (truth) | `apps/backend/database_schema.sql` (v1.1.0) |
 | RLS middleware | `common/middleware/tenant_context.py` |
 | wrap_response | `common/views.py` |
 | money() | `common/decimal_utils.py` |
@@ -273,10 +323,15 @@ write inside `transaction.atomic()`; new tests RED before the fix.
 | Security gates | `tests/security/` |
 | Fixtures | `tests/conftest.py` (org seeds ALL document sequences; memberships carry `accepted_at`) |
 | PG setup | `docs/setup_pg_z.sh` + `skills/rootless-postgresql/SKILL.md` |
-| Deferred debt | `docs/REMEDIATION_PLAN_2026-11-21.md` §4 + `_P1.md` §4 + `_P2.md` §4 |
+| Deferred debt | `docs/REMEDIATION_PLAN_2026-11-21.md` §4 + `_P1.md` §4 + `_P2.md` §4 + `_P3.md` §4 |
 | P0 remediation report | `docs/REMEDIATION_2026-11-21_REPORT.md` |
 | P1 remediation report | `docs/REMEDIATION_2026-11-21_P1_REPORT.md` |
 | P2 remediation report | `docs/REMEDIATION_2026-11-21_P2_REPORT.md` |
+| P3 remediation report | `docs/REMEDIATION_2026-11-21_P3_REPORT.md` |
 | Audit report | `LedgerSG_Code_Review_Audit_Report_2026-11-21.md` |
 | Env templates | `apps/backend/.env.example`, `apps/web/.env.example` (`.env*` files are gitignored) |
 | Rate resolution | `TaxCodeService.get_tax_code_by_code(org, code, as_of)` / `is_effective(tc, date)` — `apps/gst/services/tax_code_service.py` |
+| Money capacity | All money `NUMERIC(19,4)` since schema v1.1.0; §16 = in-place widening migration; gate = `tests/invariants/test_numeric_capacity.py` |
+| Invoice form adapter | `src/lib/invoice-submit.ts` (form state → contact+document payloads) — `src/hooks/use-tax-codes.ts`, `src/hooks/use-accounts.ts` |
+| Authed e2e pattern | UI login → sidebar Links (client-side only); `E2E_API_URL` gating — `apps/web/e2e/invoices.spec.ts` |
+| Deployment guide | `docs/DEPLOYMENT.md` (fresh-host, rootless PG + §16 migration + Redis + gates) |

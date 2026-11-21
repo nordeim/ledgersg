@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.7.0
+> **Version**: 2.8.0
 > **Last Updated**: 2026-11-21
-> **Status**: P2 Remediated 🟢 — all gates green (backend 514P/0F/5S, frontend vitest 324/324, typecheck 0 errors, e2e 6/6); H-04 rate-effectiveness fixed fail-closed (see `docs/REMEDIATION_2026-11-21_P2_REPORT.md`, plus the P0/P1 reports)
+> **Status**: P3 Remediated 🟢 — all gates green (backend 519P/0F/5S, frontend vitest 349/349, typecheck 0 errors, e2e 13/13 full / 9+4skip default); schema v1.1.0 with NUMERIC(19,4) money (see `docs/REMEDIATION_2026-11-21_P3_REPORT.md`, plus the P0/P1/P2 reports)
 
 ---
 
@@ -30,25 +30,24 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.2 | ✅ Ready | 12 pages, 324 unit + 6 e2e (chromium) tests, typecheck clean, axe-clean login flow |
-| **Backend** | v0.3.6 | ✅ Suite Fully Green | 88+ endpoints, **514 tests passing, 0 failed** (5 skipped, documented) |
-| **Database** | v1.0.2 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables |
+| **Frontend** | v0.1.3 | ✅ Ready | 12 pages, 349 unit + 13 e2e tests (9 always + 4 backend-gated), typecheck clean, axe-clean login flow |
+| **Backend** | v0.3.7 | ✅ Suite Fully Green | 88+ endpoints, **519 tests passing, 0 failed** (5 skipped, documented) |
+| **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables, NUMERIC(19,4) money |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
 | **Security** | v1.1.0 | ✅ P0 Hardened | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on; P1 open (CSP, MFA, PII) |
 | **API Contracts** | v1.1.0 | ✅ Standardized | {results, count} lists; auth contract aligned to tests 2026-11-21 |
 
-### Latest Milestone: P2 Sprint — Test Gates & Rate-Effectiveness Truth ✅ — 2026-11-21 (session 5)
+### Latest Milestone: P3 Sprint — Monetary Capacity, Truthful Invoice Form & Suite Depth ✅ — 2026-11-21 (session 7)
 
-GST rate resolution now honours effective dates end-to-end, the custom tax-code create endpoint works again, and both frontend test suites run green from the documented commands:
+Money now fits the business model (S$1M GST threshold), the New Invoice form actually creates documents, and both frontend suites gained real depth:
 
 | Fix | Impact |
 |-----|--------|
-| **H-04 (B-3)** | `get_tax_code_by_code(code, as_of)` resolves the rate row in force on the date (org rows shadow system rows; latest `effective_from` wins); `gst/calculate/` accepts `tax_code` + `document_date` and 404s on unknown codes (was: silent 9% fallback); `add_line` rejects codes not effective on the document's own `issue_date` — verified the old code returned SR=0.07 today |
-| **B-7** | `POST /gst/tax-codes/` un-broken (phantom `box_mapping` kwarg → TypeError 500); declared `f5_*` fields now persist |
-| **B-1** | Playwright: chromium-only by default, full 5-browser matrix via `PLAYWRIGHT_PROJECTS=all`; `list`+`html(open:never)` reporters |
-| **B-2** | Login page: `<main>` landmark, single `<h1>`, terms-text contrast 7.2:1 — the repo's own axe e2e test is deterministic and green |
-| **B-5** | `npm run typecheck` added; 25 pre-existing test-file type errors repaired; `test:all` chains vitest + tsc + playwright |
-| **B-4** | `apps/web/.env.example` lists exactly what the code reads (+ clearly-marked reserved section) |
+| **C-1/H-03** | All 47 monetary columns widened `NUMERIC(10,4)` → `NUMERIC(19,4)` (schema v1.1.0): the old width capped every value at S$999,999.9999 — **below the GST registration threshold** — so F5 Box 13 and ≥ S$1M lines/journal amounts overflowed (verified live). §16 ships the idempotent in-place migration (incl. the `amount_due` generated-column drop→widen→re-add sequence); the conformance gate now asserts numeric precision; `add_line` applies `discount_pct` server-side |
+| **D-1** | New Invoice form submit was a TODO stub (`console.log` + mock UUID) with `useCreateInvoice` dead code — now wired: per-line posting-account select, pure contact+document payload adapter, error banner, server-authoritative recalculation |
+| **D-2** | `useInvoicePDF` read the token from `localStorage` (zero-JWT-exposure violation AND `Bearer null` → 401 on every download) — now `api.blob()` shares the single fetch+refresh auth path |
+| **D-3** | Tax-code dropdown + preview use the server rows in force on the document's date (`?effective_on=` wiring); backdated documents preview at the right rate; invalid server rates fail closed to 0, never 9% |
+| **D-4/D-5** | Backend `.env.example` complete (15/15 settings-read vars incl. `ALLOWED_HOSTS`); e2e suite 6 → 13 tests (auth + invoice-form specs, `E2E_API_URL`-gated, `npm run test:e2e:full`); +25 vitest tests; fresh-host `docs/DEPLOYMENT.md` |
 
 ### Previous Milestone: P1 Sprint — Green Suite & Contract Truth ✅ — 2026-11-21 (session 3)
 

@@ -814,3 +814,64 @@ first-class gate and `test:all` chains vitest → tsc → playwright. Fixture ty
 use the schema's input-side type (`z.input`, e.g. `BankAccountInputParams`) when
 testing zod defaults; construct full payloads when calling mutations typed with
 `z.infer` output types.
+
+## 2026-11-21 P3 Sprint — New Patterns & Lessons (session 7)
+
+### Capacity Ceilings Are Schema-Level Contracts (C-1/H-03)
+NUMERIC(10,4) capped every monetary value at S$999,999.9999 — below the S$1M
+GST registration threshold, the product's own target market could not file an
+F5 return. Lesson: for a financial schema, the INTEGER DIGITS of the money
+type are a business-model decision, not a formatting detail. The conformance
+gate now asserts DecimalField max_digits/decimal_places against
+information_schema numeric_precision/numeric_scale — it caught the
+pre-existing JournalLine.exchange_rate over-declaration (model said 19,6;
+column is 12,6) on its first run. Schema is truth: align the model DOWN, and
+never trust a model that over-declares.
+
+### Generated Columns Block Their Inputs' Migration (§16)
+`ALTER TABLE invoicing.document ALTER COLUMN total_amount TYPE …` fails with
+`cannot alter type of a column used by a generated column` because amount_due
+is GENERATED ALWAYS AS (total_amount - amount_paid) STORED. The migration
+sequence is drop generated → alter inputs → re-add generated with the identical
+expression — verified inside a transaction and rolled back BEFORE writing the
+migration. Ship the in-place block with an idempotent guard (count remaining
+10,4 columns; skip when zero) so re-runs are no-ops.
+
+### Dead Hooks Signal Unfinished Wiring (D-1)
+`useCreateInvoice` was fully implemented and 100% dead — zero importers — while
+the form's onSubmit was a console.log stub. When a hook exists with no caller,
+grep for its intended caller before writing a new one; the "TODO: Milestone 4"
+comment in the form was the only pointer. The fix pattern: a PURE payload
+adapter (`lib/invoice-submit.ts`, unit-testable without React) that maps form
+state to the backend contract and drops computed preview fields (the server
+recalculates authoritatively; the local invoice_number is display-only —
+document_sequence owns numbering).
+
+### One Auth Path for Everything (D-2)
+The PDF hook built its own fetch with `localStorage.getItem("accessToken")` —
+a second token reader that violated the zero-JWT-exposure mandate and was
+broken anyway (the token lives in the api-client's module memory; storage was
+never written → `Bearer null`). Refactor: extract fetchWithAuth (fetch +
+401-refresh-retry) and build BOTH the JSON helpers and api.blob() on it. Any
+new transport that needs auth goes through the client, never around it.
+
+### Backend-Dependent E2E: Gate, Don't Break (D-5)
+The default `npm run test:e2e` must stay green on a fresh clone with no
+backend — specs that need one read E2E_API_URL and `test.skip(!apiUrl, reason)`
+(philosophy inherited from PLAYWRIGHT_PROJECTS=all). `npm run test:e2e:full`
+sets it. Sessions are memory-only (backend returns tokens in the body, sets no
+cookie), so authed specs must walk the REAL user path with client-side
+navigations only: UI login → dashboard → sidebar Link → page — a page.goto
+after login drops the session. Native form validation is real in headless
+chromium: an 8-char minLength silently blocks a short-password submit (no
+event fires, no error shows) — check input constraints before debugging
+"nothing happens". And the login rate limit (10/min per IP) accumulates across
+dev iterations: flush the Redis cache when a full e2e run fails only on login.
+
+### Radix Selects in jsdom Need Pointer-Capture Mocks
+`target.hasPointerCapture is not a function` aborts Select option rendering
+mid-interaction and masks real assertions. The setup now polyfills
+hasPointerCapture/setPointerCapture/releasePointerCapture/scrollIntoView on
+Element.prototype. Clicking options still races jsdom pointer-events — drive
+selection via keyboard (`{ArrowDown}{Enter}`) in component tests, and prefer
+`findAllByText` (Radix renders the selected label in the trigger AND the list).
