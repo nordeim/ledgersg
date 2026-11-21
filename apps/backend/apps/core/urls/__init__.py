@@ -14,6 +14,11 @@ from apps.core.views.organisations import (
     OrganisationSettingsView,
 )
 from apps.core.views.dashboard import DashboardView
+from apps.core.views.fiscal import (
+    FiscalPeriodListView,
+    FiscalYearCloseView,
+    FiscalPeriodCloseView,
+)
 
 
 # Non-org-scoped URLs
@@ -33,6 +38,22 @@ org_scoped_urlpatterns = [
     path("gst/", GSTRegistrationView.as_view(), name="org-gst"),
     # Fiscal years - mounted at api/v1/{org_id}/fiscal-years/
     path("fiscal-years/", FiscalYearListView.as_view(), name="org-fiscal-years"),
+    # Fiscal periods - mounted at api/v1/{org_id}/fiscal-periods/
+    # (P7/F-4: previously only in the shadowed apps/core/urls.py module, so
+    # the endpoint 404'd; routed here in the ACTIVE package.)
+    path("fiscal-periods/", FiscalPeriodListView.as_view(), name="org-fiscal-periods"),
+    # Fiscal year close - api/v1/{org_id}/fiscal-years/{year_id}/close/
+    path(
+        "fiscal-years/<str:year_id>/close/",
+        FiscalYearCloseView.as_view(),
+        name="fiscal-year-close",
+    ),
+    # Fiscal period close - api/v1/{org_id}/fiscal-periods/{period_id}/close/
+    path(
+        "fiscal-periods/<str:period_id>/close/",
+        FiscalPeriodCloseView.as_view(),
+        name="fiscal-period-close",
+    ),
     # Organisation summary - mounted at api/v1/{org_id}/summary/
     path("summary/", OrganisationSummaryView.as_view(), name="org-summary"),
     # Dashboard - mounted at api/v1/{org_id}/dashboard/

@@ -6,13 +6,14 @@ Phase 2: Integration Gaps Closure
 """
 
 from datetime import datetime
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from apps.core.permissions import IsOrgMember
+from apps.core.permissions import IsOrgMember, CanManageOrg
 from apps.core.models import FiscalYear, FiscalPeriod
 from common.exceptions import ValidationError
 from common.views import wrap_response
@@ -61,10 +62,12 @@ class FiscalYearCloseView(APIView):
 
     Closes the fiscal year and prevents further entries.
     Requires all periods to be closed first (validation TBD).
+    P7/F-4: routed (was only in the shadowed urls module), gated on
+    can_manage_org, and stamps with timezone-aware now().
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsOrgMember]
+    permission_classes = [IsAuthenticated, IsOrgMember, CanManageOrg]
 
     @wrap_response
     def post(self, request, org_id: str, year_id: str) -> Response:
@@ -77,7 +80,7 @@ class FiscalYearCloseView(APIView):
 
             # Close the year
             year.is_closed = True
-            year.closed_at = datetime.now()
+            year.closed_at = timezone.now()
             year.closed_by = request.user.id
             year.save()
 
@@ -100,10 +103,12 @@ class FiscalPeriodCloseView(APIView):
     POST: Close a fiscal period.
 
     Closes the fiscal period and prevents entries in that period.
+    P7/F-4: routed (was only in the shadowed urls module), gated on
+    can_manage_org, and stamps with timezone-aware now().
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsOrgMember]
+    permission_classes = [IsAuthenticated, IsOrgMember, CanManageOrg]
 
     @wrap_response
     def post(self, request, org_id: str, period_id: str) -> Response:
@@ -116,7 +121,7 @@ class FiscalPeriodCloseView(APIView):
 
             # Close the period
             period.is_open = False
-            period.locked_at = datetime.now()
+            period.locked_at = timezone.now()
             period.locked_by = request.user.id
             period.save()
 
