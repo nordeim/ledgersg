@@ -311,6 +311,55 @@ class PaymentService:
             except FiscalPeriod.DoesNotExist:
                 raise ValidationError("No fiscal period found for payment date. Cannot void.")
 
+            # P5/H-2: a voided payment must not stay in the ledger — mirror
+            # DocumentService.void_document's reversal (corrections are
+            # reversals; entries are immutable). The reversal prefers
+            # today's period and falls back to the original entry's date
+            # when the current period is closed (e.g. year-end).
+            from apps.journal.services import JournalService
+
+            original_entry = JournalService.get_entry(
+                org_id, payment.journal_entry_id
+            )
+            reversal_date = timezone.now().date()
+            if not JournalService._get_fiscal_period(org_id, reversal_date):
+                reversal_date = original_entry.entry_date
+
+            reversal = JournalService.create_reversal(
+                org_id=org_id,
+                original_entry_id=payment.journal_entry_id,
+                reversal_date=reversal_date,
+                reason=f"Void of payment {payment.payment_number}: {reason}",
+                user_id=user_id,
+            )
+        else:
+            reversal = None
+
+        # P5/H-2: a voided payment no longer represents money — release its
+        # allocations and recompute each document's amount_paid/status.
+        affected_documents = list(
+            InvoiceDocument.objects.filter(
+                paymentallocation__payment_id=payment.id
+            ).distinct()
+        )
+        PaymentAllocation.objects.filter(payment=payment).delete()
+        for document in affected_documents:
+            remaining = sum(
+                (
+                    a.allocated_amount
+                    for a in PaymentAllocation.objects.filter(document=document)
+                ),
+                Decimal("0"),
+            )
+            document.amount_paid = remaining
+            if remaining <= 0:
+                document.status = "APPROVED"
+            elif remaining < document.total_incl:
+                document.status = "PARTIALLY_PAID"
+            else:
+                document.status = "PAID"
+            document.save()
+
         payment.is_voided = True
         payment.notes = f"{payment.notes}\n\nVOIDED: {reason}".strip()
         payment.save()
@@ -326,6 +375,8 @@ class PaymentService:
             new_data={
                 "is_voided": True,
                 "reason": reason,
+                "reversal_entry_id": str(reversal.id) if reversal else None,
+                "released_allocations": len(affected_documents),
             },
         )
 
@@ -412,6 +463,11 @@ class PaymentService:
             total_allocated_to_doc = sum(
                 (a.allocated_amount for a in document_allocations), Decimal("0")
             )
+
+            # P5/H-1: persist amount_paid — the allocations table is the
+            # truth; the dashboard's outstanding-AR/AP filters and the
+            # amount_due generated column both read it.
+            document.amount_paid = total_allocated_to_doc
 
             if total_allocated_to_doc >= document.total_incl:
                 document.status = "PAID"
