@@ -4,7 +4,7 @@ Authentication service for LedgerSG.
 Handles user registration, login, and token management.
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from django.contrib.auth import authenticate
 from django.db import transaction
@@ -107,7 +107,7 @@ def generate_tokens(user: AppUser) -> dict:
     return {
         "access": str(refresh.access_token),
         "refresh": str(refresh),
-        "access_expires": datetime.now() + timedelta(minutes=15),
+        "access_expires": timezone.now() + timedelta(minutes=15),
     }
 
 

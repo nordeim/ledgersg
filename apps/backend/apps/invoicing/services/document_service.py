@@ -296,10 +296,14 @@ class DocumentService:
             amount=amount, rate=tax_code.rate or Decimal("0.00"), is_bcrs_deposit=is_bcrs_deposit
         )
 
-        # Calculate line amounts
-        line_amount = gross_amount - discount_amount
+        # Calculate line amounts (P5/H-5): the stored subtotal is the SAME
+        # 2dp number the GST was calculated on, and the total reconciles to
+        # the cent — the pre-P5 code stored a 4dp line_amount (gross -
+        # discount) next to a 2dp GST base, so printed subtotals and totals
+        # could disagree with the GST by fractions of a cent.
+        line_amount = amount
         gst_amount = gst_result["gst_amount"]
-        total_amount = line_amount + gst_amount
+        total_amount = (line_amount + gst_amount).quantize(Decimal("0.01"))
 
         line = InvoiceLine.objects.create(
             org_id=org_id,

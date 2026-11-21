@@ -224,9 +224,16 @@ def test_accounts(test_organisation) -> dict:
     """Create standard accounts for the organisation."""
     accounts = {}
 
+    # Mirrors the real seed chart (core.seed_default_chart_of_accounts):
+    # 2200 is Accrued Expenses and GST Output lives at 2600 (P5/H-4 — the
+    # old fixture mislabelled 2200 as GST Output Tax, the same wrong map
+    # the journal resolvers encoded).
     account_data = [
         ("1200", "Accounts Receivable", "ASSET_CURRENT"),
-        ("2200", "GST Output Tax", "LIABILITY_CURRENT"),
+        ("1600", "GST Input Tax", "ASSET_CURRENT"),
+        ("2100", "Accounts Payable", "LIABILITY_CURRENT"),
+        ("2200", "Accrued Expenses", "LIABILITY_CURRENT"),
+        ("2600", "GST Output Tax", "LIABILITY_CURRENT"),
         ("4000", "Sales Revenue", "REVENUE"),
         ("5000", "Cost of Sales", "COS"),
         ("6100", "Rent Expense", "EXPENSE_ADMIN"),

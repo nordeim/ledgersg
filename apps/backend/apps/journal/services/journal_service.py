@@ -227,7 +227,7 @@ class JournalService:
                 posted_at=timezone.now(),
             )
 
-            for line_data in lines:
+            for line_number, line_data in enumerate(lines, start=1):
                 account_id = line_data.get("account_id")
                 if not account_id:
                     raise ValidationError("Each line must have an account_id.")
@@ -250,7 +250,7 @@ class JournalService:
                     description=line_data.get("description", ""),
                     debit=debit,
                     credit=credit,
-                    line_number=lines.index(line_data) + 1,
+                    line_number=line_number,
                 )
 
             return journal_entry
@@ -603,97 +603,89 @@ class JournalService:
             raise ResourceNotFound(f"Fiscal period {period_id} not found")
 
     @staticmethod
-    def _get_ap_account(org_id: UUID) -> Account:
+    def _resolve_control_account(
+        org_id: UUID,
+        *,
+        code: str,
+        names: tuple[str, ...],
+        sub_type_code: str | None = None,
+        label: str,
+        hint: str,
+    ) -> Account:
         """
-        Get Accounts Payable account.
+        Resolve a control account EXACTLY and fail closed (P5/H-4).
 
-        Args:
-            org_id: Organisation ID
-
-        Returns:
-            Account instance
+        Order: exact code -> exact name -> account_sub_type code; header
+        accounts are never eligible. The pre-P5 resolvers broad-matched
+        whole account types with an unordered .first() — output tax landed
+        on 2200 Accrued Expenses and AR could land on any asset. On a
+        compliance path, an unknown GL account must raise, never guess.
         """
-        from django.db.models import Q
-        ap_account = Account.objects.filter(
-            Q(org_id=org_id) &
-            (Q(code="2100") | Q(account_type="LIABILITY_CURRENT") | Q(account_type="LIABILITY"))
-        ).first()
+        base = Account.objects.filter(org_id=org_id, is_header=False, is_active=True)
 
-        if not ap_account:
-            raise ValidationError(
-                "No Accounts Payable account found. Please set up Chart of Accounts."
-            )
+        account = base.filter(code=code).first()
+        if account:
+            return account
 
-        return ap_account
+        account = base.filter(name__in=names).first()
+        if account:
+            return account
 
-    @staticmethod
-    def _get_gst_input_account(org_id: UUID) -> Account:
-        """
-        Get GST Input Tax account.
+        if sub_type_code:
+            account = base.filter(account_sub_type__code=sub_type_code).first()
+            if account:
+                return account
 
-        Args:
-            org_id: Organisation ID
-
-        Returns:
-            Account instance
-        """
-        from django.db.models import Q
-        gst_account = Account.objects.filter(
-            Q(org_id=org_id) &
-            (Q(code__startswith="120") | Q(account_type="ASSET_CURRENT") | Q(account_type="ASSET"))
-        ).first()
-
-        if not gst_account:
-            raise ValidationError(
-                "No GST Input Tax account found. Please set up Chart of Accounts."
-            )
-
-        return gst_account
+        raise ValidationError(
+            f"No {label} control account found (expected code {code}). {hint}"
+        )
 
     @staticmethod
     def _get_ar_account(org_id: UUID) -> Account:
-        """
-        Get Accounts Receivable account.
+        """Accounts Receivable: 1200, fail-closed (P5/H-4)."""
+        return JournalService._resolve_control_account(
+            org_id,
+            code="1200",
+            names=("Accounts Receivable",),
+            sub_type_code="ACCOUNTS_RECEIVABLE",
+            label="Accounts Receivable",
+            hint="Please set up your Chart of Accounts.",
+        )
 
-        Args:
-            org_id: Organisation ID
+    @staticmethod
+    def _get_ap_account(org_id: UUID) -> Account:
+        """Accounts Payable: 2100, fail-closed (P5/H-4)."""
+        return JournalService._resolve_control_account(
+            org_id,
+            code="2100",
+            names=("Accounts Payable",),
+            sub_type_code="ACCOUNTS_PAYABLE",
+            label="Accounts Payable",
+            hint="Please set up your Chart of Accounts.",
+        )
 
-        Returns:
-            Account instance
-        """
-        from django.db.models import Q
-        ar_account = Account.objects.filter(
-            Q(org_id=org_id) &
-            (Q(code="1200") | Q(account_type="ASSET_CURRENT") | Q(account_type="ASSET"))
-        ).first()
-
-        if not ar_account:
-            raise ValidationError(
-                "No Accounts Receivable account found. Please set up Chart of Accounts."
-            )
-
-        return ar_account
+    @staticmethod
+    def _get_gst_input_account(org_id: UUID) -> Account:
+        """GST Input Tax: 1600 (seeded only for GST-registered orgs)."""
+        return JournalService._resolve_control_account(
+            org_id,
+            code="1600",
+            names=("GST Input Tax",),
+            label="GST Input Tax",
+            hint="Is the organisation GST-registered? Seed the GST control "
+            "accounts (toggle GST registration or re-run the CoA seed).",
+        )
 
     @staticmethod
     def _get_gst_output_account(org_id: UUID) -> Account:
-        """
-        Get GST Output Tax account.
+        """GST Output Tax: 2600 (seeded only for GST-registered orgs)."""
+        return JournalService._resolve_control_account(
+            org_id,
+            code="2600",
+            names=("GST Output Tax",),
+            label="GST Output Tax",
+            hint="Is the organisation GST-registered? Seed the GST control "
+            "accounts (toggle GST registration or re-run the CoA seed).",
+        )
 
-        Args:
-            org_id: Organisation ID
 
-        Returns:
-            Account instance
-        """
-        from django.db.models import Q
-        gst_account = Account.objects.filter(
-            Q(org_id=org_id) &
-            (Q(code__startswith="220") | Q(account_type="LIABILITY_CURRENT") | Q(account_type="LIABILITY"))
-        ).first()
-
-        if not gst_account:
-            raise ValidationError(
-                "No GST Output Tax account found. Please set up Chart of Accounts."
-            )
-
-        return gst_account
