@@ -195,9 +195,14 @@ class InvoiceDocumentUpdateSerializer(serializers.Serializer):
 
 
 class StatusTransitionSerializer(serializers.Serializer):
-    """Serializer for status transition request."""
-    
-    status = serializers.CharField()
+    """Serializer for status transition request.
+
+    P7/F-2: `status` is a ChoiceField over the real doc_status vocabulary —
+    the pre-P7 bare CharField accepted arbitrary strings (and the view's
+    permission check compared against the non-existent "VOIDED" literal).
+    """
+
+    status = serializers.ChoiceField(choices=InvoiceDocument.STATUS_CHOICES)
     reason = serializers.CharField(required=False, allow_blank=True)
 
 

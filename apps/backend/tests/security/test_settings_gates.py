@@ -127,3 +127,52 @@ def test_base_throttle_posture_unchanged():
     assert rates["anon"] == "20/minute"
     assert rates["user"] == "100/minute"
     assert base.REFRESH_RATELIMIT_IP == "20/minute"
+
+
+def test_custom_exception_handler_is_active():
+    """P7/F-19 posture gate: DRF must resolve the custom exception handler.
+
+    The pre-P7 settings used the wrong key ("DEFAULT_EXCEPTION_HANDLER" —
+    DRF's key is "EXCEPTION_HANDLER", not namespaced under DEFAULT_*), so
+    api_settings silently fell back to DRF's default handler and every
+    LedgerSGException that wrap_response re-raises surfaced as an unhandled
+    500 instead of its mapped status code (403/502/...).
+    """
+    from rest_framework.settings import api_settings
+
+    handler = api_settings.EXCEPTION_HANDLER
+    assert getattr(handler, "__module__", "") == "common.exceptions", (
+        f"api_settings.EXCEPTION_HANDLER resolved to {handler!r} — "
+        "the custom exception handler is NOT active"
+    )
+
+
+def test_wrap_response_exceptions_map_to_status_codes():
+    """A LedgerSGException raised inside a wrapped view must produce its
+    mapped status code (not an unhandled 500) — end-to-end through DRF
+    dispatch with the custom exception handler active."""
+    from rest_framework.test import APIRequestFactory
+    from rest_framework.views import APIView
+    from rest_framework.permissions import AllowAny
+    from common.exceptions import UnauthorizedOrgAccess, PeppolTransmissionError
+
+    class ExplodingView(APIView):
+        authentication_classes = []
+        permission_classes = [AllowAny]
+
+        def post(self, request):
+            raise UnauthorizedOrgAccess("nope")
+
+    request = APIRequestFactory().post("/x")
+    response = ExplodingView.as_view()(request)
+    assert response.status_code == 403, response.data
+
+    class PeppolView(APIView):
+        authentication_classes = []
+        permission_classes = [AllowAny]
+
+        def post(self, request):
+            raise PeppolTransmissionError("AP down")
+
+    response = PeppolView.as_view()(APIRequestFactory().post("/x"))
+    assert response.status_code == 502, response.data

@@ -218,7 +218,13 @@ REST_FRAMEWORK = {
         "common.renderers.DecimalSafeJSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
-    "DEFAULT_EXCEPTION_HANDLER": "common.exceptions.custom_exception_handler",
+    # P7/F-19: the key is "EXCEPTION_HANDLER" — DRF does not namespace it
+    # under "DEFAULT_*". The pre-P7 "DEFAULT_EXCEPTION_HANDLER" key was
+    # silently ignored, so api_settings fell back to DRF's default handler
+    # and every LedgerSGException that wrap_response re-raises (auth-denied,
+    # GST calculation, Peppol transmission, ...) surfaced as an unhandled
+    # 500 instead of its mapped status code.
+    "EXCEPTION_HANDLER": "common.exceptions.custom_exception_handler",
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",

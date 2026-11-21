@@ -267,7 +267,18 @@ class InvoiceDocumentStatusView(APIView):
 
     @wrap_response
     def post(self, request, org_id: str, document_id: str) -> Response:
-        """Transition document status."""
+        """Transition document status.
+
+        P7/F-2: the target status is validated against the real doc_status
+        vocabulary, every transition is permission-gated (the pre-P7 code
+        compared against the non-existent "VOIDED" literal, so the
+        CanVoidInvoices check never fired and any member could void), and the
+        payment-derived statuses are refused — they are owned by the
+        allocation service, which derives them from real payments.
+        VOID/APPROVED delegate to the same canonical service methods as the
+        dedicated /void/ and /approve/ endpoints (reason persistence,
+        journal posting/reversal).
+        """
         from uuid import UUID
 
         serializer = StatusTransitionSerializer(data=request.data)
@@ -275,15 +286,36 @@ class InvoiceDocumentStatusView(APIView):
 
         new_status = serializer.validated_data["status"]
 
-        # Check permission based on target status
-        if new_status == "APPROVED":
-            self._check_permission(request, "can_approve_invoices")
-        elif new_status == "VOIDED":
-            self._check_permission(request, "can_void_invoices")
+        # Payment-derived statuses are owned by the allocation service —
+        # setting them here would assert a payment that does not exist.
+        if new_status in ("PAID", "PARTIALLY_PAID"):
+            raise ValidationError(
+                "PAID/PARTIALLY_PAID are derived from payment allocations; "
+                "allocate a payment instead."
+            )
 
-        document = DocumentService.transition_status(
-            UUID(str(org_id)), UUID(str(document_id)), new_status, user_id=request.user.id
-        )
+        # Per-target-status permission map (the generic endpoint must be no
+        # weaker than the dedicated /approve/ and /void/ endpoints).
+        if new_status == "VOID":
+            self._check_permission(request, "can_void_invoices")
+        elif new_status in ("APPROVED", "SENT", "OVERDUE"):
+            self._check_permission(request, "can_approve_invoices")
+
+        org_uuid, doc_uuid = UUID(str(org_id)), UUID(str(document_id))
+
+        if new_status == "VOID":
+            # Canonical void path: persists the reason and posts the reversal.
+            reason = serializer.validated_data.get("reason", "") or "Voided via status transition"
+            document = DocumentService.void_document(
+                org_uuid, doc_uuid, request.user, reason=reason
+            )
+        elif new_status == "APPROVED":
+            # Canonical approve path: posts the journal entry.
+            document = DocumentService.approve_document(org_uuid, doc_uuid, request.user)
+        else:
+            document = DocumentService.transition_status(
+                org_uuid, doc_uuid, new_status, user_id=request.user.id
+            )
 
         return Response(
             {
