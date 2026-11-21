@@ -1,5 +1,52 @@
 # LedgerSG — Worklog
 
+## 2026-11-21 — Session 9: P4 Sprint (Cross-Reload Session Persistence, Evidence-Gated Refresh & Docs Truth)
+
+**Base:** `33e176bf` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-21_P4.md` · **Report:** `docs/REMEDIATION_2026-11-21_P4_REPORT.md`
+
+### Environment (reused, re-provisioned after the sandbox recycle)
+
+- Rootless PG 17 (:5432) + Redis 8 (:6379) re-provisioned (`docs/setup_pg_z.sh`); schema v1.1.0 intact in both DBs; a stale `postmaster.pid` needed clearing once after the recycle.
+- Baselines reproduced before any change: backend **519P/0F/5S**, vitest **349/349**, typecheck **0 errors**, e2e **9 passed + 4 gated skips** — the documented P3 state, exactly.
+- Operational: the sandbox reaper kills detached dev servers BETWEEN tool invocations (silently); the whole e2e/screenshot phase runs inside ONE invocation (backend → readiness poll → playwright `webServer` → trap cleanup). The inverse trap: a `--noreload` dev server from the previous session still held :8000 serving pre-P4 code — one `Set-Cookie` header on login was the clue.
+
+### Audit (Mode C) — findings this session
+
+Repo skills: `code-review-and-audit` (standard mode scoped to `apps/`, every scanner "critical" manually re-verified — the documented false-positive classes), `code-quality-standards`, `diagnosing-bugs`, `e2e-testing-lessons`. Real findings (register in plan §0):
+
+- **E-1 (High, UX + auth posture)**: cross-reload session persistence broken end-to-end — a THREE-LINK chain: (1) backend sets no refresh cookie (while the api-client header comment claimed "HttpOnly cookie" — the code never existed); (2) frontend discards the refresh token; (3) `fetchWithAuth`'s `&& accessToken` guard blocks the cold-reload refresh. Every reload/new tab/browser restart dropped the session; logout never blacklisted on user-initiated logout.
+- **E-2 (Medium, docs)**: post-P3 stale claims — README "NUMERIC(10,4)" + 714 badge; PAD v3.1.0 metrics; ledgersg_SKILL non-negotiable #2 + stale overflow row; AGENTS pre-P3 rows.
+- **E-3 (Low)**: no root `.env.example` (session directive). **E-4 (Low)**: DEPLOYMENT.md predates the cookie flow. **E-5 (Low)**: extend the vitest/playwright suites through the existing configs.
+
+### Remediation executed (TDD)
+
+| Task | Change | Evidence |
+|---|---|---|
+| 1 (E-1 backend) | `_refresh_cookie.py` helpers; login/register set the HttpOnly refresh cookie (Path=/api/v1/auth/, Lax, Secure=!DEBUG, 7d); refresh accepts body OR cookie (rotation+blacklist identical, re-sets rotated); logout blacklists + expires; change-password expires | 8 tests RED→GREEN; suite 519→527 |
+| 2 (E-1 frontend) | refresh on the cold 401 + retry (guard dropped); header comment now true | vitest 349→351 (RED on the guard first) |
+| 3 (E-5 + refinement) | e2e session spec (reload survival, post-reload nav, logout-ends-session); shell logout affordance; login rates as settings knobs (`LOGIN_RATELIMIT_IP/USER`, production unchanged, dev 60/min for the ~11-login e2e budget); **the evidence gate**: backend `session_hint` JS-readable marker cookie (set login/register/refresh; expired logout/password-change/failed-cookie-refresh), frontend refreshes only with evidence — anonymous 401s propagate (root cause of the e2e's 6 failures: refresh-on-every-401 flooded the 20/min refresh limit AND swallowed the login form's error behind a hard redirect) | 6 pytest + 3 vitest RED→GREEN; e2e 13→16, full run **16/16** |
+| 4 (E-2) | README/PAD v3.2.0/CLAUDE v2.9.0/AGENTS session-9 lessons/ledgersg_SKILL v1.4.0 truth pass | truth greps clean (no 10,4 / 706 / 714 claims) |
+| 5 (E-3/E-4) | root `.env.example` index; DEPLOYMENT.md cookie flow + reload smoke + SameSite=None caveat + counts | per-var cross-check vs both app templates |
+
+### Final gate (all Verified, executed)
+
+- `pytest --reuse-db --no-migrations -q` → **0 failed, 534 passed, 5 skipped**
+- `pytest tests/invariants -q` → **20 passed** · `pytest tests/security -q` → **47 passed, 3 skipped**
+- `manage.py check` → 0 errors (1 known W001) · ruff touched files clean
+- Web: typecheck 0 errors · vitest **354/354** · eslint touched files: pre-existing findings only · e2e default **9 + 7 gated skips**, full **16/16**
+- Live curl: login sets both cookies; cookie-only refresh 200 (rotated); garbage cookie 401 + both expired; bad login 401 + zero Set-Cookie
+- 5 new screenshots (`docs/screenshots/19..23_*_session9.png`), md5-unique — incl. **23_dashboard_after_reload** (the E-1 evidence shot)
+
+### Deferred (registered, not dropped)
+
+P0-P3 register unchanged (H-02/H-08…H-13, M-*, L-*, I-*, B-6 eslint debt, F5 rate-basis, backend ruff debt); **cross-reload session persistence RESOLVED (E-1)**; e2e login-rate budget resolved structurally (settings knobs); NEW: cross-site `SameSite=None` cookie topology note (split-domain deployments). See P4 report §3.
+
+### Commits
+
+Conventional commits on `main` per P4 plan §8; pushed via `docs/ssh_git_wrapper_v3.py` (key shredded after push).
+
+---
+
 ## 2026-11-21 — Session 7: P3 Sprint (Monetary Capacity, Truthful Invoice Form & Suite Depth)
 
 **Base:** `5b237743` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-21_P3.md` · **Report:** `docs/REMEDIATION_2026-11-21_P3_REPORT.md`
