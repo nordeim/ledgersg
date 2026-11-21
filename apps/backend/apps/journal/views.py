@@ -111,7 +111,6 @@ class JournalEntryListCreateView(APIView):
 
         raise UnauthorizedOrgAccess("Insufficient permissions")
 
-
 class JournalEntryDetailView(APIView):
     """
     GET: Get journal entry details
@@ -127,7 +126,6 @@ class JournalEntryDetailView(APIView):
 
         entry = JournalService.get_entry(org_id, UUID(entry_id))
         return Response(JournalEntryDetailSerializer(entry).data)
-
 
 class JournalEntryReversalView(APIView):
     """
@@ -164,7 +162,6 @@ class JournalEntryReversalView(APIView):
             status=status.HTTP_201_CREATED,
         )
 
-
 class TrialBalanceView(APIView):
     """
     GET: Get trial balance
@@ -198,7 +195,6 @@ class TrialBalanceView(APIView):
                 "as_of_date": date_to.isoformat() if date_to else date.today().isoformat(),
             }
         )
-
 
 class AccountBalanceView(APIView):
     """
@@ -238,7 +234,6 @@ class AccountBalanceView(APIView):
 
         return Response(account_info)
 
-
 class EntryTypesView(APIView):
     """
     GET: List available entry types
@@ -253,7 +248,6 @@ class EntryTypesView(APIView):
         types = [{"code": code, "name": name} for code, name in SOURCE_TYPES.items()]
 
         return Response({"data": types, "count": len(types)})
-
 
 class JournalEntrySummaryView(APIView):
     """
@@ -294,7 +288,6 @@ class JournalEntrySummaryView(APIView):
             }
         )
 
-
 class ValidateBalanceView(APIView):
     """
     POST: Validate debits equal credits for proposed entry
@@ -327,3 +320,67 @@ class ValidateBalanceView(APIView):
                 "line_count": len(lines),
             }
         )
+
+class LedgerView(APIView):
+    """
+    GET: flat line-level ledger rows (P6/C-5).
+
+    The entries list endpoint returns aggregated entries (totals, line
+    counts) which cannot drive the line-level general-ledger table. This
+    endpoint joins each line with its entry and account: one row per
+    journal line, filters on date range / account / source type.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsOrgMember]
+
+    @wrap_response
+    def get(self, request, org_id: str) -> Response:
+        """List ledger lines with filters."""
+        from uuid import UUID
+
+        from apps.core.models import JournalLine
+
+        queryset = JournalLine.objects.filter(
+            org_id=org_id, entry__is_reversed=False
+        ).select_related("entry", "account").order_by(
+            "-entry__entry_date", "-entry__entry_number", "line_number"
+        )
+
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+        account_id = request.query_params.get("account_id")
+        source_type = (
+            request.query_params.get("source_type")
+            or request.query_params.get("type")
+        )
+
+        if date_from:
+            queryset = queryset.filter(entry__entry_date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(entry__entry_date__lte=date_to)
+        if account_id:
+            queryset = queryset.filter(account_id=UUID(account_id))
+        if source_type:
+            queryset = queryset.filter(entry__source_type=source_type)
+
+        results = [
+            {
+                "id": str(line.id),
+                "entry_id": str(line.entry_id),
+                "entry_number": line.entry.entry_number,
+                "entry_date": str(line.entry.entry_date),
+                "source_type": line.entry.source_type,
+                "reference": line.entry.reference,
+                "narration": line.entry.narration,
+                "line_number": line.line_number,
+                "account_id": str(line.account_id),
+                "account_code": line.account.code,
+                "account_name": line.account.name,
+                "description": line.description,
+                "debit": str(line.debit),
+                "credit": str(line.credit),
+            }
+            for line in queryset
+        ]
+        return Response({"results": results, "count": len(results)})
