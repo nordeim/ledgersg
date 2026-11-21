@@ -1,5 +1,49 @@
 # LedgerSG — Worklog
 
+## 2026-11-22 — Session 12: P6 Sprint (C-5 Completion & Payment Posting Integrity)
+
+**Base:** `20069486` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-22_P6.md` · **Report:** `docs/REMEDIATION_2026-11-22_P6_REPORT.md`
+
+### Environment (rebuilt on surviving data after a workspace reset)
+
+- The previous session's P6 work (11 commits, never pushed) was lost to a workspace reset — the second such loss. Re-cloned at the session-11 state; the PG data directory survived (empty subdirectories pg_logical/snapshots, pg_notify, ... stripped again — recreated the full PG17 set and the server recovered both databases with schema intact); Redis restarted from the surviving install; backend venv + web deps reinstalled; playwright 1.58.2 needed chromium 1208.
+- Baselines reproduced before any change: backend **567P/0F/5S**, vitest **358/358**, typecheck **0 errors**, e2e default **10 + gated skips**, 74 pre-existing lint problems — the documented P5 state, exactly.
+- Process lesson applied: **push after every commit** (the SSH wrapper + paramiko shim verified the remote ref each time); a workspace reset can no longer destroy a session's work.
+
+### Audit (Mode C) — findings this session
+
+Post-P5 audit, every finding re-verified in source with line numbers against the fresh clone: **F-4** allocate() blocks second allocations on PARTIALLY_PAID (payment_service.py:463); **F-5** the payment JE control-account fallback broad-matches `Q(account_type=…).first()` (622-623/651-654 — AR could land on 1010 Cash on Hand); **F-6** create_contact never sets AR/AP accounts; **F-7** unallocate() doesn't recompute amount_paid; **F-10** both org update allowlists forward a phantom `address` key while the real fields are filtered (organisations.py:109, organisation_service.py:282); **F-11** the detail serializer omits amount_paid/amount_due; **C-5** leftovers (detail/ledger/settings mock pages); **D-1** sync route params in a Promise-params Next.js. De-escalated: the `account_type` seed gap (the broad Q resolves only via its code arm today — latent fragility, closed by the F-5 fix). Scanner criticals: all in the documented false-positive classes.
+
+### Remediation executed (TDD — 21 backend + 21 vitest + 3 e2e specs, all RED first)
+
+| Task | Change | Evidence |
+|---|---|---|
+| 1+2 (F-4/F-5/F-6/F-7) | Guard widened to ("APPROVED", "PARTIALLY_PAID"); JE fallback → JournalService fail-closed resolvers; create_contact assigns 1200/2100 by type; unallocate recomputes amount_paid/status; test_views fixtures corrected | 10 tests RED→GREEN (RED evidence: "must be APPROVED", AR on 1010 decoy, no-raise fail-closed, stale amount_paid); suite 567→577 |
+| 3 (F-10) | Both allowlists forward address_line_1/2, city, postal_code, country | 1 RED→GREEN (round-trip + phantom no-op); 579 |
+| 4 backend (F-11) | Detail serializer gains amount_paid + amount_due (SerializerMethodField mirrors the DB generated column) | 2 RED→GREEN; 581 |
+| 4 frontend (C-5 + D-1) | InvoiceDetail type (useInvoice retyped), full detail-client rewrite (payment state on every non-void doc, real mutations), await params, generateStaticParams dropped | 7 vitest RED→GREEN (358→365); gated e2e |
+| 5 (C-5) | GET journal-entries/ledger/ (flat line rows, filters, org-scoped) + useLedger + props-driven ledger-table + client | 3 backend + 7 vitest RED→GREEN (372); gated e2e |
+| 6 (C-5) | useOrganisation hooks + settings client (controlled inputs, GST register/deregister wiring) | 5 hook + 6 page tests RED→GREEN (383); gated e2e |
+| 7 (E-1) | REFRESH_RATELIMIT_IP knob + config.ratelimits.refresh_ip; development raises refresh/DRF budgets copy-on-write; testing.py REST_FRAMEWORK mutation made copy-on-write (it corrupted the shared base dict — caught by the new posture gate) | 4 gates RED→GREEN; 588; security 51+3 |
+| 9 (e2e fixes) | Payment state always rendered on non-void docs; settings e2e via getByLabel+toHaveValue | e2e full 18/20 → **20/20** |
+
+### Final gate (all Verified, executed)
+
+- `pytest --reuse-db --no-migrations -q` → **0 failed, 588 passed, 5 skipped** · invariants 27P · security 51P/3S
+- `npm test` → **383/383** · `npm run typecheck` → 0 errors · e2e default 9 + 11 gated · **e2e full 20/20** (live dev stack, dev-DB bootstrapped through the public API)
+- Ruff parity on every touched file (payment_service 30→26; the development.py 19→21 is the file's established star-import F405 idiom); eslint parity (new files clean)
+- 6 real-data screenshots (`docs/screenshots/29..34_*_session12.png` — md5-unique, 1440×900, non-blank)
+- `.env.example` cross-checked: complete; P6 adds no env vars (the E-1 knobs are Django settings)
+- Docs truth pass: README (P6 milestone, 991 = 588 + 383 + 20, v0.1.6/v0.4.0), PAD (counts + Page Data Truth), ledgersg_SKILL v1.6.0 (+5 lessons), AGENTS NUMERIC(10,4) current-precision claims corrected to NUMERIC(19,4)/NUMERIC(12,6) (verified against information_schema)
+
+### Deferred (registered, not dropped)
+
+P5 register carried forward unchanged (H-02, M-1, M-10, M-11, M-14, H-07, frontend eslint debt, F5 rate-basis, A-10, GST pay_return, contact picker, Reg-11). New: none — the account_type seed-column population is optional hardening, superseded by the fail-closed resolver.
+
+### Commits
+
+11 conventional commits on `main`, **pushed incrementally after each task** via `docs/ssh_git_wrapper_v3.py` (paramiko shim; remote ref verified on every push; deploy key shredded after the final push). `.env.example` files verified and already tracked.
+
 ## 2026-11-21 — Session 11: P5 Sprint (Truth Restoration — Repo Hygiene, Real InvoiceNow, Accounting Integrity & Real Dashboard Data)
 
 **Base:** `cfc74571` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-21_P5.md` · **Report:** `docs/REMEDIATION_2026-11-21_P5_REPORT.md`
