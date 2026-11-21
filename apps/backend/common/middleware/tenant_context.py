@@ -15,36 +15,33 @@ for compatibility with async contexts and ASGI.
 """
 
 import contextvars
-import uuid
-from typing import Optional
 import logging
+import uuid
 
-from django.db import connection
-from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.core.cache import cache
 from django.contrib.auth import get_user_model
-
-from common.exceptions import UnauthorizedOrgAccess
+from django.core.cache import cache
+from django.db import connection, transaction
+from django.http import HttpRequest, HttpResponse, JsonResponse
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
 # Contextvars for application-layer access
-_current_org_id: contextvars.ContextVar[Optional[uuid.UUID]] = contextvars.ContextVar(
+_current_org_id: contextvars.ContextVar[uuid.UUID | None] = contextvars.ContextVar(
     "current_org_id", default=None
 )
-_current_user_id: contextvars.ContextVar[Optional[uuid.UUID]] = contextvars.ContextVar(
+_current_user_id: contextvars.ContextVar[uuid.UUID | None] = contextvars.ContextVar(
     "current_user_id", default=None
 )
 
 
-def get_current_org_id() -> Optional[uuid.UUID]:
+def get_current_org_id() -> uuid.UUID | None:
     """Get the current organization ID from context."""
     return _current_org_id.get()
 
 
-def get_current_user_id() -> Optional[uuid.UUID]:
+def get_current_user_id() -> uuid.UUID | None:
     """Get the current user ID from context."""
     return _current_user_id.get()
 
@@ -72,94 +69,83 @@ class TenantContextMiddleware:
         logger.debug(f"Authenticated user: {user}")
 
         # Skip for unauthenticated users (let view handle auth)
-        # BUT we need to set RLS to NULL to enforce policy denial
+        # BUT we need to set RLS to NULL to enforce policy denial.
+        #
+        # C-03: SET LOCAL is transaction-scoped. Under ATOMIC_REQUESTS the
+        # request transaction opens strictly INSIDE the view — after this
+        # middleware returns. Executing SET LOCAL bare would land in its own
+        # autocommit statement and be discarded before any view query.
+        # Therefore the request is executed inside a transaction opened HERE,
+        # and the same transaction carries the RLS context for every view
+        # query. Django's make_view_atomic nests (savepoint) inside it, so
+        # commit/rollback semantics are preserved for the whole request.
         if not user or not user.is_authenticated:
             logger.warning(f"No authenticated user for {request.path}, setting RLS to NULL")
             try:
-                with connection.cursor() as cursor:
-                    cursor.execute("SET LOCAL app.current_org_id = ''")
-                    cursor.execute("SET LOCAL app.current_user_id = ''")
-                    logger.debug("RLS context set to NULL for unauthenticated request")
-            except Exception as e:
-                logger.error(f"Failed to set RLS context: {e}")
-            return self.get_response(request)
-
-        # Set user on request for downstream use
-        request.user = user
-
-        try:
-            # Extract org_id from URL
-            org_id = self._extract_org_id(request.path)
-            logger.debug(f"Extracted org_id: {org_id}")
-
-            if not org_id:
-                # No org_id in URL, let view handle it
-                logger.warning(f"No org_id extracted from {request.path}")
-                return self.get_response(request)
-
-            # Verify user belongs to this org
-            if not self._verify_org_membership(user, org_id):
-                logger.warning(f"User {user.id} not authorized for org {org_id}")
-                return JsonResponse(
-                    {
-                        "error": {
-                            "code": "unauthorized_org_access",
-                            "message": "You do not have access to this organization",
-                        }
-                    },
-                    status=403,
-                )
-
-            # Get user's role for this org
-            org_role = self._get_org_role(request.user, org_id)
-            logger.debug(f"User role: {org_role}")
-
-            # Set RLS session variables within the atomic transaction
-            try:
-                with connection.cursor() as cursor:
-                    cursor.execute("SET LOCAL app.current_org_id = %s", [str(org_id)])
-                    cursor.execute("SET LOCAL app.current_user_id = %s", [str(request.user.id)])
-                    logger.debug(f"RLS context set: org_id={org_id}, user_id={request.user.id}")
+                with transaction.atomic():
+                    with connection.cursor() as cursor:
+                        cursor.execute("SET LOCAL app.current_org_id = ''")
+                        cursor.execute("SET LOCAL app.current_user_id = ''")
+                        logger.debug("RLS context set to NULL for unauthenticated request")
+                    return self.get_response(request)
             except Exception as e:
                 logger.error(f"Failed to set RLS context: {e}")
                 raise
+        # Set user on request for downstream use
+        request.user = user
 
-            # Set contextvars for application-level access
-            _current_org_id.set(org_id)
-            _current_user_id.set(request.user.id)
+        # Extract org_id from URL
+        org_id = self._extract_org_id(request.path)
+        logger.debug(f"Extracted org_id: {org_id}")
+
+        if not org_id:
+            # No org_id in URL, let view handle it
+            logger.warning(f"No org_id extracted from {request.path}")
+            return self.get_response(request)
+
+        # Verify user belongs to this org
+        if not self._verify_org_membership(user, org_id):
+            logger.warning(f"User {user.id} not authorized for org {org_id}")
+            return JsonResponse(
+                {
+                    "error": {
+                        "code": "unauthorized_org_access",
+                        "message": "You do not have access to this organization",
+                    }
+                },
+                status=403,
+            )
+
+        # Get user's role for this org
+        org_role = self._get_org_role(request.user, org_id)
+        logger.debug(f"User role: {org_role}")
+
+        # Set RLS session variables inside a transaction that spans the
+        # whole request (C-03 — see the comment on the unauthenticated
+        # branch above for why the transaction must open here).
+        #
+        # Set contextvars for application-level access
+        _current_org_id.set(org_id)
+        _current_user_id.set(request.user.id)
+
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL app.current_org_id = %s", [str(org_id)])
+                cursor.execute("SET LOCAL app.current_user_id = %s", [str(request.user.id)])
+                logger.debug(f"RLS context set: org_id={org_id}, user_id={request.user.id}")
 
             # Attach to request for view convenience
             request.org_id = org_id
             request.org_role = org_role
 
-            # Proceed with the request
+            # Proceed with the request INSIDE the same transaction so
+            # every view query sees the RLS session variables. Any
+            # exception propagates and rolls the whole request back
+            # (C-04 discipline: never swallow).
             response = self.get_response(request)
 
             logger.debug(f"Request completed successfully: {response.status_code}")
             return response
-
-        except UnauthorizedOrgAccess as e:
-            return JsonResponse(
-                {
-                    "error": {
-                        "code": e.code,
-                        "message": e.message,
-                    }
-                },
-                status=e.status_code,
-            )
-        except Exception as e:
-            # Log the error and return generic response
-            # In production, this should be logged to Sentry
-            return JsonResponse(
-                {
-                    "error": {
-                        "code": "tenant_context_error",
-                        "message": "Failed to set tenant context",
-                    }
-                },
-                status=500,
-            )
 
     def _is_org_scoped(self, path: str) -> bool:
         """
@@ -183,7 +169,7 @@ class TenantContextMiddleware:
 
         return True
 
-    def _extract_org_id(self, path: str) -> Optional[uuid.UUID]:
+    def _extract_org_id(self, path: str) -> uuid.UUID | None:
         """
         Extract org_id UUID from URL path.
 
@@ -201,7 +187,7 @@ class TenantContextMiddleware:
         except (ValueError, IndexError):
             return None
 
-    def _get_authenticated_user(self, request: HttpRequest) -> Optional[User]:
+    def _get_authenticated_user(self, request: HttpRequest) -> User | None:
         """
         Get authenticated user from request.
 
@@ -265,7 +251,7 @@ class TenantContextMiddleware:
             # If we can't verify, deny access (fail secure)
             return False
 
-    def _get_org_role(self, user, org_id: uuid.UUID) -> Optional[dict]:
+    def _get_org_role(self, user, org_id: uuid.UUID) -> dict | None:
         """
         Get the user's role for this organization.
 
