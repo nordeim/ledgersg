@@ -149,6 +149,9 @@ export const bankAccountUpdateSchema = z.object({
 // Export types
 export type BankAccount = z.infer<typeof bankAccountSchema>;
 export type BankAccountInput = z.infer<typeof bankAccountInputSchema>;
+// Input-side type: fields the zod defaults fill (currency, is_default,
+// opening_balance) are optional here — this is what callers feed .parse().
+export type BankAccountInputParams = z.input<typeof bankAccountInputSchema>;
 export type BankAccountUpdate = z.infer<typeof bankAccountUpdateSchema>;
 
 /**

@@ -5,7 +5,7 @@
  * Following TDD: RED → GREEN → REFACTOR
  */
 
-import { describe, test, expect, vi, beforeEach } from "vitest";
+import { describe, test, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { TransactionList } from "../components/transaction-list";
 import { useBankTransactions } from "@/hooks/use-banking";
@@ -16,7 +16,7 @@ vi.mock("@/hooks/use-banking", () => ({
   useBankTransactions: vi.fn(),
 }));
 
-const mockUseBankTransactions = useBankTransactions as jest.Mock;
+const mockUseBankTransactions = useBankTransactions as Mock;
 
 const createMockTransaction = (id: string, overrides: Partial<BankTransaction> = {}): BankTransaction => ({
   id,

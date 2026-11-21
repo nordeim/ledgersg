@@ -5,7 +5,7 @@
  * Following TDD: RED → GREEN → REFACTOR
  */
 
-import { describe, test, expect, vi } from "vitest";
+import { describe, test, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ReconcileForm } from "../components/reconcile-form";
 import { useSuggestMatches, useReconcileTransaction } from "@/hooks/use-banking";
@@ -17,8 +17,8 @@ vi.mock("@/hooks/use-banking", () => ({
   useReconcileTransaction: vi.fn(),
 }));
 
-const mockUseSuggestMatches = useSuggestMatches as jest.Mock;
-const mockUseReconcileTransaction = useReconcileTransaction as jest.Mock;
+const mockUseSuggestMatches = useSuggestMatches as Mock;
+const mockUseReconcileTransaction = useReconcileTransaction as Mock;
 
 describe("ReconcileForm", () => {
   const orgId = "org-550e8400-e29b-41d4-a716-446655440001";

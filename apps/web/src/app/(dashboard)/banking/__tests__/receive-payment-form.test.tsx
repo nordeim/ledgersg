@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
+import { describe, test, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ReceivePaymentForm } from "../components/receive-payment-form";
 import { useReceivePayment, useBankAccounts } from "@/hooks/use-banking";
@@ -9,8 +9,8 @@ vi.mock("@/hooks/use-banking", () => ({
   useBankAccounts: vi.fn(),
 }));
 
-const mockUseBankAccounts = useBankAccounts as jest.Mock;
-const mockUseReceivePayment = useReceivePayment as jest.Mock;
+const mockUseBankAccounts = useBankAccounts as Mock;
+const mockUseReceivePayment = useReceivePayment as Mock;
 
 describe("ReceivePaymentForm", () => {
   const orgId = "550e8400-e29b-41d4-a716-446655440001";

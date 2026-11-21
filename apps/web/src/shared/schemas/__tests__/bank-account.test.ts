@@ -15,7 +15,7 @@ import {
   bankAccountInputSchema,
   createEmptyBankAccountInput,
   type BankAccount,
-  type BankAccountInput,
+  type BankAccountInputParams,
 } from "../bank-account";
 
 describe("Bank Account Schema", () => {
@@ -294,7 +294,7 @@ describe("Bank Account Schema", () => {
 
   describe("Input Schema", () => {
     it("should apply default currency as SGD", () => {
-      const input: BankAccountInput = {
+      const input: BankAccountInputParams = {
         account_name: "Test Account",
         bank_name: "Test Bank",
         account_number: "123456",
@@ -306,7 +306,7 @@ describe("Bank Account Schema", () => {
     });
 
     it("should apply default opening_balance as 0.0000", () => {
-      const input: BankAccountInput = {
+      const input: BankAccountInputParams = {
         account_name: "Test Account",
         bank_name: "Test Bank",
         account_number: "123456",
@@ -318,7 +318,7 @@ describe("Bank Account Schema", () => {
     });
 
     it("should apply default is_default as false", () => {
-      const input: BankAccountInput = {
+      const input: BankAccountInputParams = {
         account_name: "Test Account",
         bank_name: "Test Bank",
         account_number: "123456",

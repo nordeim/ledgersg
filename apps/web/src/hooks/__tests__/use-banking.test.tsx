@@ -275,7 +275,10 @@ describe("Banking Hooks", () => {
           account_name: "New Account",
           bank_name: "DBS",
           account_number: "123",
+          currency: "SGD",
           gl_account: "550e8400-e29b-41d4-a716-446655440006",
+          is_default: false,
+          opening_balance: "0.0000",
         });
       });
 
@@ -308,7 +311,10 @@ describe("Banking Hooks", () => {
           account_name: "New Account",
           bank_name: "DBS",
           account_number: "123",
+          currency: "SGD",
           gl_account: "550e8400-e29b-41d4-a716-446655440006",
+          is_default: false,
+          opening_balance: "0.0000",
         });
       });
 
@@ -335,7 +341,10 @@ describe("Banking Hooks", () => {
           account_name: "",
           bank_name: "",
           account_number: "",
+          currency: "",
           gl_account: "",
+          is_default: false,
+          opening_balance: "0.0000",
         });
       });
 
@@ -572,6 +581,8 @@ describe("Banking Hooks", () => {
           bank_account_id: validAccountId,
           payment_date: "2024-01-20",
           amount: "1000.0000",
+          currency: "SGD",
+          exchange_rate: "1.000000",
           payment_method: "BANK_TRANSFER",
         });
       });
@@ -617,6 +628,8 @@ describe("Banking Hooks", () => {
           bank_account_id: "",
           payment_date: "",
           amount: "0",
+          currency: "",
+          exchange_rate: "",
           payment_method: "BANK_TRANSFER",
         });
       });
@@ -657,6 +670,8 @@ describe("Banking Hooks", () => {
           bank_account_id: validAccountId,
           payment_date: "2024-01-20",
           amount: "5000.0000",
+          currency: "SGD",
+          exchange_rate: "1.000000",
           payment_method: "GIRO",
         });
       });

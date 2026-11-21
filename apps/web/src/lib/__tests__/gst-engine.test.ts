@@ -18,7 +18,8 @@ import {
   type LineGSTResult,
   type InvoiceTotals,
 } from "../gst-engine";
-import type { InvoiceLine, TaxCode } from "@/shared/schemas/invoice";
+import type { TaxCode } from "@/shared/schemas/invoice";
+import type { GSTCalculatableLine } from "@/lib/gst-engine";
 
 describe("GST Engine", () => {
   describe("calculateLineGST", () => {
@@ -347,7 +348,7 @@ describe("GST Engine", () => {
 
   describe("calculateFromLines", () => {
     it("calculates from InvoiceLine objects", () => {
-      const lines: InvoiceLine[] = [
+      const lines: GSTCalculatableLine[] = [
         {
           id: "1",
           description: "Test item 1",
@@ -614,7 +615,7 @@ describe("IRAS Compliance Scenarios", () => {
 
   it("Mixed scenario: Beverage sale with BCRS deposit", () => {
     // Invoice with beverage ($1.50 + GST) + BCRS deposit ($0.10, no GST)
-    const lines: InvoiceLine[] = [
+    const lines: GSTCalculatableLine[] = [
       { id: "1", description: "Beverage", quantity: "1", unit_price: "1.50", discount_pct: "0", tax_code: "SR", is_bcrs_deposit: false },
       { id: "2", description: "BCRS Deposit", quantity: "1", unit_price: "0.10", discount_pct: "0", tax_code: "SR", is_bcrs_deposit: true },
     ];

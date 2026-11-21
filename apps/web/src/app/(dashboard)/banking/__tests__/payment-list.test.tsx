@@ -1,4 +1,4 @@
-import { describe, test, expect, vi } from "vitest";
+import { describe, test, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PaymentList } from "../components/payment-list";
 import { usePayments } from "@/hooks/use-banking";
@@ -9,7 +9,7 @@ vi.mock("@/hooks/use-banking", () => ({
   usePayments: vi.fn(),
 }));
 
-const mockUsePayments = usePayments as jest.Mock;
+const mockUsePayments = usePayments as Mock;
 
 const createMockPayment = (id: string, overrides: Partial<Payment> = {}): Payment => ({
   id,

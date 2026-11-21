@@ -5,7 +5,7 @@
  * Following TDD: RED → GREEN → REFACTOR
  */
 
-import { describe, test, expect, vi } from "vitest";
+import { describe, test, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ImportTransactionsForm } from "../components/import-transactions-form";
 import { useImportBankTransactions, useBankAccounts } from "@/hooks/use-banking";
@@ -16,8 +16,8 @@ vi.mock("@/hooks/use-banking", () => ({
   useBankAccounts: vi.fn(),
 }));
 
-const mockUseImportBankTransactions = useImportBankTransactions as jest.Mock;
-const mockUseBankAccounts = useBankAccounts as jest.Mock;
+const mockUseImportBankTransactions = useImportBankTransactions as Mock;
+const mockUseBankAccounts = useBankAccounts as Mock;
 
 describe("ImportTransactionsForm", () => {
   const orgId = "org-550e8400-e29b-41d4-a716-446655440001";

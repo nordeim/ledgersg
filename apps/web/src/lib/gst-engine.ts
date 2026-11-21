@@ -1,5 +1,5 @@
 import { Decimal } from "decimal.js";
-import type { InvoiceLine, TaxCode } from "@/shared/schemas/invoice";
+import type { InvoiceLineInput, TaxCode } from "@/shared/schemas/invoice";
 
 /*
  * LEDGERSG GST CALCULATION ENGINE
@@ -152,7 +152,24 @@ export function calculateInvoiceTotals(lines: LineGSTResult[]): InvoiceTotals {
 /**
  * Calculate from InvoiceLine objects directly
  */
-export function calculateFromLines(lines: InvoiceLine[]): {
+/**
+ * Form-state line: exactly the fields calculateFromLines reads. Full
+ * InvoiceLine objects (with the computed fields) remain assignable.
+ */
+export type GSTCalculatableLine = Required<
+  Pick<
+    InvoiceLineInput,
+    | "id"
+    | "description"
+    | "quantity"
+    | "unit_price"
+    | "discount_pct"
+    | "tax_code"
+    | "is_bcrs_deposit"
+  >
+>;
+
+export function calculateFromLines(lines: GSTCalculatableLine[]): {
   lineResults: LineGSTResult[];
   totals: InvoiceTotals;
 } {
