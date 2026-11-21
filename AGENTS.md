@@ -710,3 +710,49 @@ the configured cache). Without it every org-scoped request test fails with
 `refresh_access_token()` rotates and blacklists; `logout_user()` blacklists;
 `change_password()` revokes ALL outstanding tokens. The blacklist tables are hand-written DDL
 in `database_schema.sql` §15b (SQL-First; the simplejwt app's migrations are never run).
+
+## 2026-11-21 P1 Sprint — New Patterns & Lessons (session 3)
+
+### The Fixture Contract: `accepted_at` is Mandatory (A-1)
+`TenantContextMiddleware._verify_org_membership` filters on
+`accepted_at__isnull=False` — an org membership without `accepted_at` is treated as a
+pending invitation and every org-scoped request 403s. ANY test fixture that creates
+`UserOrganisation` must set `accepted_at=timezone.now()`. The root `tests/conftest.py`
+fixture does this correctly; `tests/test_api_endpoints.py` had shadowed it with a local
+copy that omitted it — 25 of the 26 "documented fixture debt" failures were that single
+omission. Prefer consuming the root conftest fixtures over redefining them locally.
+
+### Fixture Debt Masks Real Bugs (A-2/A-3/A-4)
+Fixing the fixture gate immediately exposed three production defects that had been
+hiding behind the 403s: `DocumentSummaryView` (phantom `DOCUMENT_TYPE_CHOICES`,
+invalid `PAID_PARTIAL` enum literal, phantom `total` attribute, int/Decimal `.quantize()`
+crash on empty sums), CoA `get_trial_balance` (LEFT JOIN on the non-existent
+`coa.account_balance` view), and `ValidStatusTransitionsView` (missing `org_id` kwarg).
+Lesson: never let a known-failing test population sit — red suites hide real defects.
+
+### Enum Vocabulary Sweep (M-08 discipline)
+`PAID_PARTIAL` (invalid) vs `PARTIALLY_PAID` (valid `doc_status` value) appeared in
+THREE places (`invoicing/views.py` twice, `contact_service.py` once). When an invalid
+literal is found, sweep the whole app for the same string — the same copy-paste mistake
+travels in groups. `entity_type` has its own CHECK vocabulary too
+(`PRIVATE_LIMITED`, not `pte_ltd`).
+
+### Packaging Completeness (A-6)
+Settings-imported packages MUST be declared in `pyproject.toml` (the canonical
+manifest): `django_celery_beat` and `django_ratelimit` were imported by INSTALLED_APPS
+but undeclared, so the documented `pip install -e ".[dev]"` + `manage.py check` path
+failed in a clean venv. Note: `django-celery-beat` 2.8.1 pins Django<6 (downgrades the
+venv); 2.9.0 supports Django 6. The root `requirements.txt` is a stale second manifest
+(pyproject is canonical — do not add dependencies there).
+
+### Trial Balance Aggregation Pattern (A-3)
+There is no `coa.account_balance` view in the schema. Any balance aggregation must
+go to `journal.line` joined to `journal.entry` (see `AccountService.get_account_balance`
+and the rewritten `get_trial_balance`). The optional `fiscal_year_id` filter maps to
+`journal.entry.fiscal_year_id`.
+
+### Env File Hygiene (A-7/A-8)
+`.env` and `.env.local` are gitignored; `.env.example` files (backend + web) are the
+canonical dev templates and must list every variable the code actually reads. When
+adding a `config(...)` call to settings, update `apps/backend/.env.example` in the
+same commit.

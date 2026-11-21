@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.5.0
+> **Version**: 2.6.0
 > **Last Updated**: 2026-11-21
-> **Status**: P0 Remediated 🟡 — all four Critical audit findings fixed; P1/P2 in progress (see `docs/REMEDIATION_2026-11-21_REPORT.md`)
+> **Status**: P1 Remediated 🟢 — suite fully green (0 failed); all four Critical + the P1 contract/fixture findings fixed (see `docs/REMEDIATION_2026-11-21_REPORT.md` and `docs/REMEDIATION_2026-11-21_P1_REPORT.md`)
 
 ---
 
@@ -31,11 +31,24 @@
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.1.2 | ✅ Ready | 12 pages, 321 tests, WCAG AAA |
-| **Backend** | v0.3.5 | ✅ P0 Remediated | 88+ endpoints, **465 tests passing** (26 documented fixture-debt failures) |
+| **Backend** | v0.3.6 | ✅ Suite Fully Green | 88+ endpoints, **499 tests passing, 0 failed** (5 skipped, documented) |
 | **Database** | v1.0.2 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
 | **Security** | v1.1.0 | ✅ P0 Hardened | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on; P1 open (CSP, MFA, PII) |
 | **API Contracts** | v1.1.0 | ✅ Standardized | {results, count} lists; auth contract aligned to tests 2026-11-21 |
+
+### Latest Milestone: P1 Sprint — Green Suite & Contract Truth ✅ — 2026-11-21 (session 3)
+
+The 26 documented `test_api_endpoints.py` fixture failures were fixed and the suite went fully green (499P/0F/5S); the fixture pass unmasked and fixed three real endpoint bugs:
+
+| Fix | Impact |
+|-----|--------|
+| **A-1** | Org fixture sets `UserOrganisation.accepted_at` — the tenant middleware requires accepted memberships (25 of the 26 failures were this one omission) |
+| **A-2** | `DocumentSummaryView`: real `DOCUMENT_TYPES` vocabulary, enum-correct outstanding set (`PARTIALLY_PAID`, not `PAID_PARTIAL`), `total_incl` (not phantom `total`), Decimal-safe empty sums; same enum sweep in `deactivate_contact` |
+| **A-3** | CoA trial balance aggregates `journal.line` — the schema has no `coa.account_balance` view |
+| **A-4** | `ValidStatusTransitionsView` accepts the `org_id` kwarg its route passes |
+| **A-6** | `pyproject.toml` declares `django-celery-beat==2.9.0` + `django-ratelimit` — clean-venv install + `manage.py check` now works end-to-end |
+| **A-7/8/9** | `.env.example` for both apps; `.env` files gitignored + untracked; schema header v1.0.2 |
 
 ### Latest Milestone: P0 Remediation Sprint ✅ — 2026-11-21
 

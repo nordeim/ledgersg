@@ -102,14 +102,25 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, **321 tests**, WCAG AAA |
-| **Backend** | v0.3.5 | ✅ P0 Remediated | 88+ endpoints, **465 tests passing**, SQL-First, RLS transaction-scoped |
+| **Backend** | v0.3.6 | ✅ Suite Fully Green | 88+ endpoints, **499 tests passing** (0 failed), SQL-First, RLS transaction-scoped |
 | **Database** | v1.0.2 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching |
 | **InvoiceNow** | v0.5.0 | ⚠️ Phases 1-4 Partial | XML generation complete; send endpoint returns not-configured (H-08 deferred) |
 | **Security** | v1.1.0 | ✅ P0 Hardened | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on |
-| **Overall** | — | 🟡 **P0 Remediated; P1/P2 in progress** | See `docs/REMEDIATION_2026-11-21_REPORT.md` and the audit report |
+| **Overall** | — | 🟢 **P0+P1 Remediated; test suite fully green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `docs/REMEDIATION_2026-11-21_P1_REPORT.md` and the audit report |
+
+### Latest Milestone
+
+#### 🎉 P1 Sprint: Green Suite & Contract Truth — 2026-11-21 (session 3)
+
+- ✅ **Backend test suite fully green for the first time: 499 passed / 0 failed / 5 skipped** (was 26F/465P)
+- ✅ Fixed the 26-failure `test_api_endpoints.py` fixture debt: `accepted_at` on the org fixture (the tenant middleware requires accepted memberships) + valid `entity_type`/`gst_reg_date` payloads
+- ✅ Fixed three real endpoint bugs the fixture debt was masking: `DocumentSummaryView` (phantom `DOCUMENT_TYPE_CHOICES`, invalid `PAID_PARTIAL` enum, phantom `total` field), CoA trial balance (phantom `coa.account_balance` view → aggregates `journal.line`), `ValidStatusTransitionsView` (missing `org_id` kwarg)
+- ✅ Packaging: `django-celery-beat==2.9.0` + `django-ratelimit` declared in `pyproject.toml` — the documented install path now works end-to-end in a clean venv
+- ✅ `.env.example` templates for both apps; `.env` files untracked and gitignored
+- ✅ Schema header aligned to v1.0.2
 
 ### Latest Milestones
 
@@ -189,10 +200,10 @@ source /opt/venv/bin/activate
 cd apps/backend
 pytest --reuse-db --no-migrations -v
 
-# Expected output (post 2026-11-21 remediation): 465 passed, 26 failed, 5 skipped
+# Expected output (post 2026-11-21 P1 remediation): 499 passed, 0 failed, 5 skipped
 ```
 
-**Note:** The 26 failing tests are all in `tests/test_api_endpoints.py` (pre-existing fixture isolation issues — `auth_client` + RLS interplay; see `docs/REMEDIATION_2026-11-21_REPORT.md` §3). New invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
+**Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance, balance queries) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
 
 ### Frontend Test Execution
 
@@ -525,6 +536,9 @@ source /opt/venv/bin/activate
 
 # Install dependencies
 pip install -e ".[dev]"
+
+# Copy the environment template (variables actually read by the settings)
+cp .env.example .env
 
 # Load database schema (MANDATORY for unmanaged models)
 export PGPASSWORD=ledgersg_secret_to_change
