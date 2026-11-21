@@ -4,13 +4,13 @@ Common view utilities for LedgerSG.
 Response wrappers and view helpers used across all apps.
 """
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Any
 
-from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.response import Response
 
-from common.exceptions import ValidationError, ResourceNotFound, DuplicateResource
+from common.exceptions import DuplicateResource, ResourceNotFound, ValidationError
 
 
 def wrap_response(func: Callable) -> Callable:
@@ -68,18 +68,16 @@ def wrap_response(func: Callable) -> Callable:
                 },
                 status=status.HTTP_409_CONFLICT,
             )
-        except Exception as e:
-            # Log the actual error for debugging
-            logger.error(f"View error in {func.__name__}: {e}", exc_info=True)
-            # Return generic error message for security (actual error logged)
-            return Response(
-                {
-                    "error": {
-                        "code": "internal_error",
-                        "message": "An internal error occurred",
-                    }
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        # Unexpected exceptions MUST propagate.
+        #
+        # Under ATOMIC_REQUESTS = True, Django wraps the view in a transaction.
+        # If we convert an exception into a 500 Response here, Django sees a
+        # normal return value and COMMITS the partial multi-step state — the
+        # exact failure mode audited as C-04. Re-raising lets the atomic
+        # wrapper roll everything back; the server error page / DRF exception
+        # handler produces the client-facing 500.
+        except Exception:
+            logger.error(f"View error in {func.__name__}", exc_info=True)
+            raise
 
     return wrapper

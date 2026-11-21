@@ -9,23 +9,21 @@ Handles invoices, quotes, credit notes, debit notes including:
 - Journal posting on approval
 """
 
-from typing import Optional, List, Dict, Any, Tuple
-from uuid import UUID, uuid4
-from decimal import Decimal
-from datetime import date, timedelta
 import io
+from datetime import date, timedelta
+from decimal import Decimal
+from typing import Any
+from uuid import UUID, uuid4
 
 from django.db import connection, transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
-from django.db import models
-
 from weasyprint import HTML
-from apps.core.models import InvoiceDocument, InvoiceLine, Contact, Account
-from apps.gst.services import TaxCodeService, GSTCalculationService
-from common.exceptions import ValidationError, DuplicateResource, ResourceNotFound
-from common.decimal_utils import money, sum_money
 
+from apps.core.models import Account, Contact, InvoiceDocument, InvoiceLine
+from apps.gst.services import GSTCalculationService, TaxCodeService
+from common.decimal_utils import money, sum_money
+from common.exceptions import ResourceNotFound, ValidationError
 
 # Document type definitions - matches SQL ENUM invoicing.doc_type
 DOCUMENT_TYPES = {
@@ -57,13 +55,13 @@ class DocumentService:
     @staticmethod
     def list_documents(
         org_id: UUID,
-        document_type: Optional[str] = None,
-        status: Optional[str] = None,
-        contact_id: Optional[UUID] = None,
-        date_from: Optional[date] = None,
-        date_to: Optional[date] = None,
-        search: Optional[str] = None,
-    ) -> List[InvoiceDocument]:
+        document_type: str | None = None,
+        status: str | None = None,
+        contact_id: UUID | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        search: str | None = None,
+    ) -> list[InvoiceDocument]:
         """
         List invoice documents.
 
@@ -124,11 +122,11 @@ class DocumentService:
         document_type: str,
         contact_id: UUID,
         issue_date: date,
-        due_date: Optional[date] = None,
+        due_date: date | None = None,
         reference: str = "",
         notes: str = "",
-        lines: List[Dict[str, Any]] = None,
-        user_id: Optional[UUID] = None,
+        lines: list[dict[str, Any]] = None,
+        user_id: UUID | None = None,
     ) -> InvoiceDocument:
         """
         Create a new invoice document with lines.
@@ -322,7 +320,7 @@ class DocumentService:
 
     @staticmethod
     def transition_status(
-        org_id: UUID, document_id: UUID, new_status: str, user_id: Optional[UUID] = None
+        org_id: UUID, document_id: UUID, new_status: str, user_id: UUID | None = None
     ) -> InvoiceDocument:
         """
         Transition document status.
@@ -364,15 +362,15 @@ class DocumentService:
                     "PURCHASE_CREDIT_NOTE",
                     "PURCHASE_DEBIT_NOTE",
                 ]:
-                    DocumentService._post_journal_entry(org_id, document)
+                    DocumentService._post_journal_entry(org_id, document, user_id)
 
             elif new_status == "VOID":
                 document.voided_at = timezone.now()
                 document.voided_by_id = user_id
 
-                # Reverse journal entry if posted
+                # Reverse journal entry if posted (user_id required: journal.entry.posted_by is NOT NULL)
                 if document.journal_entry_id:
-                    DocumentService._reverse_journal_entry(org_id, document)
+                    DocumentService._reverse_journal_entry(org_id, document, user_id)
 
             document.save()
 
@@ -380,7 +378,7 @@ class DocumentService:
 
     @staticmethod
     def convert_quote_to_invoice(
-        org_id: UUID, quote_id: UUID, user_id: Optional[UUID] = None
+        org_id: UUID, quote_id: UUID, user_id: UUID | None = None
     ) -> InvoiceDocument:
         """
         Convert a quote to an invoice.
@@ -459,7 +457,7 @@ class DocumentService:
         return f"{prefix}-{next_num:05d}"
 
     @staticmethod
-    def _add_lines(org_id: UUID, document: InvoiceDocument, lines: List[Dict[str, Any]]) -> None:
+    def _add_lines(org_id: UUID, document: InvoiceDocument, lines: list[dict[str, Any]]) -> None:
         """
         Add multiple lines to a document.
 
@@ -504,7 +502,7 @@ class DocumentService:
         document.save()
 
     @staticmethod
-    def _post_journal_entry(org_id: UUID, document: InvoiceDocument, user_id: Optional[UUID] = None) -> None:
+    def _post_journal_entry(org_id: UUID, document: InvoiceDocument, user_id: UUID | None = None) -> None:
         """
         Post journal entry for approved document.
 
@@ -517,7 +515,7 @@ class DocumentService:
         JournalService.post_invoice(org_id, document, user_id)
 
     @staticmethod
-    def _reverse_journal_entry(org_id: UUID, document: InvoiceDocument, user_id: Optional[UUID] = None) -> None:
+    def _reverse_journal_entry(org_id: UUID, document: InvoiceDocument, user_id: UUID | None = None) -> None:
         """
         Reverse journal entry for voided document.
 
@@ -581,12 +579,16 @@ class DocumentService:
             document.approved_at = timezone.now()
             document.save()
 
-        # Create journal entries
-        DocumentService._post_journal_entry(org_id, document, user.id)
+            # Create journal entries INSIDE the atomic block (C-04):
+            # a posting failure must roll back the APPROVED transition so no
+            # approved document can exist without its ledger entry.
+            DocumentService._post_journal_entry(org_id, document, user.id)
 
-        # Queue for Peppol transmission if configured (InvoiceNow integration)
-        if document.document_type == "SALES_INVOICE":
-            DocumentService._queue_peppol_transmission(document, org_id)
+            # Queue for Peppol transmission if configured (InvoiceNow
+            # integration) — also inside the transaction so a queueing
+            # failure does not leave an inconsistent approval state.
+            if document.document_type == "SALES_INVOICE":
+                DocumentService._queue_peppol_transmission(document, org_id)
 
         return document
 
@@ -615,7 +617,7 @@ class DocumentService:
                 id=document_id, org_id=org_id
             )
 
-            if document.status not in ["APPROVED", "SENT", "PAID_PARTIAL"]:
+            if document.status not in ["APPROVED", "SENT", "PARTIALLY_PAID"]:
                 raise ValidationError(
                     f"Cannot void document with status '{document.status}'. "
                     "Only APPROVED, SENT, or PARTIALLY_PAID documents can be voided."
@@ -637,14 +639,16 @@ class DocumentService:
                     "Cannot void invoice in a closed period."
                 )
 
-            # Update document status
+            # Update document status (C-02: persist void_reason — the DB
+            # CHECK chk_void_reason requires it whenever voided_at is set)
             document.status = "VOID"
             document.voided_by = user
             document.voided_at = timezone.now()
+            document.void_reason = reason
             document.save()
 
-            # Reverse journal entries
-            DocumentService._reverse_journal_entry(org_id, document)
+            # Reverse journal entries (user passed: posted_by is NOT NULL)
+            DocumentService._reverse_journal_entry(org_id, document, user.id)
 
             return document
 
@@ -676,7 +680,7 @@ class DocumentService:
         return output
 
     @staticmethod
-    def _get_pdf_context(org_id: UUID, document_id: UUID) -> Dict[str, Any]:
+    def _get_pdf_context(org_id: UUID, document_id: UUID) -> dict[str, Any]:
         """Gather all data needed for PDF rendering."""
         from apps.core.models import Organisation
 
@@ -804,20 +808,6 @@ class DocumentService:
             "logs": [],
             "message": "InvoiceNow not configured for this organization",
         }
-
-    @staticmethod
-    def _reverse_journal_entry(org_id: UUID, document: InvoiceDocument) -> None:
-        """
-        Reverse journal entry for voided document.
-
-        This is a placeholder - full implementation in Journal module.
-
-        Args:
-            org_id: Organisation ID
-            document: InvoiceDocument instance
-        """
-        # TODO: Implement in Journal module
-        pass
 
     @staticmethod
     def _queue_peppol_transmission(document, org_id):

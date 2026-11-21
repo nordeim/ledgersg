@@ -14,18 +14,17 @@ FIELD ALIGNMENT (SQL Schema v1.0.2):
 - source_id: UUID - matches journal.entry.source_id
 """
 
-from typing import Optional, List, Dict, Any
-from uuid import UUID
-from decimal import Decimal
 from datetime import date
-from django.utils import timezone
+from decimal import Decimal
+from typing import Any
+from uuid import UUID
 
 from django.db import connection, transaction
+from django.utils import timezone
 
-from apps.core.models import JournalEntry, JournalLine, Account, FiscalPeriod, InvoiceDocument
-from common.exceptions import ValidationError, DuplicateResource, ResourceNotFound
+from apps.core.models import Account, FiscalPeriod, InvoiceDocument, JournalEntry, JournalLine
 from common.decimal_utils import money, sum_money
-
+from common.exceptions import ResourceNotFound, ValidationError
 
 # Journal source types (aligned with SQL schema journal.entry.source_type CHECK constraint)
 SOURCE_TYPES = {
@@ -67,15 +66,15 @@ class JournalService:
     @staticmethod
     def list_entries(
         org_id: UUID,
-        source_type: Optional[str] = None,
-        fiscal_period_id: Optional[UUID] = None,
-        account_id: Optional[UUID] = None,
-        date_from: Optional[date] = None,
-        date_to: Optional[date] = None,
-        source_id: Optional[UUID] = None,
-        entry_type: Optional[str] = None,
-        source_document_id: Optional[UUID] = None,
-    ) -> List[JournalEntry]:
+        source_type: str | None = None,
+        fiscal_period_id: UUID | None = None,
+        account_id: UUID | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        source_id: UUID | None = None,
+        entry_type: str | None = None,
+        source_document_id: UUID | None = None,
+    ) -> list[JournalEntry]:
         """
         List journal entries.
 
@@ -146,15 +145,15 @@ class JournalService:
     def create_entry(
         org_id: UUID,
         entry_date: date,
-        source_type: Optional[str] = None,
-        narration: Optional[str] = None,
-        lines: Optional[List[Dict[str, Any]]] = None,
-        fiscal_period_id: Optional[UUID] = None,
-        source_id: Optional[UUID] = None,
-        user_id: Optional[UUID] = None,
-        entry_type: Optional[str] = None,
-        description: Optional[str] = None,
-        source_invoice_id: Optional[UUID] = None,
+        source_type: str | None = None,
+        narration: str | None = None,
+        lines: list[dict[str, Any]] | None = None,
+        fiscal_period_id: UUID | None = None,
+        source_id: UUID | None = None,
+        user_id: UUID | None = None,
+        entry_type: str | None = None,
+        description: str | None = None,
+        source_invoice_id: UUID | None = None,
     ) -> JournalEntry:
         """
         Create a new journal entry with lines.
@@ -258,7 +257,7 @@ class JournalService:
 
     @staticmethod
     def post_invoice(
-        org_id: UUID, invoice: InvoiceDocument, user_id: Optional[UUID] = None
+        org_id: UUID, invoice: InvoiceDocument, user_id: UUID | None = None
     ) -> JournalEntry:
         """
         Create journal entry for approved invoice or purchase.
@@ -272,7 +271,7 @@ class JournalService:
             Created JournalEntry instance
         """
         is_purchase = invoice.document_type in ("PURCHASE_INVOICE", "PURCHASE_CREDIT_NOTE", "PURCHASE_DEBIT_NOTE")
-        
+
         if is_purchase:
             main_account = JournalService._get_ap_account(org_id)
         else:
@@ -293,7 +292,7 @@ class JournalService:
             gst_amount += line.gst_amount
 
         total_with_gst = invoice.total_incl
-        
+
         # Main AR/AP line
         if is_purchase:
             # Liability increases (Credit)
@@ -376,7 +375,7 @@ class JournalService:
         original_entry_id: UUID,
         reversal_date: date,
         reason: str,
-        user_id: Optional[UUID] = None,
+        user_id: UUID | None = None,
     ) -> JournalEntry:
         """
         Create reversal entry for a journal entry.
@@ -413,6 +412,10 @@ class JournalService:
             user_id=user_id,
         )
 
+        # chk_reversal_consistency requires is_reversed and reversed_by_id to
+        # flip together: (is_reversed = FALSE AND reversed_by_id IS NULL) OR
+        # (is_reversed = TRUE AND reversed_by_id IS NOT NULL)
+        original.is_reversed = True
         original.reversed_by = reversal
         original.save()
 
@@ -420,8 +423,8 @@ class JournalService:
 
     @staticmethod
     def void_document_entry(
-        org_id: UUID, invoice: InvoiceDocument, user_id: Optional[UUID] = None
-    ) -> Optional[JournalEntry]:
+        org_id: UUID, invoice: InvoiceDocument, user_id: UUID | None = None
+    ) -> JournalEntry | None:
         """
         Create reversal entry for voided invoice.
 
@@ -436,17 +439,26 @@ class JournalService:
         if not invoice.journal_entry_id:
             return None
 
+        # The reversal must land in an OPEN fiscal period. Today is preferred
+        # (IRAS: corrections in the current period), but when the current
+        # period is closed (e.g. year-end) fall back to the original entry's
+        # date — void_document() has already verified that period is open.
+        original_entry = JournalService.get_entry(org_id, invoice.journal_entry_id)
+        reversal_date = date.today()
+        if not JournalService._get_fiscal_period(org_id, reversal_date):
+            reversal_date = original_entry.entry_date
+
         return JournalService.create_reversal(
             org_id=org_id,
             original_entry_id=invoice.journal_entry_id,
-            reversal_date=date.today(),
+            reversal_date=reversal_date,
             reason=f"Void of {invoice.document_number}",
             user_id=user_id,
         )
 
     @staticmethod
     def get_account_balance(
-        org_id: UUID, account_id: UUID, date_to: Optional[date] = None
+        org_id: UUID, account_id: UUID, date_to: date | None = None
     ) -> Decimal:
         """
         Get running balance for an account.
@@ -461,12 +473,13 @@ class JournalService:
         """
         from django.db.models import Sum
 
-        lines = JournalLine.objects.filter(
-            journal_entry__org_id=org_id, account_id=account_id, journal_entry__is_posted=True
-        )
+        # H-01: the JournalLine FK is `entry` (db column entry_id), and no
+        # `is_posted` field exists — posting is implied by row existence in
+        # the immutable-entry design (rows are only written by create_entry).
+        lines = JournalLine.objects.filter(entry__org_id=org_id, account_id=account_id)
 
         if date_to:
-            lines = lines.filter(journal_entry__entry_date__lte=date_to)
+            lines = lines.filter(entry__entry_date__lte=date_to)
 
         totals = lines.aggregate(total_debits=Sum("debit"), total_credits=Sum("credit"))
 
@@ -476,7 +489,7 @@ class JournalService:
         return debits - credits
 
     @staticmethod
-    def get_trial_balance(org_id: UUID, date_to: Optional[date] = None) -> List[Dict[str, Any]]:
+    def get_trial_balance(org_id: UUID, date_to: date | None = None) -> list[dict[str, Any]]:
         """
         Get trial balance.
 
@@ -489,21 +502,28 @@ class JournalService:
         """
         from django.db.models import Sum
 
-        accounts = Account.objects.filter(org_id=org_id, is_active=True)
+        # H-01: same FK fix as get_account_balance (`entry`, not
+        # `journal_entry`; no `is_posted` predicate). Single grouped query
+        # instead of one query per account (N+1 fix).
+        lines = JournalLine.objects.filter(entry__org_id=org_id).select_related("account")
+
+        if date_to:
+            lines = lines.filter(entry__entry_date__lte=date_to)
+
+        totals = lines.values("account").annotate(
+            total_debits=Sum("debit"), total_credits=Sum("credit")
+        )
+
+        totals_by_account = {row["account"]: row for row in totals}
 
         result = []
-        for account in accounts:
-            lines = JournalLine.objects.filter(
-                journal_entry__org_id=org_id, account=account, journal_entry__is_posted=True
-            )
+        for account in Account.objects.filter(org_id=org_id, is_active=True):
+            row = totals_by_account.get(account.id)
+            if row is None:
+                continue  # accounts with no journal activity are not on the TB
 
-            if date_to:
-                lines = lines.filter(journal_entry__entry_date__lte=date_to)
-
-            totals = lines.aggregate(total_debits=Sum("debit"), total_credits=Sum("credit"))
-
-            debits = totals["total_debits"] or Decimal("0.00")
-            credits = totals["total_credits"] or Decimal("0.00")
+            debits = row["total_debits"] or Decimal("0.00")
+            credits = row["total_credits"] or Decimal("0.00")
             balance = debits - credits
 
             result.append(
@@ -540,7 +560,7 @@ class JournalService:
         return next_num
 
     @staticmethod
-    def _get_fiscal_period(org_id: UUID, entry_date: date) -> Optional[FiscalPeriod]:
+    def _get_fiscal_period(org_id: UUID, entry_date: date) -> FiscalPeriod | None:
         """
         Get open fiscal period for date.
 
@@ -595,7 +615,7 @@ class JournalService:
         """
         from django.db.models import Q
         ap_account = Account.objects.filter(
-            Q(org_id=org_id) & 
+            Q(org_id=org_id) &
             (Q(code="2100") | Q(account_type="LIABILITY_CURRENT") | Q(account_type="LIABILITY"))
         ).first()
 
@@ -619,7 +639,7 @@ class JournalService:
         """
         from django.db.models import Q
         gst_account = Account.objects.filter(
-            Q(org_id=org_id) & 
+            Q(org_id=org_id) &
             (Q(code__startswith="120") | Q(account_type="ASSET_CURRENT") | Q(account_type="ASSET"))
         ).first()
 
@@ -643,7 +663,7 @@ class JournalService:
         """
         from django.db.models import Q
         ar_account = Account.objects.filter(
-            Q(org_id=org_id) & 
+            Q(org_id=org_id) &
             (Q(code="1200") | Q(account_type="ASSET_CURRENT") | Q(account_type="ASSET"))
         ).first()
 
@@ -667,7 +687,7 @@ class JournalService:
         """
         from django.db.models import Q
         gst_account = Account.objects.filter(
-            Q(org_id=org_id) & 
+            Q(org_id=org_id) &
             (Q(code__startswith="220") | Q(account_type="LIABILITY_CURRENT") | Q(account_type="LIABILITY"))
         ).first()
 
