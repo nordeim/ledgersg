@@ -130,12 +130,16 @@ class InvoiceDocumentListSerializer(serializers.ModelSerializer):
 
 class InvoiceDocumentDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for document views."""
-    
+
     contact = ContactListSerializer(read_only=True)
     lines = InvoiceLineSerializer(many=True, read_only=True)
     status_history = serializers.SerializerMethodField()
     peppol_status = serializers.CharField(source="invoicenow_status", read_only=True)
-    
+    # P6/F-11: the payment state — the model persists amount_paid (P5/H-1)
+    # and the DB exposes amount_due as a generated column
+    # (total_amount - amount_paid) that the model does not declare.
+    amount_due = serializers.SerializerMethodField()
+
     class Meta:
         model = InvoiceDocument
         fields = [
@@ -145,6 +149,7 @@ class InvoiceDocumentDetailSerializer(serializers.ModelSerializer):
             "reference", "notes",
             "status", "lines",
             "total_excl", "gst_total", "total_incl", "currency",
+            "amount_paid", "amount_due",
             "journal_entry_id", "peppol_status",
             "approved_at", "voided_at",
             "status_history",
@@ -159,6 +164,11 @@ class InvoiceDocumentDetailSerializer(serializers.ModelSerializer):
         """Get audit log for status changes."""
         # TODO: Implement once audit module is ready
         return []
+
+    def get_amount_due(self, obj: InvoiceDocument) -> str:
+        """Outstanding balance — mirrors the DB generated column
+        invoicing.document.amount_due (total_amount - amount_paid)."""
+        return str(obj.total_incl - obj.amount_paid)
 
 
 class InvoiceDocumentCreateSerializer(serializers.Serializer):
