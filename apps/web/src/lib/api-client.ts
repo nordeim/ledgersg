@@ -10,9 +10,13 @@
  *   (login/register/refresh set + rotate it; logout and password change
  *   expire it). The browser replays it via credentials:"include" — this
  *   module never handles the refresh token in JavaScript (P4/E-1).
- * - Refresh triggers on ANY 401, including the cold-reload state where no
- *   access token is in memory — that is what makes sessions survive page
- *   reloads.
+ * - Refresh triggers on a 401 ONLY when there is evidence a session
+ *   exists: an in-memory access token, or the backend's non-secret
+ *   `session_hint` marker cookie (JS-readable, set at login) which
+ *   carries the cold-reload case. An anonymous 401 (bad login
+ *   credentials, unauthenticated visitor) propagates to the caller —
+ *   attempting a refresh there floods the refresh endpoint and swallows
+ *   the caller's error behind a hard redirect (P4/E-1 refinement).
  * - Org-scoped URLs: /api/v1/{org_id}/invoices/
  */
 
@@ -47,6 +51,29 @@ export function clearAuth() {
   accessToken = null;
 }
 
+// The backend's non-secret session-evidence marker, set alongside the
+// HttpOnly refresh cookie at login and expired at logout. The refresh
+// cookie itself is invisible to JavaScript by design; this marker is its
+// readable companion (see apps/core/views/_refresh_cookie.py).
+const SESSION_HINT_COOKIE = "session_hint";
+
+/**
+ * Whether the browser carries evidence that an auth session exists —
+ * an in-memory access token OR the session_hint marker cookie. The
+ * HttpOnly refresh token is deliberately NOT readable here.
+ */
+function hasSessionEvidence(): boolean {
+  if (accessToken) {
+    return true;
+  }
+  if (typeof document === "undefined") {
+    return false; // SSR / non-DOM caller — no cookie evidence available
+  }
+  return document.cookie
+    .split(";")
+    .some((cookie) => cookie.trim().startsWith(`${SESSION_HINT_COOKIE}=`));
+}
+
 // Base request function: fetch + 401 refresh/retry, returns the raw Response
 // (single auth path for JSON requests AND binary downloads — P3/D-2).
 async function fetchWithAuth(
@@ -72,13 +99,17 @@ async function fetchWithAuth(
     credentials: "include", // Important for HttpOnly refresh cookie
   });
 
-  // Handle 401 — try to refresh the token. The refresh runs even when no
-  // access token is in memory: after a full page reload (cold start) the
-  // HttpOnly refresh cookie is the ONLY credential left, and refusing to
-  // attempt the refresh in that state is what dropped sessions on every
-  // reload pre-P4. tryRefreshToken is a plain fetch (not fetchWithAuth),
-  // so there is no retry loop (P4/E-1).
-  if (response.status === 401) {
+  // Handle 401 — attempt the refresh ONLY when there is evidence a session
+  // exists: an in-memory access token (ordinary expiry) or the backend's
+  // session_hint marker cookie (cold reload — no access token in memory,
+  // the HttpOnly refresh cookie is the only credential left). An anonymous
+  // 401 (bad login credentials, unauthenticated visitor) must propagate to
+  // the caller: a pointless refresh POST there floods the refresh
+  // endpoint's rate limit and swallows the caller's error behind a hard
+  // redirect (P4/E-1 refinement, regression-tested in api-client-auth).
+  // tryRefreshToken is a plain fetch (not fetchWithAuth), so there is no
+  // retry loop.
+  if (response.status === 401 && hasSessionEvidence()) {
     const refreshed = await tryRefreshToken();
     if (refreshed) {
       // Retry the original request with new token

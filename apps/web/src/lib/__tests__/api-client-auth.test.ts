@@ -233,38 +233,186 @@ describe("Token Refresh - Issue #1", () => {
 
     it("P4/E-1: refreshes on a cold-reload 401 (no in-memory access token) — the refresh cookie path", async () => {
       // The cross-reload regression test: after a full page reload the
-      // api-client holds NO access token. The first request 401s; the
-      // client must still attempt the refresh POST (the browser replays
-      // the HttpOnly refresh cookie via credentials:"include") and retry
-      // the original request with the new token. The pre-P4 guard
-      // (`response.status === 401 && accessToken`) never fired in this
-      // state — every reload dropped the session.
+      // api-client holds NO access token. The backend's session_hint
+      // marker cookie (set at login, JS-readable) is the evidence that a
+      // session exists — the first request 401s, the client attempts the
+      // refresh POST (the browser replays the HttpOnly refresh cookie via
+      // credentials:"include") and retries with the new token. The pre-P4
+      // guard (`response.status === 401 && accessToken`) never fired in
+      // this state — every reload dropped the session.
       const newToken = "cold-reload-token-42";
 
+      // The realistic post-login browser state: the hint cookie is present.
+      document.cookie = "session_hint=1; path=/";
+      try {
+        const responses = [
+          // First request: 401 with NO in-memory token
+          {
+            status: 401,
+            ok: false,
+            json: vi.fn().mockResolvedValue({ detail: "Unauthorized" }),
+          },
+          // Refresh POST (cookie-based, no body): success
+          {
+            ok: true,
+            json: vi.fn().mockResolvedValue({
+              tokens: {
+                access: newToken,
+                refresh: "rotated-refresh",
+              },
+            }),
+          },
+          // Retry: success
+          {
+            ok: true,
+            json: vi.fn().mockResolvedValue({ data: "recovered" }),
+          },
+        ];
+
+        let responseIndex = 0;
+        const fetchCalls: string[][] = [];
+        global.fetch = vi.fn().mockImplementation(
+          (url: string, options?: { headers?: Record<string, string> }) => {
+            fetchCalls.push([url, options?.headers?.Authorization || "no-auth"]);
+            return Promise.resolve(responses[responseIndex++]);
+          }
+        );
+
+        // Cold reload state: no token in module memory
+        clearAuth();
+
+        const result = await api.get("/cold-reload-endpoint/");
+
+        // must attempt refresh then retry (3 calls total)
+        expect(fetchCalls.length).toBe(3);
+        expect(fetchCalls[0][1]).toBe("no-auth");
+        expect(fetchCalls[1][0]).toContain("/api/v1/auth/refresh/");
+        expect(fetchCalls[1][1]).toBe("no-auth");
+        expect(fetchCalls[2][1]).toBe(`Bearer ${newToken}`);
+        expect(result).toEqual({ data: "recovered" });
+      } finally {
+        document.cookie =
+          "session_hint=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      }
+    });
+
+    it("P4/E-1: clear-reload refresh failure clears auth and throws 401", async () => {
+      document.cookie = "session_hint=1; path=/";
+      try {
+        const mockLocation = { href: "" };
+        Object.defineProperty(window, "location", {
+          value: mockLocation,
+          writable: true,
+        });
+
+        const responses = [
+          // First request: 401, no in-memory token
+          { status: 401, ok: false, json: vi.fn().mockResolvedValue({}) },
+          // Refresh: fails (cookie absent/expired)
+          { ok: false, status: 401, json: vi.fn().mockResolvedValue({}) },
+        ];
+
+        let responseIndex = 0;
+        global.fetch = vi.fn().mockImplementation(() => {
+          return Promise.resolve(responses[responseIndex++]);
+        });
+
+        clearAuth();
+
+        await expect(api.get("/cold-failure/")).rejects.toMatchObject({
+          name: "ApiError",
+          status: 401,
+        });
+        expect(getAccessToken()).toBeNull();
+      } finally {
+        document.cookie =
+          "session_hint=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      }
+    });
+  });
+
+  describe("Session-hint evidence gate (P4/E-1 refinement)", () => {
+    // Discovered in the e2e run: refreshing on EVERY 401 turned an anonymous
+    // failure (bad login credentials) into a pointless refresh POST that
+    // flooded the refresh rate limit and swallowed the login form's error
+    // behind a hard redirect. The gate: attempt the refresh only when there
+    // is evidence a session exists (in-memory access token OR the backend's
+    // JS-readable session_hint marker cookie); an anonymous 401 propagates
+    // untouched to the caller.
+
+    const HINT_COOKIE = "session_hint";
+
+    function setHintCookie() {
+      document.cookie = `${HINT_COOKIE}=1; path=/`;
+    }
+
+    function clearHintCookie() {
+      document.cookie = `${HINT_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+    }
+
+    beforeEach(() => {
+      clearAuth();
+      clearHintCookie();
+      vi.resetAllMocks();
+    });
+
+    afterEach(() => {
+      clearHintCookie();
+      vi.restoreAllMocks();
+    });
+
+    it("an anonymous 401 (no token, no hint cookie) does NOT attempt a refresh and propagates the 401", async () => {
+      // The login-form regression: a bad-credentials POST must reach the
+      // caller as ApiError(401) so the form can show its own message —
+      // exactly one network call, no hard redirect.
+      const mockLocation = { href: "" };
+      Object.defineProperty(window, "location", {
+        value: mockLocation,
+        writable: true,
+      });
+
+      global.fetch = vi.fn().mockImplementation(() =>
+        Promise.resolve({
+          status: 401,
+          ok: false,
+          json: vi.fn().mockResolvedValue({
+            error: {
+              code: "invalid_credentials",
+              message: "Invalid email or password",
+            },
+          }),
+        })
+      );
+
+      await expect(
+        api.post("/api/v1/auth/login/", { email: "x@y.z", password: "wrong" })
+      ).rejects.toMatchObject({ name: "ApiError", status: 401 });
+
+      // exactly ONE request — no refresh attempt, no retry
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+
+      // no hard redirect — the caller (the login form) keeps control
+      expect(window.location.href).toBe("");
+    });
+
+    it("a 401 WITH the hint cookie (cold reload, no in-memory token) still refreshes and retries", async () => {
+      const newToken = "hint-gated-token";
+      setHintCookie();
+
       const responses = [
-        // First request: 401 with NO in-memory token
         {
           status: 401,
           ok: false,
           json: vi.fn().mockResolvedValue({ detail: "Unauthorized" }),
         },
-        // Refresh POST (cookie-based, no body): success
         {
           ok: true,
           json: vi.fn().mockResolvedValue({
-            tokens: {
-              access: newToken,
-              refresh: "rotated-refresh",
-            },
+            tokens: { access: newToken, refresh: "rotated" },
           }),
         },
-        // Retry: success
-        {
-          ok: true,
-          json: vi.fn().mockResolvedValue({ data: "recovered" }),
-        },
+        { ok: true, json: vi.fn().mockResolvedValue({ data: "recovered" }) },
       ];
-
       let responseIndex = 0;
       const fetchCalls: string[][] = [];
       global.fetch = vi.fn().mockImplementation(
@@ -274,21 +422,16 @@ describe("Token Refresh - Issue #1", () => {
         }
       );
 
-      // Cold reload state: no token in module memory
-      clearAuth();
+      const result = await api.get("/hint-gated-endpoint/");
 
-      const result = await api.get("/cold-reload-endpoint/");
-
-      // must attempt refresh then retry (3 calls total)
       expect(fetchCalls.length).toBe(3);
-      expect(fetchCalls[0][1]).toBe("no-auth");
       expect(fetchCalls[1][0]).toContain("/api/v1/auth/refresh/");
-      expect(fetchCalls[1][1]).toBe("no-auth");
       expect(fetchCalls[2][1]).toBe(`Bearer ${newToken}`);
       expect(result).toEqual({ data: "recovered" });
     });
 
-    it("P4/E-1: clear-reload refresh failure clears auth and throws 401", async () => {
+    it("refresh failure WITH the hint cookie clears auth and redirects (the session is dead)", async () => {
+      setHintCookie();
       const mockLocation = { href: "" };
       Object.defineProperty(window, "location", {
         value: mockLocation,
@@ -296,24 +439,20 @@ describe("Token Refresh - Issue #1", () => {
       });
 
       const responses = [
-        // First request: 401, no in-memory token
         { status: 401, ok: false, json: vi.fn().mockResolvedValue({}) },
-        // Refresh: fails (cookie absent/expired)
         { ok: false, status: 401, json: vi.fn().mockResolvedValue({}) },
       ];
-
       let responseIndex = 0;
-      global.fetch = vi.fn().mockImplementation(() => {
-        return Promise.resolve(responses[responseIndex++]);
-      });
+      global.fetch = vi.fn().mockImplementation(() =>
+        Promise.resolve(responses[responseIndex++])
+      );
 
-      clearAuth();
-
-      await expect(api.get("/cold-failure/")).rejects.toMatchObject({
+      await expect(api.get("/dead-session/")).rejects.toMatchObject({
         name: "ApiError",
         status: 401,
       });
       expect(getAccessToken()).toBeNull();
+      expect(window.location.href).toBe("/login");
     });
   });
 

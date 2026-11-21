@@ -14,6 +14,14 @@ an HttpOnly refresh cookie (the design the api-client header always claimed):
 
 Cookie contract: HttpOnly, SameSite=Lax, Path=/api/v1/auth/, Secure=!DEBUG,
 7-day max_age (REFRESH_TOKEN_LIFETIME).
+
+The client-side evidence gate (P4/E-1 refinement, discovered in the e2e run):
+refreshing on EVERY 401 turned an anonymous failure (bad login credentials)
+into a pointless refresh POST that flooded the refresh rate limit and
+swallowed the caller's error. The fix: a second, non-secret `session_hint`
+marker cookie — JS-readable (NOT HttpOnly, path=/) so the api-client can see
+"a session exists, attempt the refresh"; deleted on logout / password change
+/ a failed cookie-refresh so dead evidence cannot linger.
 """
 
 import pytest
@@ -23,6 +31,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.core.services import auth_service
 
 COOKIE_NAME = "refresh_token"
+HINT_COOKIE_NAME = "session_hint"
 LOGIN_URL = "/api/v1/auth/login/"
 REGISTER_URL = "/api/v1/auth/register/"
 REFRESH_URL = "/api/v1/auth/refresh/"
@@ -221,3 +230,143 @@ def test_logout_with_body_token_unchanged(auth_client, test_user):
 
     with pytest.raises(LedgerSGValidationError):
         auth_service.refresh_access_token(str(refresh))
+
+
+# --- The client-side evidence gate: the session_hint marker cookie (P4/E-1
+# refinement). Refreshing on EVERY 401 made an anonymous failure (bad login
+# credentials) trigger a pointless refresh POST — flooding the refresh rate
+# limit and swallowing the login form's error. The hint cookie is the
+# browser-readable evidence that a session exists. ---
+
+
+def _hint_attrs(response):
+    morsel = response.cookies[HINT_COOKIE_NAME]
+    return {
+        "value": morsel.value,
+        "httponly": bool(morsel["httponly"]),
+        "path": morsel["path"],
+        "samesite": morsel["samesite"] or "",
+        "secure": bool(morsel["secure"]),
+        "max-age": morsel["max-age"],
+    }
+
+
+def _assert_hint_cookie_contract(response):
+    """The hint must be JS-readable, page-wide, Lax, and live as long as the
+    refresh token — a marker only, no secret material."""
+    assert HINT_COOKIE_NAME in response.cookies, (
+        "the session_hint marker cookie must be set alongside the refresh cookie"
+    )
+    attrs = _hint_attrs(response)
+    assert attrs["httponly"] is False, (
+        "the hint must NOT be HttpOnly — it is the JavaScript-side evidence gate"
+    )
+    assert attrs["path"] == "/", (
+        f"the hint must be readable on every page (path=/), got {attrs['path']!r}"
+    )
+    assert attrs["samesite"].lower() == "lax", f"SameSite must be Lax, got {attrs['samesite']!r}"
+    assert attrs["secure"] == (not settings.DEBUG)
+    expected_seconds = int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
+    assert attrs["max-age"] == expected_seconds, (
+        f"hint max-age must match REFRESH_TOKEN_LIFETIME ({expected_seconds}s), "
+        f"got {attrs['max-age']!r}"
+    )
+
+
+@pytest.mark.django_db
+def test_login_sets_js_readable_session_hint(api_client, test_user):
+    """RED: login must set the evidence marker with the hint contract."""
+    response = _login(api_client, test_user)
+    assert response.status_code == 200
+    _assert_hint_cookie_contract(response)
+
+
+@pytest.mark.django_db
+def test_refresh_success_renews_the_session_hint(api_client, test_user):
+    """RED: a successful (rotating) refresh must renew the evidence marker."""
+    login_response = _login(api_client, test_user)
+    api_client.cookies[COOKIE_NAME] = login_response.cookies[COOKIE_NAME].value
+
+    response = api_client.post(REFRESH_URL, {}, format="json")
+    assert response.status_code == 200
+    _assert_hint_cookie_contract(response)
+
+
+@pytest.mark.django_db
+def test_logout_deletes_the_session_hint(api_client, test_user):
+    """RED: logout must expire the hint with the refresh cookie."""
+    login_response = _login(api_client, test_user)
+    api_client.credentials(
+        HTTP_AUTHORIZATION=f"Bearer {login_response.data['tokens']['access']}"
+    )
+    api_client.cookies[COOKIE_NAME] = login_response.cookies[COOKIE_NAME].value
+
+    response = api_client.post(LOGOUT_URL, {}, format="json")
+    assert response.status_code == 200
+    api_client.credentials()
+
+    assert HINT_COOKIE_NAME in response.cookies, "logout must expire the hint"
+    expired = _hint_attrs(response)
+    assert expired["max-age"] in ("0", 0) or expired["value"] == "", (
+        "the logout response must expire the session_hint cookie"
+    )
+
+
+@pytest.mark.django_db
+def test_change_password_deletes_the_session_hint(api_client, test_user):
+    """RED: password change revokes every session — the hint must die too."""
+    login_response = _login(api_client, test_user)
+    api_client.credentials(
+        HTTP_AUTHORIZATION=f"Bearer {login_response.data['tokens']['access']}"
+    )
+    api_client.cookies[COOKIE_NAME] = login_response.cookies[COOKIE_NAME].value
+
+    response = api_client.post(
+        "/api/v1/auth/change-password/",
+        {
+            "old_password": "testpassword123",
+            "new_password": "wqj2cFp8mZtR4aKy",
+        },
+        format="json",
+    )
+    assert response.status_code == 200, response.data
+    api_client.credentials()
+
+    assert HINT_COOKIE_NAME in response.cookies, (
+        "change_password must expire the session_hint cookie"
+    )
+    expired = _hint_attrs(response)
+    assert expired["max-age"] in ("0", 0) or expired["value"] == ""
+
+
+@pytest.mark.django_db
+def test_refresh_failure_with_cookie_expires_stale_evidence(api_client, test_user):
+    """RED: a dead refresh cookie must not leave stale evidence behind — the
+    401 response expires BOTH cookies so the browser stops carrying them."""
+    api_client.cookies[COOKIE_NAME] = "not-a-valid-refresh-token"
+
+    response = api_client.post(REFRESH_URL, {}, format="json")
+    assert response.status_code == 401, "an invalid cookie must be rejected"
+
+    for name, label in (
+        (COOKIE_NAME, "refresh cookie"),
+        (HINT_COOKIE_NAME, "session_hint marker"),
+    ):
+        assert name in response.cookies, (
+            f"a failed cookie-refresh must expire the {label} (dead evidence)"
+        )
+        morsel = response.cookies[name]
+        assert morsel["max-age"] in ("0", 0) or morsel.value == ""
+
+
+@pytest.mark.django_db
+def test_refresh_failure_with_body_does_not_touch_cookies(api_client, test_user):
+    """A failed BODY refresh (API-client path) must not send Set-Cookie
+    headers — the API client never carried browser evidence."""
+    response = api_client.post(REFRESH_URL, {"refresh": "not-a-valid-token"}, format="json")
+    assert response.status_code == 401
+
+    assert COOKIE_NAME not in response.cookies, (
+        "the body path must not set or expire browser cookies"
+    )
+    assert HINT_COOKIE_NAME not in response.cookies

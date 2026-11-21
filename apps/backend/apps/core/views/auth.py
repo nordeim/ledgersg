@@ -18,9 +18,9 @@ from apps.core.serializers.auth import (
 )
 from apps.core.services import auth_service
 from apps.core.views._refresh_cookie import (
-    delete_refresh_cookie,
+    delete_session_cookies,
     get_refresh_cookie,
-    set_refresh_cookie,
+    set_session_cookies,
 )
 from common.exceptions import ValidationError
 
@@ -55,8 +55,9 @@ def register_view(request: Request) -> Response:
             },
             status=status.HTTP_201_CREATED,
         )
-        # Browser session persistence: HttpOnly refresh cookie (P4/E-1)
-        set_refresh_cookie(response, tokens["refresh"])
+        # Browser session persistence: HttpOnly refresh cookie + the
+        # JS-readable session_hint evidence marker (P4/E-1)
+        set_session_cookies(response, tokens["refresh"])
         return response
 
     except ValidationError as e:
@@ -67,14 +68,17 @@ def register_view(request: Request) -> Response:
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
-@ratelimit(key="ip", rate="10/minute", block=True)
-@ratelimit(key="user_or_ip", rate="30/minute", block=True)
+@ratelimit(key="ip", rate="config.ratelimits.login_ip", block=True)
+@ratelimit(key="user_or_ip", rate="config.ratelimits.login_user", block=True)
 def login_view(request: Request) -> Response:
     """
     Login user and return JWT tokens.
 
     POST /api/v1/auth/login/
-    Rate limit: 10/min per IP, 30/min per user.
+    Rate limits (settings knobs, P4): LOGIN_RATELIMIT_IP (default 10/min
+    per IP; 60/min in the development settings for the e2e budget) and
+    LOGIN_RATELIMIT_USER (default 30/min per user_or_ip). Resolved lazily
+    per request by django-ratelimit's dotted-path loader.
     """
     serializer = LoginSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -91,8 +95,9 @@ def login_view(request: Request) -> Response:
                 "tokens": tokens,
             }
         )
-        # Browser session persistence: HttpOnly refresh cookie (P4/E-1)
-        set_refresh_cookie(response, tokens["refresh"])
+        # Browser session persistence: HttpOnly refresh cookie + the
+        # JS-readable session_hint evidence marker (P4/E-1)
+        set_session_cookies(response, tokens["refresh"])
         return response
 
     except ValidationError as e:
@@ -117,8 +122,14 @@ def refresh_view(request: Request) -> Response:
     session persistence). Rotation is identical on both paths: the used
     token is blacklisted and the response sets the new rotated pair (body
     and cookie).
+
+    On a failed COOKIE-path refresh the 401 expires both cookies: the
+    browser must stop carrying dead session evidence (the JS-side hint
+    gate would otherwise keep attempting refreshes against a dead token).
+    A failed BODY-path refresh (API clients) sends no Set-Cookie headers.
     """
-    refresh_token = request.data.get("refresh") or get_refresh_cookie(request)
+    body_token = request.data.get("refresh")
+    refresh_token = body_token or get_refresh_cookie(request)
 
     if not refresh_token:
         return Response(
@@ -129,13 +140,18 @@ def refresh_view(request: Request) -> Response:
     try:
         tokens = auth_service.refresh_access_token(refresh_token)
         response = Response({"tokens": tokens})
-        set_refresh_cookie(response, tokens["refresh"])
+        set_session_cookies(response, tokens["refresh"])
         return response
 
     except ValidationError as e:
-        return Response(
+        response = Response(
             {"error": {"code": e.code, "message": e.message}}, status=status.HTTP_401_UNAUTHORIZED
         )
+        if not body_token:
+            # The cookie was the credential that just failed — expire the
+            # dead evidence so the browser drops it (P4/E-1 refinement).
+            delete_session_cookies(response)
+        return response
 
 
 @api_view(["POST"])
@@ -155,7 +171,7 @@ def logout_view(request: Request) -> Response:
         auth_service.logout_user(refresh_token)
 
     response = Response({"message": "Logged out successfully"})
-    delete_refresh_cookie(response)
+    delete_session_cookies(response)
     return response
 
 
@@ -203,9 +219,10 @@ def change_password_view(request: Request) -> Response:
         )
 
         # Every outstanding refresh token was revoked server-side — the
-        # browser's refresh cookie must die with them (P4/E-1).
+        # browser's refresh cookie (and the session_hint evidence marker)
+        # must die with them (P4/E-1).
         response = Response({"message": "Password changed successfully"})
-        delete_refresh_cookie(response)
+        delete_session_cookies(response)
         return response
 
     except ValidationError as e:

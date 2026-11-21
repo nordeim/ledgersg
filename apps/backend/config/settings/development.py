@@ -76,6 +76,18 @@ SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"] = timedelta(hours=1)
 SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"] = timedelta(days=30)
 
 # =============================================================================
+# LOGIN RATE LIMIT (Development — e2e budget)
+#
+# `npm run test:e2e:full` legitimately issues ~11 login attempts per run
+# against the local dev server (7 pre-P4 specs + 3 session-persistence
+# specs + 1 bad-password assertion); the base 10/min-per-IP limit 429'd the
+# tail of the suite. Production (base settings) keeps 10/min — the
+# guardrail is not weakened, only the local budget is raised.
+# =============================================================================
+
+LOGIN_RATELIMIT_IP = "60/minute"
+
+# =============================================================================
 # SHELL PLUS (Django Extensions)
 # =============================================================================
 

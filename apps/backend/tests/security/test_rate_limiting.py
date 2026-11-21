@@ -107,6 +107,45 @@ class TestRateLimitConfiguration:
         assert hasattr(settings, "RATELIMIT_CACHE_PREFIX")
         assert hasattr(settings, "RATELIMIT_VIEW")
 
+    def test_login_rate_is_settings_driven_and_resolves(self):
+        """P4: the login IP rate is a settings knob, resolved lazily by
+        django-ratelimit's dotted-path loader — production keeps the
+        documented default while the development settings raise the budget
+        for `test:e2e:full` (~11 login attempts per run vs the old 10/min
+        IP limit that the P3-era suite already grazed)."""
+        from django.conf import settings
+        from django.utils.module_loading import import_string
+
+        assert hasattr(settings, "LOGIN_RATELIMIT_IP"), (
+            "settings.LOGIN_RATELIMIT_IP must exist (default '10/minute')"
+        )
+        assert hasattr(settings, "LOGIN_RATELIMIT_USER"), (
+            "settings.LOGIN_RATELIMIT_USER must exist (default '30/minute')"
+        )
+
+        # The dotted-path callables the view decorators point at must
+        # resolve and return rates django-ratelimit can parse (its own
+        # rate_re is a prefix match: '10/minute' == 10/m).
+        import re
+
+        for dotted, attr in (
+            ("config.ratelimits.login_ip", "LOGIN_RATELIMIT_IP"),
+            ("config.ratelimits.login_user", "LOGIN_RATELIMIT_USER"),
+        ):
+            fn = import_string(dotted)
+            rate = fn("auth-login", None)
+            assert re.match(r"^\d+/\d*[smhd]", rate), (
+                f"{dotted} returned a malformed rate: {rate!r}"
+            )
+            assert rate == getattr(settings, attr)
+
+        # The production default (base settings) is unchanged — the guard
+        # is not weakened, only the development budget is raised.
+        from config.settings import base
+
+        assert base.LOGIN_RATELIMIT_IP == "10/minute"
+        assert base.LOGIN_RATELIMIT_USER == "30/minute"
+
     def test_custom_rate_limit_handler_defined(self):
         """Custom rate limit handler should be defined."""
         from common.exceptions import rate_limit_exceeded_view

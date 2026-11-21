@@ -279,6 +279,14 @@ RATELIMIT_USE_CACHE = "default"
 
 RATELIMIT_HEADERS_ENABLE = True
 
+# Login rate limits (SEC-002) as settings knobs — the auth views resolve them
+# through config.ratelimits (django-ratelimit dotted-path rates are evaluated
+# per request). Production defaults; development.py raises the IP budget for
+# `npm run test:e2e:full` (~11 login attempts/run). P4.
+LOGIN_RATELIMIT_IP = "10/minute"
+
+LOGIN_RATELIMIT_USER = "30/minute"
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",

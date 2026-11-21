@@ -16,6 +16,7 @@ import {
   Building2,
   Check,
   Landmark,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -55,7 +56,7 @@ export function Shell({ children }: ShellProps) {
   const [mounted, setMounted] = useState(false);
   const [orgSelectorOpen, setOrgSelectorOpen] = useState(false);
   const pathname = usePathname();
-  const { user, organisations, currentOrg, switchOrg } = useAuth();
+  const { user, organisations, currentOrg, switchOrg, logout } = useAuth();
 
   useEffect(() => {
     setMounted(true);
@@ -207,6 +208,19 @@ export function Shell({ children }: ShellProps) {
                 {user?.email || "user@example.com"}
               </p>
             </div>
+            {/* Session end affordance (P4/E-1): the persisted session needs
+                a UI kill switch — logout blacklists the refresh cookie and
+                expires it server-side. */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 flex-shrink-0 text-text-muted hover:text-alert"
+              onClick={() => void logout()}
+              aria-label="Log out"
+              title="Log out"
+            >
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+            </Button>
           </div>
         </div>
       </aside>
