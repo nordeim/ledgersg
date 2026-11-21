@@ -19,7 +19,7 @@ class PaymentAllocationSerializer(serializers.ModelSerializer):
     document_number = serializers.CharField(source="document.document_number", read_only=True)
     document_total = serializers.DecimalField(
         source="document.total_incl",
-        max_digits=10,
+        max_digits=19,
         decimal_places=4,
         read_only=True,
     )
@@ -53,7 +53,7 @@ class AllocationCreateSerializer(serializers.Serializer):
     payment_id = serializers.UUIDField()
     document_id = serializers.UUIDField()
     allocated_amount = serializers.DecimalField(
-        max_digits=10,
+        max_digits=19,
         decimal_places=4,
         min_value=Decimal("0.0001"),
     )

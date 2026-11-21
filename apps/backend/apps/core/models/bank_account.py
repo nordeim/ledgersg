@@ -41,7 +41,7 @@ class BankAccount(TenantModel):
     is_default = models.BooleanField(default=False, db_column="is_default")
     is_active = models.BooleanField(default=True, db_column="is_active")
     opening_balance = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="opening_balance"
     )
     opening_balance_date = models.DateField(null=True, blank=True, db_column="opening_balance_date")

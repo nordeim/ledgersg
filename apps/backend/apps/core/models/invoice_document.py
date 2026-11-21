@@ -68,7 +68,7 @@ class InvoiceDocument(TenantModel):
         default=0, db_column="subtotal"
     )
     total_discount = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="total_discount"
     )
     gst_total = models.DecimalField(
@@ -80,22 +80,22 @@ class InvoiceDocument(TenantModel):
         default=0, db_column="total_amount"
     )
     amount_paid = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="amount_paid"
     )
     # Note: amount_due is GENERATED ALWAYS in SQL, not stored
     
     # Base Currency Equivalents
     base_subtotal = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="base_subtotal"
     )
     base_total_gst = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="base_total_gst"
     )
     base_total_amount = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="base_total_amount"
     )
     

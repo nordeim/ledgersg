@@ -222,6 +222,7 @@ class DocumentService:
         unit_price: Decimal,
         tax_code_id: UUID,
         is_bcrs_deposit: bool = False,
+        discount_pct: Decimal | None = None,
         **kwargs,
     ) -> InvoiceLine:
         """
@@ -233,9 +234,11 @@ class DocumentService:
             account_id: Revenue account ID
             description: Line description
             quantity: Quantity
-            unit_price: Unit price
+            unit_price: Unit price (gross of discount)
             tax_code_id: Tax code ID
             is_bcrs_deposit: Whether BCRS deposit
+            discount_pct: Line discount percent 0-100 (applied server-side —
+                the authoritative calculator; matches the client preview)
             **kwargs: Additional fields
 
         Returns:
@@ -259,7 +262,23 @@ class DocumentService:
         # Calculate line totals
         quantity = Decimal(str(quantity))
         unit_price = money(unit_price)
-        amount = (quantity * unit_price).quantize(Decimal("0.01"))
+
+        # Apply the line discount server-side (P3: the client preview always
+        # discounted; the persisted line must match — the server is the
+        # authoritative calculator). discount_amount is 4dp; the GST base is
+        # the discounted net amount.
+        discount_pct = (
+            money(discount_pct) if discount_pct is not None else Decimal("0.0000")
+        )
+        if discount_pct < 0 or discount_pct > 100:
+            raise ValidationError(
+                f"discount_pct must be between 0 and 100 (got {discount_pct})."
+            )
+        gross_amount = quantity * unit_price
+        discount_amount = (gross_amount * discount_pct / Decimal("100")).quantize(
+            Decimal("0.0001")
+        )
+        amount = (gross_amount - discount_amount).quantize(Decimal("0.01"))
 
         # Get tax code and calculate GST
         tax_code = TaxCodeService.get_tax_code(org_id, tax_code_id)
@@ -278,7 +297,7 @@ class DocumentService:
         )
 
         # Calculate line amounts
-        line_amount = quantity * unit_price
+        line_amount = gross_amount - discount_amount
         gst_amount = gst_result["gst_amount"]
         total_amount = line_amount + gst_amount
 
@@ -290,6 +309,8 @@ class DocumentService:
             description=description.strip(),
             quantity=quantity,
             unit_price=unit_price,
+            discount_pct=discount_pct,
+            discount_amount=discount_amount,
             line_amount=line_amount,
             gst_amount=gst_amount,
             total_amount=total_amount,
@@ -490,6 +511,11 @@ class DocumentService:
                 unit_price=money(line_data.get("unit_price", 0)),
                 tax_code_id=UUID(str(line_data.get("tax_code_id"))),
                 is_bcrs_deposit=line_data.get("is_bcrs_deposit", False),
+                discount_pct=(
+                    Decimal(str(line_data["discount_pct"]))
+                    if line_data.get("discount_pct") is not None
+                    else None
+                ),
             )
 
     @staticmethod

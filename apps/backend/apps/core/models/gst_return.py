@@ -35,65 +35,65 @@ class GSTReturn(TenantModel):
     
     # F5 Boxes 1-10
     box1_std_rated_supplies = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box1_std_rated_supplies"
     )
     box2_zero_rated_supplies = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box2_zero_rated_supplies"
     )
     box3_exempt_supplies = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box3_exempt_supplies"
     )
     box4_total_supplies = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box4_total_supplies"
     )
     box5_total_taxable_purchases = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box5_total_taxable_purchases"
     )
     box6_output_tax = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box6_output_tax"
     )
     box7_input_tax_claimable = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box7_input_tax_claimable"
     )
     box8_net_gst = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box8_net_gst"
     )
     box9_imports_under_schemes = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box9_imports_under_schemes"
     )
     box10_tourist_refund = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box10_tourist_refund"
     )
     
     # F5 Boxes 11-15 (Missing in original)
     box11_bad_debt_relief = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box11_bad_debt_relief"
     )
     box12_pre_reg_input_tax = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box12_pre_reg_input_tax"
     )
     box13_total_revenue = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box13_total_revenue"
     )
     box14_reverse_charge_supplies = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box14_reverse_charge_supplies"
     )
     box15_electronic_marketplace = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="box15_electronic_marketplace"
     )
     

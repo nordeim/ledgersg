@@ -70,7 +70,7 @@ class PaymentAllocationInputSerializer(serializers.Serializer):
 
     document_id = serializers.UUIDField()
     allocated_amount = serializers.DecimalField(
-        max_digits=10,
+        max_digits=19,
         decimal_places=4,
         min_value=Decimal("0.0001"),
     )
@@ -106,7 +106,7 @@ class PaymentReceiveSerializer(serializers.Serializer):
     bank_account_id = serializers.UUIDField()
     payment_date = serializers.DateField()
     amount = serializers.DecimalField(
-        max_digits=10,
+        max_digits=19,
         decimal_places=4,
         min_value=Decimal("0.0001"),
     )
@@ -204,7 +204,7 @@ class PaymentMakeSerializer(serializers.Serializer):
     bank_account_id = serializers.UUIDField()
     payment_date = serializers.DateField()
     amount = serializers.DecimalField(
-        max_digits=10,
+        max_digits=19,
         decimal_places=4,
         min_value=Decimal("0.0001"),
     )

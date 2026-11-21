@@ -152,7 +152,7 @@ class BankTransactionMatchSerializer(serializers.Serializer):
 
     payment_id = serializers.UUIDField()
     tolerance = serializers.DecimalField(
-        max_digits=10,
+        max_digits=19,
         decimal_places=4,
         default=Decimal("0.50"),
         help_text=_("Tolerance for amount matching (default: 0.50)"),
@@ -188,12 +188,12 @@ class CSVImportRowSerializer(serializers.Serializer):
     """
 
     transaction_date = serializers.DateField()
-    amount = serializers.DecimalField(max_digits=10, decimal_places=4)
+    amount = serializers.DecimalField(max_digits=19, decimal_places=4)
     description = serializers.CharField(max_length=500)
     reference = serializers.CharField(max_length=100, required=False, allow_blank=True)
     value_date = serializers.DateField(required=False, allow_null=True)
     running_balance = serializers.DecimalField(
-        max_digits=10,
+        max_digits=19,
         decimal_places=4,
         required=False,
         allow_null=True,

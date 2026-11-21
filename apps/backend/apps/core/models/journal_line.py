@@ -39,7 +39,7 @@ class JournalLine(models.Model):
 
     currency = models.CharField(max_length=3, default="SGD", db_column="currency")
     exchange_rate = models.DecimalField(
-        max_digits=19, decimal_places=6, default=1, db_column="exchange_rate"
+        max_digits=12, decimal_places=6, default=1, db_column="exchange_rate"
     )
 
     base_debit = models.DecimalField(

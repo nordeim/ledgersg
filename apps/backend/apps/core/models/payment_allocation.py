@@ -20,11 +20,11 @@ class PaymentAllocation(TenantModel):
         db_column="document_id"
     )
     allocated_amount = models.DecimalField(
-        max_digits=10, decimal_places=4,
+        max_digits=19, decimal_places=4,
         db_column="allocated_amount"
     )
     base_allocated_amount = models.DecimalField(
-        max_digits=10, decimal_places=4,
+        max_digits=19, decimal_places=4,
         db_column="base_allocated_amount"
     )
     

@@ -56,7 +56,7 @@ class Contact(TenantModel):
     default_currency = models.CharField(max_length=3, default="SGD", db_column="default_currency")
     payment_terms_days = models.SmallIntegerField(default=30, db_column="payment_terms_days")
     credit_limit = models.DecimalField(
-        max_digits=10, decimal_places=4,
+        max_digits=19, decimal_places=4,
         null=True, blank=True,
         db_column="credit_limit"
     )

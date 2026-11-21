@@ -103,8 +103,8 @@ class InvoiceLineCreateSerializer(serializers.Serializer):
     
     account_id = serializers.UUIDField()
     description = serializers.CharField(max_length=500)
-    quantity = serializers.DecimalField(max_digits=10, decimal_places=4, default=Decimal("1.0000"))
-    unit_price = serializers.DecimalField(max_digits=10, decimal_places=4)
+    quantity = serializers.DecimalField(max_digits=19, decimal_places=4, default=Decimal("1.0000"))
+    unit_price = serializers.DecimalField(max_digits=19, decimal_places=4)
     tax_code_id = serializers.UUIDField()
     is_bcrs_deposit = serializers.BooleanField(default=False)
 

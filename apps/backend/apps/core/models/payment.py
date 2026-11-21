@@ -49,10 +49,10 @@ class Payment(TenantModel):
         max_digits=12, decimal_places=6, default=1.000000,
         db_column="exchange_rate"
     )
-    amount = models.DecimalField(max_digits=10, decimal_places=4, db_column="amount")
-    base_amount = models.DecimalField(max_digits=10, decimal_places=4, db_column="base_amount")
+    amount = models.DecimalField(max_digits=19, decimal_places=4, db_column="amount")
+    base_amount = models.DecimalField(max_digits=19, decimal_places=4, db_column="base_amount")
     fx_gain_loss = models.DecimalField(
-        max_digits=10, decimal_places=4, default=0,
+        max_digits=19, decimal_places=4, default=0,
         db_column="fx_gain_loss"
     )
     

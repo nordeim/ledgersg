@@ -3,9 +3,9 @@
 -- ║   LEDGERSG — COMPLETE POSTGRESQL 16 DATABASE SCHEMA                        ║
 -- ║   Enterprise-Grade Accounting Software for Singapore SMBs                  ║
 -- ║                                                                            ║
--- ║   Version:    1.0.2                                                        ║
+-- ║   Version:    1.1.0                                                        ║
 -- ║   DB Engine:  PostgreSQL 16+                                               ║
--- ║   Precision:  NUMERIC(10,4) for all monetary values                        ║
+-- ║   Precision:  NUMERIC(19,4) for all monetary values                        ║
 -- ║   Encoding:   UTF-8                                                        ║
 -- ║   Collation:  en_SG.UTF-8 (Singapore English)                              ║
 -- ║                                                                            ║
@@ -13,7 +13,7 @@
 -- ║   • Shared-database, shared-schema multi-tenancy with org_id on all tables ║
 -- ║   • Row-Level Security (RLS) via session variable app.current_org_id       ║
 -- ║   • UUID primary keys (gen_random_uuid(), native PG13+)                    ║
--- ║   • NUMERIC(10,4) for ALL monetary columns (mirrors Python Decimal)        ║
+-- ║   • NUMERIC(19,4) for ALL monetary columns (mirrors Python Decimal)        ║
 -- ║   • Immutable audit log (append-only, no UPDATE/DELETE grants)             ║
 -- ║   • Double-entry integrity enforced via triggers + constraints             ║
 -- ║   • Singapore GST tax codes seeded per IRAS classification                 ║
@@ -687,7 +687,7 @@ COMMENT ON COLUMN gst.tax_code.f5_tax_box
 -- 5b. GST Return (GST F5 / F7 / F8)
 -- ──────────────────────────────────────────────
 -- Stores computed GST return data aligned with IRAS GST F5 form structure.
--- All 15 primary boxes modelled as separate NUMERIC(10,4) columns.
+-- All 15 primary boxes modelled as separate NUMERIC(19,4) columns.
 
 CREATE TABLE gst.return (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -700,35 +700,35 @@ CREATE TABLE gst.return (
 
     -- ═══════════════════════════════════════════
     -- GST F5 Boxes (per IRAS specification)
-    -- All values in SGD, NUMERIC(10,4) precision
+    -- All values in SGD, NUMERIC(19,4) precision
     -- ═══════════════════════════════════════════
 
     -- SUPPLIES
-    box1_std_rated_supplies         NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Standard-rated supplies (excl. GST)
-    box2_zero_rated_supplies        NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Zero-rated supplies
-    box3_exempt_supplies            NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Exempt supplies
-    box4_total_supplies             NUMERIC(10,4) NOT NULL DEFAULT 0,  -- = Box 1 + 2 + 3 (auto-computed)
+    box1_std_rated_supplies         NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Standard-rated supplies (excl. GST)
+    box2_zero_rated_supplies        NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Zero-rated supplies
+    box3_exempt_supplies            NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Exempt supplies
+    box4_total_supplies             NUMERIC(19,4) NOT NULL DEFAULT 0,  -- = Box 1 + 2 + 3 (auto-computed)
 
     -- PURCHASES
-    box5_total_taxable_purchases    NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Total taxable purchases
+    box5_total_taxable_purchases    NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Total taxable purchases
 
     -- TAX
-    box6_output_tax                 NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Output tax due (9% of Box 1)
-    box7_input_tax_claimable        NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Input tax claimable
-    box8_net_gst                    NUMERIC(10,4) NOT NULL DEFAULT 0,  -- = Box 6 - Box 7 (payable if +ve)
+    box6_output_tax                 NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Output tax due (9% of Box 1)
+    box7_input_tax_claimable        NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Input tax claimable
+    box8_net_gst                    NUMERIC(19,4) NOT NULL DEFAULT 0,  -- = Box 6 - Box 7 (payable if +ve)
 
     -- SCHEMES (for eligible businesses)
-    box9_imports_under_schemes      NUMERIC(10,4) NOT NULL DEFAULT 0,  -- MES/3PL/etc.
-    box10_tourist_refund            NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Tourist refund scheme
-    box11_bad_debt_relief           NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Bad debt relief claimed
-    box12_pre_reg_input_tax         NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Pre-registration input tax
+    box9_imports_under_schemes      NUMERIC(19,4) NOT NULL DEFAULT 0,  -- MES/3PL/etc.
+    box10_tourist_refund            NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Tourist refund scheme
+    box11_bad_debt_relief           NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Bad debt relief claimed
+    box12_pre_reg_input_tax         NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Pre-registration input tax
 
     -- REVENUE
-    box13_total_revenue             NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Total revenue for the period
+    box13_total_revenue             NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Total revenue for the period
 
     -- REVERSE CHARGE
-    box14_reverse_charge_supplies   NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Value of RC supplies
-    box15_electronic_marketplace    NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Marketplace digital services
+    box14_reverse_charge_supplies   NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Value of RC supplies
+    box15_electronic_marketplace    NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Marketplace digital services
 
     -- STATUS & AUDIT
     status              VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
@@ -861,20 +861,20 @@ CREATE TABLE journal.line (
     description         VARCHAR(500),
 
     -- Amounts in TRANSACTION currency
-    debit               NUMERIC(10,4) NOT NULL DEFAULT 0,
-    credit              NUMERIC(10,4) NOT NULL DEFAULT 0,
+    debit               NUMERIC(19,4) NOT NULL DEFAULT 0,
+    credit              NUMERIC(19,4) NOT NULL DEFAULT 0,
 
     -- GST
     tax_code_id         UUID REFERENCES gst.tax_code(id),
-    tax_amount          NUMERIC(10,4) NOT NULL DEFAULT 0,
+    tax_amount          NUMERIC(19,4) NOT NULL DEFAULT 0,
 
     -- Multi-currency support
     currency            CHAR(3) NOT NULL DEFAULT 'SGD' REFERENCES core.currency(code),
     exchange_rate       NUMERIC(12,6) NOT NULL DEFAULT 1.000000,
 
     -- Amounts in BASE currency (SGD) — for reporting
-    base_debit          NUMERIC(10,4) NOT NULL DEFAULT 0,
-    base_credit         NUMERIC(10,4) NOT NULL DEFAULT 0,
+    base_debit          NUMERIC(19,4) NOT NULL DEFAULT 0,
+    base_credit         NUMERIC(19,4) NOT NULL DEFAULT 0,
 
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
@@ -937,7 +937,7 @@ CREATE TABLE invoicing.contact (
     -- Financial Defaults
     default_currency    CHAR(3) NOT NULL DEFAULT 'SGD' REFERENCES core.currency(code),
     payment_terms_days  SMALLINT NOT NULL DEFAULT 30,      -- Net X days
-    credit_limit        NUMERIC(10,4),                     -- Optional credit limit in SGD
+    credit_limit        NUMERIC(19,4),                     -- Optional credit limit in SGD
 
     -- Control Accounts (which AR/AP account to use)
     receivable_account_id UUID REFERENCES coa.account(id), -- Defaults to standard AR
@@ -1007,18 +1007,18 @@ CREATE TABLE invoicing.document (
     currency            CHAR(3) NOT NULL DEFAULT 'SGD' REFERENCES core.currency(code),
     exchange_rate       NUMERIC(12,6) NOT NULL DEFAULT 1.000000,
 
-    -- Computed Totals (all NUMERIC(10,4))
-    subtotal            NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Sum of line amounts (excl. GST)
-    total_discount      NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Sum of line discounts
-    total_gst           NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Sum of line GST amounts
-    total_amount        NUMERIC(10,4) NOT NULL DEFAULT 0,  -- subtotal + total_gst
-    amount_paid         NUMERIC(10,4) NOT NULL DEFAULT 0,  -- Running total of payments received
-    amount_due          NUMERIC(10,4) GENERATED ALWAYS AS (total_amount - amount_paid) STORED,  -- Auto-computed
+    -- Computed Totals (all NUMERIC(19,4))
+    subtotal            NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Sum of line amounts (excl. GST)
+    total_discount      NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Sum of line discounts
+    total_gst           NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Sum of line GST amounts
+    total_amount        NUMERIC(19,4) NOT NULL DEFAULT 0,  -- subtotal + total_gst
+    amount_paid         NUMERIC(19,4) NOT NULL DEFAULT 0,  -- Running total of payments received
+    amount_due          NUMERIC(19,4) GENERATED ALWAYS AS (total_amount - amount_paid) STORED,  -- Auto-computed
 
     -- Base currency equivalents (for multi-currency reporting)
-    base_subtotal       NUMERIC(10,4) NOT NULL DEFAULT 0,
-    base_total_gst      NUMERIC(10,4) NOT NULL DEFAULT 0,
-    base_total_amount   NUMERIC(10,4) NOT NULL DEFAULT 0,
+    base_subtotal       NUMERIC(19,4) NOT NULL DEFAULT 0,
+    base_total_gst      NUMERIC(19,4) NOT NULL DEFAULT 0,
+    base_total_amount   NUMERIC(19,4) NOT NULL DEFAULT 0,
 
     -- Status
     status              invoicing.doc_status NOT NULL DEFAULT 'DRAFT',
@@ -1097,29 +1097,29 @@ CREATE TABLE invoicing.document_line (
     account_id          UUID NOT NULL REFERENCES coa.account(id),
 
     -- Quantity & Pricing
-    quantity            NUMERIC(10,4) NOT NULL DEFAULT 1,
+    quantity            NUMERIC(19,4) NOT NULL DEFAULT 1,
     unit_of_measure     VARCHAR(20) DEFAULT 'EA',          -- EA, HR, KG, etc.
-    unit_price          NUMERIC(10,4) NOT NULL,
+    unit_price          NUMERIC(19,4) NOT NULL,
 
     -- Discount
     discount_pct        NUMERIC(5,2) NOT NULL DEFAULT 0
         CHECK (discount_pct >= 0 AND discount_pct <= 100),
-    discount_amount     NUMERIC(10,4) NOT NULL DEFAULT 0,
+    discount_amount     NUMERIC(19,4) NOT NULL DEFAULT 0,
 
     -- GST (computed, stored for performance and audit)
     tax_code_id         UUID NOT NULL REFERENCES gst.tax_code(id),
     tax_rate            NUMERIC(5,4) NOT NULL,              -- Snapshot of rate at creation time
     is_tax_inclusive    BOOLEAN NOT NULL DEFAULT FALSE,     -- TRUE if unit_price includes GST
 
-    -- Computed amounts (all NUMERIC(10,4))
-    line_amount         NUMERIC(10,4) NOT NULL,             -- qty × unit_price × (1 - disc%) — before GST
-    gst_amount          NUMERIC(10,4) NOT NULL,             -- GST on this line
-    total_amount        NUMERIC(10,4) NOT NULL,             -- line_amount + gst_amount
+    -- Computed amounts (all NUMERIC(19,4))
+    line_amount         NUMERIC(19,4) NOT NULL,             -- qty × unit_price × (1 - disc%) — before GST
+    gst_amount          NUMERIC(19,4) NOT NULL,             -- GST on this line
+    total_amount        NUMERIC(19,4) NOT NULL,             -- line_amount + gst_amount
 
     -- Base currency equivalents
-    base_line_amount    NUMERIC(10,4) NOT NULL DEFAULT 0,
-    base_gst_amount     NUMERIC(10,4) NOT NULL DEFAULT 0,
-    base_total_amount   NUMERIC(10,4) NOT NULL DEFAULT 0,
+    base_line_amount    NUMERIC(19,4) NOT NULL DEFAULT 0,
+    base_gst_amount     NUMERIC(19,4) NOT NULL DEFAULT 0,
+    base_total_amount   NUMERIC(19,4) NOT NULL DEFAULT 0,
 
     -- BCRS Deposit (effective 1 Apr 2026 — Singapore Beverage Container Recycling Scheme)
     is_bcrs_deposit     BOOLEAN NOT NULL DEFAULT FALSE,     -- TRUE if S$0.10 container deposit
@@ -1288,7 +1288,7 @@ CREATE TABLE banking.bank_account (
     -- Status
     is_default          BOOLEAN NOT NULL DEFAULT FALSE,
     is_active           BOOLEAN NOT NULL DEFAULT TRUE,
-    opening_balance     NUMERIC(10,4) NOT NULL DEFAULT 0,
+    opening_balance     NUMERIC(19,4) NOT NULL DEFAULT 0,
     opening_balance_date DATE,
 
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1322,9 +1322,9 @@ CREATE TABLE banking.payment (
     -- Amount
     currency            CHAR(3) NOT NULL DEFAULT 'SGD' REFERENCES core.currency(code),
     exchange_rate       NUMERIC(12,6) NOT NULL DEFAULT 1.000000,
-    amount              NUMERIC(10,4) NOT NULL,
-    base_amount         NUMERIC(10,4) NOT NULL,             -- SGD equivalent
-    fx_gain_loss        NUMERIC(10,4) NOT NULL DEFAULT 0,   -- FX difference at settlement
+    amount              NUMERIC(19,4) NOT NULL,
+    base_amount         NUMERIC(19,4) NOT NULL,             -- SGD equivalent
+    fx_gain_loss        NUMERIC(19,4) NOT NULL DEFAULT 0,   -- FX difference at settlement
 
     -- Payment Method
     payment_method      VARCHAR(20) NOT NULL DEFAULT 'BANK_TRANSFER'
@@ -1368,8 +1368,8 @@ CREATE TABLE banking.payment_allocation (
     org_id UUID NOT NULL REFERENCES core.organisation(id),
     payment_id UUID NOT NULL REFERENCES banking.payment(id) ON DELETE CASCADE,
     document_id UUID NOT NULL REFERENCES invoicing.document(id) ON DELETE RESTRICT,
-    allocated_amount NUMERIC(10,4) NOT NULL,
-    base_allocated_amount NUMERIC(10,4) NOT NULL, -- SGD equivalent
+    allocated_amount NUMERIC(19,4) NOT NULL,
+    base_allocated_amount NUMERIC(19,4) NOT NULL, -- SGD equivalent
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
@@ -1400,8 +1400,8 @@ CREATE TABLE banking.bank_transaction (
     reference           VARCHAR(100),
 
     -- Amount: positive = money in (credit), negative = money out (debit)
-    amount              NUMERIC(10,4) NOT NULL,
-    running_balance     NUMERIC(10,4),                      -- Bank-reported running balance
+    amount              NUMERIC(19,4) NOT NULL,
+    running_balance     NUMERIC(19,4),                      -- Bank-reported running balance
 
     -- Reconciliation
     is_reconciled       BOOLEAN NOT NULL DEFAULT FALSE,
@@ -1508,15 +1508,15 @@ COMMENT ON VIEW audit.org_event_log
 -- Mirrors the Python GSTCalculator for consistency.
 
 CREATE OR REPLACE FUNCTION gst.calculate(
-    p_amount            NUMERIC(10,4),
+    p_amount            NUMERIC(19,4),
     p_tax_code          VARCHAR(10),
     p_is_inclusive       BOOLEAN DEFAULT FALSE,
     p_rate_date          DATE DEFAULT CURRENT_DATE
 )
 RETURNS TABLE (
-    net_amount          NUMERIC(10,4),
-    gst_amount          NUMERIC(10,4),
-    gross_amount        NUMERIC(10,4),
+    net_amount          NUMERIC(19,4),
+    gst_amount          NUMERIC(19,4),
+    gross_amount        NUMERIC(19,4),
     applied_rate        NUMERIC(5,4)
 )
 LANGUAGE plpgsql
@@ -1569,7 +1569,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION gst.calculate
-    IS 'Core GST calculation. STABLE (not IMMUTABLE) because it queries gst.tax_code for rate lookup. Returns net, GST, and gross amounts at NUMERIC(10,4) precision.';
+    IS 'Core GST calculation. STABLE (not IMMUTABLE) because it queries gst.tax_code for rate lookup. Returns net, GST, and gross amounts at NUMERIC(19,4) precision.';
 
 
 -- ──────────────────────────────────────────────
@@ -1577,17 +1577,17 @@ COMMENT ON FUNCTION gst.calculate
 -- ──────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION gst.calculate_line(
-    p_quantity          NUMERIC(10,4),
-    p_unit_price        NUMERIC(10,4),
+    p_quantity          NUMERIC(19,4),
+    p_unit_price        NUMERIC(19,4),
     p_discount_pct      NUMERIC(5,2),
     p_tax_code          VARCHAR(10),
     p_is_inclusive       BOOLEAN DEFAULT FALSE,
     p_rate_date          DATE DEFAULT CURRENT_DATE
 )
 RETURNS TABLE (
-    line_amount         NUMERIC(10,4),
-    gst_amount          NUMERIC(10,4),
-    total_amount        NUMERIC(10,4),
+    line_amount         NUMERIC(19,4),
+    gst_amount          NUMERIC(19,4),
+    total_amount        NUMERIC(19,4),
     applied_rate        NUMERIC(5,4)
 )
 LANGUAGE plpgsql
@@ -1595,7 +1595,7 @@ STABLE                  -- ← FIXED: Delegates to gst.calculate() which is STAB
 PARALLEL SAFE
 AS $$
 DECLARE
-    v_line_amount NUMERIC(10,4);
+    v_line_amount NUMERIC(19,4);
     v_result RECORD;
 BEGIN
     -- Calculate line amount: qty × price × (1 - disc/100)
@@ -1723,9 +1723,9 @@ RETURNS BOOLEAN
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_total_debit   NUMERIC(10,4);
-    v_total_credit  NUMERIC(10,4);
-    v_diff          NUMERIC(10,4);
+    v_total_debit   NUMERIC(19,4);
+    v_total_credit  NUMERIC(19,4);
+    v_diff          NUMERIC(19,4);
 BEGIN
     SELECT COALESCE(SUM(base_debit), 0),
            COALESCE(SUM(base_credit), 0)
@@ -1783,19 +1783,19 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     v_return_id     UUID;
-    v_box1          NUMERIC(10,4) := 0;
-    v_box2          NUMERIC(10,4) := 0;
-    v_box3          NUMERIC(10,4) := 0;
-    v_box5          NUMERIC(10,4) := 0;
-    v_box6          NUMERIC(10,4) := 0;
-    v_box7          NUMERIC(10,4) := 0;
-    v_box9          NUMERIC(10,4) := 0;
-    v_box10         NUMERIC(10,4) := 0;
-    v_box11         NUMERIC(10,4) := 0;
-    v_box12         NUMERIC(10,4) := 0;
-    v_box13         NUMERIC(10,4) := 0;
-    v_box14         NUMERIC(10,4) := 0;
-    v_box15         NUMERIC(10,4) := 0;
+    v_box1          NUMERIC(19,4) := 0;
+    v_box2          NUMERIC(19,4) := 0;
+    v_box3          NUMERIC(19,4) := 0;
+    v_box5          NUMERIC(19,4) := 0;
+    v_box6          NUMERIC(19,4) := 0;
+    v_box7          NUMERIC(19,4) := 0;
+    v_box9          NUMERIC(19,4) := 0;
+    v_box10         NUMERIC(19,4) := 0;
+    v_box11         NUMERIC(19,4) := 0;
+    v_box12         NUMERIC(19,4) := 0;
+    v_box13         NUMERIC(19,4) := 0;
+    v_box14         NUMERIC(19,4) := 0;
+    v_box15         NUMERIC(19,4) := 0;
     v_filing_due    DATE;
 BEGIN
     -- Filing due date: one month after period end
@@ -3204,9 +3204,134 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ledgersg_app;
 
 
+
+-- ============================================================================
+-- §16  MONETARY CAPACITY WIDENING (v1.1.0 — H-03 remediation, 2026-11-21)
+-- ============================================================================
+--
+-- WHY: NUMERIC(10,4) capped every monetary value at S$999,999.9999
+-- (6 integer digits). The Singapore GST registration threshold is S$1M
+-- turnover, so every GST-registered organisation's F5 Box 13 (total
+-- revenue) could overflow, as could any >= S$1M invoice line, document
+-- total, or journal debit/credit ("numeric field overflow … must round
+-- to an absolute value less than 10^6" — verified live).
+--
+-- WHAT: all 47 monetary columns (the fresh-load DDL above already defines
+-- them as NUMERIC(19,4); max value ~10^15) — this section is the IN-PLACE
+-- migration for databases initialised on schema <= v1.0.2.
+--
+-- HOW (safe, non-destructive):
+--   * ALTER COLUMN … TYPE on NUMERIC only rewrites the column metadata
+--     when the value range is widened — no data conversion, no data loss.
+--   * invoicing.document.amount_due is a GENERATED ALWAYS AS
+--     (total_amount - amount_paid) STORED column: PostgreSQL refuses to
+--     alter a column a generated column depends on, so it is dropped and
+--     re-added with the identical expression AFTER its inputs are widened
+--     (sequence verified on a live database before shipping).
+--
+-- Idempotent guard: the whole block is a no-op once no NUMERIC(10,4)
+-- columns remain. Run connected as a role that owns the tables (e.g.
+-- ledgersg / postgres in dev).
+
+DO $$
+DECLARE
+    remaining integer;
+BEGIN
+    SELECT COUNT(*) INTO remaining
+    FROM information_schema.columns
+    WHERE table_schema IN ('core','coa','gst','journal','invoicing','banking','audit')
+      AND data_type = 'numeric' AND numeric_precision = 10 AND numeric_scale = 4;
+
+    IF remaining = 0 THEN
+        RAISE NOTICE '§16: no NUMERIC(10,4) columns remain — already widened, skipping.';
+    ELSE
+        -- invoicing.document.amount_due (GENERATED) — drop, widen inputs, re-add
+        ALTER TABLE invoicing.document DROP COLUMN amount_due;
+-- BANKING
+-- banking.bank_account (1 columns)
+ALTER TABLE banking.bank_account ALTER COLUMN opening_balance TYPE NUMERIC(19,4);
+-- banking.bank_transaction (2 columns)
+ALTER TABLE banking.bank_transaction ALTER COLUMN amount TYPE NUMERIC(19,4);
+ALTER TABLE banking.bank_transaction ALTER COLUMN running_balance TYPE NUMERIC(19,4);
+-- banking.payment (3 columns)
+ALTER TABLE banking.payment ALTER COLUMN amount TYPE NUMERIC(19,4);
+ALTER TABLE banking.payment ALTER COLUMN base_amount TYPE NUMERIC(19,4);
+ALTER TABLE banking.payment ALTER COLUMN fx_gain_loss TYPE NUMERIC(19,4);
+-- banking.payment_allocation (2 columns)
+ALTER TABLE banking.payment_allocation ALTER COLUMN allocated_amount TYPE NUMERIC(19,4);
+ALTER TABLE banking.payment_allocation ALTER COLUMN base_allocated_amount TYPE NUMERIC(19,4);
+-- GST
+-- gst.return (15 columns)
+ALTER TABLE gst.return ALTER COLUMN box10_tourist_refund TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box11_bad_debt_relief TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box12_pre_reg_input_tax TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box13_total_revenue TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box14_reverse_charge_supplies TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box15_electronic_marketplace TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box1_std_rated_supplies TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box2_zero_rated_supplies TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box3_exempt_supplies TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box4_total_supplies TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box5_total_taxable_purchases TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box6_output_tax TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box7_input_tax_claimable TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box8_net_gst TYPE NUMERIC(19,4);
+ALTER TABLE gst.return ALTER COLUMN box9_imports_under_schemes TYPE NUMERIC(19,4);
+-- INVOICING
+-- invoicing.contact (1 columns)
+ALTER TABLE invoicing.contact ALTER COLUMN credit_limit TYPE NUMERIC(19,4);
+-- invoicing.document (8 columns)
+ALTER TABLE invoicing.document ALTER COLUMN amount_paid TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document ALTER COLUMN base_subtotal TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document ALTER COLUMN base_total_amount TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document ALTER COLUMN base_total_gst TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document ALTER COLUMN subtotal TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document ALTER COLUMN total_amount TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document ALTER COLUMN total_discount TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document ALTER COLUMN total_gst TYPE NUMERIC(19,4);
+-- invoicing.document_line (9 columns)
+ALTER TABLE invoicing.document_line ALTER COLUMN base_gst_amount TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document_line ALTER COLUMN base_line_amount TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document_line ALTER COLUMN base_total_amount TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document_line ALTER COLUMN discount_amount TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document_line ALTER COLUMN gst_amount TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document_line ALTER COLUMN line_amount TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document_line ALTER COLUMN quantity TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document_line ALTER COLUMN total_amount TYPE NUMERIC(19,4);
+ALTER TABLE invoicing.document_line ALTER COLUMN unit_price TYPE NUMERIC(19,4);
+-- JOURNAL
+-- journal.line (5 columns)
+ALTER TABLE journal.line ALTER COLUMN base_credit TYPE NUMERIC(19,4);
+ALTER TABLE journal.line ALTER COLUMN base_debit TYPE NUMERIC(19,4);
+ALTER TABLE journal.line ALTER COLUMN credit TYPE NUMERIC(19,4);
+ALTER TABLE journal.line ALTER COLUMN debit TYPE NUMERIC(19,4);
+ALTER TABLE journal.line ALTER COLUMN tax_amount TYPE NUMERIC(19,4);
+        ALTER TABLE invoicing.document ADD COLUMN amount_due NUMERIC(19,4)
+            GENERATED ALWAYS AS (total_amount - amount_paid) STORED;
+        RAISE NOTICE '§16: widened % monetary column(s) to NUMERIC(19,4).', remaining;
+    END IF;
+END
+$$;
+
+-- Verification: must return 0 after the migration.
+-- SELECT COUNT(*) FROM information_schema.columns
+-- WHERE table_schema IN ('core','coa','gst','journal','invoicing','banking','audit')
+--   AND data_type = 'numeric' AND numeric_precision = 10 AND numeric_scale = 4;
+
+
 -- ============================================================================
 -- VERSION CHANGELOG
 -- ============================================================================
+
+-- v1.1.0 (2026-11-21) — Monetary Capacity Widening (H-03 remediation, P3 sprint)
+-- ---------------------------------------------------------------------------
+-- All 47 monetary columns widened from NUMERIC(10,4) (cap S$999,999.9999) to
+-- NUMERIC(19,4) (cap ~10^15). The GST registration threshold is S$1M turnover;
+-- the old width could not hold a GST-registered organisation's F5 Box 13
+-- revenue or any >= S$1M line/document/journal amount. document_line.quantity
+-- and discount_amount included. discount_pct (NUMERIC(5,2)) and
+-- exchange_rate (NUMERIC(12,6)) intentionally unchanged. See §16 for the
+-- in-place migration (incl. the amount_due generated-column sequence).
 
 -- v1.0.2 (2026-11-21) — JWT Refresh-Token Blacklist (H-05 remediation)
 -- ---------------------------------------------------------------
@@ -3243,5 +3368,5 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ledgersg_app;
 
 -- ╔══════════════════════════════════════════════════════════════════════════════╗
 -- ║  END OF SCHEMA SCRIPT                                                      ║
--- ║  LedgerSG v1.0.2 — PostgreSQL 16 Database Initialization                  ║
+-- ║  LedgerSG v1.1.0 — PostgreSQL 16 Database Initialization                  ║
 -- ╚══════════════════════════════════════════════════════════════════════════════╝

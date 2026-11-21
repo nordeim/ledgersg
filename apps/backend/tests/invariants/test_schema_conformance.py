@@ -14,7 +14,7 @@ a compatible type. It fails on the next drift before any request does.
 
 import pytest
 from django.apps import apps
-from django.db import connection
+from django.db import connection, models
 
 # Django field class -> acceptable PostgreSQL data types.
 # ForeignKey/OneToOne store the target PK's type (uuid, smallint, ...).
@@ -65,6 +65,31 @@ def _split_db_table(db_table: str):
     return "public", table
 
 
+def _precision_drift_problem(model, field, schema, table, column, live) -> str | None:
+    """
+    Precision conformance message (P3, H-03) or None when shapes match.
+
+    A DecimalField's declared max_digits/decimal_places must match the live
+    column shape. NUMERIC(10,4) silently capped money at S$999,999.9999 —
+    below the S$1M GST registration threshold; this check makes any future
+    precision drift a test failure, not a runtime `numeric field overflow`.
+    """
+    if field.max_digits is None or field.decimal_places is None:
+        return None
+    if (
+        live["numeric_precision"] == field.max_digits
+        and live["numeric_scale"] == field.decimal_places
+    ):
+        return None
+    return (
+        f"{model.__name__}.{field.name}: column "
+        f"'{schema}.{table}.{column}' is "
+        f"NUMERIC({live['numeric_precision']},{live['numeric_scale']}) "
+        f"in the schema but DecimalField(max_digits={field.max_digits}, "
+        f"decimal_places={field.decimal_places}) in the model (precision drift)"
+    )
+
+
 @pytest.mark.django_db
 def test_every_model_column_exists_in_schema():
     columns_by_table = {}
@@ -73,14 +98,19 @@ def test_every_model_column_exists_in_schema():
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT table_schema, table_name, column_name, data_type
+            SELECT table_schema, table_name, column_name, data_type,
+                   numeric_precision, numeric_scale
             FROM information_schema.columns
             WHERE table_schema IN ('core','coa','gst','journal','invoicing',
                                    'banking','audit','public')
             """
         )
-        for schema, table, column, data_type in cursor.fetchall():
-            columns_by_table.setdefault((schema, table), {})[column] = data_type
+        for schema, table, column, data_type, precision, scale in cursor.fetchall():
+            columns_by_table.setdefault((schema, table), {})[column] = {
+                "data_type": data_type,
+                "numeric_precision": precision,
+                "numeric_scale": scale,
+            }
 
     checked = 0
     for model in _domain_models():
@@ -111,12 +141,18 @@ def test_every_model_column_exists_in_schema():
                     f"'{type(field).__name__}' for column "
                     f"'{schema}.{table}.{column}' — extend FIELD_COMPAT"
                 )
-            elif actual not in allowed:
+            elif actual["data_type"] not in allowed:
                 problems.append(
                     f"{model.__name__}.{field.name}: column "
                     f"'{schema}.{table}.{column}' is {type(field).__name__} "
-                    f"in the model but '{actual}' in the schema"
+                    f"in the model but '{actual['data_type']}' in the schema"
                 )
+            elif isinstance(field, models.DecimalField):
+                problem = _precision_drift_problem(
+                    model, field, schema, table, column, actual
+                )
+                if problem:
+                    problems.append(problem)
 
     assert not problems, (
         f"Schema/model drift detected in {len(problems)} place(s) "

@@ -32,13 +32,13 @@ class BankTransaction(TenantModel):
     reference = models.CharField(max_length=100, blank=True, db_column="reference")
 
     amount = models.DecimalField(
-        max_digits=10,
+        max_digits=19,
         decimal_places=4,
         db_column="amount",
         help_text="Positive = credit (money in), Negative = debit (money out)",
     )
     running_balance = models.DecimalField(
-        max_digits=10,
+        max_digits=19,
         decimal_places=4,
         null=True,
         blank=True,
