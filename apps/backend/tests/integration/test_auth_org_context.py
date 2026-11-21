@@ -137,8 +137,9 @@ class TestMyOrganisationsView:
 
         assert response.status_code == 200
         assert len(response.data) == 1
-        assert response.data[0]["id"] == str(test_org_1.id)
-        assert "Test Org" in response.data[0]["name"]
+        # Documented contract (AGENTS.md): { id, org: {...}, role: {...} }
+        assert response.data[0]["org"]["id"] == str(test_org_1.id)
+        assert "Test Org" in response.data[0]["org"]["name"]
         assert response.data[0]["is_default"] is True
         assert "role" in response.data[0]
 

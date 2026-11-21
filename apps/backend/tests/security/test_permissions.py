@@ -20,7 +20,7 @@ def test_permission_denied_for_viewer_role(auth_client, test_user):
         base_currency="SGD",
         is_active=True,
     )
-    
+
     # Create viewer role (limited permissions)
     viewer_role = Role.objects.create(
         org=org,
@@ -39,7 +39,7 @@ def test_permission_denied_for_viewer_role(auth_client, test_user):
         can_export_data=False,
         is_system=True,
     )
-    
+
     # Assign user as viewer
     UserOrganisation.objects.create(
         user=test_user,
@@ -47,11 +47,11 @@ def test_permission_denied_for_viewer_role(auth_client, test_user):
         role=viewer_role,
         is_default=True,
     )
-    
+
     # Try to create invoice (should fail)
     url = f"/api/v1/{org.id}/invoicing/documents/"
     response = auth_client.post(url, {}, format="json")
-    
+
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
@@ -65,9 +65,9 @@ def test_permission_allowed_for_owner_role(auth_client, test_organisation):
         "name": "Test Expense Account",
         "account_type": "EXPENSE_ADMIN"
     }
-    
+
     response = auth_client.post(url, data, format="json")
-    
+
     # Should succeed (or validation error, not permission error)
     assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST]
     if response.status_code == status.HTTP_400_BAD_REQUEST:
@@ -79,11 +79,11 @@ def test_permission_allowed_for_owner_role(auth_client, test_organisation):
 def test_permission_create_journals(auth_client, test_organisation):
     """Test CanCreateJournals permission."""
     url = f"/api/v1/{test_organisation.id}/journal-entries/entries/"
-    
+
     # Owner should have CanCreateJournals permission
     # Even without data, should get validation error not permission error
     response = auth_client.post(url, {}, format="json")
-    
+
     # Should be validation error (400) not permission error (403)
     assert response.status_code != status.HTTP_403_FORBIDDEN
 
@@ -92,13 +92,13 @@ def test_permission_create_journals(auth_client, test_organisation):
 def test_permission_file_gst(auth_client, test_organisation):
     """Test CanFileGST permission."""
     url = f"/api/v1/{test_organisation.id}/gst/returns/"
-    
+
     # Owner should have CanFileGST permission
     response = auth_client.post(url, {
         "filing_frequency": "MONTHLY",
         "start_date": "2024-01-01"
     }, format="json")
-    
+
     # Should not be permission denied
     assert response.status_code != status.HTTP_403_FORBIDDEN
 
@@ -109,7 +109,7 @@ def test_permission_superadmin_bypass(auth_client, test_user):
     # Make user superadmin
     test_user.is_superadmin = True
     test_user.save()
-    
+
     # Create org without adding user as member
     other_org = Organisation.objects.create(
         name="Superadmin Test Org",
@@ -117,11 +117,11 @@ def test_permission_superadmin_bypass(auth_client, test_user):
         base_currency="SGD",
         is_active=True,
     )
-    
+
     # Superadmin should be able to access
     url = f"/api/v1/{other_org.id}/"
     response = auth_client.get(url)
-    
+
     # Superadmin can access any org
     assert response.status_code in [status.HTTP_200_OK, status.HTTP_403_FORBIDDEN]
 
@@ -136,7 +136,7 @@ def test_permission_unauthenticated(api_client, test_organisation):
         f"/api/v1/{test_organisation.id}/gst/returns/",
         f"/api/v1/{test_organisation.id}/journal-entries/entries/",
     ]
-    
+
     for url in endpoints:
         response = api_client.get(url)
         assert response.status_code == status.HTTP_401_UNAUTHORIZED, f"Endpoint {url} should require auth"

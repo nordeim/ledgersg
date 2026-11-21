@@ -520,7 +520,7 @@ class InvoicePDFView(APIView):
         )
 
         response = FileResponse(pdf_stream, content_type="application/pdf")
-        response["Content-Disposition"] = f'inline; filename="{document.sequence_number}.pdf"'
+        response["Content-Disposition"] = f'inline; filename="{document.document_number}.pdf"'
 
         return response
 

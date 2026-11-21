@@ -4,32 +4,26 @@ Journal views for LedgerSG.
 Journal entry management and trial balance reporting.
 """
 
-from typing import Optional
 from datetime import date
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from apps.core.permissions import IsOrgMember, CanCreateJournals, CanViewReports
 from apps.core.models import JournalEntry
-from common.exceptions import ValidationError, ResourceNotFound
-from common.views import wrap_response
-from common.decimal_utils import Decimal
-
-from apps.journal.services import JournalService, SOURCE_TYPES, ENTRY_TYPES
+from apps.core.permissions import CanCreateJournals, CanViewReports, IsOrgMember
 from apps.journal.serializers import (
-    JournalEntryListSerializer,
-    JournalEntryDetailSerializer,
     JournalEntryCreateSerializer,
-    JournalEntryUpdateSerializer,
+    JournalEntryDetailSerializer,
+    JournalEntryListSerializer,
     ReversalCreateSerializer,
-    TrialBalanceEntrySerializer,
-    AccountBalanceSerializer,
-    EntryTypeSerializer,
 )
+from apps.journal.services import SOURCE_TYPES, JournalService
+from common.decimal_utils import Decimal
+from common.exceptions import ResourceNotFound
+from common.views import wrap_response
 
 
 class JournalEntryListCreateView(APIView):
@@ -182,7 +176,6 @@ class TrialBalanceView(APIView):
     @wrap_response
     def get(self, request, org_id: str) -> Response:
         """Get trial balance as of date."""
-        from uuid import UUID
 
         date_to = request.query_params.get("date_to")
         if date_to:
@@ -255,7 +248,7 @@ class EntryTypesView(APIView):
     permission_classes = [IsAuthenticated]
 
     @wrap_response
-    def get(self, request) -> Response:
+    def get(self, request, org_id: str) -> Response:
         """Get entry types."""
         types = [{"code": code, "name": name} for code, name in SOURCE_TYPES.items()]
 
@@ -273,8 +266,7 @@ class JournalEntrySummaryView(APIView):
     @wrap_response
     def get(self, request, org_id: str) -> Response:
         """Get journal summary statistics."""
-        from uuid import UUID
-        from django.db.models import Count, Sum
+        from django.db.models import Count
 
         org_uuid = org_id
 
@@ -314,7 +306,6 @@ class ValidateBalanceView(APIView):
     @wrap_response
     def post(self, request, org_id: str) -> Response:
         """Validate entry balance without creating."""
-        from uuid import UUID
 
         lines = request.data.get("lines", [])
 

@@ -6,7 +6,6 @@ from django.urls import path
 
 from apps.core.views import auth
 
-
 urlpatterns = [
     path("register/", auth.register_view, name="auth-register"),
     path("login/", auth.login_view, name="auth-login"),
@@ -15,4 +14,7 @@ urlpatterns = [
     path("me/", auth.me_view, name="auth-me"),
     path("change-password/", auth.change_password_view, name="auth-change-password"),
     path("organisations/", auth.my_organisations_view, name="auth-organisations"),
+    # Registered in the ACTIVE url package — it existed only in the
+    # shadowed apps/core/urls.py module, so the endpoint 404'd (NEW-3).
+    path("set-default-org/", auth.set_default_org_view, name="auth-set-default-org"),
 ]

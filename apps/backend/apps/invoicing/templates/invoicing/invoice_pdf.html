@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>{{ document.sequence_number }}</title>
+    <title>{{ document.document_number }}</title>
     <style>
         @page {
             size: A4;
@@ -122,7 +122,7 @@
             </td>
             <td class="info-box text-right">
                 <div class="label">Number</div>
-                <div style="font-weight: bold;">{{ document.sequence_number }}</div>
+                <div style="font-weight: bold;">{{ document.document_number }}</div>
                 <div class="label" style="margin-top: 10pt;">Date</div>
                 <div>{{ document.issue_date }}</div>
                 {% if document.due_date %}

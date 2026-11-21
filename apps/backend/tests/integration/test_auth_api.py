@@ -48,7 +48,8 @@ def test_register_user_duplicate_email(api_client, test_user):
     response = api_client.post(url, data, format="json")
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "email" in response.data["error"]["details"] or "error" in response.data
+    # DRF serializer validation returns the field-keyed error body
+    assert "email" in response.data
 
 
 @pytest.mark.django_db
@@ -82,8 +83,8 @@ def test_login_user_success(api_client, test_user):
     response = api_client.post(url, data, format="json")
 
     assert response.status_code == status.HTTP_200_OK
-    assert "access_token" in response.data
-    assert "refresh_token" in response.data
+    assert "access" in response.data["tokens"]
+    assert "refresh" in response.data["tokens"]
     assert response.data["user"]["email"] == test_user.email
 
 
@@ -122,7 +123,7 @@ def test_login_user_inactive(api_client, test_user):
 @pytest.mark.django_db
 def test_get_profile_success(auth_client, test_user):
     """Test getting user profile when authenticated."""
-    url = "/api/v1/auth/profile/"
+    url = "/api/v1/auth/me/"
 
     response = auth_client.get(url)
 
@@ -135,7 +136,7 @@ def test_get_profile_success(auth_client, test_user):
 @pytest.mark.django_db
 def test_get_profile_unauthenticated(api_client):
     """Test getting profile without authentication fails."""
-    url = "/api/v1/auth/profile/"
+    url = "/api/v1/auth/me/"
 
     response = api_client.get(url)
 
@@ -151,11 +152,13 @@ def test_refresh_token_success(api_client, test_user):
     refresh = RefreshToken.for_user(test_user)
 
     url = "/api/v1/auth/refresh/"
-    response = api_client.post(url, {"refresh_token": str(refresh)}, format="json")
+    response = api_client.post(url, {"refresh": str(refresh)}, format="json")
 
     assert response.status_code == status.HTTP_200_OK
-    assert "access_token" in response.data
-    assert response.data["token_type"] == "Bearer"
+    assert "access" in response.data["tokens"]
+    assert "refresh" in response.data["tokens"]
+    # Rotation (H-05): the new refresh token must differ from the used one
+    assert response.data["tokens"]["refresh"] != str(refresh)
 
 
 @pytest.mark.django_db
@@ -163,7 +166,7 @@ def test_refresh_token_invalid(api_client):
     """Test refreshing with invalid token fails."""
     url = "/api/v1/auth/refresh/"
 
-    response = api_client.post(url, {"refresh_token": "invalid.token.here"}, format="json")
+    response = api_client.post(url, {"refresh": "invalid.token.here"}, format="json")
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -176,7 +179,7 @@ def test_logout_success(auth_client, test_user):
     refresh = RefreshToken.for_user(test_user)
 
     url = "/api/v1/auth/logout/"
-    response = auth_client.post(url, {"refresh_token": str(refresh)}, format="json")
+    response = auth_client.post(url, {"refresh": str(refresh)}, format="json")
 
     # Should succeed even if token blacklisting isn't fully configured
     assert response.status_code in [status.HTTP_200_OK, status.HTTP_204_NO_CONTENT]
@@ -189,7 +192,7 @@ def test_change_password_success(auth_client, test_user):
 
     response = auth_client.post(
         url,
-        {"current_password": "testpassword123", "new_password": "NewSecurePass456!"},
+        {"old_password": "testpassword123", "new_password": "NewSecurePass456!"},
         format="json",
     )
 
@@ -207,7 +210,7 @@ def test_change_password_wrong_current(auth_client, test_user):
 
     response = auth_client.post(
         url,
-        {"current_password": "wrongpassword", "new_password": "NewSecurePass456!"},
+        {"old_password": "wrongpassword", "new_password": "NewSecurePass456!"},
         format="json",
     )
 
@@ -241,7 +244,7 @@ def test_token_expiration(api_client, test_user):
     token = AccessToken.for_user(test_user)
     token.set_exp(from_time=datetime.utcnow() - timedelta(hours=1))
 
-    url = "/api/v1/auth/profile/"
+    url = "/api/v1/auth/me/"
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {str(token)}")
 
     response = api_client.get(url)

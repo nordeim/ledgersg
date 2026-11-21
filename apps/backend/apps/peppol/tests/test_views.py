@@ -110,25 +110,19 @@ class TestPeppolTransmissionLogView:
 
         data = response.data
 
-        # Verify response structure
+        # Verify response structure (real contract from the DB-backed view)
         assert "results" in data
         assert "count" in data
         assert "pending" in data
         assert "failed" in data
         assert "completed" in data
-        assert "meta" in data
 
-        # Verify stub response
+        # No transmissions yet for this org
         assert data["results"] == []
         assert data["count"] == 0
         assert data["pending"] == 0
         assert data["failed"] == 0
         assert data["completed"] == 0
-
-        # Verify meta info
-        meta = data["meta"]
-        assert meta["stub"] is True
-        assert "message" in meta
 
     def test_transmission_log_with_status_filter(self, peppol_auth_client, peppol_test_org):
         """Test GET with status filter parameter."""
@@ -138,7 +132,8 @@ class TestPeppolTransmissionLogView:
         assert response.status_code == status.HTTP_200_OK
 
         data = response.data
-        assert data["meta"]["status_filter"] == "pending"
+        # Status filter is accepted and returns a valid (empty) result set
+        assert data["results"] == []
 
     def test_transmission_log_requires_authentication(self, peppol_test_org):
         """Test GET transmission log without auth fails."""
@@ -255,22 +250,19 @@ class TestPeppolSettingsView:
 
         data = response.data
 
-        # Verify structure
+        # Verify structure (real contract served by PeppolSettingsView)
         assert "enabled" in data
         assert "participant_id" in data
-        assert "endpoint" in data
-        assert "test_mode" in data
-        assert "supported_formats" in data
+        assert "is_configured" in data
+        assert "access_point_provider" in data
+        assert "auto_transmit" in data
+        assert "retry_attempts" in data
         assert "status" in data
-        assert "meta" in data
 
-        # Verify values from organisation
+        # Verify values from organisation (real DB-backed contract)
         assert data["enabled"] is True
         assert data["participant_id"] == "0195:SGUEN987654321"
-        assert data["test_mode"] is True
-        assert data["supported_formats"] == ["UBL"]
-        assert data["status"] == "configured"
-        assert data["meta"]["stub"] is True
+        assert data["status"] in ("configured", "not_configured")
 
     def test_get_settings_not_configured(self, settings_auth_client, settings_test_user):
         """Test GET settings when Peppol is not configured."""

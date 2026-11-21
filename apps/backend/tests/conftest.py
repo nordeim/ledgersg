@@ -74,14 +74,24 @@ def test_organisation(test_user) -> Organisation:
         is_active=True,
     )
 
-    # Create document sequences for journal entries
-    DocumentSequence.objects.create(
-        org=org,
-        document_type="JOURNAL_ENTRY",
-        prefix="JE-",
-        next_number=1,
-        padding=5,
-    )
+    # Create document sequences for journal entries + sales documents
+    # (core.get_next_document_number raises for unconfigured types, so
+    # fixtures must mirror what a seeded organisation has)
+    for doc_type, prefix in [
+        ("JOURNAL_ENTRY", "JE-"),
+        ("SALES_INVOICE", "INV-"),
+        ("SALES_CREDIT_NOTE", "CN-"),
+        ("SALES_DEBIT_NOTE", "DN-"),
+        ("SALES_QUOTE", "QT-"),
+        ("PURCHASE_INVOICE", "PUR-"),
+    ]:
+        DocumentSequence.objects.create(
+            org=org,
+            document_type=doc_type,
+            prefix=prefix,
+            next_number=1,
+            padding=5,
+        )
 
     # Create Owner role
     owner_role = Role.objects.create(

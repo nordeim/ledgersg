@@ -29,13 +29,13 @@ def send_invoice_email_task(self, org_id: str, document_id: str, recipients: lis
         context = {
             "org_name": org.name,
             "contact_name": contact.name,
-            "document_number": document.sequence_number,
+            "document_number": document.document_number,
             "total_amount": document.total_incl,
             "currency": org.base_currency,
             "due_date": document.due_date,
         }
         
-        subject = f"Invoice {document.sequence_number} from {org.name}"
+        subject = f"Invoice {document.document_number} from {org.name}"
         text_content = render_to_string("invoicing/email/invoice_email.txt", context)
         html_content = render_to_string("invoicing/email/invoice_email.html", context)
         
@@ -50,7 +50,7 @@ def send_invoice_email_task(self, org_id: str, document_id: str, recipients: lis
         # Attach PDF
         pdf_stream = DocumentService.generate_pdf(UUID(org_id), UUID(document_id))
         email.attach(
-            f"{document.sequence_number}.pdf",
+            f"{document.document_number}.pdf",
             pdf_stream.getvalue(),
             "application/pdf"
         )

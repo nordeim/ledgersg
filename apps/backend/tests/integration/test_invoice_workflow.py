@@ -17,7 +17,7 @@ from apps.core.models import InvoiceDocument, InvoiceLine, JournalEntry
 def test_create_invoice_success(auth_client, test_organisation, test_user, test_accounts, test_tax_codes):
     """Test creating a new invoice via API."""
     from apps.core.models import Contact
-    
+
     # Create a contact first
     contact = Contact.objects.create(
         org=test_organisation,
@@ -28,7 +28,7 @@ def test_create_invoice_success(auth_client, test_organisation, test_user, test_
         is_customer=True,
         is_active=True,
     )
-    
+
     url = f"/api/v1/{test_organisation.id}/invoicing/documents/"
     data = {
         "document_type": "SALES_INVOICE",
@@ -47,13 +47,13 @@ def test_create_invoice_success(auth_client, test_organisation, test_user, test_
             }
         ]
     }
-    
+
     response = auth_client.post(url, data, format="json")
-    
+
     # Should succeed with proper account/tax code setup
     if response.status_code == status.HTTP_201_CREATED:
         assert response.data["document_type"] == "SALES_INVOICE"
-        assert response.data["contact_id"] == str(contact.id)
+        assert response.data["contact"]["id"] == str(contact.id)
         assert "document_number" in response.data
         assert response.data["status"] == "DRAFT"
     else:
@@ -63,11 +63,11 @@ def test_create_invoice_success(auth_client, test_organisation, test_user, test_
 
 
 @pytest.mark.django_db
-def test_invoice_workflow_approval_creates_journal(auth_client, test_organisation, test_user, test_accounts, test_tax_codes):
+def test_invoice_workflow_approval_creates_journal(auth_client, test_organisation, test_user, test_accounts, test_tax_codes, test_fiscal_period):
     """Test that approving an invoice creates a journal entry."""
     from apps.core.models import Contact
     from apps.invoicing.services import DocumentService
-    
+
     # Create contact
     contact = Contact.objects.create(
         org=test_organisation,
@@ -76,7 +76,7 @@ def test_invoice_workflow_approval_creates_journal(auth_client, test_organisatio
         is_customer=True,
         is_active=True,
     )
-    
+
     # Create invoice using service
     lines = [{
         "account_id": test_accounts["4000"].id,  # Sales Revenue
@@ -85,7 +85,7 @@ def test_invoice_workflow_approval_creates_journal(auth_client, test_organisatio
         "unit_price": Decimal("100.00"),
         "tax_code_id": test_tax_codes["SR"].id,
     }]
-    
+
     invoice = DocumentService.create_document(
         org_id=test_organisation.id,
         document_type="SALES_INVOICE",
@@ -94,11 +94,11 @@ def test_invoice_workflow_approval_creates_journal(auth_client, test_organisatio
         lines=lines,
         user_id=test_user.id
     )
-    
+
     # Verify initial state
     assert invoice.status == "DRAFT"
     assert invoice.journal_entry_id is None
-    
+
     # Transition: DRAFT -> SENT -> APPROVED (follow workflow)
     sent_invoice = DocumentService.transition_status(
         org_id=test_organisation.id,
@@ -107,29 +107,29 @@ def test_invoice_workflow_approval_creates_journal(auth_client, test_organisatio
         user_id=test_user.id
     )
     assert sent_invoice.status == "SENT"
-    
+
     approved_invoice = DocumentService.transition_status(
         org_id=test_organisation.id,
         document_id=invoice.id,
         new_status="APPROVED",
         user_id=test_user.id
     )
-    
+
     # Verify approved state
     assert approved_invoice.status == "APPROVED"
     assert approved_invoice.approved_at is not None
-    
+
     # Verify journal entry was created (if posting is implemented)
     # Note: Journal posting is stubbed in current implementation
     # This test validates the workflow hook is called
 
 
 @pytest.mark.django_db
-def test_invoice_status_transitions(auth_client, test_organisation, test_user, test_accounts, test_tax_codes):
+def test_invoice_status_transitions(auth_client, test_organisation, test_user, test_accounts, test_tax_codes, test_fiscal_period):
     """Test valid and invalid status transitions."""
     from apps.core.models import Contact
     from apps.invoicing.services import DocumentService, STATUS_TRANSITIONS
-    
+
     contact = Contact.objects.create(
         org=test_organisation,
         contact_type="CUSTOMER",
@@ -137,7 +137,7 @@ def test_invoice_status_transitions(auth_client, test_organisation, test_user, t
         is_customer=True,
         is_active=True,
     )
-    
+
     lines = [{
         "account_id": test_accounts["4000"].id,
         "description": "Services",
@@ -145,28 +145,28 @@ def test_invoice_status_transitions(auth_client, test_organisation, test_user, t
         "unit_price": Decimal("50.00"),
         "tax_code_id": test_tax_codes["SR"].id,
     }]
-    
+
     invoice = DocumentService.create_document(
         org_id=test_organisation.id,
         document_type="SALES_INVOICE",
         contact_id=contact.id,
-        issue_date=date.today(),
+        issue_date=date(2024, 1, 15),  # inside the open fiscal period
         lines=lines,
         user_id=test_user.id
     )
-    
+
     # Valid: DRAFT → SENT
     invoice = DocumentService.transition_status(
         test_organisation.id, invoice.id, "SENT", test_user.id
     )
     assert invoice.status == "SENT"
-    
+
     # Valid: SENT → APPROVED
     invoice = DocumentService.transition_status(
         test_organisation.id, invoice.id, "APPROVED", test_user.id
     )
     assert invoice.status == "APPROVED"
-    
+
     # Invalid: APPROVED → DRAFT (should fail)
     with pytest.raises(Exception) as exc_info:
         DocumentService.transition_status(
@@ -180,7 +180,7 @@ def test_invoice_gst_calculation(auth_client, test_organisation, test_user, test
     """Test GST calculation on invoice lines."""
     from apps.core.models import Contact
     from apps.invoicing.services import DocumentService
-    
+
     contact = Contact.objects.create(
         org=test_organisation,
         contact_type="CUSTOMER",
@@ -188,7 +188,7 @@ def test_invoice_gst_calculation(auth_client, test_organisation, test_user, test
         is_customer=True,
         is_active=True,
     )
-    
+
     # Create invoice with SR (9% GST) line
     lines = [{
         "account_id": test_accounts["4000"].id,
@@ -198,16 +198,16 @@ def test_invoice_gst_calculation(auth_client, test_organisation, test_user, test
         "tax_code_id": test_tax_codes["SR"].id,
         "is_bcrs_deposit": False,
     }]
-    
+
     invoice = DocumentService.create_document(
         org_id=test_organisation.id,
         document_type="SALES_INVOICE",
         contact_id=contact.id,
-        issue_date=date.today(),
+        issue_date=date(2024, 1, 15),  # inside the open fiscal period
         lines=lines,
         user_id=test_user.id
     )
-    
+
     # Verify GST calculation
     line = invoice.lines.first()
     assert line is not None
@@ -222,7 +222,7 @@ def test_invoice_bcrs_exemption(auth_client, test_organisation, test_user, test_
     """Test BCRS deposit GST exemption."""
     from apps.core.models import Contact
     from apps.invoicing.services import DocumentService
-    
+
     contact = Contact.objects.create(
         org=test_organisation,
         contact_type="CUSTOMER",
@@ -230,7 +230,7 @@ def test_invoice_bcrs_exemption(auth_client, test_organisation, test_user, test_
         is_customer=True,
         is_active=True,
     )
-    
+
     # Create invoice with BCRS deposit line
     lines = [{
         "account_id": test_accounts["4000"].id,
@@ -240,16 +240,16 @@ def test_invoice_bcrs_exemption(auth_client, test_organisation, test_user, test_
         "tax_code_id": test_tax_codes["SR"].id,
         "is_bcrs_deposit": True,  # BCRS exempt
     }]
-    
+
     invoice = DocumentService.create_document(
         org_id=test_organisation.id,
         document_type="SALES_INVOICE",
         contact_id=contact.id,
-        issue_date=date.today(),
+        issue_date=date(2024, 1, 15),  # inside the open fiscal period
         lines=lines,
         user_id=test_user.id
     )
-    
+
     # Verify no GST on BCRS
     line = invoice.lines.first()
     assert line is not None
@@ -262,7 +262,7 @@ def test_quote_conversion_to_invoice(auth_client, test_organisation, test_user, 
     """Test converting a quote to an invoice."""
     from apps.core.models import Contact
     from apps.invoicing.services import DocumentService
-    
+
     contact = Contact.objects.create(
         org=test_organisation,
         contact_type="CUSTOMER",
@@ -270,7 +270,7 @@ def test_quote_conversion_to_invoice(auth_client, test_organisation, test_user, 
         is_customer=True,
         is_active=True,
     )
-    
+
     # Create quote
     lines = [{
         "account_id": test_accounts["4000"].id,
@@ -279,7 +279,7 @@ def test_quote_conversion_to_invoice(auth_client, test_organisation, test_user, 
         "unit_price": Decimal("500.00"),
         "tax_code_id": test_tax_codes["SR"].id,
     }]
-    
+
     quote = DocumentService.create_document(
         org_id=test_organisation.id,
         document_type="SALES_QUOTE",
@@ -288,22 +288,22 @@ def test_quote_conversion_to_invoice(auth_client, test_organisation, test_user, 
         lines=lines,
         user_id=test_user.id
     )
-    
+
     assert quote.document_type == "SALES_QUOTE"
     assert quote.status == "DRAFT"
-    
+
     # Convert quote to invoice
     invoice = DocumentService.convert_quote_to_invoice(
         org_id=test_organisation.id,
         quote_id=quote.id,
         user_id=test_user.id
     )
-    
+
     # Verify conversion
     assert invoice.document_type == "SALES_INVOICE"
     assert invoice.contact_id == quote.contact_id
     assert invoice.lines.count() == quote.lines.count()
-    
+
     # Verify quote is marked as approved (converted)
     quote.refresh_from_db()
     assert quote.status == "APPROVED"
@@ -311,11 +311,11 @@ def test_quote_conversion_to_invoice(auth_client, test_organisation, test_user, 
 
 
 @pytest.mark.django_db
-def test_invoice_voiding(auth_client, test_organisation, test_user, test_accounts, test_tax_codes):
+def test_invoice_voiding(auth_client, test_organisation, test_user, test_accounts, test_tax_codes, test_fiscal_period):
     """Test voiding an approved invoice."""
     from apps.core.models import Contact
     from apps.invoicing.services import DocumentService
-    
+
     contact = Contact.objects.create(
         org=test_organisation,
         contact_type="CUSTOMER",
@@ -323,7 +323,7 @@ def test_invoice_voiding(auth_client, test_organisation, test_user, test_account
         is_customer=True,
         is_active=True,
     )
-    
+
     lines = [{
         "account_id": test_accounts["4000"].id,
         "description": "Services",
@@ -331,29 +331,29 @@ def test_invoice_voiding(auth_client, test_organisation, test_user, test_account
         "unit_price": Decimal("100.00"),
         "tax_code_id": test_tax_codes["SR"].id,
     }]
-    
+
     # Create and approve invoice
     invoice = DocumentService.create_document(
         org_id=test_organisation.id,
         document_type="SALES_INVOICE",
         contact_id=contact.id,
-        issue_date=date.today(),
+        issue_date=date(2024, 1, 15),  # inside the open fiscal period
         lines=lines,
         user_id=test_user.id
     )
-    
+
     invoice = DocumentService.transition_status(
         test_organisation.id, invoice.id, "SENT", test_user.id
     )
     invoice = DocumentService.transition_status(
         test_organisation.id, invoice.id, "APPROVED", test_user.id
     )
-    
+
     # Void the invoice
     voided_invoice = DocumentService.transition_status(
         test_organisation.id, invoice.id, "VOID", test_user.id
     )
-    
+
     assert voided_invoice.status == "VOID"
     assert voided_invoice.voided_at is not None
     assert voided_invoice.voided_by_id == test_user.id

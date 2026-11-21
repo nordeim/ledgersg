@@ -268,9 +268,9 @@ def test_account_balance(
 
 
 @pytest.mark.django_db
-def test_journal_entry_types(auth_client):
+def test_journal_entry_types(auth_client, test_organisation):
     """Test getting journal entry types."""
-    url = "/api/v1/journal-entries/entries/types/"
+    url = f"/api/v1/{test_organisation.id}/journal-entries/entries/types/"
 
     response = auth_client.get(url)
 
