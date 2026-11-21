@@ -407,22 +407,30 @@ class DocumentSummaryView(APIView):
             if count > 0:
                 status_counts[status] = count
 
-        # Get counts by type
+        # Get counts by type (A-2: the model vocabulary is DOCUMENT_TYPES —
+        # the previous DOCUMENT_TYPE_CHOICES reference was a phantom attribute)
         type_counts = {}
-        for doc_type, _ in InvoiceDocument.DOCUMENT_TYPE_CHOICES:
+        for doc_type, _ in InvoiceDocument.DOCUMENT_TYPES:
             count = InvoiceDocument.objects.filter(org_id=org_id, document_type=doc_type).count()
             if count > 0:
                 type_counts[doc_type] = count
 
-        # Get total outstanding
+        # Get total outstanding (A-2: enum-correct, post-approval,
+        # not-fully-paid statuses — PAID_PARTIAL was an invalid literal that
+        # matched nothing; total is not a field, the GST-inclusive total is)
+        outstanding_statuses = ["APPROVED", "SENT", "PARTIALLY_PAID", "OVERDUE"]
         outstanding = InvoiceDocument.objects.filter(
-            org_id=org_id, status__in=["APPROVED", "PAID_PARTIAL"]
+            org_id=org_id, status__in=outstanding_statuses
         )
-        total_outstanding = sum(doc.total for doc in outstanding)
+        total_outstanding = sum(
+            (doc.total_incl for doc in outstanding), Decimal("0.00")
+        )
 
         # Get overdue count
         overdue_count = InvoiceDocument.objects.filter(
-            org_id=org_id, status__in=["APPROVED", "PAID_PARTIAL"], due_date__lt=date.today()
+            org_id=org_id,
+            status__in=outstanding_statuses,
+            due_date__lt=date.today(),
         ).count()
 
         return Response(
@@ -611,6 +619,7 @@ class ValidStatusTransitionsView(APIView):
     permission_classes = [IsAuthenticated]
 
     @wrap_response
-    def get(self, request) -> Response:
-        """Get valid status transitions."""
+    def get(self, request, org_id: str) -> Response:
+        """Get valid status transitions (org_id comes from the org-scoped
+        route — A-4: the previous signature raised TypeError on the kwarg)."""
         return Response({"transitions": STATUS_TRANSITIONS})

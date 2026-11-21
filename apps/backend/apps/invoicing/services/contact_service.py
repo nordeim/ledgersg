@@ -233,10 +233,12 @@ class ContactService:
         """
         contact = ContactService.get_contact(org_id, contact_id)
         
-        # Check for open invoices
+        # Check for open invoices (A-2 sweep: PARTIALLY_PAID is the enum
+        # value — PAID_PARTIAL matched nothing, so a contact holding a
+        # partially-paid invoice could be deactivated)
         open_invoices = InvoiceDocument.objects.filter(
             contact=contact,
-            status__in=["DRAFT", "SENT", "APPROVED", "PAID_PARTIAL"]
+            status__in=["DRAFT", "SENT", "APPROVED", "PARTIALLY_PAID", "OVERDUE"]
         ).count()
         
         if open_invoices > 0:
