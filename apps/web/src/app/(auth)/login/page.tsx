@@ -10,7 +10,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Lock, Mail } from "lucide-react";
@@ -63,16 +62,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-void p-4">
+    <main className="min-h-screen flex items-center justify-center bg-void p-4">
       <Card className="w-full max-w-md border-border bg-carbon rounded-sm">
         <CardHeader className="space-y-1 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <div className="w-10 h-10 bg-accent-primary flex items-center justify-center rounded-sm">
               <span className="font-mono font-bold text-void text-xl">L</span>
             </div>
-            <CardTitle className="font-display text-2xl text-text-primary">
+            <h1 className="font-display text-2xl text-text-primary">
               LEDGER<span className="text-accent-primary">SG</span>
-            </CardTitle>
+            </h1>
           </div>
           <CardDescription className="text-text-secondary">
             Sign in to your account
@@ -170,12 +169,12 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            <p className="text-center text-xs text-text-muted pt-4">
+            <p className="text-center text-xs text-text-secondary pt-4">
               By signing in, you agree to our Terms of Service and Privacy Policy
             </p>
           </form>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

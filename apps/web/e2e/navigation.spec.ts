@@ -42,6 +42,11 @@ test.describe("Navigation", () => {
   test("landing page passes accessibility scan", async ({ page }) => {
     await page.goto("/");
 
+    // "/" redirects through /dashboard's auth guard to /login for anonymous
+    // sessions. Scanning mid-redirect captures the guard's null shell (no
+    // landmarks yet), so wait for navigation to settle before scanning.
+    await expect(page).toHaveURL(/\/login/);
+
     const accessibilityScanResults = await new AxeBuilder({ page })
       .exclude("[data-testid='axe-exclude']")
       .analyze();
