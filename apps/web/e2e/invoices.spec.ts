@@ -101,6 +101,42 @@ async function openNewInvoiceForm(page: import("@playwright/test").Page) {
   });
 }
 
+test.describe("Invoices list page (P5/C-5 — real data)", () => {
+  test("renders real backend rows or a truthful empty state (never mocks)", async ({ page }) => {
+    const token = await apiLoginToken(page);
+    await ensureRevenueAccount(page, token);
+
+    await page.goto("/login");
+    await page.locator("input[type='email']").fill(
+      process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
+    );
+    await page.locator("input[type='password']").fill(
+      process.env.E2E_DEMO_PASSWORD ?? "demo1234"
+    );
+    await page.getByRole("button", { name: /sign in/i }).click();
+
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });
+
+    // Client-side navigation (the P4 cookie flow keeps the session alive)
+    await page.getByRole("link", { name: /^Invoices$/ }).click();
+    await expect(page).toHaveURL(/\/invoices\/?$/);
+
+    // The page must settle into one of its two truthful states: rows from
+    // the backend list endpoint, or the empty state. The mock fixture is
+    // gone — ABC Pte Ltd was a hardcoded row that only existed pre-P5.
+    const emptyState = page.getByText(/no invoices yet/i);
+    const tableHeader = page.getByRole("columnheader", { name: /invoice/i });
+
+    await expect
+      .poll(async () => (await emptyState.isVisible()) || (await tableHeader.isVisible()), {
+        timeout: 30000,
+      })
+      .toBeTruthy();
+
+    await expect(page.getByText("Singapore Tech Solutions")).toHaveCount(0);
+  });
+});
+
 test.describe("New Invoice form (authenticated)", () => {
   test("renders the form with account and effective tax-code selects", async ({ page }) => {
     await openNewInvoiceForm(page);

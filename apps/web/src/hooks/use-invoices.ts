@@ -18,9 +18,36 @@ import { toast } from "@/hooks/use-toast";
 import type { Invoice, InvoiceInput } from "@/shared/schemas/invoice";
 import type { DocumentPayload } from "@/lib/invoice-submit";
 
-// List invoices with optional filters
+/**
+ * The REAL backend list contract (InvoiceDocumentListSerializer):
+ * a lightweight row shape — NOT the full client-side Invoice schema
+ * (P5: the hook previously typed the response as Invoice, a type lie).
+ */
+export interface InvoiceListItem {
+  id: string;
+  document_type: string;
+  document_number: string;
+  contact_id: string;
+  contact_name: string;
+  issue_date: string;
+  due_date: string;
+  status: string;
+  status_display: string;
+  total_incl: string;
+  currency: string;
+}
+
+export interface InvoiceListResponse {
+  results: InvoiceListItem[];
+  count: number;
+  next?: string;
+  previous?: string;
+}
+
+// List invoices with optional filters (orgId nullable: the query stays
+// disabled until the org context resolves)
 export function useInvoices(
-  orgId: string,
+  orgId: string | null | undefined,
   filters?: {
     status?: string;
     document_type?: string;
@@ -36,12 +63,9 @@ export function useInvoices(
   return useQuery({
     queryKey: [orgId, "invoices", filters],
     queryFn: async () => {
-      const response = await api.get<{
-        results: Invoice[];
-        count: number;
-        next?: string;
-        previous?: string;
-      }>(endpoints.invoices(orgId).list + queryString);
+      const response = await api.get<InvoiceListResponse>(
+        endpoints.invoices(orgId as string).list + queryString
+      );
       return response;
     },
     enabled: !!orgId,
