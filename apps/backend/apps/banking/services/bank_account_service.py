@@ -59,7 +59,15 @@ class BankAccountService:
             except Account.DoesNotExist:
                 raise ValidationError("GL account not found in this organisation.")
         else:
-            gl_account = None
+            # P7/F-5: the schema (bank_account.gl_account_id UUID NOT NULL) and
+            # the API serializer both require a GL account — the service is
+            # the third seam (CLI/direct callers) and must fail closed with a
+            # clean ValidationError instead of surfacing the database's raw
+            # IntegrityError as a 500.
+            raise ValidationError(
+                "A GL account is required for every bank account "
+                "(payments post to it in the general ledger)."
+            )
 
         if data.get("is_default"):
             BankAccount.objects.filter(org_id=org_id, is_default=True).update(is_default=False)

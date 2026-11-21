@@ -618,7 +618,16 @@ class PaymentService:
         from apps.journal.services import JournalService
 
         # Get bank account's GL account
+        # P7/F-5 defense-in-depth: the schema (NOT NULL) and the bank-account
+        # service already guarantee a GL account, but this money path must
+        # fail closed with a clear message if that ever changes — never an
+        # AttributeError crash mid-transaction.
         bank_gl_account = payment.bank_account.gl_account
+        if bank_gl_account is None:
+            raise ValidationError(
+                f"Bank account '{payment.bank_account.account_name}' has no GL "
+                "account configured — payments cannot be posted to the ledger."
+            )
 
         # Get AR/AP account for contact
         if payment.payment_type == "RECEIVED":
