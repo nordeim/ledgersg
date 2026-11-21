@@ -1,5 +1,52 @@
 # LedgerSG — Worklog
 
+## 2026-11-21 — Session 11: P5 Sprint (Truth Restoration — Repo Hygiene, Real InvoiceNow, Accounting Integrity & Real Dashboard Data)
+
+**Base:** `cfc74571` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-21_P5.md` · **Report:** `docs/REMEDIATION_2026-11-21_P5_REPORT.md`
+
+### Environment (rebuilt from scratch)
+
+- Rootless PG 17 (:5432) + Redis 8.0.2 (:6379) provisioned (`docs/setup_pg_z.sh` + rootless deb extraction incl. liblzf); schema v1.1.0 loaded in both DBs; backend venv (`pip install -e ".[dev]"`) + web `npm install`.
+- Baselines reproduced before any change: backend **534P/0F/5S**, invariants 20P, security 47P/3S, vitest **354/354**, typecheck **0 errors**, e2e default **9+7 gated skips** — the documented P4 state, exactly.
+- Operational: running pytest WITHOUT `--reuse-db` against the TEST-named DB recreates it EMPTY (schema gone) — reload `database_schema.sql` when that happens; `git stash pop` silently unstages staged `rm --cached` deletions (re-stage before committing).
+
+### Audit (Mode C) — findings this session
+
+Primary input: `docs/ledgersg-audit-report.md` (the independent audit of `7e4061f0`). Every Critical/High re-verified in source with commands and line evidence — all confirmed. Repo skills per `skills/skills-catalog.md`: code-review-and-audit, code-quality-standards, diagnosing-bugs, e2e-testing-lessons, writing-plans. NEW finding beyond the audit: `transmit_peppol_invoice_task` passes the LOG id to `transmit_invoice(invoice_id)` — the auto-transmit path can never succeed; the old task tests mocked the service and asserted the buggy call shape.
+
+### Remediation executed (TDD — 33 backend + 4 vitest + 1 e2e, all RED first)
+
+| Task | Change | Evidence |
+|---|---|---|
+| 1 (C-1/C-3/H-9) | Untracked .env/.env.local (re-added by P4 `git add -A`), 211 .pyc, 54 dist/, 10 .bak; .gitignore completed; CI per-run DB password + DB_* env + pyproject cache path; testing.py reads DB_* | hygiene greps zero; suite green through the settings change |
+| 2 (C-4) | Deleted broken dead org_seed_service.py | zero references; ruff invalid-syntax 2→0 |
+| 3 (C-2 + seam bug) | `execute_transmission_for_log` seam (updates the EXISTING log); task rewired; send_invoicenow creates a real log + queues the task (400 configure-first); get_invoicenow_status reports real rows; check task wired to the adapter; cleanup retention-safe (never deletes DELIVERED/REJECTED) | 12 tests RED→GREEN; 3 old task tests updated to the corrected contract; suite 534→546 |
+| 4+5 (H-1/H-2) | allocate() persists document.amount_paid; void() posts create_reversal + releases allocations + restores status | 5 tests RED→GREEN; suite 546→551 |
+| 6+7 (H-4/H-5/H-6) | `_resolve_control_account` exact+fail-closed (1200/2100/1600/2600); add_line 2dp GST base + 2dp total; create_entry enumerate; conftest fixture chart corrected; auth access_expires tz-aware | 7 tests RED→GREEN (RED evidence: output tax→2200, input→1200, duplicate line numbers crashed); suite 551→558 |
+| 8 (H-3/H-10) | Cache invalidation wired into approve/void/payment×4/file_return; alerts view computes real overdue/unreconciled/unpaid counts | 4 tests RED→GREEN; suite 558→562 |
+| 9 (M-5/M-6/M-7) | toggle_gst seeds GST control accounts (targeted idempotent helper); update_organisation allowlist; dead sequence code removed | 5 tests RED→GREEN; suite 562→567 |
+| 10 (C-5 part 1) | Real invoices list page (mocks deleted; useInvoices + truthful states + search); hook retyped to the real backend row shape; new backend-gated e2e spec | 4 vitest RED→GREEN (354→358); e2e 16→17 |
+
+### Final gate (all Verified, executed)
+
+- `pytest --reuse-db --no-migrations -q` → **0 failed, 567 passed, 5 skipped**
+- `pytest tests/invariants -q` → **27 passed** · `pytest tests/security -q` → **47 passed, 3 skipped**
+- `manage.py check` → 0 errors (1 known W001) · ruff — zero new findings on touched files; new files clean
+- Web: typecheck 0 errors · vitest **358/358** · eslint touched files 0E/0W · e2e default **9+8 gated skips**, full **17/17** (live backend; E2E_DEMO_PASSWORD for the 12+-char register policy)
+- Live API: demo org created via the public API with the full 102-account seeded chart (incl. 1600/2600); three draft invoices created through the frontend payload contract (lines included)
+- 5 new screenshots (`docs/screenshots/24..28_*_session11.png`), md5-unique, non-blank — incl. **26_invoices_real_data** (the C-5 evidence shot)
+- Hygiene greps: `git ls-files` artifact count 0; CI has no static credential
+
+### Deferred (registered, not dropped)
+
+P0-P4 register unchanged; **C-5 remainder (invoice detail, ledger table, settings, reports/quotes) is the P6 candidate** — the list-page pattern is proven. Also carried: M-1 audit events, M-10 CSRF, M-11 static-export CSP, M-14 adapter 404-as-valid, transmission-log archival export, H-07/H-08 lint debt, F5 rate-basis, H-02 base-currency reporting, A-10 stale requirements.txt. See P5 report §3.
+
+### Commits
+
+Conventional commits on `main` per P5 plan §13; pushed via `docs/ssh_git_wrapper_v3.py` (key shredded after push).
+
+---
+
 ## 2026-11-21 — Session 9: P4 Sprint (Cross-Reload Session Persistence, Evidence-Gated Refresh & Docs Truth)
 
 **Base:** `33e176bf` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-21_P4.md` · **Report:** `docs/REMEDIATION_2026-11-21_P4_REPORT.md`
