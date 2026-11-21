@@ -263,6 +263,7 @@ export const endpoints = {
     list: "/api/v1/auth/organisations/",
     detail: (id: string) => `/api/v1/${id}/`,
     settings: (id: string) => `/api/v1/${id}/settings/`,
+    gst: (id: string) => `/api/v1/${id}/gst/`,
     setDefault: "/api/v1/auth/set-default-org/",
   },
 
