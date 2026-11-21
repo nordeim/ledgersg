@@ -16,6 +16,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.test import Client
+from django.utils import timezone
 from django.contrib.auth.hashers import make_password
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -92,12 +93,16 @@ def test_organisation(test_user):
         is_system=True,
     )
     
-    # Assign user as Owner
+    # Assign user as Owner. accepted_at is REQUIRED — the tenant
+    # middleware only recognises memberships with accepted_at set
+    # (accepted_at__isnull=False); without it every org-scoped request
+    # returns 403 (fixture bug A-1, fixed 2026-11-21 P1 sprint).
     UserOrganisation.objects.create(
         user=test_user,
         org=org,
         role=owner_role,
         is_default=True,
+        accepted_at=timezone.now(),
     )
     
     return org
@@ -243,9 +248,10 @@ class TestOrganisationAPI:
         response = auth_client.post("/api/v1/organisations/", {
             "name": "New Test Org",
             "legal_name": "New Test Org Pte Ltd",
-            "entity_type": "pte_ltd",
+            "entity_type": "PRIVATE_LIMITED",
             "gst_registered": True,
             "gst_reg_number": "M98765432",
+            "gst_reg_date": "2024-01-01",
             "base_currency": "SGD"
         }, format="json")
         
