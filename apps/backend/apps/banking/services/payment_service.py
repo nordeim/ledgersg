@@ -460,9 +460,10 @@ class PaymentService:
                     f"Document {document.document_number} contact does not match payment contact."
                 )
 
-            if document.status != "APPROVED":
+            if document.status not in ("APPROVED", "PARTIALLY_PAID"):
                 raise ValidationError(
-                    f"Document {document.document_number} must be APPROVED for allocation."
+                    f"Document {document.document_number} must be APPROVED or "
+                    "PARTIALLY_PAID for allocation."
                 )
 
             existing = PaymentAllocation.objects.filter(payment=payment, document=document).first()
@@ -565,13 +566,21 @@ class PaymentService:
         # Delete allocation
         allocation.delete()
 
-        # Update document status if needed
+        # P6/F-7: recompute amount_paid from the surviving allocations and
+        # derive the status with the same thresholds as allocate() — the
+        # outstanding-AR dashboard filters and the amount_due generated
+        # column both read amount_paid (P5/H-1 parity).
         total_allocated = sum(
             a.allocated_amount for a in PaymentAllocation.objects.filter(document=document)
         )
-        if total_allocated == Decimal("0.0000"):
+        document.amount_paid = total_allocated
+        if total_allocated >= document.total_incl:
+            document.status = "PAID"
+        elif total_allocated > 0:
+            document.status = "PARTIALLY_PAID"
+        else:
             document.status = "APPROVED"
-            document.save()
+        document.save()
 
         # Audit log
         AuditEventLog.objects.create(
@@ -615,17 +624,11 @@ class PaymentService:
         if payment.payment_type == "RECEIVED":
             ar_account = payment.contact.receivable_account
             if not ar_account:
-                # Try to find default AR account
-                from django.db.models import Q
-                ar_account = Account.objects.filter(
-                    Q(org_id=org_id) & 
-                    (Q(code="1200") | Q(account_type="ASSET") | Q(account_type="ASSET_CURRENT"))
-                ).first()
-                
-                if not ar_account:
-                    raise ValidationError(
-                        f"No receivable account configured for contact {payment.contact.name}"
-                    )
+                # P6/F-5: exact control-account resolution, fail-closed —
+                # the pre-P6 broad Q(account_type="ASSET").first() could
+                # post AR to any asset (e.g. 1010 Cash on Hand). Mirrors
+                # the P5/H-4 resolver used by journal_service.
+                ar_account = JournalService._get_ar_account(org_id)
 
             lines = [
                 {
@@ -646,17 +649,9 @@ class PaymentService:
         else:  # MADE
             ap_account = payment.contact.payable_account
             if not ap_account:
-                # Try to find default AP account
-                from django.db.models import Q
-                ap_account = Account.objects.filter(
-                    Q(org_id=org_id) & 
-                    (Q(code="2100") | Q(account_type="LIABILITY") | Q(account_type="LIABILITY_CURRENT"))
-                ).first()
-                
-                if not ap_account:
-                    raise ValidationError(
-                        f"No payable account configured for contact {payment.contact.name}"
-                    )
+                # P6/F-5: exact control-account resolution, fail-closed
+                # (see the RECEIVED branch above).
+                ap_account = JournalService._get_ap_account(org_id)
 
             lines = [
                 {

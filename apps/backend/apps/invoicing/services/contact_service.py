@@ -143,7 +143,15 @@ class ContactService:
         
         # Determine contact type
         contact_type = "BOTH" if is_customer and is_supplier else "CUSTOMER" if is_customer else "SUPPLIER"
-        
+
+        # P6/F-6: assign default AR/AP control accounts at creation so the
+        # payment journal entry never depends on a fallback resolution.
+        # Exact codes (1200/2100) via the P5/H-4 fail-closed resolver.
+        from apps.journal.services import JournalService
+
+        receivable_account = JournalService._get_ar_account(org_id) if is_customer else None
+        payable_account = JournalService._get_ap_account(org_id) if is_supplier else None
+
         # Create contact
         contact = Contact.objects.create(
             org_id=org_id,
@@ -162,6 +170,8 @@ class ContactService:
             is_customer=is_customer,
             is_supplier=is_supplier,
             payment_terms_days=payment_terms_days,
+            receivable_account=receivable_account,
+            payable_account=payable_account,
             is_active=True,
             **kwargs
         )

@@ -148,6 +148,20 @@ def gl_account(test_org):
 
 
 @pytest.fixture
+def ar_account(test_org):
+    """AR control account (P6/F-5: payment posting resolves it exactly
+    and fails closed — the old broad fallback silently posted AR to the
+    1100 bank account when 1200 was missing)."""
+    return Account.objects.create(
+        org=test_org,
+        code="1200",
+        name="Accounts Receivable",
+        account_type="ASSET",
+        is_active=True,
+    )
+
+
+@pytest.fixture
 def bank_account(test_org, gl_account, test_user):
     """Create a bank account via service."""
     from apps.banking.services import BankAccountService
@@ -168,7 +182,7 @@ def bank_account(test_org, gl_account, test_user):
 
 
 @pytest.fixture
-def customer(test_org):
+def customer(test_org, ar_account):
     """Create a customer contact."""
     return Contact.objects.create(
         org=test_org,
@@ -176,6 +190,7 @@ def customer(test_org):
         name="Test Customer Pte Ltd",
         email="customer@test.com",
         is_active=True,
+        receivable_account=ar_account,
     )
 
 
