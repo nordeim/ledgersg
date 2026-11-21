@@ -55,6 +55,11 @@ CACHES = {
     }
 }
 
+# Tests hit auth endpoints repeatedly with the same IP; the documented
+# SEC-002 default (base.py: RATELIMIT_ENABLE = True) must not rate-limit
+# the test suite itself.
+RATELIMIT_ENABLE = False
+
 RATELIMIT_USE_CACHE = "default"
 
 # =============================================================================

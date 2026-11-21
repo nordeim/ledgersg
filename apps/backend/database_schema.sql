@@ -3170,8 +3170,53 @@ END $$;
 
 
 -- ============================================================================
+-- §15b  JWT TOKEN BLACKLIST (v1.0.2 — H-05 remediation)
+-- ============================================================================
+-- djangorestframework-simplejwt token_blacklist app tables, hand-written
+-- to honour SQL-First (the app's bundled migrations are never executed).
+-- Field layout mirrors rest_framework_simplejwt.token_blacklist.models.
+
+CREATE TABLE IF NOT EXISTS public.token_blacklist_outstandingtoken (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     UUID NULL REFERENCES core.app_user(id) ON DELETE SET NULL,
+    jti         VARCHAR(255) NOT NULL UNIQUE,
+    token       TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NULL,
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_outstandingtoken_user_id
+    ON public.token_blacklist_outstandingtoken(user_id);
+
+CREATE TABLE IF NOT EXISTS public.token_blacklist_blacklistedtoken (
+    id             BIGSERIAL PRIMARY KEY,
+    token_id       BIGINT NOT NULL UNIQUE
+                   REFERENCES public.token_blacklist_outstandingtoken(id)
+                   ON DELETE CASCADE,
+    blacklisted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Application role access (tokens are user-scoped, not org-scoped: no RLS)
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    public.token_blacklist_outstandingtoken,
+    public.token_blacklist_blacklistedtoken
+    TO ledgersg_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ledgersg_app;
+
+
+-- ============================================================================
 -- VERSION CHANGELOG
 -- ============================================================================
+
+-- v1.0.2 (2026-11-21) — JWT Refresh-Token Blacklist (H-05 remediation)
+-- ---------------------------------------------------------------
+-- Adds the djangorestframework-simplejwt token_blacklist tables as
+-- hand-written DDL (SQL-First: the app's bundled migrations are never run;
+-- MIGRATE = False). Field definitions mirror
+-- rest_framework_simplejwt.token_blacklist.models (5.5.1) mapped onto
+-- core.app_user. Placed in the public schema (Django default table names).
+--
+-- Applied earlier in this script as §15b.
 
 -- v1.0.1 (2026-02-24) — Post-Validation Remediation
 -- ---------------------------------------------------
@@ -3198,5 +3243,5 @@ END $$;
 
 -- ╔══════════════════════════════════════════════════════════════════════════════╗
 -- ║  END OF SCHEMA SCRIPT                                                      ║
--- ║  LedgerSG v1.0.1 — PostgreSQL 16 Database Initialization                  ║
+-- ║  LedgerSG v1.0.2 — PostgreSQL 16 Database Initialization                  ║
 -- ╚══════════════════════════════════════════════════════════════════════════════╝

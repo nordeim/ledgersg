@@ -9,11 +9,30 @@ Production settings for LedgerSG API.
 - Restricted CORS
 """
 
+from django.core.exceptions import ImproperlyConfigured
+
 from .base import *
 
 # =============================================================================
 # SECURITY SETTINGS
 # =============================================================================
+
+# H-06: SECRET_KEY signs HS256 JWTs — a published/default key is a full
+# authentication bypass. Fail fast rather than start with a known key.
+_KNOWN_DEFAULT_KEYS = {
+    "django-insecure-change-in-production",
+    "your-secret-key-here-change-in-production",
+}
+if (
+    SECRET_KEY in _KNOWN_DEFAULT_KEYS
+    or len(SECRET_KEY) < 50
+    or SECRET_KEY.startswith("django-insecure")
+):
+    raise ImproperlyConfigured(
+        "SECRET_KEY must be set to a strong random value (>= 50 chars) in "
+        "production. It signs the platform's JWTs; shipping a default key "
+        "would allow anyone to mint valid tokens."
+    )
 
 DEBUG = False
 

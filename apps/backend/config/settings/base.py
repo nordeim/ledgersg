@@ -44,6 +44,7 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",  # H-05: refresh-token revocation
     "corsheaders",
     "django_filters",
     "django_celery_beat",
@@ -268,7 +269,7 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 # RATE LIMITING CONFIGURATION
 # =============================================================================
 
-RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", default=False, cast=bool)
+RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", default=True, cast=bool)
 
 RATELIMIT_CACHE_PREFIX = "ratelimit"
 
