@@ -756,3 +756,61 @@ and the rewritten `get_trial_balance`). The optional `fiscal_year_id` filter map
 canonical dev templates and must list every variable the code actually reads. When
 adding a `config(...)` call to settings, update `apps/backend/.env.example` in the
 same commit.
+
+## 2026-11-21 P2 Sprint — New Patterns & Lessons (session 5)
+
+### Rate Resolution Must Be Date-Aware (H-04/B-3)
+`gst.tax_code` stores rate HISTORY as sibling rows (`effective_from`/`effective_to`;
+SR: 0.07 → 2022-12-31, 0.08 → 2023, 0.09 → 2024-01-01). Any lookup by code MUST
+resolve the row in force on a date: `TaxCodeService.get_tax_code_by_code(org_id,
+code, as_of=None)` (org-scoped rows shadow system rows, latest `effective_from`
+wins, NULL `effective_to` = open-ended). An unordered `.first()` silently returns
+the 2007 row (7%) — verified live before the fix. `add_line` fails closed with a
+`ValidationError` when the passed tax code is not effective on
+`document.issue_date` (the model field behind the `document_date` column).
+F5 returns still resolve at computation date — the period-cut semantics decision
+is registered debt (ties into H-02).
+
+### Fail Closed on Compliance Calculations (B-3)
+The GST calculate endpoint used to fall back to `Decimal("0.09")` when a code was
+unknown — a wrong-rate answer on a compliance endpoint. Unknown or not-in-force
+codes now raise `ResourceNotFound` → 404. Rule: on money/tax paths, an explicit
+error beats a plausible default. The endpoint accepts `tax_code` (canonical) +
+`document_date`; the legacy `tax_code_id` field always held a CODE (never a UUID)
+and is kept as a deprecated string alias.
+
+### Phantom-Kwarg View Bugs (B-7)
+`TaxCodeListCreateView.post` passed `box_mapping=...` into
+`TaxCode.objects.create` — a field that exists on neither the serializer nor the
+model — so EVERY custom tax-code create 500'd with `TypeError`. The path was
+triple-broken (the calculate view's code branch also crashed on `UUID(org_id)`
+re-wrapping and an `UnboundLocalError` on `Decimal`). Lesson: endpoints whose
+only tests exercise the "other" branch (rate, not code) rot invisibly — the
+tax-code branch had zero coverage while the suite was green. When adding a
+serializer field, check the view actually forwards model fields (f5_* now persist).
+
+### Playwright: Green by Default (B-1)
+Never declare browser projects the environment does not have — `npm run
+test:e2e` failed on 24/30 tests with `Executable doesn't exist` before any
+assertion ran. Config now runs chromium only by default; the full 5-project
+matrix opts in via `PLAYWRIGHT_PROJECTS=all` (needs `npx playwright install`).
+Mobile viewport coverage stays via `setViewportSize` in the responsive tests.
+Reporters: `list` + `html` with `open: "never"`.
+
+### Axe Scans Must Wait for Auth Redirects (B-2)
+`/` → `/dashboard` → auth guard → `/login` is a redirect CHAIN; scanning right
+after `page.goto("/")` can capture the guard's null shell (no landmarks) and
+flake. The a11y test now awaits `expect(page).toHaveURL(/\/login/)` before
+`.analyze()`. Login page semantics: `<main>` landmark, exactly one `<h1>` (the
+brand — `CardTitle` renders `<h3>`, use an explicit h1), and
+`text-text-secondary` (#A0A0A0, 7.2:1) instead of `text-text-muted` (#666666,
+3.3:1) for small text on carbon backgrounds.
+
+### Runtime-Green Is Not Type-Green (B-5)
+Vitest injects `describe`/`beforeEach` at runtime, so 321 passing tests coexisted
+with 25 `tsc` errors (jest-style `jest.Mock` typings, un-imported `beforeEach`,
+fixture objects missing required schema fields). `npm run typecheck` is now a
+first-class gate and `test:all` chains vitest → tsc → playwright. Fixture typing:
+use the schema's input-side type (`z.input`, e.g. `BankAccountInputParams`) when
+testing zod defaults; construct full payloads when calling mutations typed with
+`z.infer` output types.

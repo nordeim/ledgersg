@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.6.0
+> **Version**: 2.7.0
 > **Last Updated**: 2026-11-21
-> **Status**: P1 Remediated 🟢 — suite fully green (0 failed); all four Critical + the P1 contract/fixture findings fixed (see `docs/REMEDIATION_2026-11-21_REPORT.md` and `docs/REMEDIATION_2026-11-21_P1_REPORT.md`)
+> **Status**: P2 Remediated 🟢 — all gates green (backend 514P/0F/5S, frontend vitest 324/324, typecheck 0 errors, e2e 6/6); H-04 rate-effectiveness fixed fail-closed (see `docs/REMEDIATION_2026-11-21_P2_REPORT.md`, plus the P0/P1 reports)
 
 ---
 
@@ -30,14 +30,27 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.2 | ✅ Ready | 12 pages, 321 tests, WCAG AAA |
-| **Backend** | v0.3.6 | ✅ Suite Fully Green | 88+ endpoints, **499 tests passing, 0 failed** (5 skipped, documented) |
+| **Frontend** | v0.1.2 | ✅ Ready | 12 pages, 324 unit + 6 e2e (chromium) tests, typecheck clean, axe-clean login flow |
+| **Backend** | v0.3.6 | ✅ Suite Fully Green | 88+ endpoints, **514 tests passing, 0 failed** (5 skipped, documented) |
 | **Database** | v1.0.2 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
 | **Security** | v1.1.0 | ✅ P0 Hardened | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on; P1 open (CSP, MFA, PII) |
 | **API Contracts** | v1.1.0 | ✅ Standardized | {results, count} lists; auth contract aligned to tests 2026-11-21 |
 
-### Latest Milestone: P1 Sprint — Green Suite & Contract Truth ✅ — 2026-11-21 (session 3)
+### Latest Milestone: P2 Sprint — Test Gates & Rate-Effectiveness Truth ✅ — 2026-11-21 (session 5)
+
+GST rate resolution now honours effective dates end-to-end, the custom tax-code create endpoint works again, and both frontend test suites run green from the documented commands:
+
+| Fix | Impact |
+|-----|--------|
+| **H-04 (B-3)** | `get_tax_code_by_code(code, as_of)` resolves the rate row in force on the date (org rows shadow system rows; latest `effective_from` wins); `gst/calculate/` accepts `tax_code` + `document_date` and 404s on unknown codes (was: silent 9% fallback); `add_line` rejects codes not effective on the document's own `issue_date` — verified the old code returned SR=0.07 today |
+| **B-7** | `POST /gst/tax-codes/` un-broken (phantom `box_mapping` kwarg → TypeError 500); declared `f5_*` fields now persist |
+| **B-1** | Playwright: chromium-only by default, full 5-browser matrix via `PLAYWRIGHT_PROJECTS=all`; `list`+`html(open:never)` reporters |
+| **B-2** | Login page: `<main>` landmark, single `<h1>`, terms-text contrast 7.2:1 — the repo's own axe e2e test is deterministic and green |
+| **B-5** | `npm run typecheck` added; 25 pre-existing test-file type errors repaired; `test:all` chains vitest + tsc + playwright |
+| **B-4** | `apps/web/.env.example` lists exactly what the code reads (+ clearly-marked reserved section) |
+
+### Previous Milestone: P1 Sprint — Green Suite & Contract Truth ✅ — 2026-11-21 (session 3)
 
 The 26 documented `test_api_endpoints.py` fixture failures were fixed and the suite went fully green (499P/0F/5S); the fixture pass unmasked and fixed three real endpoint bugs:
 

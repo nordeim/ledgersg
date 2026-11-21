@@ -101,19 +101,27 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, **321 tests**, WCAG AAA |
-| **Backend** | v0.3.6 | ✅ Suite Fully Green | 88+ endpoints, **499 tests passing** (0 failed), SQL-First, RLS transaction-scoped |
+| **Frontend** | v0.1.2 | ✅ Production Ready | 12 pages, **324 unit tests + 6 e2e (chromium)**, WCAG axe-clean login flow |
+| **Backend** | v0.3.6 | ✅ Suite Fully Green | 88+ endpoints, **514 tests passing** (0 failed), SQL-First, RLS transaction-scoped |
 | **Database** | v1.0.2 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching |
 | **InvoiceNow** | v0.5.0 | ⚠️ Phases 1-4 Partial | XML generation complete; send endpoint returns not-configured (H-08 deferred) |
 | **Security** | v1.1.0 | ✅ P0 Hardened | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on |
-| **Overall** | — | 🟢 **P0+P1 Remediated; test suite fully green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `docs/REMEDIATION_2026-11-21_P1_REPORT.md` and the audit report |
+| **Overall** | — | 🟢 **P0+P1+P2 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1_REPORT.md`, `_P2_REPORT.md` and the audit report |
 
 ### Latest Milestone
 
-#### 🎉 P1 Sprint: Green Suite & Contract Truth — 2026-11-21 (session 3)
+#### 🎉 P2 Sprint: Test Gates & Rate-Effectiveness Truth — 2026-11-21 (session 5)
+
+- ✅ **GST rate history resolved by effective date, fail-closed** (deferred H-04): `get_tax_code_by_code()` picked arbitrary history rows (verified returning the 2007 7% rate for SR instead of the current 9%); now resolves the row in force on the document date (org rows shadow system rows), `gst/calculate/` 404s on unknown codes instead of silently using 9%, and `add_line` rejects tax codes not in force on the document's own date
+- ✅ **Custom tax-code creation un-broken** (B-7): `POST /gst/tax-codes/` always 500'd on a phantom `box_mapping` kwarg; now returns 201 and persists the declared `f5_*` box fields
+- ✅ **Both frontend test suites green by default** (B-1): playwright runs chromium out of the box (`PLAYWRIGHT_PROJECTS=all` opts into the 5-browser matrix); the login-page axe scan is deterministic and passes (main landmark + h1 + contrast fixed, B-2)
+- ✅ **Typecheck gate green** (B-5): `npm run typecheck` added; 25 pre-existing test-file type errors repaired (jest-style typings → vitest, incomplete fixtures completed)
+- ✅ **Truthful `apps/web/.env.example`** (B-4): only variables the code actually reads, plus a clearly-marked reserved section
+
+#### P1 Sprint: Green Suite & Contract Truth — 2026-11-21 (session 3)
 
 - ✅ **Backend test suite fully green for the first time: 499 passed / 0 failed / 5 skipped** (was 26F/465P)
 - ✅ Fixed the 26-failure `test_api_endpoints.py` fixture debt: `accepted_at` on the org fixture (the tenant middleware requires accepted memberships) + valid `entity_type`/`gst_reg_date` payloads
@@ -175,7 +183,8 @@ LedgerSG employs comprehensive testing across multiple layers with **714+ total 
 |-------|-------|-----------|----------|--------|
 | **Backend Core Tests** | 393 passing | pytest-django | Core models, services, API | ✅ 84% pass rate |
 | **Backend Domain Tests** | 252/255 passing | pytest | Banking, Peppol, Reporting | ✅ 98.8% pass rate |
-| **Frontend Unit Tests** | 321 passing | Vitest + RTL | Components, hooks, utilities | ✅ 100% pass rate |
+| **Frontend Unit Tests** | 324 passing | Vitest + RTL | Components, hooks, utilities | ✅ 100% pass rate |
+| **Frontend Typecheck** | 0 errors | tsc --noEmit | All src + e2e + configs | ✅ Green |
 | **API Contract Tests** | 8 passing | pytest | {results, count} format | ✅ 100% pass rate |
 | **InvoiceNow TDD** | 122+ | pytest | XML, AP integration, workflows | ✅ Passing |
 | **Banking UI TDD** | 73 | Vitest | All 3 banking tabs | ✅ Passing |
@@ -200,18 +209,21 @@ source /opt/venv/bin/activate
 cd apps/backend
 pytest --reuse-db --no-migrations -v
 
-# Expected output (post 2026-11-21 P1 remediation): 499 passed, 0 failed, 5 skipped
+# Expected output (post 2026-11-21 P2 remediation): 514 passed, 0 failed, 5 skipped
 ```
 
-**Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance, balance queries) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
+**Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). The P2 sprint (`docs/REMEDIATION_2026-11-21_P2_REPORT.md`) added rate-effectiveness regression tests and the custom tax-code create fix. Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance, balance queries) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
 
 ### Frontend Test Execution
 
 ```bash
 cd apps/web
-npm test                    # Run all tests
+npm test                    # Vitest unit suite (324 tests)
+npm run typecheck           # tsc --noEmit (0 errors)
 npm run test:coverage       # With coverage report
-npm run test:e2e            # Playwright E2E tests
+npm run test:e2e            # Playwright e2e — chromium by default (6 tests)
+                            # first run: npx playwright install chromium
+PLAYWRIGHT_PROJECTS=all npm run test:e2e   # full matrix (needs `npx playwright install`)
 ```
 
 ### E2E Workflow Validation

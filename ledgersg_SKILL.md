@@ -1,17 +1,18 @@
 ---
 name: ledgersg
-description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 1.1.0
+description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
+version: 1.2.0
 last_updated: 2026-11-21
-project_state: "P1 remediated; suite fully green — 499 backend tests passing (0 failed, 5 skipped); schema v1.0.2"
+project_state: "P2 remediated; all gates green — 514 backend tests (0 failed, 5 skipped), frontend 324 vitest + 6 e2e (chromium), typecheck 0 errors; schema v1.0.2"
 ---
 
 # LedgerSG — Engineering Skill
 
 > Distilled from the codebase, the 2026-11-21 audit + P0 remediation sprint
-> (`LedgerSG_Code_Review_Audit_Report_2026-11-21.md`, `docs/REMEDIATION_2026-11-21_REPORT.md`)
-> and the session-3 P1 sprint (`docs/REMEDIATION_PLAN_2026-11-21_P1.md`,
-> `docs/REMEDIATION_2026-11-21_P1_REPORT.md`).
+> (`LedgerSG_Code_Review_Audit_Report_2026-11-21.md`, `docs/REMEDIATION_2026-11-21_REPORT.md`),
+> the session-3 P1 sprint (`docs/REMEDIATION_PLAN_2026-11-21_P1.md`,
+> `docs/REMEDIATION_2026-11-21_P1_REPORT.md`), and the session-5 P2 sprint
+> (`docs/REMEDIATION_PLAN_2026-11-21_P2.md`, `docs/REMEDIATION_2026-11-21_P2_REPORT.md`).
 > Every claim below is verifiable against a file path or a runnable command.
 
 ---
@@ -72,11 +73,15 @@ cd apps/backend
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# Current state (2026-11-21, post-P1): 0 failed, 499 passed, 5 skipped — SUITE GREEN
+# Current state (2026-11-21, post-P2): 0 failed, 514 passed, 5 skipped — SUITE GREEN
 pytest tests/invariants -q   # 15 gates: atomic rollback, void net-zero, F5 tie-out,
                              # schema conformance, journal balances, CoA trial balance
 pytest tests/security -q     # 32: RLS transaction isolation, token lifecycle, settings gates
 ```
+
+Frontend gates (`apps/web`): `npm test` (324 vitest), `npm run typecheck` (tsc, 0
+errors), `npm run test:e2e` (playwright, chromium by default — `PLAYWRIGHT_PROJECTS=all`
+for the 5-browser matrix; `npx playwright install chromium` first).
 
 Gates before any PR: `manage.py check` (0 errors), invariants green, security green,
 full suite no worse than the documented baseline, `ruff check` clean on touched files.
@@ -160,6 +165,30 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
 15. **Invalid enum literals travel in groups** — `PAID_PARTIAL` (vs `PARTIALLY_PAID`)
     appeared in three places; `pte_ltd` (vs `PRIVATE_LIMITED`) in another. When you
     find one wrong literal, sweep the codebase for it and for its siblings.
+16. **Unordered `.first()` over history rows** — `gst.tax_code` stores rate HISTORY
+    (SR: 0.07/0.08/0.09 by `effective_from`); `.first()` returned the 2007 row today.
+    Always resolve by effective date: `get_tax_code_by_code(org, code, as_of=…)`
+    (org rows shadow system rows; latest `effective_from` wins; NULL `effective_to`
+    = open-ended). `add_line` fails closed on codes not in force on the document's
+    `issue_date`.
+17. **Silent fallbacks on money paths** — the GST calculate endpoint used to answer
+    9% when a code was unknown. On compliance calculations, 404 the unknown, never
+    guess a plausible rate.
+18. **Untested branches rot invisibly** — `POST /gst/tax-codes/` 500'd on EVERY call
+    (phantom `box_mapping` kwarg → `TypeError`) while the suite was green, because
+    only the `rate` branch of calculate and no create was tested. The same branch
+    also hid `UUID(org_id)` re-wrap and `UnboundLocalError: Decimal` (function-local
+    import in the sibling branch) crashes. Test both branches of every conditional
+    API path.
+19. **Runtime-green ≠ type-green** — vitest injects globals at runtime, so 321 passing
+    tests coexisted with 25 `tsc` errors (jest-style `jest.Mock`, un-imported
+    `beforeEach`, incomplete fixtures). `npm run typecheck` is a gate; when testing
+    zod defaults use the `z.input` type, and build full payloads for mutations
+    typed with `z.infer`.
+20. **Playwright configs must match installed browsers** — declaring 5 projects when
+    only chromium is installed makes `test:e2e` fail on 24/30 tests before any
+    assertion. Chromium-only default + `PLAYWRIGHT_PROJECTS=all` opt-in; axe scans
+    must await the auth-redirect chain (`toHaveURL(/login/)`) before `.analyze()`.
 
 ## 9. Debugging Guide
 
@@ -179,6 +208,12 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
 | `ModuleNotFoundError: django_celery_beat` / `django_ratelimit` after fresh install | Settings import apps not declared in `pyproject.toml` | Both declared since P1 (beat 2.9.0 — 2.8.1 pins Django<6); pyproject is canonical, NOT root `requirements.txt` |
 | `UndefinedColumn "updated_at"` on ExchangeRate | BaseModel injects it; table lacks it | Don't inherit BaseModel for tables without timestamps |
 | Void 500s on `chk_void_reason` | Reason not persisted | `void_document()` does now; keep it that way |
+| GST computed at the WRONG rate (7% not 9%) | Unordered `.first()` over rate-history rows | `get_tax_code_by_code(org, code, as_of=document_date)`; `gst/calculate/` takes `tax_code` + `document_date` |
+| 500 `TypeError … unexpected keyword arguments: 'box_mapping'` on POST /gst/tax-codes/ | View forwarded a field that exists on neither serializer nor model | Fixed in P2; when adding serializer fields, forward the REAL model fields (f5_*) |
+| 404 `Tax code 'X' is not in force on the requested date` | Fail-closed resolution (P2 contract) | Pass `document_date` matching the row's effective window, or use an explicit `rate` |
+| `UnboundLocalError: Decimal` in a view branch | `from decimal import Decimal` imported inside the SIBLING branch | Imports are module-level in `apps/gst/views.py`; never function-local-import into one branch of a conditional |
+| Playwright `Executable doesn't exist` | Declared browser projects not installed | `npx playwright install chromium`, or stay on the chromium default; `PLAYWRIGHT_PROJECTS=all` needs the full install |
+| e2e axe scan flaky on `/` | Scan raced the `/` → `/dashboard` → `/login` redirect chain | `await expect(page).toHaveURL(/\/login/)` before `.analyze()` (fixed in `e2e/navigation.spec.ts`) |
 
 ## 10. Pre-Ship Checklist
 
@@ -212,6 +247,15 @@ write inside `transaction.atomic()`; new tests RED before the fix.
 7. A clean-venv install is a packaging test: settings-imported packages MUST be
    declared in the canonical manifest, and version pins must respect the framework
    major (beat 2.8.1 vs Django 6).
+8. Rate data is temporal: "the SR rate" does not exist — only "the SR rate in
+   force on date X". Every rate lookup needs a date, and every rate snapshot
+   (document line) must validate its row against the document's own date (P2/H-04).
+9. Endpoints rot in their untested branches: a green suite with zero coverage on
+   the `tax_code` branch of calculate and on create-tax-code hid three distinct
+   crashes in one view file (P2/B-7).
+10. Test toolchains drift: vitest runs Jest-typed test files fine at runtime while
+    `tsc` is red — keep a typecheck gate or the drift compounds (P2/B-5: 25 errors
+    accumulated silently).
 
 ## 12. Quick Reference Card
 
@@ -229,8 +273,10 @@ write inside `transaction.atomic()`; new tests RED before the fix.
 | Security gates | `tests/security/` |
 | Fixtures | `tests/conftest.py` (org seeds ALL document sequences; memberships carry `accepted_at`) |
 | PG setup | `docs/setup_pg_z.sh` + `skills/rootless-postgresql/SKILL.md` |
-| Deferred debt | `docs/REMEDIATION_PLAN_2026-11-21.md` §4 + `docs/REMEDIATION_PLAN_2026-11-21_P1.md` §4 |
+| Deferred debt | `docs/REMEDIATION_PLAN_2026-11-21.md` §4 + `_P1.md` §4 + `_P2.md` §4 |
 | P0 remediation report | `docs/REMEDIATION_2026-11-21_REPORT.md` |
 | P1 remediation report | `docs/REMEDIATION_2026-11-21_P1_REPORT.md` |
+| P2 remediation report | `docs/REMEDIATION_2026-11-21_P2_REPORT.md` |
 | Audit report | `LedgerSG_Code_Review_Audit_Report_2026-11-21.md` |
 | Env templates | `apps/backend/.env.example`, `apps/web/.env.example` (`.env*` files are gitignored) |
+| Rate resolution | `TaxCodeService.get_tax_code_by_code(org, code, as_of)` / `is_effective(tc, date)` — `apps/gst/services/tax_code_service.py` |
