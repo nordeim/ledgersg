@@ -7,6 +7,8 @@ Testing settings for LedgerSG API.
 - Synchronous Celery
 """
 
+from decouple import config
+
 from .base import *
 
 # =============================================================================
@@ -22,16 +24,22 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 # DATABASE (Testing)
 # =============================================================================
 
-# Use the manually initialized test database
-DATABASES["default"]["NAME"] = "test_ledgersg_dev"
-DATABASES["default"]["USER"] = "ledgersg"
-DATABASES["default"]["PASSWORD"] = "ledgersg_secret_to_change"
-DATABASES["default"]["HOST"] = "localhost"
-DATABASES["default"]["PORT"] = "5432"
+# Use the manually initialized test database. Credentials honor the same
+# DB_* environment variables as base.py (P5/C-3: no hardcoded password —
+# CI generates a per-run value; local dev uses the documented defaults).
+DATABASES["default"]["NAME"] = config("DB_NAME", default="test_ledgersg_dev")
+DATABASES["default"]["USER"] = config("DB_USER", default="ledgersg")
+DATABASES["default"]["PASSWORD"] = config(
+    "DB_PASSWORD", default="ledgersg_secret_to_change"
+)
+DATABASES["default"]["HOST"] = config("DB_HOST", default="localhost")
+DATABASES["default"]["PORT"] = config("DB_PORT", default="5432")
 
-# Disable test database creation - use existing database
+# pytest uses exactly the database named above (SQL-First: pytest-django
+# cannot create tables for managed=False models — the schema is loaded via
+# psql in CI/docs, so the test DB must be the schema-loaded one).
 DATABASES["default"]["TEST"] = {
-    "NAME": "test_ledgersg_dev",
+    "NAME": DATABASES["default"]["NAME"],
 }
 # Prevent Django from running migrations
 MIGRATE = False

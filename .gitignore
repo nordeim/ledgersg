@@ -12,8 +12,24 @@ nohup.out
 
 # Environment files — .env.example templates are the canonical dev defaults;
 # local .env files may contain real secrets and must never be committed (A-7)
+# NOTE: gitignore does not untrack already-committed files — if a .env ever
+# reappears in `git ls-files`, `git rm --cached` it (P5/C-1: the P4 commit
+# f225547f re-added them via git add -A).
 .env
 .env.local
 .env.*.local
 apps/backend/.env
 apps/web/.env.local
+
+# Build artifacts & bytecode (P5/H-9 — 211 .pyc + 54 dist files were tracked)
+__pycache__/
+*.pyc
+dist/
+
+# Editor/backup files
+*.bak
+*.bak2
+*.bak3
+*.bak4
+*.swp
+*~
