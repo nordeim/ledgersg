@@ -1,9 +1,9 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.2.0
+> **Version**: 3.3.0
 > **Last Updated**: 2026-11-21
-> **P4 note**: cross-reload session persistence shipped (HttpOnly refresh cookie + `session_hint` evidence gate); test metrics below reflect the P4 verified counts.
+> **P5 note**: truth restoration sprint — real InvoiceNow transmission wiring, `amount_paid`/void-reversal accounting integrity, fail-closed control accounts, real dashboard alerts + cache invalidation, repo hygiene; test metrics below reflect the P5 verified counts.
 > **Status**: Production Ready ✅
 > **Security Score**: 100% (SEC-001/002/003 Remediated)
 > **Compliance**: IRAS 2026 (GST F5, InvoiceNow, BCRS)
@@ -32,7 +32,7 @@
 ### Key Metrics
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **904 Tests Passing** | 534 Backend + 354 Frontend unit + 16 e2e (539 backend collected) |
+| **Test Coverage** | **932 Tests Passing** | 567 Backend + 358 Frontend unit + 17 e2e (9 always + 8 backend-gated) |
 | **API Surface** | **94 Endpoints** | RESTful, JSON-API compliant |
 | **Security** | **100% Score** | CSP, Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 30 Tables, Row-Level Security Enforced |
@@ -41,10 +41,10 @@
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 354 | 100% | Vitest + RTL | ✅ Passing |
-| **Backend (pytest)** | 534 passed / 5 skipped | 100% of run | pytest | ✅ Passing |
-| **E2E (Playwright)** | 16 (9 always + 7 backend-gated) | 100% | Playwright | ✅ Passing |
-| **Total Passing** | **904** | — | Mixed | ✅ Verified |
+| **Frontend Unit** | 358 | 100% | Vitest + RTL | ✅ Passing |
+| **Backend (pytest)** | 567 passed / 5 skipped | 100% of run | pytest | ✅ Passing |
+| **E2E (Playwright)** | 17 (9 always + 8 backend-gated) | 100% | Playwright | ✅ Passing |
+| **Total Passing** | **932** | — | Mixed | ✅ Verified |
 
 ---
 
@@ -365,9 +365,8 @@ psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 pytest --reuse-db --no-migrations
 
 # Expected Output:
-# ============================= 385 passed, 67 failed, 7 skipped in 54.48s =============================
-# Note: 67 failures are primarily in tests/test_api_endpoints.py (environment/setup issues)
-# Domain tests (banking, peppol, reporting) have 98% pass rate (252/255 passing)
+# ============================= 567 passed, 0 failed, 5 skipped =============================
+# (P1 fixed the 26 documented fixture failures; the suite has been fully green since)
 ```
 
 **Frontend Tests**: `npm test` (Vitest).
@@ -378,8 +377,8 @@ cd apps/web
 npm test
 
 # Expected Output:
-# Test Files: 24 passed (24)
-# Tests: 321 passed (321)
+# Test Files: 30 passed (30)
+# Tests: 358 passed (358)
 # Duration: ~60s
 ```
 

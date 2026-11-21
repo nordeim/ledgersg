@@ -1,9 +1,9 @@
 ---
 name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 1.4.0
+version: 1.5.0
 last_updated: 2026-11-21
-project_state: "P4 remediated; all gates green — 534 backend tests (0 failed, 5 skipped), frontend 354 vitest + 16 e2e (9 default / 7 backend-gated), typecheck 0 errors; schema v1.1.0 with NUMERIC(19,4) money; cross-reload session persistence shipped (HttpOnly refresh cookie + session_hint evidence gate)"
+project_state: "P5 remediated; all gates green — 567 backend tests (0 failed, 5 skipped), frontend 358 vitest + 17 e2e (9 default / 8 backend-gated), typecheck 0 errors; schema v1.1.0 NUMERIC(19,4) money; real InvoiceNow wiring + accounting truth (amount_paid, void reversals, fail-closed control accounts) + repo hygiene"
 ---
 
 # LedgerSG — Engineering Skill
@@ -77,7 +77,7 @@ cd apps/backend
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# Current state (2026-11-21, post-P4): 0 failed, 534 passed, 5 skipped — SUITE GREEN
+# Current state (2026-11-21, post-P5): 0 failed, 567 passed, 5 skipped — SUITE GREEN
 pytest tests/invariants -q   # 20 gates: atomic rollback, void net-zero, F5 tie-out,
                              # schema conformance (incl. numeric precision), journal
                              # balances, CoA trial balance, monetary capacity
@@ -85,9 +85,9 @@ pytest tests/security -q     # 47: RLS transaction isolation, token lifecycle, s
                              # gates, refresh-cookie + session_hint contracts
 ```
 
-Frontend gates (`apps/web`): `npm test` (354 vitest), `npm run typecheck` (tsc, 0
+Frontend gates (`apps/web`): `npm test` (358 vitest), `npm run typecheck` (tsc, 0
 errors), `npm run test:e2e` (playwright; 9 tests green without a backend —
-backend-gated specs skip with reasons), `npm run test:e2e:full` (all 16 — needs
+backend-gated specs skip with reasons), `npm run test:e2e:full` (all 17 — needs
 the Django backend on :8000 + Redis; `npx playwright install chromium` first).
 `PLAYWRIGHT_PROJECTS=all` opts into the 5-browser matrix.
 
@@ -229,6 +229,23 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
     accumulates across dev iterations (flush Redis when a full run fails only
     on login). Backend-dependent specs read `E2E_API_URL` and skip when unset
     — the default suite stays green on a fresh clone (P3/D-5).
+26. **Untracked ≠ safe — `git add -A` re-tracks modified tracked files** —
+    P1 untracked the env files, P4's `git add -A` re-committed them
+    (gitignore only applies to untracked files). Gate every bulk add with
+    `git ls-files | rg '\.env|\.pyc|dist/|\.bak'`; also `git stash pop`
+    unstages staged `rm --cached` deletions — re-stage before committing.
+27. **Opaque id seams swap silently** — passing a log id where an invoice
+    id is expected type-checks fine and fails only at runtime; name
+    parameters for the row they mean and test the seam's observable
+    effect (the row's final state), not the mock's call shape.
+28. **Every cache needs its invalidation call sites in the same commit** —
+    `invalidate_dashboard_cache` shipped with zero production callers and
+    served stale KPIs for a sprint; grep for callers before declaring a
+    cache feature done.
+29. **Fixtures carry the wrong domain map too** — the test chart named
+    2200 "GST Output Tax" while the real seed puts output tax at 2600;
+    when a domain constant is wrong in code, sweep fixtures and seeds
+    for the same lie.
 
 ## 9. Debugging Guide
 
@@ -258,6 +275,13 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
 | Login button does nothing (no error, no request) | Native `minLength={8}` on the password input blocks the submit in chromium | Use an 8+ char password |
 | e2e authed test lands back on /login | Pre-P4: memory-only session (no refresh cookie, `&& accessToken` gate) | Fixed in P4 — reload/goto now survives via the HttpOnly refresh cookie; if it recurs, check `session_hint` evidence and the backend cookie path |
 | e2e full run fails only on login (429) | ~11 logins/run vs the login rate limit | Dev settings now budget 60/min IP (`LOGIN_RATELIMIT_IP`); production keeps 10/min — flush Redis (`redis-cli -n 0 FLUSHDB`) on dev if a window is already spent |
+| Dashboard shows stale KPIs after a mutation | 5-min cache with no invalidation (pre-P5) | Mutations invalidate (approve/void/payment/file); keep the invalidator wired into every new dashboard-visible mutation |
+| Outstanding AR overstated / amount_due wrong | `allocate()` didn't write `document.amount_paid` (pre-P5) | Fixed — allocations are the truth; `amount_due` is GENERATED off amount_paid |
+| Payment void leaves the ledger out of balance | `void()` didn't reverse the journal (pre-P5) | Fixed — `create_reversal` + allocations released + status restored |
+| GST posted to 2200 Accrued Expenses / AR on a header | Broad `.first()` control-account match (pre-P5) | Exact resolution 1200/2100/1600/2600, fail-closed; seed GST accounts via toggle if missing |
+| InvoiceNow send returns a log id that doesn't exist | Stub `uuid4()` response (pre-P5) | Real `PeppolTransmissionLog` + queued task; poll `invoicenow-status` for the real row |
+| Auto-transmit never delivers; log stuck PENDING | Task passed LOG id to `transmit_invoice(invoice_id)` (pre-P5) | `execute_transmission_for_log(log_id)` updates the existing row |
+| `transmitted_at` ignores the value passed on create | `auto_now_add` discards it | Use `queryset.update()` for historical timestamps in tests |
 | jsdom: `target.hasPointerCapture is not a function` | Radix Select needs pointer-capture APIs jsdom lacks | Setup polyfills in `src/__tests__/setup.ts`; drive selection via `{ArrowDown}{Enter}` |
 | `cannot alter type of a column used by a generated column` | `amount_due` is GENERATED off total_amount/amount_paid | Drop generated → alter inputs → re-add identical expression (schema §16) |
 | Session lost on every page reload (pre-P4) | Three-link chain: no cookie backend, discarded refresh token, `&& accessToken` refresh gate | P4 cookie flow: login sets HttpOnly refresh cookie + `session_hint`; cold-401 refresh retries (`apps/core/views/_refresh_cookie.py`) |

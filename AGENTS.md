@@ -936,3 +936,51 @@ cookie set for one test silently flips the evidence gate for later
 anonymous-state tests. Set the marker inside the test (or its beforeEach)
 and CLEAR it in an afterEach with an expired-dated deletion — same hygiene
 as token state, one tier lower in the stack.
+
+## Session 11 Lessons (2026-11-21 — P5 Truth Restoration)
+
+### Untracked Is Not Safe: git add -A Re-Tracks Ignored Files
+The P1 sprint `git rm --cached`'d the env files; the P4 sprint's
+`git add -A` re-committed them because a MODIFIED file that is already
+tracked gets staged regardless of .gitignore (ignore rules only apply to
+untracked files). The audit caught it. Countermeasures: (a) after any
+`git add -A`, run `git ls-files | rg '\.env|\.pyc|dist/|\.bak'` as a gate;
+(b) `git stash` + `stash pop` silently UNSTAGES staged deletions of
+still-on-disk files (pop without --index restores everything to the
+worktree) — re-stage and re-verify before committing; (c) commit
+mechanical untracks in the SAME command block that stages them.
+
+### ID-Type Seam Bugs Hide Between Layers
+`transmit_peppol_invoice_task(log_id, org_id)` called
+`transmit_invoice(invoice_id, ...)` — both UUIDs, both strings, no type
+error, no test: the auto-transmit path could NEVER succeed and left the
+pre-created log PENDING forever. When two layers exchange opaque ids,
+each side must name its parameters for the ROW it means
+(`transmission_log_id` vs `invoice_id`) and the seam method should
+re-fetch the row it owns. Unit tests that mock the service and assert
+`assert_called_once_with(log_id, org_id)` merely encode the bug — test
+the SEAM's observable effect (the log row's final status), not the mock's
+call shape.
+
+### Compliance Paths Fail Closed — Including GL Resolution
+Broad `.first()` over `Q(account_type="ASSET")` posted output tax to
+2200 Accrued Expenses and could land AR on a header account. The fix
+(exact code → name → sub-type, ValidationError otherwise) follows the
+P2 lesson #17 (never guess a rate) generalized to accounts. The test
+fixture itself carried the wrong account map (2200 named "GST Output
+Tax") — when a domain constant is wrong in code, sweep the FIXTURES too.
+
+### Fixtures Can Mask Generated-Column Semantics
+`transmitted_at` is `auto_now_add` — a test that passes an explicit value
+on create() gets it silently discarded (the row stamps NOW). Use
+`queryset.update()` to bypass auto timestamps when you need historical
+times. Same class as the phantom-attribute anti-pattern: what the ORM
+accepts and what the DB does are different contracts.
+
+### Cache Invalidation Is Part of the Mutation Contract
+A 5-minute dashboard cache with an `invalidate_dashboard_cache` method
+that has ZERO production call sites is a stale-data bug dressed as a
+feature. Every mutation service that changes dashboard-visible state now
+calls the invalidator (local import, exception-guarded so a cache hiccup
+can never fail the mutation). When you add a cache, grep for the
+invalidation call sites in the same commit.

@@ -1,6 +1,6 @@
 # LedgerSG — Enterprise Accounting Platform for Singapore SMBs
 
-[![Tests](https://img.shields.io/badge/tests-904%20passing-success)]()
+[![Tests](https://img.shields.io/badge/tests-932%20passing-success)]()
 [![Security](https://img.shields.io/badge/security-100%25-brightgreen)]()
 [![IRAS](https://img.shields.io/badge/IRAS-2026%20Compliant-red)]()
 [![WCAG](https://img.shields.io/badge/WCAG-AAA-success)]()
@@ -101,17 +101,30 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.4 | ✅ Production Ready | 12 pages, **354 unit tests + 16 e2e** (9 always + 7 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence |
-| **Backend** | v0.3.8 | ✅ Suite Fully Green | 88+ endpoints, **534 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth |
+| **Frontend** | v0.1.5 | ✅ Production Ready | 12 pages, **358 unit tests + 17 e2e** (9 always + 8 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list (P5) |
+| **Backend** | v0.3.9 | ✅ Suite Fully Green | 88+ endpoints, **567 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth fixes (P5) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables, **NUMERIC(19,4) money** |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching |
-| **InvoiceNow** | v0.5.0 | ⚠️ Phases 1-4 Partial | XML generation complete; send endpoint returns not-configured (H-08 deferred) |
+| **InvoiceNow** | v0.6.0 | ✅ Real transmission path (P5/C-2) | send-invoicenow creates a real transmission log + queues the Celery task; status reports real log rows; retention-safe cleanup (never deletes DELIVERED/REJECTED) |
 | **Security** | v1.2.0 | ✅ P0 Hardened + P4 Cookie Auth | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on, HttpOnly refresh cookie + `session_hint` evidence gate |
-| **Overall** | — | 🟢 **P0+P1+P2+P3+P4 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1/_P2/_P3/_P4_REPORT.md` and the audit report |
+| **Overall** | — | 🟢 **P0–P5 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P5_REPORT.md` and `docs/ledgersg-audit-report.md` |
 
 ### Latest Milestone
+
+#### 🎉 P5 Sprint: Truth Restoration — Repo Hygiene, Real InvoiceNow, Accounting Integrity & Real Dashboard Data — 2026-11-21 (session 11)
+
+Source: the independent audit (`docs/ledgersg-audit-report.md`, every Critical/High finding re-verified in source before planning).
+
+- ✅ **Repo hygiene** (C-1/C-3/H-9): `.env`/`.env.local` (re-added by a P4 `git add -A`), 211 `.pyc`, 54 `dist/` and 10 `.bak` files untracked; `.gitignore` completed; CI's embedded DB password replaced by a per-run generated credential; `testing.py` reads `DB_*` from env
+- ✅ **Real InvoiceNow** (C-2 + a newly-found wiring bug): `send-invoicenow` creates a real `PeppolTransmissionLog` and queues the transmission task; `invoicenow-status` reports the real log rows; the task/service seam passed a LOG id where an INVOICE id was expected — the auto-transmit path could never succeed; `check_transmission_status_task` wired to the AP adapter; cleanup is retention-safe (never deletes DELIVERED/REJECTED — IRAS 5-year evidence)
+- ✅ **Accounting truth** (H-1/H-2): `allocate()` persists `document.amount_paid` (outstanding AR/AP were permanently overstated); payment `void()` posts a reversing journal entry and releases allocations
+- ✅ **Control accounts, fail-closed** (H-4): AR=1200, AP=2100, GST input=1600, GST output=2600 — the old broad `.first()` resolvers posted output tax to 2200 Accrued Expenses; a GST-bearing line without control accounts now raises instead of guessing
+- ✅ **Money & line integrity** (H-5/H-6): line amounts reconcile to the cent with the GST base; duplicate journal lines get distinct line numbers
+- ✅ **Dashboard truth** (H-3/H-10): mutations invalidate the 5-minute dashboard cache (approve/void, payments, GST filing); the alerts view computes real overdue/unreconciled/unpaid-bill counts instead of placeholder zeros
+- ✅ **Org service** (M-5/M-6/M-7): GST registration seeds the control accounts (the old guard was dead code); `update_organisation` is allow-listed at the service boundary; dead `_create_document_sequences` removed
+- ✅ **Real invoices list page** (C-5 part 1): mock data deleted, `useInvoices` wired with truthful loading/error/empty states; the hook retyped to the real backend row shape
 
 #### 🎉 P4 Sprint: Cross-Reload Session Persistence & Suite Depth — 2026-11-21 (session 9)
 
@@ -193,7 +206,7 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 ## 🧪 Test Suites & Execution
 
-LedgerSG employs comprehensive testing across multiple layers with **904 tests passing** (534 backend + 354 frontend unit + 16 e2e).
+LedgerSG employs comprehensive testing across multiple layers with **932 tests passing** (567 backend + 358 frontend unit + 17 e2e: 9 always + 8 backend-gated).
 
 ### Test Suite Breakdown
 
@@ -201,7 +214,7 @@ LedgerSG employs comprehensive testing across multiple layers with **904 tests p
 |-------|-------|-----------|----------|--------|
 | **Backend Core Tests** | 393 passing | pytest-django | Core models, services, API | ✅ 84% pass rate |
 | **Backend Domain Tests** | 252/255 passing | pytest | Banking, Peppol, Reporting | ✅ 98.8% pass rate |
-| **Frontend Unit Tests** | 354 passing | Vitest + RTL | Components, hooks, utilities | ✅ 100% pass rate |
+| **Frontend Unit Tests** | 358 passing | Vitest + RTL | Components, hooks, utilities | ✅ 100% pass rate |
 | **Frontend Typecheck** | 0 errors | tsc --noEmit | All src + e2e + configs | ✅ Green |
 | **API Contract Tests** | 8 passing | pytest | {results, count} format | ✅ 100% pass rate |
 | **InvoiceNow TDD** | 122+ | pytest | XML, AP integration, workflows | ✅ Passing |
@@ -227,7 +240,7 @@ source /opt/venv/bin/activate
 cd apps/backend
 pytest --reuse-db --no-migrations -v
 
-# Expected output (post 2026-11-21 P4 remediation): 534 passed, 0 failed, 5 skipped
+# Expected output (post 2026-11-21 P5 remediation): 567 passed, 0 failed, 5 skipped
 ```
 
 **Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). The P2 sprint (`docs/REMEDIATION_2026-11-21_P2_REPORT.md`) added rate-effectiveness regression tests and the custom tax-code create fix. The P3 sprint (`docs/REMEDIATION_2026-11-21_P3_REPORT.md`) widened all monetary columns to NUMERIC(19,4) (schema v1.1.0, §16 in-place migration) and made `add_line` apply `discount_pct` server-side. The P4 sprint (`docs/REMEDIATION_2026-11-21_P4_REPORT.md`) shipped the HttpOnly refresh-cookie session flow with the `session_hint` evidence gate (14 cookie-contract tests). Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance **incl. numeric precision**, balance queries, **monetary capacity**) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
@@ -236,7 +249,7 @@ pytest --reuse-db --no-migrations -v
 
 ```bash
 cd apps/web
-npm test                    # Vitest unit suite (354 tests)
+npm test                    # Vitest unit suite (358 tests)
 npm run typecheck           # tsc --noEmit (0 errors)
 npm run test:coverage       # With coverage report
 npm run test:e2e            # Playwright e2e — 9 tests green without a backend

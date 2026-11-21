@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.9.0
+> **Version**: 2.10.0
 > **Last Updated**: 2026-11-21
-> **Status**: P4 Remediated 🟢 — all gates green (backend 534P/0F/5S, frontend vitest 354/354, typecheck 0 errors, e2e 16/16 full / 9+7skip default); cross-reload session persistence shipped (HttpOnly refresh cookie + `session_hint` evidence gate); schema v1.1.0 with NUMERIC(19,4) money (see `docs/REMEDIATION_2026-11-21_P4_REPORT.md`, plus the P0–P3 reports)
+> **Status**: P5 Remediated 🟢 — all gates green (backend 567P/0F/5S, frontend vitest 358/358, typecheck 0 errors, e2e 17 total / 9+8skip default); truth restoration: real InvoiceNow wiring, amount_paid + void reversals, fail-closed control accounts, real dashboard data, repo hygiene (see `docs/REMEDIATION_2026-11-21_P5_REPORT.md`, plus the P0–P4 reports and `docs/ledgersg-audit-report.md`)
 
 ---
 
@@ -30,14 +30,30 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.4 | ✅ Ready | 12 pages, 354 unit + 16 e2e tests (9 always + 7 backend-gated), typecheck clean, axe-clean login flow, cross-reload session persistence |
-| **Backend** | v0.3.8 | ✅ Suite Fully Green | 88+ endpoints, **534 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth |
+| **Frontend** | v0.1.5 | ✅ Ready | 12 pages, 358 unit + 17 e2e tests (9 always + 8 backend-gated), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list (P5) |
+| **Backend** | v0.3.9 | ✅ Suite Fully Green | 88+ endpoints, **567 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth fixes (P5) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables, NUMERIC(19,4) money |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
 | **Security** | v1.2.0 | ✅ P0 Hardened + P4 Cookie Auth | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on (settings-driven login knobs), HttpOnly refresh cookie + `session_hint` evidence gate |
 | **API Contracts** | v1.1.0 | ✅ Standardized | {results, count} lists; auth contract aligned to tests 2026-11-21 |
 
-### Latest Milestone: P4 Sprint — Cross-Reload Session Persistence & Suite Depth ✅ — 2026-11-21 (session 9)
+### Latest Milestone: P5 Sprint — Truth Restoration (Repo Hygiene, Real InvoiceNow, Accounting Integrity & Real Dashboard Data) ✅ — 2026-11-21 (session 11)
+
+Built on the independent audit (`docs/ledgersg-audit-report.md`; every Critical/High re-verified in source):
+
+| Fix | Impact |
+|-----|--------|
+| **C-1/C-3/H-9** | `.env`/`.env.local`/`.pyc`/`dist/`/`.bak` untracked (the P4 `git add -A` had re-committed the env files); CI DB password generated per run; `testing.py` reads `DB_*` from env |
+| **C-2 + seam bug** | `send_invoicenow` creates a real transmission log + queues the task; `invoicenow-status` reports real rows; **the task passed a LOG id to `transmit_invoice(invoice_id)` — auto-transmit could never succeed**; cleanup never deletes DELIVERED/REJECTED (IRAS 5-year retention) |
+| **H-1** | `allocate()` persists `document.amount_paid` — outstanding AR/AP and `amount_due` were permanently overstated (amount_paid never left 0) |
+| **H-2** | payment `void()` posts a reversing journal entry (create_reversal, open-period date fallback) and releases allocations with document status restoration |
+| **H-4** | control-account resolution is exact and fail-closed: AR 1200 / AP 2100 / GST input 1600 / GST output 2600 (the old `.first()` broad-match posted output tax to 2200 Accrued Expenses) |
+| **H-5/H-6** | `add_line` stores the 2dp GST base as line_amount and a 2dp total; `create_entry` enumerates lines (duplicate dicts crashed the unique constraint) |
+| **H-3/H-10** | dashboard cache invalidated by mutations (approve/void, payments, GST filing); alerts view computes real overdue/unreconciled/unpaid counts |
+| **M-5/M-6/M-7** | GST registration seeds the control accounts (dead guard fixed); `update_organisation` allow-listed; dead sequence code removed |
+| **C-5 (part 1)** | invoices list page renders real `useInvoices` data with truthful states; hook retyped to the real backend row shape |
+
+### Previous Milestone: P4 Sprint — Cross-Reload Session Persistence & Suite Depth ✅ — 2026-11-21 (session 9)
 
 Sessions now survive page reloads/new tabs/browser restarts, and the auth client can no longer be tricked into pointless refreshes:
 

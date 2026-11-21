@@ -347,7 +347,12 @@ and code still agree.
 
 ## 12. Pushing changes to this repository
 
-No hosted CI — the local gate (§8) is the only gate. Run it green, commit
+GitHub Actions CI (`.github/workflows/ci.yml`) runs the backend suite
+against a schema-initialized PostgreSQL 16 service container and the
+frontend typecheck/test/build — the DB password is generated per run
+(no credential is committed; `config/settings/testing.py` reads `DB_*`
+from the environment). Still run the local §8 gate before pushing: CI
+does not run the e2e suite. Commit
 to `main` (no feature branches), then push with the SSH wrapper so the
 deploy key never touches the tree:
 
