@@ -89,3 +89,70 @@ def test_get_trial_balance_returns_rows(
     total_debits = sum(Decimal(row["total_debits"]) for row in result)
     total_credits = sum(Decimal(row["total_credits"]) for row in result)
     assert total_debits == total_credits, "Trial balance must balance"
+
+
+# ─── CoA AccountService.get_trial_balance (A-3, 2026-11-21 P1 sprint) ────────
+
+
+@pytest.mark.django_db
+def test_coa_trial_balance_aggregates_journal_lines(
+    test_organisation, test_accounts, posted_entry
+):
+    """The CoA trial-balance report must aggregate journal.line directly —
+    the schema has no coa.account_balance view (the old LEFT JOIN raised
+    UndefinedTable on first call, 500-ing GET /accounts/trial-balance/)."""
+    from apps.coa.services import AccountService
+
+    result = AccountService.get_trial_balance(org_id=test_organisation.id)
+
+    assert isinstance(result, list) and len(result) >= 2
+
+    by_code = {row["code"]: row for row in result}
+    ar = by_code.get("1200")
+    rev = by_code.get("4000")
+    assert ar is not None, "account with postings must appear in the trial balance"
+    assert rev is not None
+
+    assert Decimal(ar["total_debit"]) == Decimal("100.00")
+    assert Decimal(ar["total_credit"]) == Decimal("0.00")
+    assert Decimal(rev["total_credit"]) == Decimal("100.00")
+
+    total_debit = sum(Decimal(row["total_debit"]) for row in result)
+    total_credit = sum(Decimal(row["total_credit"]) for row in result)
+    assert total_debit == total_credit, "CoA trial balance must balance"
+
+
+@pytest.mark.django_db
+def test_coa_trial_balance_includes_accounts_without_postings(
+    test_organisation, test_accounts, posted_entry
+):
+    """LEFT JOIN semantics: active accounts with zero lines still appear
+    (with zero totals), matching the previous view contract."""
+    from apps.coa.services import AccountService
+
+    result = AccountService.get_trial_balance(org_id=test_organisation.id)
+    codes = {row["code"] for row in result}
+    # 5000/6100 have no journal lines in this fixture
+    assert "5000" in codes and "6100" in codes
+
+
+@pytest.mark.django_db
+def test_coa_trial_balance_fiscal_year_filter(
+    test_user, test_organisation, test_accounts, test_fiscal_period, posted_entry
+):
+    """The fiscal_year_id filter must restrict to entries booked in that year."""
+    from apps.coa.services import AccountService
+
+    fy_id = test_fiscal_period.fiscal_year_id
+
+    included = AccountService.get_trial_balance(
+        org_id=test_organisation.id, fiscal_year_id=fy_id
+    )
+    excluded = AccountService.get_trial_balance(
+        org_id=test_organisation.id, fiscal_year_id=None
+    )
+    # Same fixture data either way; the filter must not crash and must
+    # still see the entry when the year matches.
+    by_code = {row["code"]: row for row in included}
+    assert Decimal(by_code["1200"]["total_debit"]) == Decimal("100.00")
+    assert isinstance(excluded, list)

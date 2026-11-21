@@ -452,35 +452,43 @@ class AccountService:
     def get_trial_balance(org_id: UUID, fiscal_year_id: UUID | None = None) -> list[dict[str, Any]]:
         """
         Get trial balance for organisation.
-        
+
+        Aggregates journal.line joined to journal.entry directly — the schema
+        has no coa.account_balance view (A-3: the old LEFT JOIN raised
+        UndefinedTable on first call, 500-ing GET /accounts/trial-balance/).
+        Mirrors the get_account_balance() pattern from the P0 sprint.
+
         Args:
             org_id: Organisation ID
-            fiscal_year_id: Optional fiscal year filter
-            
+            fiscal_year_id: Optional fiscal year filter (journal.entry.fiscal_year_id)
+
         Returns:
             List of account balances
         """
         with connection.cursor() as cursor:
             query = """
-                SELECT 
+                SELECT
                     a.id,
                     a.code,
                     a.name,
-                    a.account_type,
-                    COALESCE(ab.total_debit, 0) as total_debit,
-                    COALESCE(ab.total_credit, 0) as total_credit,
-                    COALESCE(ab.balance, 0) as balance
+                    a.account_type::text AS account_type,
+                    COALESCE(SUM(l.debit), 0)  AS total_debit,
+                    COALESCE(SUM(l.credit), 0) AS total_credit,
+                    COALESCE(SUM(l.debit) - SUM(l.credit), 0) AS balance
                 FROM coa.account a
-                LEFT JOIN coa.account_balance ab ON ab.account_id = a.id
+                LEFT JOIN journal.line l
+                    ON l.account_id = a.id
+                LEFT JOIN journal.entry e
+                    ON e.id = l.entry_id AND e.org_id = a.org_id
                 WHERE a.org_id = %s AND a.is_active = true
             """
             params = [str(org_id)]
 
             if fiscal_year_id:
-                query += " AND ab.fiscal_year_id = %s"
+                query += " AND e.fiscal_year_id = %s"
                 params.append(str(fiscal_year_id))
 
-            query += " ORDER BY a.code"
+            query += " GROUP BY a.id, a.code, a.name, a.account_type ORDER BY a.code"
 
             cursor.execute(query, params)
 
