@@ -49,6 +49,27 @@ STATUS_TRANSITIONS = {
 }
 
 
+def _invalidate_dashboard_cache(org_id) -> None:
+    """
+    Invalidate the 5-minute dashboard cache after a mutation (P5/H-3).
+
+    The cache existed but nothing ever invalidated it, so every approve /
+    payment / filing left the dashboard serving stale KPIs until TTL.
+    Local import: reporting must not be a hard dependency of the
+    transactional services.
+    """
+    try:
+        from apps.reporting.services.dashboard_service import DashboardService
+
+        DashboardService().invalidate_dashboard_cache(str(org_id))
+    except Exception:  # noqa: BLE001 — cache invalidation must never fail a mutation
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "dashboard cache invalidation failed for org %s", org_id
+        )
+
+
 class DocumentService:
     """Service class for invoice document operations."""
 
@@ -630,6 +651,7 @@ class DocumentService:
             if document.document_type == "SALES_INVOICE":
                 DocumentService._queue_peppol_transmission(document, org_id)
 
+        _invalidate_dashboard_cache(org_id)
         return document
 
     @staticmethod

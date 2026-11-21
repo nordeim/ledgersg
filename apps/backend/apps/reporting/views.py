@@ -42,7 +42,8 @@ class DashboardAlertsView(APIView):
     """
     GET: Dashboard alerts.
 
-    Returns active alerts and warnings.
+    Returns active alerts and warnings (P5/H-10: real computation via the
+    DashboardService — was a placeholder returning fabricated zeros).
     """
 
     authentication_classes = [JWTAuthentication]
@@ -50,19 +51,45 @@ class DashboardAlertsView(APIView):
 
     @wrap_response
     def get(self, request, org_id: str) -> Response:
-        """Return dashboard alerts (stub implementation)."""
+        """Return dashboard alerts computed from live data."""
+        from apps.core.models import BankTransaction, InvoiceDocument
+        from apps.reporting.services.dashboard_service import DashboardService
 
-        # TODO: Implement actual alerts calculation
-        # For now, return placeholder data
+        service = DashboardService()
+
+        alerts = service.generate_compliance_alerts(org_id)
+        threshold = service.query_gst_threshold_status(org_id)
+        invoice_counts = service._get_invoice_counts(org_id)
+
+        threshold_warning = threshold.get("status") in ("WARNING", "EXCEEDED")
+        threshold_amount = str(service.GST_THRESHOLD_LIMIT)
+
+        unreconciled = BankTransaction.objects.filter(
+            org_id=org_id, is_reconciled=False
+        ).count()
+
+        unpaid_bills = (
+            InvoiceDocument.objects.filter(
+                org_id=org_id,
+                document_type__in=[
+                    "PURCHASE_INVOICE",
+                    "PURCHASE_CREDIT_NOTE",
+                    "PURCHASE_DEBIT_NOTE",
+                ],
+                status__in=["APPROVED", "PARTIALLY_PAID", "OVERDUE"],
+            )
+            .filter(amount_paid__lt=F("total_incl"))
+            .count()
+        )
 
         return Response(
             {
-                "alerts": [],
-                "gst_threshold_warning": False,
-                "gst_threshold_amount": "1000000.00",
-                "overdue_invoices_count": 0,
-                "unreconciled_transactions_count": 0,
-                "unpaid_bills_count": 0,
+                "alerts": alerts,
+                "gst_threshold_warning": threshold_warning,
+                "gst_threshold_amount": threshold_amount,
+                "overdue_invoices_count": invoice_counts.get("overdue", 0),
+                "unreconciled_transactions_count": unreconciled,
+                "unpaid_bills_count": unpaid_bills,
                 "upcoming_deadlines": [],
             }
         )

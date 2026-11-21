@@ -323,6 +323,20 @@ class GSTReturnService:
 
             gst_return.save()
 
+            # P5/H-3: filing changes GST liability — drop the stale dashboard
+            try:
+                from apps.reporting.services.dashboard_service import (
+                    DashboardService,
+                )
+
+                DashboardService().invalidate_dashboard_cache(str(org_id))
+            except Exception:  # noqa: BLE001 — never fail the filing
+                import logging
+
+                logging.getLogger(__name__).exception(
+                    "dashboard cache invalidation failed for org %s", org_id
+                )
+
             return gst_return
 
     @staticmethod
