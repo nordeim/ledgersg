@@ -875,3 +875,64 @@ hasPointerCapture/setPointerCapture/releasePointerCapture/scrollIntoView on
 Element.prototype. Clicking options still races jsdom pointer-events — drive
 selection via keyboard (`{ArrowDown}{Enter}`) in component tests, and prefer
 `findAllByText` (Radix renders the selected label in the trigger AND the list).
+
+## 2026-11-21 P4 Sprint — New Patterns & Lessons (session 9)
+
+### The Three-Link Defect Chain (E-1)
+"Sessions don't survive reloads" was three independent, mutually-compensating
+defects: (1) the backend returned the token pair in the body and set NO
+cookie — while the api-client header comment claimed "HttpOnly cookie" had
+existed all along; (2) the frontend discarded the refresh token (login stored
+access only); (3) `fetchWithAuth` gated the refresh on `&& accessToken`, so
+even with a cookie backend the cold-reload retry could never fire. Lesson: a
+comment describing nonexistent behavior is a defect detector — audit every
+comment claim against the code it describes; and when a symptom spans
+layers, hunt ALL links before fixing one (fixing link 3 alone would have
+changed nothing). Acceptance test: a full `page.reload()` that stays on
+`/dashboard` — not a passing unit test, the real browser event
+(`e2e/session.spec.ts`).
+
+### Evidence-Gated Refresh (E-1 refinement)
+Refreshing on EVERY 401 — the "obvious" first fix — turned an anonymous
+failure (bad login credentials) into a pointless refresh POST: it flooded
+the refresh endpoint's rate limit (20/min per IP, structurally exceeded by
+the e2e suite) AND the refresh-failure path (`window.location.href =
+"/login"`) swallowed the login form's own error behind a hard redirect. The
+e2e run caught what the unit tests blessed. Correct design: attempt the
+refresh ONLY with evidence a session exists — an in-memory access token OR
+the backend's non-secret, JS-readable `session_hint` marker cookie
+(deliberately NOT HttpOnly, path=/; the HttpOnly refresh token stays
+invisible to JavaScript). Dead evidence must be expired server-side (failed
+cookie-refresh, logout, password change) or the browser keeps retrying a
+dead session on every boot. Lesson: an auth client's 401 handler is a
+state machine, not a reflex — write the anonymous-state test before the
+expiry test.
+
+### Settings-Driven Rate Knobs (rates)
+django-ratelimit resolves `rate="module.callable"` dotted paths lazily per
+request — decorator literals are NOT the only option. Production defaults
+moved to `LOGIN_RATELIMIT_IP/USER` (identical 10/min + 30/min); only the
+development settings raise the IP budget (60/min) because `test:e2e:full`
+legitimately issues ~11 logins per run. The guardrail was never weakened —
+only the local budget moved. Lesson: when a test suite structurally exceeds
+a rate limit, make the limit a settings knob and document WHY the dev
+value differs; never silence or disable the guard.
+
+### Long-Lived Dev Servers in a Reaped Sandbox
+The sandbox reaper kills detached background servers BETWEEN tool
+invocations (silently — logs end mid-request with no traceback). Symptom:
+a server that answered a health probe inside one command is gone by the
+next. Countermeasure: run the whole e2e/screenshot session inside ONE
+invocation — start backend + wait for readiness, let playwright's
+`webServer` own the frontend, run, tear down in a trap. Also beware the
+stale-survivor inverse: a `--noreload` dev server from a previous session
+can still hold the port and serve OLD code (cookies missing, features
+absent) — check `ss -ltnp` for the PID's start time and restart on
+config/code drift before debugging the app.
+
+### jsdom Cookie State Leaks Between Tests
+`document.cookie` persists across tests within a vitest file — a hint
+cookie set for one test silently flips the evidence gate for later
+anonymous-state tests. Set the marker inside the test (or its beforeEach)
+and CLEAR it in an afterEach with an expired-dated deletion — same hygiene
+as token state, one tier lower in the stack.

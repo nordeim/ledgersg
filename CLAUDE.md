@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.8.0
+> **Version**: 2.9.0
 > **Last Updated**: 2026-11-21
-> **Status**: P3 Remediated 🟢 — all gates green (backend 519P/0F/5S, frontend vitest 349/349, typecheck 0 errors, e2e 13/13 full / 9+4skip default); schema v1.1.0 with NUMERIC(19,4) money (see `docs/REMEDIATION_2026-11-21_P3_REPORT.md`, plus the P0/P1/P2 reports)
+> **Status**: P4 Remediated 🟢 — all gates green (backend 534P/0F/5S, frontend vitest 354/354, typecheck 0 errors, e2e 16/16 full / 9+7skip default); cross-reload session persistence shipped (HttpOnly refresh cookie + `session_hint` evidence gate); schema v1.1.0 with NUMERIC(19,4) money (see `docs/REMEDIATION_2026-11-21_P4_REPORT.md`, plus the P0–P3 reports)
 
 ---
 
@@ -30,14 +30,27 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.3 | ✅ Ready | 12 pages, 349 unit + 13 e2e tests (9 always + 4 backend-gated), typecheck clean, axe-clean login flow |
-| **Backend** | v0.3.7 | ✅ Suite Fully Green | 88+ endpoints, **519 tests passing, 0 failed** (5 skipped, documented) |
+| **Frontend** | v0.1.4 | ✅ Ready | 12 pages, 354 unit + 16 e2e tests (9 always + 7 backend-gated), typecheck clean, axe-clean login flow, cross-reload session persistence |
+| **Backend** | v0.3.8 | ✅ Suite Fully Green | 88+ endpoints, **534 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables, NUMERIC(19,4) money |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
-| **Security** | v1.1.0 | ✅ P0 Hardened | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on; P1 open (CSP, MFA, PII) |
+| **Security** | v1.2.0 | ✅ P0 Hardened + P4 Cookie Auth | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on (settings-driven login knobs), HttpOnly refresh cookie + `session_hint` evidence gate |
 | **API Contracts** | v1.1.0 | ✅ Standardized | {results, count} lists; auth contract aligned to tests 2026-11-21 |
 
-### Latest Milestone: P3 Sprint — Monetary Capacity, Truthful Invoice Form & Suite Depth ✅ — 2026-11-21 (session 7)
+### Latest Milestone: P4 Sprint — Cross-Reload Session Persistence & Suite Depth ✅ — 2026-11-21 (session 9)
+
+Sessions now survive page reloads/new tabs/browser restarts, and the auth client can no longer be tricked into pointless refreshes:
+
+| Fix | Impact |
+|-----|--------|
+| **E-1 backend** | `login/register` set the refresh token as an **HttpOnly cookie** (`Path=/api/v1/auth/`, SameSite=Lax, Secure=!DEBUG, 7d), `refresh` accepts body **or** cookie (rotation+blacklist identical, response re-sets the rotated cookie), `logout` blacklists whichever credential is present and expires the cookie, `change-password` expires it too (revoke-all); body flow unchanged for API clients (8 contract tests → 14 with the hint suite) |
+| **E-1 frontend** | `fetchWithAuth` refreshes on a **cold 401** (no in-memory access token) and retries — the `&& accessToken` guard that dropped every reload is gone; the login body tokens stay unchanged |
+| **E-1 refinement** | Evidence-gated refresh: a non-secret, JS-readable `session_hint` cookie (set alongside the refresh cookie; expired on logout/password-change/failed cookie-refresh) gates the client's refresh attempt — anonymous 401s (bad credentials) propagate to the caller instead of flooding the refresh rate limit and swallowing the login form's error behind a hard redirect (root-caused from the e2e run; 3 vitest + 6 pytest regression tests) |
+| **E-5** | Session-persistence e2e spec: reload survival, post-reload client navigation, logout-kills-session (16 e2e total: 9 always + 7 gated); logout affordance added to the shell footer |
+| **Rates** | Login limits became settings knobs (`LOGIN_RATELIMIT_IP/USER`; production defaults unchanged 10/min + 30/min; development 60/min for the e2e budget) via `config/ratelimits.py` dotted-path callables |
+| **E-2/E-3/E-4** | Docs truth pass (README/PAD/CLAUDE/AGENTS/ledgersg_SKILL), root `.env.example` index, DEPLOYMENT.md cookie-flow + reload-persistence checklist |
+
+### Previous Milestone: P3 Sprint — Monetary Capacity, Truthful Invoice Form & Suite Depth ✅ — 2026-11-21 (session 7)
 
 Money now fits the business model (S$1M GST threshold), the New Invoice form actually creates documents, and both frontend suites gained real depth:
 

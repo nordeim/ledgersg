@@ -1,8 +1,9 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.1.0
-> **Last Updated**: 2026-03-12
+> **Version**: 3.2.0
+> **Last Updated**: 2026-11-21
+> **P4 note**: cross-reload session persistence shipped (HttpOnly refresh cookie + `session_hint` evidence gate); test metrics below reflect the P4 verified counts.
 > **Status**: Production Ready ✅
 > **Security Score**: 100% (SEC-001/002/003 Remediated)
 > **Compliance**: IRAS 2026 (GST F5, InvoiceNow, BCRS)
@@ -31,7 +32,7 @@
 ### Key Metrics
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **706 Tests Passing** | 321 Frontend + 385 Backend (459 collected) |
+| **Test Coverage** | **904 Tests Passing** | 534 Backend + 354 Frontend unit + 16 e2e (539 backend collected) |
 | **API Surface** | **94 Endpoints** | RESTful, JSON-API compliant |
 | **Security** | **100% Score** | CSP, Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 30 Tables, Row-Level Security Enforced |
@@ -40,11 +41,10 @@
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 321 | 100% | Vitest + RTL | ✅ Passing |
-| **Backend Core** | 385 | 84% | pytest-django | ✅ Passing |
-| **Backend Domain** | 74 | 98% | pytest | ✅ Passing |
-| **Backend Total** | 459 | 100% collected | pytest | ✅ Collected |
-| **Total Passing** | **706** | — | Mixed | ✅ Verified |
+| **Frontend Unit** | 354 | 100% | Vitest + RTL | ✅ Passing |
+| **Backend (pytest)** | 534 passed / 5 skipped | 100% of run | pytest | ✅ Passing |
+| **E2E (Playwright)** | 16 (9 always + 7 backend-gated) | 100% | Playwright | ✅ Passing |
+| **Total Passing** | **904** | — | Mixed | ✅ Verified |
 
 ---
 
@@ -66,7 +66,7 @@ These mandates are non-negotiable. They define the "Soul" of the system.
 *   **Why?**: Decouples business logic from the HTTP transport layer, enabling easy testing and CLI usage.
 
 ### 3. Financial Precision
-*   **The Rule**: `NUMERIC(10,4)` for everything.
+*   **The Rule**: `NUMERIC(19,4)` for everything (schema v1.1.0 — widened from the original 10,4 so ≥ S$1M amounts, above the GST registration threshold, cannot overflow).
 *   **The Prohibition**: **NO FLOATS.** All Python math must use `common.decimal_utils.money()`.
 *   **Why?**: Floating point errors are unacceptable in accounting.
 
@@ -80,10 +80,10 @@ These mandates are non-negotiable. They define the "Soul" of the system.
 
 ### 5. Zero JWT Exposure
 * **The Rule**: Browser JavaScript must NEVER have access to JWT tokens.
-* **Implementation**:
-  * Access tokens kept in **server memory** (Server Components)
-  * Refresh tokens stored in **HttpOnly cookies**
-  * Server Components fetch via `lib/server/api-client.ts`
+* **Implementation** (P4-verified):
+  * Access token held in **api-client module memory only** — never localStorage/sessionStorage — and attached as `Authorization: Bearer <token>`
+  * Refresh token set by the backend as an **HttpOnly cookie** (`Path=/api/v1/auth/`, SameSite=Lax, Secure=!DEBUG) — login/register set it, refresh rotates it (with blacklist), logout/change-password expire it
+  * A non-secret, JS-readable `session_hint` marker cookie gates client refresh attempts; the refresh token itself is never touched by JavaScript
 * **Why?**: Prevents XSS attacks from stealing authentication tokens.
 
 ### 6. Multi-Tenancy via RLS
@@ -213,8 +213,9 @@ flowchart TB
 2.  **Protected Routes**: `DashboardLayout` checks `isAuthenticated`.
     *   False: Returns `null` (prevents flash) and redirects.
 3.  **API Requests**: `api-client.ts` handles JWT.
-    *   Attaches `Authorization: Bearer <token>`.
-    *   On 401: Attempts silent refresh via HttpOnly cookie (`/api/v1/auth/refresh/`).
+    *   Attaches `Authorization: Bearer <token>` (module memory).
+    *   On 401 **with session evidence** (in-memory token or the `session_hint` marker cookie): attempts silent refresh through the HttpOnly refresh cookie (`/api/v1/auth/refresh/` via `credentials: "include"`) and retries the original request — this is what makes sessions survive full page reloads (P4/E-1).
+    *   On an anonymous 401 (no evidence — e.g. bad login credentials): propagates the error to the caller untouched.
     *   On Refresh Fail: Logs out and redirects.
 
 ### Data Fetching Strategy

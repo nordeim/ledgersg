@@ -4,10 +4,11 @@ LedgerSG ships as **two applications over one PostgreSQL database plus one
 Redis**: a Django 6 REST API (`apps/backend`), a Next.js 16 web app
 (`apps/web`), PostgreSQL 16+ with a hand-written SQL schema (the source of
 truth — Django migrations are permanently disabled), and Redis (the Django
-cache AND the Celery broker). This revision (2026-11-21, session 7) is
+cache AND the Celery broker). This revision (2026-11-21, session 9) is
 written from the operator's `docs/sample_DEPLOYMENT.md` layout with **every
 claim re-verified against this codebase** — commands below were executed
-end-to-end on a fresh environment during the P3 sprint (schema v1.1.0).
+end-to-end on a fresh environment during the P3 sprint (schema v1.1.0) and
+re-spot-executed during the P4 sprint (cookie auth + reload persistence).
 
 Verified truths this guide is built on: the schema file
 `apps/backend/database_schema.sql` (v1.1.0) CREATEs ROLEs inside DO blocks
@@ -25,7 +26,15 @@ migration for databases created on ≤ v1.0.2).
   under `/api/v1/` (auth is `/api/v1/auth/*`; org-scoped APIs are
   `/api/v1/{org_id}/<module>/…`). JWT access tokens (15 min) live in the
   api-client's module memory; refresh tokens (7 days) are returned in the
-  login response body.
+  login response body (API clients) AND set as an **HttpOnly cookie**
+  (`Path=/api/v1/auth/`, SameSite=Lax, Secure=!DEBUG) that the browser
+  replays on `POST /api/v1/auth/refresh/` — cross-reload session
+  persistence is the verified behavior (P4): login/register set the cookie,
+  refresh rotates it (old value blacklisted), logout/change-password expire
+  it (and blacklist). A non-secret, JS-readable `session_hint` marker cookie
+  rides alongside so the web client only attempts refreshes when a session
+  actually exists; anonymous 401s (bad credentials) propagate to the
+  caller. API clients using the body flow are unaffected.
 - **Frontend**: Next.js 16.1.6 App Router (12 pages), React 19, Tailwind 4,
   Shadcn/Radix. Build modes: `standalone` (server mode, backend
   integration) and `export` (static CDN bundle without API integration).
@@ -182,7 +191,7 @@ be green:
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-21 P3): 519 passed, 0 failed, 5 skipped
+# expected (post-2026-11-21 P4): 534 passed, 0 failed, 5 skipped
 ```
 
 Run the API (development):
@@ -238,28 +247,41 @@ npm run build && npm run serve
 
 ```bash
 # Backend gates (from apps/backend with the venv active + DB_* exported)
-pytest --reuse-db --no-migrations -q        # 519 passed, 0 failed, 5 skipped
+pytest --reuse-db --no-migrations -q        # 534 passed, 0 failed, 5 skipped
 pytest tests/invariants -q                  # 20 passed (incl. schema conformance + capacity)
-pytest tests/security -q                    # 32 passed, 3 skipped
+pytest tests/security -q                    # 47 passed, 3 skipped (incl. refresh-cookie + hint contracts)
 DJANGO_SETTINGS_MODULE=config.settings.testing python manage.py check
 
 # Frontend gates (from apps/web)
 npm run typecheck                           # 0 errors
-npm test                                    # 349 vitest tests
+npm test                                    # 354 vitest tests
 npm run test:e2e                            # green without a backend (gated specs skip)
 npx playwright install chromium             # once per environment
-npm run test:e2e:full                       # 13/13 — needs backend :8000 + Redis;
-                                            # demo login rate limit is 10/min per IP
+npm run test:e2e:full                       # 16/16 — needs backend :8000 + Redis;
+                                            # the dev login budget is 60/min per IP
 
 # Live smoke (both dev servers running)
 curl http://127.0.0.1:8000/api/v1/health/   # {"status": "healthy", ...}
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/login   # 200
+
+# Session-persistence smoke (P4) — login sets both cookies, refresh works
+# via the cookie, and a browser reload stays authenticated:
+curl -s -c /tmp/cj.txt -X POST http://127.0.0.1:8000/api/v1/auth/login/ \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@ledgersg.sg","password":"demo1234"}' -o /dev/null -w '%{http_code}\n'
+# 200 — and /tmp/cj.txt contains refresh_token (HttpOnly path cookie) + session_hint
+curl -s -b /tmp/cj.txt -X POST http://127.0.0.1:8000/api/v1/auth/refresh/ \
+  -H 'Content-Type: application/json' -d '{}' -o /dev/null -w '%{http_code}\n'
+# 200 — the cookie alone refreshes (rotation re-sets it)
+# Browser check: log in at http://localhost:3000, press F5 — you must stay
+# on /dashboard (the reload-persistence acceptance test, e2e/session.spec.ts)
 ```
 
-The full e2e run performs 7 logins per invocation against the 10/min-per-IP
-login rate limit (`django-ratelimit`, SEC-002) — if a run fails on login
-429s, flush the rate window (`redis-cli FLUSHDB` on the dev cache) or wait
-a minute.
+The full e2e run performs ~11 logins per invocation. The dev settings budget
+60/min per IP (`LOGIN_RATELIMIT_IP`, P4) — production keeps the documented
+10/min-per-IP default (`config.settings.base`); if a dev run fails on login
+429s, flush the rate window (`redis-cli -n 0 FLUSHDB` on the dev cache) or
+wait a minute.
 
 ## 9. Production notes
 
@@ -272,8 +294,17 @@ a minute.
   table has `FORCE ROW LEVEL SECURITY` keyed on `app.current_org_id`).
   The dev role `ledgersg` is SUPERUSER only because the schema loader
   needs it — do not use it as the runtime role in production.
-- **Rate limiting** is ON by default (`RATELIMIT_ENABLE=true`); login is
-  10/min per IP, refresh 20/min.
+- **Rate limiting** is ON by default (`RATELIMIT_ENABLE=true`); login rates
+  are settings knobs (`LOGIN_RATELIMIT_IP` / `LOGIN_RATELIMIT_USER` —
+  production defaults 10/min per IP and 30/min per user; refresh 20/min).
+- **Session cookies (P4)**: the refresh cookie is `SameSite=Lax`, which is
+  correct when the web app and the API share a site (e.g. both behind one
+  domain, or the localhost dev pair). For a **cross-site production
+  topology** (web on `app.example.com`, API on `api.example.com` — different
+  sites), cookies must be `SameSite=None; Secure` — a one-line change in
+  `apps/backend/apps/core/views/_refresh_cookie.py` (both cookies) plus
+  HTTPS on both origins. The body-based refresh flow keeps working for
+  non-browser API clients either way.
 - **Money precision** is `NUMERIC(19,4)` — all Python money math goes
   through `common.decimal_utils.money()` (rejects floats). Never widen or
   narrow precision without the schema conformance + capacity gates green.
@@ -295,7 +326,7 @@ a minute.
 | Dashboard "Loading..." stuck in production build | Missing static files in standalone output | `npm run build:server` (auto-copies `.next/static`) |
 | Login silently does nothing | Password shorter than 8 chars — native `minLength` blocks the submit | Use an 8+ character password |
 | e2e `Executable doesn't exist` | Declared browsers not installed | `npx playwright install chromium` (default suite needs chromium only) |
-| e2e full-run login 429s | 7 logins/run vs the 10/min-per-IP rate limit | Flush the dev Redis cache or wait out the window |
+| e2e full-run login 429s | Dev rate window already spent (the run issues ~11 logins) | Dev budget is 60/min IP (`LOGIN_RATELIMIT_IP`); flush the dev Redis cache (`redis-cli -n 0 FLUSHDB`) or wait out the window |
 | GST computed at the wrong rate | Rate lookups are date-aware since P2 — the document date must fall inside the code's effective window | Pass `document_date`, or use the row in force on that date |
 
 ## 11. Updating an existing deployment

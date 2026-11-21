@@ -1,9 +1,9 @@
 ---
 name: ledgersg
-description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 1.3.0
+description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
+version: 1.4.0
 last_updated: 2026-11-21
-project_state: "P3 remediated; all gates green — 519 backend tests (0 failed, 5 skipped), frontend 349 vitest + 13 e2e (9 default / 4 backend-gated), typecheck 0 errors; schema v1.1.0 with NUMERIC(19,4) money"
+project_state: "P4 remediated; all gates green — 534 backend tests (0 failed, 5 skipped), frontend 354 vitest + 16 e2e (9 default / 7 backend-gated), typecheck 0 errors; schema v1.1.0 with NUMERIC(19,4) money; cross-reload session persistence shipped (HttpOnly refresh cookie + session_hint evidence gate)"
 ---
 
 # LedgerSG — Engineering Skill
@@ -14,7 +14,9 @@ project_state: "P3 remediated; all gates green — 519 backend tests (0 failed, 
 > `docs/REMEDIATION_2026-11-21_P1_REPORT.md`), the session-5 P2 sprint
 > (`docs/REMEDIATION_PLAN_2026-11-21_P2.md`, `docs/REMEDIATION_2026-11-21_P2_REPORT.md`),
 > and the session-7 P3 sprint (`docs/REMEDIATION_PLAN_2026-11-21_P3.md`,
-> `docs/REMEDIATION_2026-11-21_P3_REPORT.md`).
+> `docs/REMEDIATION_2026-11-21_P3_REPORT.md`), and the session-9 P4 sprint
+> (`docs/REMEDIATION_PLAN_2026-11-21_P4.md`,
+> `docs/REMEDIATION_2026-11-21_P4_REPORT.md`).
 > Every claim below is verifiable against a file path or a runnable command.
 
 ---
@@ -27,7 +29,7 @@ compliance (F5 returns, InvoiceNow/Peppol PINT-SG, BCRS). Three non-negotiables:
 1. **SQL-First**: `apps/backend/database_schema.sql` is the source of truth. All models
    are `managed = False`. NEVER run `makemigrations`. Schema changes = hand-written DDL
    patch + version bump + model alignment + conformance gate green.
-2. **Money is `NUMERIC(10,4)`** — no floats, ever. All Python money math goes through
+2. **Money is `NUMERIC(19,4)`** (schema v1.1.0) — no floats, ever. All Python money math goes through
    `common.decimal_utils.money()`.
 3. **Corrections are reversals**: journal entries are immutable; a void is a reversing
    entry, never an update.
@@ -75,16 +77,17 @@ cd apps/backend
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# Current state (2026-11-21, post-P3): 0 failed, 519 passed, 5 skipped — SUITE GREEN
+# Current state (2026-11-21, post-P4): 0 failed, 534 passed, 5 skipped — SUITE GREEN
 pytest tests/invariants -q   # 20 gates: atomic rollback, void net-zero, F5 tie-out,
                              # schema conformance (incl. numeric precision), journal
                              # balances, CoA trial balance, monetary capacity
-pytest tests/security -q     # 32: RLS transaction isolation, token lifecycle, settings gates
+pytest tests/security -q     # 47: RLS transaction isolation, token lifecycle, settings
+                             # gates, refresh-cookie + session_hint contracts
 ```
 
-Frontend gates (`apps/web`): `npm test` (349 vitest), `npm run typecheck` (tsc, 0
+Frontend gates (`apps/web`): `npm test` (354 vitest), `npm run typecheck` (tsc, 0
 errors), `npm run test:e2e` (playwright; 9 tests green without a backend —
-backend-gated specs skip with reasons), `npm run test:e2e:full` (all 13 — needs
+backend-gated specs skip with reasons), `npm run test:e2e:full` (all 16 — needs
 the Django backend on :8000 + Redis; `npx playwright install chromium` first).
 `PLAYWRIGHT_PROJECTS=all` opts into the 5-browser matrix.
 
@@ -234,7 +237,7 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
 | 500 `tenant_context_error` on every org URL | Redis down or middleware exception | Start Redis :6379; read the middleware log line |
 | `FieldError: Cannot resolve keyword 'journal_entry'` | Wrong FK name (it's `entry`) | `entry__org_id`, `entry__entry_date`; no `is_posted` |
 | `relation "invoicing.invoice" does not exist` | Querying a table that isn't in the schema | Use `invoicing.document` / `document_line` |
-| `numeric field overflow` | Value > NUMERIC(10,4) cap (H-03 deferred) | Known limitation; widen in the versioned patch when scheduled |
+| `numeric field overflow` | DB still on ≤ v1.0.2 (NUMERIC(10,4) money) | Apply schema §16 in-place widening (idempotent); both DBs — fixed everywhere as of v1.1.0 |
 | `No open fiscal period found for date …` | Posting dated outside open periods | Date the document inside an open period (fixtures: Jan 2024) |
 | `No document sequence configured for org … type X` | Org fixture lacks the sequence | conftest now seeds all types; extend if you add one |
 | Test 404s on a route you "added" | Added to shadowed `apps/core/urls.py` | Add to the `apps/core/urls/` package module instead |
@@ -253,10 +256,13 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
 | e2e axe scan flaky on `/` | Scan raced the `/` → `/dashboard` → `/login` redirect chain | `await expect(page).toHaveURL(/\/login/)` before `.analyze()` (fixed in `e2e/navigation.spec.ts`) |
 | `numeric field overflow … less than 10^6` | DB still on ≤ v1.0.2 (NUMERIC(10,4) money) | Apply schema §16 in-place widening (idempotent); both DBs |
 | Login button does nothing (no error, no request) | Native `minLength={8}` on the password input blocks the submit in chromium | Use an 8+ char password |
-| e2e authed test lands back on /login | Memory-only session — a `page.goto` after login drops the token | Walk client-side: UI login → dashboard → sidebar Link (see `e2e/invoices.spec.ts`) |
-| e2e full run fails only on login (429) | 7 logins/run vs the 10/min-per-IP rate limit | Flush the Redis cache (`redis-cli FLUSHDB`) or wait out the window |
+| e2e authed test lands back on /login | Pre-P4: memory-only session (no refresh cookie, `&& accessToken` gate) | Fixed in P4 — reload/goto now survives via the HttpOnly refresh cookie; if it recurs, check `session_hint` evidence and the backend cookie path |
+| e2e full run fails only on login (429) | ~11 logins/run vs the login rate limit | Dev settings now budget 60/min IP (`LOGIN_RATELIMIT_IP`); production keeps 10/min — flush Redis (`redis-cli -n 0 FLUSHDB`) on dev if a window is already spent |
 | jsdom: `target.hasPointerCapture is not a function` | Radix Select needs pointer-capture APIs jsdom lacks | Setup polyfills in `src/__tests__/setup.ts`; drive selection via `{ArrowDown}{Enter}` |
 | `cannot alter type of a column used by a generated column` | `amount_due` is GENERATED off total_amount/amount_paid | Drop generated → alter inputs → re-add identical expression (schema §16) |
+| Session lost on every page reload (pre-P4) | Three-link chain: no cookie backend, discarded refresh token, `&& accessToken` refresh gate | P4 cookie flow: login sets HttpOnly refresh cookie + `session_hint`; cold-401 refresh retries (`apps/core/views/_refresh_cookie.py`) |
+| Login form shows "Session expired" instead of the credential error | api-client refreshed on an anonymous 401 and hard-redirected | Evidence gate: refresh only with an in-memory token OR the `session_hint` cookie; anonymous 401s propagate to the caller |
+| Refresh endpoint 429s during a UI test run | Pointless refreshes on anonymous 401s (pre-refinement) | Same evidence gate; the backend also expires both cookies on a failed cookie-refresh so dead evidence can't linger |
 
 ## 10. Pre-Ship Checklist
 
@@ -306,6 +312,17 @@ write inside `transaction.atomic()`; new tests RED before the fix.
 12. Fully-implemented dead code (useCreateInvoice with zero importers) is the
     signature of an unfinished wiring step — grep for callers before writing
     a parallel implementation (P3/D-1).
+13. A comment describing nonexistent behavior ("refresh token: HttpOnly cookie"
+    with no cookie code behind it) is a defect detector — and a cross-layer
+    symptom can be a three-link chain where fixing any single link changes
+    nothing (P4/E-1). Write the reload-e2e acceptance test, not just unit
+    tests, for session behavior.
+14. "Obvious" auth fixes need an anonymous-state regression test: refreshing
+    on every 401 flooded the refresh rate limit and swallowed the login form's
+    own error — the e2e run caught what unit tests blessed (P4/E-1
+    refinement). The 401 handler is a state machine: evidence (in-memory token
+    or `session_hint` cookie) gates the refresh; dead evidence must be expired
+    server-side.
 
 ## 12. Quick Reference Card
 
@@ -329,9 +346,11 @@ write inside `transaction.atomic()`; new tests RED before the fix.
 | P2 remediation report | `docs/REMEDIATION_2026-11-21_P2_REPORT.md` |
 | P3 remediation report | `docs/REMEDIATION_2026-11-21_P3_REPORT.md` |
 | Audit report | `LedgerSG_Code_Review_Audit_Report_2026-11-21.md` |
-| Env templates | `apps/backend/.env.example`, `apps/web/.env.example` (`.env*` files are gitignored) |
+| Env templates | root `.env.example` (combined index) → `apps/backend/.env.example` + `apps/web/.env.example`; `.gitignore` lists `.env*`, but the two local dev `.env`s are already tracked by earlier repo history (`git ls-files | rg '\.env'`) |
+| Session cookies | login/register/refresh set + rotate; logout/change-password/failed-cookie-refresh expire — `apps/backend/apps/core/views/_refresh_cookie.py`; gate = `tests/security/test_refresh_cookie.py` |
 | Rate resolution | `TaxCodeService.get_tax_code_by_code(org, code, as_of)` / `is_effective(tc, date)` — `apps/gst/services/tax_code_service.py` |
 | Money capacity | All money `NUMERIC(19,4)` since schema v1.1.0; §16 = in-place widening migration; gate = `tests/invariants/test_numeric_capacity.py` |
 | Invoice form adapter | `src/lib/invoice-submit.ts` (form state → contact+document payloads) — `src/hooks/use-tax-codes.ts`, `src/hooks/use-accounts.ts` |
-| Authed e2e pattern | UI login → sidebar Links (client-side only); `E2E_API_URL` gating — `apps/web/e2e/invoices.spec.ts` |
+| Authed e2e pattern | UI login → sidebar Links (client-side only); `E2E_API_URL` gating — `apps/web/e2e/invoices.spec.ts`; session persistence (reload survival) — `apps/web/e2e/session.spec.ts` |
 | Deployment guide | `docs/DEPLOYMENT.md` (fresh-host, rootless PG + §16 migration + Redis + gates) |
+| P4 plan/report | `docs/REMEDIATION_PLAN_2026-11-21_P4.md` / `docs/REMEDIATION_2026-11-21_P4_REPORT.md` |

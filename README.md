@@ -1,6 +1,6 @@
 # LedgerSG — Enterprise Accounting Platform for Singapore SMBs
 
-[![Tests](https://img.shields.io/badge/tests-714%20passing-success)]()
+[![Tests](https://img.shields.io/badge/tests-904%20passing-success)]()
 [![Security](https://img.shields.io/badge/security-100%25-brightgreen)]()
 [![IRAS](https://img.shields.io/badge/IRAS-2026%20Compliant-red)]()
 [![WCAG](https://img.shields.io/badge/WCAG-AAA-success)]()
@@ -60,7 +60,7 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 |---------|----------|-------------------|
 | IRAS Compliance | ✅ Native (GST F5, InvoiceNow, BCRS) | ⚠️ Add-ons required |
 | Database Security | ✅ PostgreSQL RLS at schema level | ⚠️ Application-layer only |
-| Financial Precision | ✅ NUMERIC(10,4), no floats | ⚠️ Often uses floats |
+| Financial Precision | ✅ NUMERIC(19,4), no floats | ⚠️ Often uses floats |
 | Multi-Tenancy | ✅ Database-enforced isolation | ⚠️ Shared tables |
 | Audit Trail | ✅ Immutable 5-year retention | ⚠️ Configurable |
 | UI Design | ✅ Distinctive "Illuminated Carbon" | ❌ Generic templates |
@@ -87,7 +87,7 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 ### Technical Features
 
 - **Double-Entry Integrity** — Every transaction produces balanced debits/credits enforced at database level
-- **NUMERIC(10,4) Precision** — No floating-point arithmetic; all amounts stored as DECIMAL in PostgreSQL
+- **NUMERIC(19,4) Monetary Precision** — No floating-point arithmetic; all amounts stored as DECIMAL in PostgreSQL (capacity above the S$1M GST registration threshold — schema v1.1.0)
 - **Real-Time GST Calculation** — Client-side preview with Decimal.js, server-side authoritative calculation
 - **Immutable Audit Trail** — All financial mutations logged with before/after values, user, timestamp, IP
 - **PDF Document Generation** — IRAS-compliant tax invoices via WeasyPrint 68.1
@@ -101,19 +101,28 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.3 | ✅ Production Ready | 12 pages, **349 unit tests + 13 e2e** (9 always + 4 backend-gated), typecheck clean, WCAG axe-clean login flow |
-| **Backend** | v0.3.7 | ✅ Suite Fully Green | 88+ endpoints, **519 tests passing** (0 failed), SQL-First, RLS transaction-scoped |
+| **Frontend** | v0.1.4 | ✅ Production Ready | 12 pages, **354 unit tests + 16 e2e** (9 always + 7 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence |
+| **Backend** | v0.3.8 | ✅ Suite Fully Green | 88+ endpoints, **534 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables, **NUMERIC(19,4) money** |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching |
 | **InvoiceNow** | v0.5.0 | ⚠️ Phases 1-4 Partial | XML generation complete; send endpoint returns not-configured (H-08 deferred) |
-| **Security** | v1.1.0 | ✅ P0 Hardened | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on |
-| **Overall** | — | 🟢 **P0+P1+P2+P3 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1/_P2/_P3_REPORT.md` and the audit report |
+| **Security** | v1.2.0 | ✅ P0 Hardened + P4 Cookie Auth | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on, HttpOnly refresh cookie + `session_hint` evidence gate |
+| **Overall** | — | 🟢 **P0+P1+P2+P3+P4 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1/_P2/_P3/_P4_REPORT.md` and the audit report |
 
 ### Latest Milestone
 
-#### 🎉 P3 Sprint: Monetary Capacity, Truthful Invoice Form & Suite Depth — 2026-11-21 (session 7)
+#### 🎉 P4 Sprint: Cross-Reload Session Persistence & Suite Depth — 2026-11-21 (session 9)
+
+- ✅ **Sessions survive page reloads, new tabs and browser restarts** (E-1, a three-link defect chain): the backend now sets the refresh token as an **HttpOnly cookie** (login/register set it, refresh rotates it, logout/change-password expire it — zero frontend transport changes, backward-compatible body flow for API clients), and the api-client refreshes on a cold-401 (no in-memory access token) — the documented 7-day session design finally holds
+- ✅ **Evidence-gated refresh** (E-1 refinement, root-caused from the e2e run): refreshing on every 401 turned bad login credentials into a pointless refresh POST that flooded the refresh rate limit and swallowed the login form's error behind a hard redirect — a non-secret, JS-readable `session_hint` marker cookie now gates the refresh attempt; anonymous 401s propagate untouched; dead evidence is expired server-side on failed cookie-refresh
+- ✅ **Logout affordance in the shell** — the persisted session got a UI kill switch (logout blacklists + expires both cookies server-side)
+- ✅ **Login rates as settings knobs** (`LOGIN_RATELIMIT_IP/USER`) — production defaults unchanged (10/min IP, 30/min user); the development budget covers the 16-test e2e run
+- ✅ **Session-persistence e2e spec** (E-5): reload survival, post-reload client navigation, and logout-kills-the-session against the live backend (16 e2e total: 9 always-green + 7 `E2E_API_URL`-gated)
+- ✅ **Root `.env.example`** index + docs truth pass (E-2/E-3/E-4)
+
+#### P3 Sprint: Monetary Capacity, Truthful Invoice Form & Suite Depth — 2026-11-21 (session 7)
 
 - ✅ **All 47 monetary columns widened to NUMERIC(19,4) — schema v1.1.0** (deferred H-03): `NUMERIC(10,4)` capped every value at S$999,999.9999, **below the S$1M GST registration threshold** — a GST-registered org's F5 Box 13 revenue or any ≥ S$1M line/document/journal amount raised `numeric field overflow` (verified live). §16 of the schema ships the idempotent in-place migration (incl. the `amount_due` generated-column drop → widen → re-add sequence); the schema-conformance gate now asserts numeric precision per model field, and `add_line` applies `discount_pct` server-side
 - ✅ **The New Invoice form actually creates documents** (D-1): the submit path was a TODO stub (`console.log` + mock UUID) with `useCreateInvoice` as dead code; now wired through the real contracts (per-line posting account select, contact → document adapter, server-authoritative recalculation, error banner)
@@ -184,7 +193,7 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 ## 🧪 Test Suites & Execution
 
-LedgerSG employs comprehensive testing across multiple layers with **714+ total tests passing** (468 collected).
+LedgerSG employs comprehensive testing across multiple layers with **904 tests passing** (534 backend + 354 frontend unit + 16 e2e).
 
 ### Test Suite Breakdown
 
@@ -192,13 +201,13 @@ LedgerSG employs comprehensive testing across multiple layers with **714+ total 
 |-------|-------|-----------|----------|--------|
 | **Backend Core Tests** | 393 passing | pytest-django | Core models, services, API | ✅ 84% pass rate |
 | **Backend Domain Tests** | 252/255 passing | pytest | Banking, Peppol, Reporting | ✅ 98.8% pass rate |
-| **Frontend Unit Tests** | 349 passing | Vitest + RTL | Components, hooks, utilities | ✅ 100% pass rate |
+| **Frontend Unit Tests** | 354 passing | Vitest + RTL | Components, hooks, utilities | ✅ 100% pass rate |
 | **Frontend Typecheck** | 0 errors | tsc --noEmit | All src + e2e + configs | ✅ Green |
 | **API Contract Tests** | 8 passing | pytest | {results, count} format | ✅ 100% pass rate |
 | **InvoiceNow TDD** | 122+ | pytest | XML, AP integration, workflows | ✅ Passing |
 | **Banking UI TDD** | 73 | Vitest | All 3 banking tabs | ✅ Passing |
-| **E2E Workflows** | 15 phases | Hybrid API+UI | Full SMB lifecycles | ✅ Verified |
-| **Total Collected** | **468** | — | Backend tests | ✅ **All Collected** |
+| **E2E Workflows** | 16 specs (9 always + 7 backend-gated) | Playwright | Navigation, a11y, login form, invoice form, session persistence | ✅ Verified |
+| **Total Collected** | **539** | — | Backend tests | ✅ **All Collected** |
 
 ### Backend Test Execution
 
@@ -218,23 +227,23 @@ source /opt/venv/bin/activate
 cd apps/backend
 pytest --reuse-db --no-migrations -v
 
-# Expected output (post 2026-11-21 P3 remediation): 519 passed, 0 failed, 5 skipped
+# Expected output (post 2026-11-21 P4 remediation): 534 passed, 0 failed, 5 skipped
 ```
 
-**Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). The P2 sprint (`docs/REMEDIATION_2026-11-21_P2_REPORT.md`) added rate-effectiveness regression tests and the custom tax-code create fix. The P3 sprint (`docs/REMEDIATION_2026-11-21_P3_REPORT.md`) widened all monetary columns to NUMERIC(19,4) (schema v1.1.0, §16 in-place migration) and made `add_line` apply `discount_pct` server-side. Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance **incl. numeric precision**, balance queries, **monetary capacity**) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
+**Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). The P2 sprint (`docs/REMEDIATION_2026-11-21_P2_REPORT.md`) added rate-effectiveness regression tests and the custom tax-code create fix. The P3 sprint (`docs/REMEDIATION_2026-11-21_P3_REPORT.md`) widened all monetary columns to NUMERIC(19,4) (schema v1.1.0, §16 in-place migration) and made `add_line` apply `discount_pct` server-side. The P4 sprint (`docs/REMEDIATION_2026-11-21_P4_REPORT.md`) shipped the HttpOnly refresh-cookie session flow with the `session_hint` evidence gate (14 cookie-contract tests). Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance **incl. numeric precision**, balance queries, **monetary capacity**) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
 
 ### Frontend Test Execution
 
 ```bash
 cd apps/web
-npm test                    # Vitest unit suite (349 tests)
+npm test                    # Vitest unit suite (354 tests)
 npm run typecheck           # tsc --noEmit (0 errors)
 npm run test:coverage       # With coverage report
 npm run test:e2e            # Playwright e2e — 9 tests green without a backend
-                            # (4 backend-gated specs skip with reasons)
+                            # (7 backend-gated specs skip with reasons)
                             # first run: npx playwright install chromium
-npm run test:e2e:full       # all 13 tests — needs the backend on :8000 + Redis
-                            # (E2E_API_URL-gated auth + invoice-form specs)
+npm run test:e2e:full       # all 16 tests — needs the backend on :8000 + Redis
+                            # (E2E_API_URL-gated auth + invoice-form + session specs)
 PLAYWRIGHT_PROJECTS=all npm run test:e2e   # full browser matrix (needs `npx playwright install`)
 ```
 
