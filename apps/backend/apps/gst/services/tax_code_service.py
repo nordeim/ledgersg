@@ -8,14 +8,13 @@ Manages GST tax codes including:
 - Getting current GST rate
 """
 
-from typing import Optional, List, Dict, Any
-from decimal import Decimal
-from uuid import UUID
 from datetime import date
+from decimal import Decimal
+from typing import Any
+from uuid import UUID
 
 from apps.core.models import TaxCode
-from common.exceptions import ValidationError, DuplicateResource, ResourceNotFound
-
+from common.exceptions import DuplicateResource, ResourceNotFound, ValidationError
 
 # IRAS-defined tax codes (seeded)
 IRAS_TAX_CODES = {
@@ -98,35 +97,35 @@ IRAS_TAX_CODES = {
 
 class TaxCodeService:
     """Service class for tax code operations."""
-    
+
     @staticmethod
     def list_tax_codes(
         org_id: UUID,
-        is_active: Optional[bool] = None,
-        is_gst_charged: Optional[bool] = None,
+        is_active: bool | None = None,
+        is_gst_charged: bool | None = None,
         include_system: bool = True,
-        code: Optional[str] = None
-    ) -> List[TaxCode]:
+        code: str | None = None
+    ) -> list[TaxCode]:
         """
         List tax codes for an organisation.
         """
         from django.db.models import Q
         queryset = TaxCode.objects.filter(Q(org_id=org_id) | Q(org_id__isnull=True))
-        
+
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active)
-        
+
         if is_gst_charged is not None:
             queryset = queryset.filter(is_gst_charged=is_gst_charged)
-        
+
         if code:
             queryset = queryset.filter(code=code.upper())
-        
+
         if not include_system:
             queryset = queryset.filter(org_id__isnull=False)
-        
+
         return list(queryset.order_by("code"))
-    
+
     @staticmethod
     def get_tax_code(org_id: UUID, tax_code_id: UUID) -> TaxCode:
         """
@@ -137,9 +136,9 @@ class TaxCodeService:
             return TaxCode.objects.get(Q(id=tax_code_id) & (Q(org_id=org_id) | Q(org_id__isnull=True)))
         except TaxCode.DoesNotExist:
             raise ResourceNotFound(f"Tax code {tax_code_id} not found")
-    
+
     @staticmethod
-    def get_tax_code_by_code(org_id: UUID, code: str) -> Optional[TaxCode]:
+    def get_tax_code_by_code(org_id: UUID, code: str) -> TaxCode | None:
         """
         Get tax code by code.
         """
@@ -150,34 +149,34 @@ class TaxCodeService:
             ).first()
         except TaxCode.DoesNotExist:
             return None
-    
+
     @staticmethod
     def create_tax_code(
         org_id: UUID,
         code: str,
         name: str,
-        rate: Optional[Decimal],
+        rate: Decimal | None,
         is_gst_charged: bool,
         description: str = "",
-        f5_supply_box: Optional[int] = None,
-        f5_purchase_box: Optional[int] = None,
-        f5_tax_box: Optional[int] = None,
+        f5_supply_box: int | None = None,
+        f5_purchase_box: int | None = None,
+        f5_tax_box: int | None = None,
         **kwargs
     ) -> TaxCode:
         """
         Create a custom tax code.
         """
         code = code.upper().strip()
-        
+
         if not code:
             raise ValidationError("Tax code is required.")
-        
+
         if code in IRAS_TAX_CODES:
             raise ValidationError(f"Tax code '{code}' is reserved.")
-        
+
         if TaxCode.objects.filter(org_id=org_id, code=code).exists():
             raise DuplicateResource(f"Tax code '{code}' already exists.")
-        
+
         tax_code = TaxCode.objects.create(
             org_id=org_id,
             code=code,
@@ -192,30 +191,30 @@ class TaxCodeService:
             effective_from=date.today(),
             **kwargs
         )
-        
+
         return tax_code
-    
+
     @staticmethod
     def update_tax_code(org_id: UUID, tax_code_id: UUID, **updates) -> TaxCode:
         """
         Update tax code.
         """
         tax_code = TaxCodeService.get_tax_code(org_id, tax_code_id)
-        
+
         # System codes (global) have limited update capability
         if tax_code.org_id is None:
             allowed_fields = {"description", "is_active"}
             for key in updates:
                 if key not in allowed_fields:
                     raise ValidationError(f"Cannot modify '{key}' on system tax codes.")
-        
+
         for key, value in updates.items():
             if hasattr(tax_code, key):
                 setattr(tax_code, key, value)
-        
+
         tax_code.save()
         return tax_code
-    
+
     @staticmethod
     def deactivate_tax_code(org_id: UUID, tax_code_id: UUID) -> TaxCode:
         """
@@ -224,26 +223,26 @@ class TaxCodeService:
         tax_code = TaxCodeService.get_tax_code(org_id, tax_code_id)
         if tax_code.org_id is None:
             raise ValidationError("System tax codes cannot be deactivated.")
-        
+
         tax_code.is_active = False
         tax_code.save()
         return tax_code
-    
+
     @staticmethod
     def validate_tax_code_for_invoice(
         org_id: UUID,
         tax_code_id: UUID,
         amount: Decimal,
         is_bcrs_deposit: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Validate tax code for an invoice line.
         """
         tax_code = TaxCodeService.get_tax_code(org_id, tax_code_id)
-        
+
         if not tax_code.is_active:
             raise ValidationError(f"Tax code '{tax_code.code}' is not active.")
-        
+
         if is_bcrs_deposit:
             return {
                 "valid": True,
@@ -252,14 +251,14 @@ class TaxCodeService:
                 "gst_amount": Decimal("0.0000"),
                 "total_amount": amount,
             }
-        
+
         if tax_code.rate is not None and tax_code.is_gst_charged:
             gst_amount = (amount * tax_code.rate).quantize(Decimal("0.0001"))
             total_amount = amount + gst_amount
         else:
             gst_amount = Decimal("0.0000")
             total_amount = amount
-        
+
         return {
             "valid": True,
             "tax_code": tax_code.code,
@@ -270,9 +269,9 @@ class TaxCodeService:
             "f5_purchase_box": tax_code.f5_purchase_box,
             "f5_tax_box": tax_code.f5_tax_box,
         }
-    
+
     @staticmethod
-    def get_current_gst_rate(org_id: UUID, as_of_date: Optional[date] = None) -> Decimal:
+    def get_current_gst_rate(org_id: UUID, as_of_date: date | None = None) -> Decimal:
         """
         Get current GST rate (SR code).
         """
@@ -280,9 +279,9 @@ class TaxCodeService:
         if sr_code and sr_code.rate is not None:
             return sr_code.rate
         return Decimal("0.0900")
-    
+
     @staticmethod
-    def seed_default_tax_codes(org_id: UUID) -> List[TaxCode]:
+    def seed_default_tax_codes(org_id: UUID) -> list[TaxCode]:
         """
         Seed default IRAS tax codes for a new organisation.
         """
@@ -290,7 +289,7 @@ class TaxCodeService:
         for code, config in IRAS_TAX_CODES.items():
             if TaxCode.objects.filter(org_id=org_id, code=code).exists():
                 continue
-            
+
             tax_code = TaxCode.objects.create(
                 org_id=org_id,
                 code=code,
@@ -309,18 +308,25 @@ class TaxCodeService:
             )
             created.append(tax_code)
         return created
-    
+
     @staticmethod
-    def get_iras_tax_codes_info() -> Dict[str, Any]:
+    def get_iras_tax_codes_info() -> dict[str, Any]:
         """
         Get information about IRAS-defined tax codes.
         """
-        return {
-            code: {
+        info = {}
+        for code, config in IRAS_TAX_CODES.items():
+            entry = {
                 "name": config["name"],
-                "rate": str(config["rate"]),
+                "rate": str(config["rate"].quantize(Decimal("0.01"))),
                 "is_gst_charged": config["is_gst_charged"],
                 "description": config["description"],
             }
-            for code, config in IRAS_TAX_CODES.items()
-        }
+            # F5 box mapping (supply side for output codes, purchase side
+            # for input codes) expressed as the documented box label.
+            if config.get("f5_supply_box"):
+                entry["box_mapping"] = f"box{config['f5_supply_box']}"
+            elif config.get("f5_purchase_box"):
+                entry["box_mapping"] = f"box{config['f5_purchase_box']}"
+            info[code] = entry
+        return info

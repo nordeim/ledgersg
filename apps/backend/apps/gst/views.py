@@ -4,41 +4,35 @@ GST views for LedgerSG.
 Tax code management, GST calculation, and GST return filing.
 """
 
-from typing import Optional
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from apps.core.permissions import IsOrgMember, CanManageCoA, CanFileGST, CanViewReports
-from apps.core.models import TaxCode, GSTReturn
-from common.exceptions import ValidationError, ResourceNotFound
-from common.views import wrap_response
-from common.decimal_utils import money
-
+from apps.core.permissions import CanFileGST, IsOrgMember
+from apps.gst.serializers import (
+    DocumentGSTCalculationSerializer,
+    GSTCalculationRequestSerializer,
+    GSTReturnAmendSerializer,
+    GSTReturnCreateSerializer,
+    GSTReturnDetailSerializer,
+    GSTReturnFileSerializer,
+    GSTReturnListSerializer,
+    GSTReturnPaymentSerializer,
+    TaxCodeCreateSerializer,
+    TaxCodeDetailSerializer,
+    TaxCodeListSerializer,
+    TaxCodeUpdateSerializer,
+)
 from apps.gst.services import (
-    TaxCodeService,
     GSTCalculationService,
     GSTReturnService,
+    TaxCodeService,
 )
-from apps.gst.serializers import (
-    TaxCodeListSerializer,
-    TaxCodeDetailSerializer,
-    TaxCodeCreateSerializer,
-    TaxCodeUpdateSerializer,
-    GSTCalculationRequestSerializer,
-    GSTCalculationResponseSerializer,
-    DocumentGSTCalculationSerializer,
-    DocumentGSTSummarySerializer,
-    GSTReturnListSerializer,
-    GSTReturnDetailSerializer,
-    GSTReturnCreateSerializer,
-    GSTReturnFileSerializer,
-    GSTReturnAmendSerializer,
-    GSTReturnPaymentSerializer,
-)
+from common.decimal_utils import money
+from common.views import wrap_response
 
 
 class TaxCodeListCreateView(APIView):
@@ -63,7 +57,6 @@ class TaxCodeListCreateView(APIView):
         if is_gst_charged is not None:
             is_gst_charged = is_gst_charged.lower() == "true"
 
-        from uuid import UUID
 
         tax_codes = TaxCodeService.list_tax_codes(
             org_id=org_id,
@@ -85,7 +78,6 @@ class TaxCodeListCreateView(APIView):
         serializer = TaxCodeCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        from uuid import UUID
         from decimal import Decimal
 
         data = serializer.validated_data
@@ -181,7 +173,7 @@ class TaxCodeIrasInfoView(APIView):
     permission_classes = [IsAuthenticated]
 
     @wrap_response
-    def get(self, request) -> Response:
+    def get(self, request, org_id: str) -> Response:
         """Get IRAS tax code definitions."""
         info = TaxCodeService.get_iras_tax_codes_info()
         return Response({"data": info, "count": len(info)})
@@ -196,7 +188,7 @@ class GSTCalculateView(APIView):
     permission_classes = [IsAuthenticated]
 
     @wrap_response
-    def post(self, request) -> Response:
+    def post(self, request, org_id: str) -> Response:
         """Calculate GST for a line."""
         serializer = GSTCalculationRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -210,7 +202,7 @@ class GSTCalculateView(APIView):
             from uuid import UUID
 
             tax_code = TaxCodeService.get_tax_code_by_code(
-                UUID(request.data.get("org_id", "00000000-0000-0000-0000-000000000000")),
+                UUID(org_id),
                 str(data["tax_code_id"]),  # Actually expects code, not ID
             )
             rate = tax_code.rate if tax_code else Decimal("0.09")
@@ -223,11 +215,13 @@ class GSTCalculateView(APIView):
             amount=amount, rate=rate, is_bcrs_deposit=is_bcrs
         )
 
+        # IRAS display convention: monetary amounts at 2 decimal places
+        two_dp = Decimal("0.01")
         return Response(
             {
-                "net_amount": str(result["net_amount"]),
-                "gst_amount": str(result["gst_amount"]),
-                "total_amount": str(result["total_amount"]),
+                "net_amount": str(result["net_amount"].quantize(two_dp)),
+                "gst_amount": str(result["gst_amount"].quantize(two_dp)),
+                "total_amount": str(result["total_amount"].quantize(two_dp)),
                 "rate": str(rate) if rate else "0.00",
                 "is_bcrs_exempt": result["is_bcrs_exempt"],
             }
@@ -243,7 +237,7 @@ class GSTCalculateDocumentView(APIView):
     permission_classes = [IsAuthenticated]
 
     @wrap_response
-    def post(self, request) -> Response:
+    def post(self, request, org_id: str) -> Response:
         """Calculate GST for a document."""
         serializer = DocumentGSTCalculationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -278,7 +272,6 @@ class GSTReturnListCreateView(APIView):
         if year:
             year = int(year)
 
-        from uuid import UUID
 
         returns = GSTReturnService.list_returns(org_id=org_id, status=status_filter, year=year)
 
@@ -288,8 +281,6 @@ class GSTReturnListCreateView(APIView):
     @wrap_response
     def post(self, request, org_id: str) -> Response:
         """Create GST return periods."""
-        from datetime import date
-        from uuid import UUID
 
         serializer = GSTReturnCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -305,6 +296,7 @@ class GSTReturnListCreateView(APIView):
         return Response(
             {
                 "message": f"Created {len(created)} return periods",
+                "count": len(created),
                 "data": GSTReturnListSerializer(created, many=True).data,
             },
             status=status.HTTP_201_CREATED,
@@ -353,8 +345,8 @@ class GSTReturnFileView(APIView):
     @wrap_response
     def post(self, request, org_id: str, return_id: str) -> Response:
         """File GST return."""
-        from uuid import UUID
         from decimal import Decimal
+        from uuid import UUID
 
         serializer = GSTReturnFileSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -419,8 +411,8 @@ class GSTReturnPayView(APIView):
     @wrap_response
     def post(self, request, org_id: str, return_id: str) -> Response:
         """Record GST payment."""
-        from uuid import UUID
         from decimal import Decimal
+        from uuid import UUID
 
         serializer = GSTReturnPaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -451,7 +443,6 @@ class GSTReturnDeadlinesView(APIView):
     @wrap_response
     def get(self, request, org_id: str) -> Response:
         """Get upcoming deadlines."""
-        from uuid import UUID
 
         days = int(request.query_params.get("days", 30))
 

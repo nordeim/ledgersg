@@ -12,15 +12,15 @@ from rest_framework import status
 @pytest.mark.django_db
 def test_gst_standard_rated_calculation(auth_client, test_organisation, test_tax_codes):
     """Test standard-rated (9%) GST calculation."""
-    url = "/api/v1/gst/calculate/"
-    
+    url = f"/api/v1/{test_organisation.id}/gst/calculate/"
+
     response = auth_client.post(url, {
         "org_id": str(test_organisation.id),
         "amount": "100.00",
         "rate": "0.09",
         "is_bcrs_deposit": False
     }, format="json")
-    
+
     assert response.status_code == status.HTTP_200_OK
     assert response.data["net_amount"] == "100.00"
     assert response.data["gst_amount"] == "9.00"  # 9% of 100
@@ -31,15 +31,15 @@ def test_gst_standard_rated_calculation(auth_client, test_organisation, test_tax
 @pytest.mark.django_db
 def test_gst_zero_rated_calculation(auth_client, test_organisation, test_tax_codes):
     """Test zero-rated (0%) GST calculation."""
-    url = "/api/v1/gst/calculate/"
-    
+    url = f"/api/v1/{test_organisation.id}/gst/calculate/"
+
     response = auth_client.post(url, {
         "org_id": str(test_organisation.id),
         "amount": "1000.00",
         "rate": "0.00",
         "is_bcrs_deposit": False
     }, format="json")
-    
+
     assert response.status_code == status.HTTP_200_OK
     assert response.data["net_amount"] == "1000.00"
     assert response.data["gst_amount"] == "0.00"
@@ -49,8 +49,8 @@ def test_gst_zero_rated_calculation(auth_client, test_organisation, test_tax_cod
 @pytest.mark.django_db
 def test_gst_bcrs_exemption(auth_client, test_organisation, test_tax_codes):
     """Test BCRS deposit GST exemption (Singapore-specific)."""
-    url = "/api/v1/gst/calculate/"
-    
+    url = f"/api/v1/{test_organisation.id}/gst/calculate/"
+
     # Even with 9% rate, BCRS should have 0 GST
     response = auth_client.post(url, {
         "org_id": str(test_organisation.id),
@@ -58,7 +58,7 @@ def test_gst_bcrs_exemption(auth_client, test_organisation, test_tax_codes):
         "rate": "0.09",
         "is_bcrs_deposit": True
     }, format="json")
-    
+
     assert response.status_code == status.HTTP_200_OK
     assert response.data["net_amount"] == "0.10"
     assert response.data["gst_amount"] == "0.00"  # No GST on BCRS
@@ -68,8 +68,8 @@ def test_gst_bcrs_exemption(auth_client, test_organisation, test_tax_codes):
 @pytest.mark.django_db
 def test_gst_document_calculation(auth_client, test_organisation, test_tax_codes):
     """Test multi-line document GST calculation."""
-    url = "/api/v1/gst/calculate/document/"
-    
+    url = f"/api/v1/{test_organisation.id}/gst/calculate/document/"
+
     response = auth_client.post(url, {
         "lines": [
             {
@@ -90,9 +90,9 @@ def test_gst_document_calculation(auth_client, test_organisation, test_tax_codes
         ],
         "default_rate": "0.09"
     }, format="json")
-    
+
     assert response.status_code == status.HTTP_200_OK
-    
+
     # Verify summary
     summary = response.data["summary"]
     assert summary["total_net"] == "150.10"  # 100 + 50 + 0.10
@@ -105,8 +105,8 @@ def test_gst_document_calculation(auth_client, test_organisation, test_tax_codes
 @pytest.mark.django_db
 def test_gst_precision_rounding(auth_client, test_organisation, test_tax_codes):
     """Test GST rounding to 2 decimal places (IRAS standard)."""
-    url = "/api/v1/gst/calculate/"
-    
+    url = f"/api/v1/{test_organisation.id}/gst/calculate/"
+
     # Amount that produces fractional GST
     response = auth_client.post(url, {
         "org_id": str(test_organisation.id),
@@ -114,7 +114,7 @@ def test_gst_precision_rounding(auth_client, test_organisation, test_tax_codes):
         "rate": "0.09",
         "is_bcrs_deposit": False
     }, format="json")
-    
+
     assert response.status_code == status.HTTP_200_OK
     # Should round to 2 decimal places
     gst = Decimal(response.data["gst_amount"])
@@ -122,15 +122,15 @@ def test_gst_precision_rounding(auth_client, test_organisation, test_tax_codes):
 
 
 @pytest.mark.django_db
-def test_gst_tax_code_info(auth_client):
+def test_gst_tax_code_info(auth_client, test_organisation):
     """Test getting IRAS tax code information."""
-    url = "/api/v1/gst/tax-codes/iras-info/"
-    
+    url = f"/api/v1/{test_organisation.id}/gst/tax-codes/iras-info/"
+
     response = auth_client.get(url)
-    
+
     assert response.status_code == status.HTTP_200_OK
     assert "data" in response.data
-    
+
     # Should have SR code info
     codes = response.data["data"]
     assert "SR" in codes
@@ -142,7 +142,7 @@ def test_gst_tax_code_info(auth_client):
 def test_gst_iras_compliance_validation(auth_client, test_organisation):
     """Test IRAS compliance validation."""
     from apps.gst.services import GSTCalculationService
-    
+
     # Test IRAS example calculations
     test_cases = [
         # (amount, rate, expected_gst)
@@ -150,14 +150,14 @@ def test_gst_iras_compliance_validation(auth_client, test_organisation):
         (Decimal("50.00"), Decimal("0.09"), Decimal("4.50")),
         (Decimal("10.00"), Decimal("0.09"), Decimal("0.90")),
     ]
-    
+
     for amount, rate, expected_gst in test_cases:
         result = GSTCalculationService.calculate_line_gst(
             amount=amount,
             rate=rate,
             is_bcrs_deposit=False
         )
-        
+
         assert result["gst_amount"] == expected_gst, \
             f"GST for {amount} @ {rate} should be {expected_gst}, got {result['gst_amount']}"
 
@@ -167,7 +167,7 @@ def test_gst_f5_generation(auth_client, test_organisation, test_fiscal_period, t
     """Test F5 form generation."""
     from apps.core.models import GSTReturn
     from apps.gst.services import GSTReturnService
-    
+
     # Create a GST return period - using correct field names per model
     gst_return = GSTReturn.objects.create(
         org=test_organisation,
@@ -177,11 +177,11 @@ def test_gst_f5_generation(auth_client, test_organisation, test_fiscal_period, t
         filing_due_date=test_fiscal_period.end_date,
         status="DRAFT",
     )
-    
+
     # Generate F5
     url = f"/api/v1/{test_organisation.id}/gst/returns/{gst_return.id}/"
     response = auth_client.post(url, {}, format="json")
-    
+
     # Should succeed (even if empty, no invoices yet)
     assert response.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
 
@@ -190,13 +190,13 @@ def test_gst_f5_generation(auth_client, test_organisation, test_fiscal_period, t
 def test_gst_create_return_periods(auth_client, test_organisation):
     """Test creating GST return periods."""
     url = f"/api/v1/{test_organisation.id}/gst/returns/"
-    
+
     response = auth_client.post(url, {
         "filing_frequency": "MONTHLY",
         "start_date": "2024-01-01",
         "periods": 3
     }, format="json")
-    
+
     assert response.status_code == status.HTTP_201_CREATED
     assert response.data["count"] == 3
 
@@ -205,7 +205,7 @@ def test_gst_create_return_periods(auth_client, test_organisation):
 def test_gst_deadlines(auth_client, test_organisation, test_fiscal_period):
     """Test upcoming GST filing deadlines."""
     from apps.core.models import GSTReturn
-    
+
     # Create a return with upcoming deadline - using correct field names
     GSTReturn.objects.create(
         org=test_organisation,
@@ -215,9 +215,9 @@ def test_gst_deadlines(auth_client, test_organisation, test_fiscal_period):
         filing_due_date=test_fiscal_period.end_date,
         status="DRAFT",
     )
-    
+
     url = f"/api/v1/{test_organisation.id}/gst/returns/deadlines/"
     response = auth_client.get(url)
-    
+
     assert response.status_code == status.HTTP_200_OK
     assert "data" in response.data

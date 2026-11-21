@@ -8,8 +8,8 @@ Handles all GST calculations including:
 - Rounding per IRAS standards
 """
 
-from typing import Optional, List, Dict, Any, Tuple
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
 from uuid import UUID
 
 from common.decimal_utils import money
@@ -17,17 +17,17 @@ from common.decimal_utils import money
 
 class GSTCalculationService:
     """Service class for GST calculations."""
-    
+
     # Singapore GST rate
     DEFAULT_GST_RATE = Decimal("0.09")  # 9%
-    
+
     @staticmethod
     def calculate_line_gst(
         amount: Decimal,
         rate: Decimal,
         is_bcrs_deposit: bool = False,
         rounding: int = 2
-    ) -> Dict[str, Decimal]:
+    ) -> dict[str, Decimal]:
         """
         Calculate GST for a single line item.
         
@@ -45,7 +45,7 @@ class GSTCalculationService:
             Dictionary with gst_amount, total_amount, net_amount
         """
         amount = money(amount)
-        
+
         # BCRS deposits are GST exempt
         if is_bcrs_deposit:
             return {
@@ -54,7 +54,7 @@ class GSTCalculationService:
                 "total_amount": amount,
                 "is_bcrs_exempt": True,
             }
-        
+
         # Calculate GST
         if rate and rate > 0:
             gst_amount = (amount * rate).quantize(
@@ -63,21 +63,21 @@ class GSTCalculationService:
             )
         else:
             gst_amount = Decimal("0.00")
-        
+
         total_amount = amount + gst_amount
-        
+
         return {
             "net_amount": amount,
             "gst_amount": gst_amount,
             "total_amount": total_amount,
             "is_bcrs_exempt": False,
         }
-    
+
     @staticmethod
     def calculate_document_gst(
-        lines: List[Dict[str, Any]],
+        lines: list[dict[str, Any]],
         default_rate: Decimal = DEFAULT_GST_RATE
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Calculate GST for a document with multiple lines.
         
@@ -95,20 +95,20 @@ class GSTCalculationService:
         total_gst = Decimal("0.00")
         total_amount = Decimal("0.00")
         bcrs_total = Decimal("0.00")
-        
+
         line_results = []
-        
+
         for line in lines:
             amount = money(line.get("amount", 0))
             rate = Decimal(str(line.get("rate", default_rate)))
             is_bcrs = line.get("is_bcrs_deposit", False)
-            
+
             result = GSTCalculationService.calculate_line_gst(
                 amount=amount,
                 rate=rate,
                 is_bcrs_deposit=is_bcrs
             )
-            
+
             line_results.append({
                 "line_id": line.get("id"),
                 "net_amount": str(result["net_amount"]),
@@ -116,14 +116,14 @@ class GSTCalculationService:
                 "total_amount": str(result["total_amount"]),
                 "is_bcrs_exempt": result["is_bcrs_exempt"],
             })
-            
+
             total_net += result["net_amount"]
             total_gst += result["gst_amount"]
             total_amount += result["total_amount"]
-            
+
             if result["is_bcrs_exempt"]:
                 bcrs_total += result["net_amount"]
-        
+
         return {
             "lines": line_results,
             "summary": {
@@ -134,12 +134,12 @@ class GSTCalculationService:
                 "taxable_amount": str((total_net - bcrs_total).quantize(Decimal("0.01"))),
             }
         }
-    
+
     @staticmethod
     def calculate_tax_inclusive_gst(
         total_amount: Decimal,
         rate: Decimal = DEFAULT_GST_RATE
-    ) -> Dict[str, Decimal]:
+    ) -> dict[str, Decimal]:
         """
         Calculate GST from a tax-inclusive amount.
         
@@ -155,28 +155,28 @@ class GSTCalculationService:
             Dictionary with net_amount, gst_amount, total_amount
         """
         total_amount = money(total_amount)
-        
+
         if rate <= 0:
             return {
                 "net_amount": total_amount,
                 "gst_amount": Decimal("0.00"),
                 "total_amount": total_amount,
             }
-        
+
         # Calculate net amount
         net_amount = (total_amount / (1 + rate)).quantize(
             Decimal("0.01"),
             rounding=ROUND_HALF_UP
         )
-        
+
         gst_amount = total_amount - net_amount
-        
+
         return {
             "net_amount": net_amount,
             "gst_amount": gst_amount.quantize(Decimal("0.01")),
             "total_amount": total_amount,
         }
-    
+
     @staticmethod
     def validate_gst_precision(
         calculated_gst: Decimal,
@@ -198,108 +198,118 @@ class GSTCalculationService:
         """
         diff = abs(calculated_gst - expected_gst)
         return diff <= tolerance
-    
+
     @staticmethod
     def get_f5_box_amounts(
         org_id: UUID,
         period_start: str,
         period_end: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Calculate F5 form box amounts for a period.
-        
-        This queries the database for aggregated amounts by tax code.
-        
+
+        Aggregates posted documents against the tax codes' IRAS F5 box
+        mapping columns (f5_supply_box / f5_purchase_box / f5_tax_box),
+        honouring is_claimable for input tax and is_reverse_charge for Box 14.
+
+        Box convention (matches gst.return columns, the DB CHECK constraints
+        and IRAS):
+            Box 1 = standard-rated supplies      Box 6 = output tax due
+            Box 2 = zero-rated supplies          Box 7 = input tax claimed
+            Box 3 = exempt supplies              Box 8 = Box 6 - Box 7
+            Box 4 = Box 1 + Box 2 + Box 3       Box 13 = total revenue
+            Box 5 = total taxable purchases      Box 14 = reverse charge
+
         Args:
             org_id: Organisation ID
             period_start: Period start date (YYYY-MM-DD)
             period_end: Period end date (YYYY-MM-DD)
-            
+
         Returns:
             F5 box amounts dictionary
         """
         from django.db import connection
-        
+
+        # One query over document lines joined to their documents and tax
+        # codes. Sales documents feed the supply/output side; purchase
+        # documents feed the purchase/input side. VOID and DRAFT documents
+        # are excluded; BCRS deposit lines are out of scope for GST.
+        query = """
+            SELECT
+                tc.f5_supply_box,
+                tc.f5_purchase_box,
+                tc.f5_tax_box,
+                tc.is_claimable,
+                tc.is_reverse_charge,
+                CASE WHEN d.document_type::text LIKE 'PURCHASE%%' THEN 'PURCHASE' ELSE 'SALES' END AS side,
+                SUM(dl.line_amount) AS total_amount,
+                SUM(dl.gst_amount) AS total_gst
+            FROM invoicing.document_line dl
+            JOIN invoicing.document d ON d.id = dl.document_id
+            JOIN gst.tax_code tc ON tc.id = dl.tax_code_id
+            WHERE d.org_id = %s
+                AND d.document_date BETWEEN %s AND %s
+                AND d.status IN ('APPROVED', 'SENT', 'PARTIALLY_PAID', 'PAID', 'OVERDUE')
+                AND COALESCE(dl.is_bcrs_deposit, FALSE) = FALSE
+            GROUP BY 1, 2, 3, 4, 5, 6
+        """
+
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT 
-                    tc.code as tax_code,
-                    tc.box_mapping,
-                    SUM(il.amount) as total_amount,
-                    SUM(il.gst_amount) as total_gst,
-                    COUNT(*) as line_count
-                FROM invoicing.invoice_line il
-                JOIN invoicing.invoice i ON i.id = il.invoice_id
-                JOIN gst.tax_code tc ON tc.id = il.tax_code_id
-                WHERE i.org_id = %s
-                    AND i.document_date BETWEEN %s AND %s
-                    AND i.status IN ('APPROVED', 'SENT', 'PAID_PARTIAL', 'PAID')
-                    AND NOT il.is_voided
-                GROUP BY tc.code, tc.box_mapping
-                """,
-                [str(org_id), period_start, period_end]
-            )
-            
-            results = cursor.fetchall()
-        
-        # Initialize all boxes
+            cursor.execute(query, [str(org_id), period_start, period_end])
+            rows = cursor.fetchall()
+
         boxes = {
-            # Output tax boxes
-            "box1": Decimal("0.00"),  # Standard-rated supplies
-            "box2": Decimal("0.00"),  # Zero-rated supplies
-            "box3": Decimal("0.00"),  # Exempt supplies
-            "box4": Decimal("0.00"),  # Total supplies (1+2+3)
-            "box5": Decimal("0.00"),  # Output tax due
-            
-            # Input tax boxes
-            "box6": Decimal("0.00"),  # Taxable purchases
-            "box7": Decimal("0.00"),  # Input tax claims
-            "box8": Decimal("0.00"),  # Net GST (5-7)
-            
-            # Additional boxes
-            "box9": Decimal("0.00"),  # Goods imported
-            "box10": Decimal("0.00"),  # GST on imports under MG/IGDS
-            "box11": Decimal("0.00"),  # Service imports (reverse charge)
-            "box12": Decimal("0.00"),  # Output tax on reverse charge
-            "box13": Decimal("0.00"),  # Revenue
-            "box14": Decimal("0.00"),  # Exempt supplies (repeat)
+            "box1": Decimal("0.00"),
+            "box2": Decimal("0.00"),
+            "box3": Decimal("0.00"),
+            "box4": Decimal("0.00"),
+            "box5": Decimal("0.00"),
+            "box6": Decimal("0.00"),
+            "box7": Decimal("0.00"),
+            "box8": Decimal("0.00"),
+            "box13": Decimal("0.00"),
+            "box14": Decimal("0.00"),
         }
-        
-        # Aggregate by box mapping
-        for row in results:
-            tax_code, box_mapping, amount, gst_amount, count = row
+
+        for (
+            supply_box,
+            purchase_box,
+            tax_box,
+            is_claimable,
+            is_reverse_charge,
+            side,
+            amount,
+            gst_amount,
+        ) in rows:
             amount = Decimal(str(amount or 0))
             gst_amount = Decimal(str(gst_amount or 0))
-            
-            if box_mapping and box_mapping in boxes:
-                if tax_code in ["SR", "ME"]:
-                    # Standard-rated: add to Box 1 and Box 5
-                    boxes["box1"] += amount
-                    boxes["box5"] += gst_amount
+
+            if side == "SALES":
+                # Supplies feed Boxes 1/2/3 (net amounts, excluding GST)
+                if supply_box in (1, 2, 3):
+                    boxes[f"box{supply_box}"] += amount
                     boxes["box13"] += amount
-                elif tax_code == "ZR":
-                    # Zero-rated: Box 2
-                    boxes["box2"] += amount
-                    boxes["box13"] += amount
-                elif tax_code == "ES":
-                    # Exempt: Box 3 and 14
-                    boxes["box3"] += amount
-                    boxes["box14"] += amount
-                    boxes["box13"] += amount
-                elif tax_code == "IM":
-                    # Import: Box 9
-                    boxes["box9"] += amount
-                elif tax_code == "TX-E33":
-                    # Purchase with GST: Box 6 and 7
-                    boxes["box6"] += amount
+                # Output tax feeds Box 6 via the tax-box mapping
+                if tax_box == 6:
+                    boxes["box6"] += gst_amount
+            else:
+                # Purchases feed Box 5 (total taxable purchases)
+                if purchase_box == 5:
+                    boxes["box5"] += amount
+                # Input tax feeds Box 7 only when claimable (IRAS: blocked
+                # and denied input tax — is_claimable = FALSE — never enters
+                # Box 7 even though the purchase itself counts in Box 5)
+                if tax_box == 7 and is_claimable:
                     boxes["box7"] += gst_amount
-        
-        # Calculate derived boxes
+                # Reverse charge supplies (Box 14)
+                if is_reverse_charge:
+                    boxes["box14"] += amount
+
+        # Derived boxes — the DB CHECKs (chk_box4_total, chk_box8_net)
+        # enforce these identities for anything above DRAFT status.
         boxes["box4"] = boxes["box1"] + boxes["box2"] + boxes["box3"]
-        boxes["box8"] = boxes["box5"] - boxes["box7"]
-        
-        # Format for output
+        boxes["box8"] = boxes["box6"] - boxes["box7"]
+
         return {
             box: str(value.quantize(Decimal("0.01")))
             for box, value in boxes.items()
@@ -310,7 +320,7 @@ def calculate_gst_summary(
     net_amount: Decimal,
     gst_rate: Decimal = GSTCalculationService.DEFAULT_GST_RATE,
     is_bcrs_deposit: bool = False
-) -> Tuple[Decimal, Decimal, Decimal]:
+) -> tuple[Decimal, Decimal, Decimal]:
     """
     Convenience function for GST calculation.
     
@@ -327,7 +337,7 @@ def calculate_gst_summary(
         rate=gst_rate,
         is_bcrs_deposit=is_bcrs_deposit
     )
-    
+
     return (
         result["net_amount"],
         result["gst_amount"],
