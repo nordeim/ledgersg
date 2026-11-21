@@ -41,13 +41,14 @@ export function clearAuth() {
   accessToken = null;
 }
 
-// Base request function
-async function request<T>(
+// Base request function: fetch + 401 refresh/retry, returns the raw Response
+// (single auth path for JSON requests AND binary downloads — P3/D-2).
+async function fetchWithAuth(
   endpoint: string,
   options: RequestInit = {}
-): Promise<T> {
+): Promise<Response> {
   const url = `${API_BASE_URL}${endpoint}`;
-  
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -71,12 +72,11 @@ async function request<T>(
     if (refreshed) {
       // Retry the original request with new token
       headers["Authorization"] = `Bearer ${accessToken}`;
-      const retryResponse = await fetch(url, {
+      return fetch(url, {
         ...options,
         headers,
         credentials: "include",
       });
-      return handleResponse<T>(retryResponse);
     } else {
       // Refresh failed, clear auth
       clearAuth();
@@ -85,6 +85,14 @@ async function request<T>(
     }
   }
 
+  return response;
+}
+
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetchWithAuth(endpoint, options);
   return handleResponse<T>(response);
 }
 
@@ -173,6 +181,24 @@ export const api = {
       body: JSON.stringify(data),
     }),
   delete: <T>(endpoint: string) => request<T>(endpoint, { method: "DELETE" }),
+  /**
+   * Authorized binary download (PDF, CSV, …) — same in-memory token and
+   * 401-refresh path as the JSON helpers. Never reads tokens from
+   * localStorage (zero-JWT-exposure mandate — P3/D-2).
+   */
+  blob: async (endpoint: string): Promise<Blob> => {
+    const response = await fetchWithAuth(endpoint, { method: "GET" });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(
+        response.status,
+        (errorData as { message?: string; detail?: string }).message ||
+          (errorData as { detail?: string }).detail ||
+          `Download failed: ${response.statusText}`
+      );
+    }
+    return response.blob();
+  },
 };
 
 // API Endpoints
@@ -244,6 +270,13 @@ export const endpoints = {
     list: `/api/v1/${orgId}/accounts/`,
     detail: (id: string) => `/api/v1/${orgId}/accounts/${id}/`,
     types: `/api/v1/${orgId}/accounts/types/`,
+  }),
+
+  // GST (org-scoped) — tax codes support ?effective_on=YYYY-MM-DD (P2) to
+  // return the rate rows in force on a document date (P3/D-3 wiring).
+  gst: (orgId: string) => ({
+    taxCodes: `/api/v1/${orgId}/gst/tax-codes/`,
+    calculate: `/api/v1/${orgId}/gst/calculate/`,
   }),
 
   // Fiscal (org-scoped)

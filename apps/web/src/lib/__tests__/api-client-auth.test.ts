@@ -308,3 +308,68 @@ describe("Token Refresh - Issue #1", () => {
     });
   });
 });
+
+describe("api.blob — authorized binary downloads (P3/D-2)", () => {
+  beforeEach(() => {
+    clearAuth();
+    vi.resetAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("attaches the in-memory bearer token and returns the blob", async () => {
+    const blob = new Blob(["%PDF-1.4 fake"], { type: "application/pdf" });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      blob: vi.fn().mockResolvedValue(blob),
+    });
+
+    setAccessToken("memory-token");
+    const result = await api.blob("/api/v1/org/documents/doc-1/pdf/");
+
+    expect(result).toBe(blob);
+    const [url, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toContain("/pdf/");
+    expect((init as RequestInit).headers).toMatchObject({
+      Authorization: "Bearer memory-token",
+    });
+  });
+
+  it("refreshes and retries once on 401 (same auth path as JSON requests)", async () => {
+    const blob = new Blob(["%PDF retry"], { type: "application/pdf" });
+    const responses = [
+      { ok: false, status: 401, json: vi.fn().mockResolvedValue({}) },
+      // refresh response
+      { ok: true, json: vi.fn().mockResolvedValue({ tokens: { access: "fresh" } }) },
+      // retried download
+      { ok: true, status: 200, blob: vi.fn().mockResolvedValue(blob) },
+    ];
+    let i = 0;
+    global.fetch = vi.fn().mockImplementation(() => Promise.resolve(responses[i++]));
+
+    setAccessToken("expired-token");
+    const result = await api.blob("/api/v1/org/documents/doc-2/pdf/");
+
+    expect(result).toBe(blob);
+    expect(getAccessToken()).toBe("fresh");
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("throws ApiError with the status on non-OK responses", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      json: vi.fn().mockResolvedValue({ detail: "No such document" }),
+    });
+
+    setAccessToken("memory-token");
+    await expect(api.blob("/api/v1/org/documents/nope/pdf/")).rejects.toMatchObject({
+      status: 404,
+      name: "ApiError",
+    });
+  });
+});
