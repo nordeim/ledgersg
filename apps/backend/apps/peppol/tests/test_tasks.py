@@ -19,11 +19,13 @@ class TestTransmitPeppolInvoiceTask:
         assert transmit_peppol_invoice_task is not None
 
     def test_transmit_task_calls_service(self):
-        """Test that task calls TransmissionService.transmit_invoice."""
+        """Test that task executes against the pre-created log (P5/C-2 seam)."""
         from apps.peppol.tasks import transmit_peppol_invoice_task
         from apps.peppol.services.transmission_service import TransmissionService
 
-        with patch.object(TransmissionService, "transmit_invoice") as mock_transmit:
+        with patch.object(
+            TransmissionService, "execute_transmission_for_log"
+        ) as mock_execute:
             log_id = str(uuid4())
             org_id = str(uuid4())
 
@@ -35,26 +37,31 @@ class TestTransmitPeppolInvoiceTask:
             mock_log.status = "DELIVERED"
             mock_log.peppol_message_id = "msg-123"
 
-            mock_transmit.return_value = mock_log
+            mock_execute.return_value = mock_log
 
             # Execute task (synchronously for testing)
             result = transmit_peppol_invoice_task(log_id, org_id)
 
-            # Verify service was called
-            mock_transmit.assert_called_once_with(log_id, org_id)
+            # Verify the service seam was driven with the LOG id (the old
+            # wiring passed it to transmit_invoice() which expects an
+            # INVOICE id and can never succeed)
+            mock_execute.assert_called_once_with(log_id)
+            assert result["success"] is True
 
     def test_transmit_task_success_updates_log(self):
         """Test successful transmission updates log to DELIVERED."""
         from apps.peppol.tasks import transmit_peppol_invoice_task
         from apps.peppol.services.transmission_service import TransmissionService
 
-        with patch.object(TransmissionService, "transmit_invoice") as mock_transmit:
+        with patch.object(
+            TransmissionService, "execute_transmission_for_log"
+        ) as mock_execute:
             log_id = str(uuid4())
             org_id = str(uuid4())
 
             mock_log = Mock()
             mock_log.status = "DELIVERED"
-            mock_transmit.return_value = mock_log
+            mock_execute.return_value = mock_log
 
             result = transmit_peppol_invoice_task(log_id, org_id)
 
@@ -66,12 +73,14 @@ class TestTransmitPeppolInvoiceTask:
         from apps.peppol.tasks import transmit_peppol_invoice_task
         from apps.peppol.services.transmission_service import TransmissionService
 
-        with patch.object(TransmissionService, "transmit_invoice") as mock_transmit:
+        with patch.object(
+            TransmissionService, "execute_transmission_for_log"
+        ) as mock_execute:
             log_id = str(uuid4())
             org_id = str(uuid4())
 
             # Simulate failure
-            mock_transmit.side_effect = Exception("Network error")
+            mock_execute.side_effect = Exception("Network error")
 
             # Task should raise exception for retry
             with pytest.raises(Exception):
@@ -113,14 +122,12 @@ class TestCheckTransmissionStatusTask:
 
         assert check_transmission_status_task is not None
 
+    @pytest.mark.django_db
     def test_status_check_task_returns_result(self):
-        """Test that status check task returns transmission result."""
+        """Unknown message id -> None (the documented contract, P5/C-2)."""
         from apps.peppol.tasks import check_transmission_status_task
 
-        message_id = "msg-123"
+        result = check_transmission_status_task(str(uuid4()))
 
-        # Task should be callable
-        result = check_transmission_status_task(message_id)
-
-        # Result can be None or a result object
-        assert result is not None or result is None
+        # No log matches this message id
+        assert result is None

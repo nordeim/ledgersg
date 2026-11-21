@@ -778,18 +778,30 @@ class DocumentService:
         """
         Queue document for InvoiceNow (Peppol) transmission.
 
+        Creates a real PeppolTransmissionLog row and queues the Celery task
+        (retry-backed, non-blocking) — the same execution path the approval
+        auto-transmit flow uses (P5/C-2: this was a TODO stub returning
+        fabricated uuid4s and never touching the transmission pipeline).
+
         Args:
             org_id: Organisation ID
             document_id: Document ID
             user: User initiating transmission
 
         Returns:
-            Dictionary with transmission status and log ID
+            Dictionary with transmission status and the REAL log id
 
         Raises:
             ResourceNotFound: If document doesn't exist
-            ValidationError: If document is not approved or customer has no Peppol ID
+            ValidationError: If document is not approved, customer has no
+                Peppol ID, or the organisation has no Peppol configuration
         """
+        from apps.peppol.models import (
+            OrganisationPeppolSettings,
+            PeppolTransmissionLog,
+        )
+        from apps.peppol.tasks import transmit_peppol_invoice_task
+
         document = InvoiceDocument.objects.get(id=document_id, org_id=org_id)
 
         if document.status != "APPROVED":
@@ -804,14 +816,30 @@ class DocumentService:
                 f"Contact '{document.contact.name}' does not have a Peppol ID configured."
             )
 
-        # TODO: Implement actual Peppol transmission
-        # For now, return placeholder data
-        transmission_log_id = str(uuid4())
+        # Organisation must be configured for Peppol before anything is queued
+        settings = OrganisationPeppolSettings.objects.filter(org_id=org_id).first()
+        if not settings or not settings.is_configured:
+            raise ValidationError(
+                "InvoiceNow is not configured for this organisation. "
+                "Configure an access point (Peppol settings) before transmitting."
+            )
+
+        log = PeppolTransmissionLog.objects.create(
+            org_id=org_id,
+            document_id=document.id,
+            status="PENDING",
+            access_point_provider=settings.access_point_provider,
+            attempt_number=1,
+        )
+
+        task = transmit_peppol_invoice_task.delay(str(log.id), str(org_id))
+
         return {
             "document_id": str(document_id),
             "status": "QUEUED",
-            "message_id": str(uuid4()),
-            "transmission_log_id": transmission_log_id,
+            "message_id": None,  # assigned by the access point when it answers
+            "transmission_log_id": str(log.id),
+            "task_id": task.id if task else None,
             "queued_at": timezone.now().isoformat(),
             "message": "Invoice queued for InvoiceNow transmission",
         }
@@ -821,28 +849,81 @@ class DocumentService:
         """
         Get InvoiceNow transmission status.
 
+        Reports the REAL PeppolTransmissionLog rows for the document
+        (P5/C-2: this was a stub always answering NOT_APPLICABLE).
+
         Args:
             org_id: Organisation ID
             document_id: Document ID
 
         Returns:
-            Dictionary with transmission status and logs
+            Dictionary with the latest status and the full log history
 
         Raises:
             ResourceNotFound: If document doesn't exist
         """
+        from apps.peppol.models import (
+            OrganisationPeppolSettings,
+            PeppolTransmissionLog,
+        )
+
         document = InvoiceDocument.objects.get(id=document_id, org_id=org_id)
 
-        # TODO: Implement actual Peppol status retrieval
-        # For now, return placeholder data
+        logs = (
+            PeppolTransmissionLog.objects.filter(
+                org_id=org_id, document_id=document.id
+            )
+            .order_by("-transmitted_at", "-id")
+        )
+
+        settings = OrganisationPeppolSettings.objects.filter(org_id=org_id).first()
+        if not settings or not settings.is_configured:
+            return {
+                "document_id": str(document_id),
+                "status": "NOT_CONFIGURED",
+                "message_id": None,
+                "transmitted_at": None,
+                "delivered_at": None,
+                "logs": [],
+                "message": (
+                    "InvoiceNow is not configured for this organisation. "
+                    "Configure an access point (Peppol settings) first."
+                ),
+            }
+
+        if not logs.exists():
+            return {
+                "document_id": str(document_id),
+                "status": "NOT_TRANSMITTED",
+                "message_id": None,
+                "transmitted_at": None,
+                "delivered_at": None,
+                "logs": [],
+                "message": "This document has not been transmitted via InvoiceNow.",
+            }
+
+        latest = logs.first()
+
+        def _iso(value):
+            return value.isoformat() if value else None
+
         return {
             "document_id": str(document_id),
-            "status": "NOT_APPLICABLE",
-            "message_id": None,
-            "transmitted_at": None,
-            "delivered_at": None,
-            "logs": [],
-            "message": "InvoiceNow not configured for this organization",
+            "status": latest.status,
+            "message_id": str(latest.peppol_message_id) if latest.peppol_message_id else None,
+            "transmitted_at": _iso(latest.transmitted_at),
+            "delivered_at": _iso(latest.response_at) if latest.status == "DELIVERED" else None,
+            "logs": [
+                {
+                    "id": str(log.id),
+                    "status": log.status,
+                    "attempt_number": log.attempt_number,
+                    "timestamp": _iso(log.response_at) or _iso(log.transmitted_at),
+                    "error_message": log.error_message or None,
+                }
+                for log in logs
+            ],
+            "message": f"Latest transmission status: {latest.status}",
         }
 
     @staticmethod

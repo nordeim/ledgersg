@@ -48,6 +48,78 @@ class TransmissionService:
         self.generator_service: XMLGeneratorService = XMLGeneratorService()
         self.validation_service: XMLValidationService = XMLValidationService()
 
+    def execute_transmission_for_log(self, transmission_log_id: str) -> PeppolTransmissionLog:
+        """
+        Execute the transmission workflow against an EXISTING log row.
+
+        This is the seam the Celery task and the manual send endpoint use:
+        the caller (approval flow or send-invoicenow) creates the log first
+        so it owns the id it can poll; this method drives that same row
+        through XML generation, validation and the AP adapter.
+
+        P5/C-2: the task previously called transmit_invoice() with the LOG id
+        where an INVOICE id was expected — the auto-transmit path could
+        never succeed and left the pre-created log PENDING forever.
+
+        Args:
+            transmission_log_id: UUID of the PENDING PeppolTransmissionLog
+
+        Returns:
+            PeppolTransmissionLog: the same row, updated with the result
+
+        Raises:
+            ValueError: If the log, invoice or organisation is not found
+        """
+        from apps.core.models import InvoiceDocument, Organisation
+
+        try:
+            log = PeppolTransmissionLog.objects.get(id=transmission_log_id)
+        except PeppolTransmissionLog.DoesNotExist as exc:
+            raise ValueError(
+                f"Transmission log {transmission_log_id} not found"
+            ) from exc
+
+        try:
+            invoice = InvoiceDocument.objects.get(id=log.document_id)
+        except InvoiceDocument.DoesNotExist as exc:
+            raise ValueError(f"Invoice {log.document_id} not found") from exc
+
+        try:
+            org = Organisation.objects.get(id=log.org_id)
+        except Organisation.DoesNotExist as exc:
+            raise ValueError(f"Organization {log.org_id} not found") from exc
+
+        settings = OrganisationPeppolSettings.objects.filter(org_id=log.org_id).first()
+        if not settings or not settings.is_configured:
+            log.status = "FAILED"
+            log.error_code = "NOT_CONFIGURED"
+            log.error_message = (
+                "Organisation is not configured for Peppol transmission"
+            )
+            log.response_at = datetime.now()
+            log.save()
+            raise ValueError(
+                f"Organization {log.org_id} is not configured for Peppol "
+                "transmission. Please configure access point settings first."
+            )
+
+        log.status = "TRANSMITTING"
+        log.save()
+
+        try:
+            result = self._execute_transmission(
+                invoice=invoice, org=org, log=log, settings=settings
+            )
+            self._update_log_with_result(log, result)
+            return log
+        except Exception as e:
+            log.status = "FAILED"
+            log.error_code = "INTERNAL_ERROR"
+            log.error_message = str(e)
+            log.response_at = datetime.now()
+            log.save()
+            raise
+
     def transmit_invoice(self, invoice_id: str, org_id: str) -> PeppolTransmissionLog:
         """
         Transmit an invoice via Peppol.
