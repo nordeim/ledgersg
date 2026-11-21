@@ -2,21 +2,26 @@
 Authentication views for LedgerSG.
 """
 
+from django_ratelimit.decorators import ratelimit
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.response import Response
 from rest_framework.request import Request
-from django_ratelimit.decorators import ratelimit
+from rest_framework.response import Response
 
-from apps.core.serializers.auth import (
-    RegisterSerializer,
-    LoginSerializer,
-    UserProfileSerializer,
-    ChangePasswordSerializer,
-)
 from apps.core.permissions import IsAuthenticatedOrOptions
+from apps.core.serializers.auth import (
+    ChangePasswordSerializer,
+    LoginSerializer,
+    RegisterSerializer,
+    UserProfileSerializer,
+)
 from apps.core.services import auth_service
+from apps.core.views._refresh_cookie import (
+    delete_refresh_cookie,
+    get_refresh_cookie,
+    set_refresh_cookie,
+)
 from common.exceptions import ValidationError
 
 
@@ -43,13 +48,16 @@ def register_view(request: Request) -> Response:
         # Generate tokens
         tokens = auth_service.generate_tokens(user)
 
-        return Response(
+        response = Response(
             {
                 "user": UserProfileSerializer(user).data,
                 "tokens": tokens,
             },
             status=status.HTTP_201_CREATED,
         )
+        # Browser session persistence: HttpOnly refresh cookie (P4/E-1)
+        set_refresh_cookie(response, tokens["refresh"])
+        return response
 
     except ValidationError as e:
         return Response(
@@ -77,12 +85,15 @@ def login_view(request: Request) -> Response:
             password=serializer.validated_data["password"],
         )
 
-        return Response(
+        response = Response(
             {
                 "user": UserProfileSerializer(user).data,
                 "tokens": tokens,
             }
         )
+        # Browser session persistence: HttpOnly refresh cookie (P4/E-1)
+        set_refresh_cookie(response, tokens["refresh"])
+        return response
 
     except ValidationError as e:
         return Response(
@@ -99,8 +110,15 @@ def refresh_view(request: Request) -> Response:
 
     POST /api/v1/auth/refresh/
     Rate limit: 20/min per IP.
+
+    Token sources (P4/E-1): the request body `refresh` field (API clients,
+    unchanged contract) OR the HttpOnly `refresh_token` cookie the browser
+    replays via credentials:"include" (browser clients — cross-reload
+    session persistence). Rotation is identical on both paths: the used
+    token is blacklisted and the response sets the new rotated pair (body
+    and cookie).
     """
-    refresh_token = request.data.get("refresh")
+    refresh_token = request.data.get("refresh") or get_refresh_cookie(request)
 
     if not refresh_token:
         return Response(
@@ -110,7 +128,9 @@ def refresh_view(request: Request) -> Response:
 
     try:
         tokens = auth_service.refresh_access_token(refresh_token)
-        return Response({"tokens": tokens})
+        response = Response({"tokens": tokens})
+        set_refresh_cookie(response, tokens["refresh"])
+        return response
 
     except ValidationError as e:
         return Response(
@@ -125,13 +145,18 @@ def logout_view(request: Request) -> Response:
     Logout user (blacklist refresh token).
 
     POST /api/v1/auth/logout/
+
+    Token sources (P4/E-1): body `refresh` field or the HttpOnly refresh
+    cookie — whichever is present is blacklisted, and the cookie is expired.
     """
-    refresh_token = request.data.get("refresh")
+    refresh_token = request.data.get("refresh") or get_refresh_cookie(request)
 
     if refresh_token:
         auth_service.logout_user(refresh_token)
 
-    return Response({"message": "Logged out successfully"})
+    response = Response({"message": "Logged out successfully"})
+    delete_refresh_cookie(response)
+    return response
 
 
 @api_view(["GET", "PATCH", "OPTIONS"])  # Added OPTIONS for CORS preflight
@@ -177,7 +202,11 @@ def change_password_view(request: Request) -> Response:
             new_password=serializer.validated_data["new_password"],
         )
 
-        return Response({"message": "Password changed successfully"})
+        # Every outstanding refresh token was revoked server-side — the
+        # browser's refresh cookie must die with them (P4/E-1).
+        response = Response({"message": "Password changed successfully"})
+        delete_refresh_cookie(response)
+        return response
 
     except ValidationError as e:
         return Response(
