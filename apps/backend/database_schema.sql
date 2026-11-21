@@ -3,7 +3,7 @@
 -- ║   LEDGERSG — COMPLETE POSTGRESQL 16 DATABASE SCHEMA                        ║
 -- ║   Enterprise-Grade Accounting Software for Singapore SMBs                  ║
 -- ║                                                                            ║
--- ║   Version:    1.0.1                                                        ║
+-- ║   Version:    1.0.2                                                        ║
 -- ║   DB Engine:  PostgreSQL 16+                                               ║
 -- ║   Precision:  NUMERIC(10,4) for all monetary values                        ║
 -- ║   Encoding:   UTF-8                                                        ║
