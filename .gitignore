@@ -9,3 +9,11 @@ plan/
 backup/
 nohup.out
 .windsurfrules
+
+# Environment files — .env.example templates are the canonical dev defaults;
+# local .env files may contain real secrets and must never be committed (A-7)
+.env
+.env.local
+.env.*.local
+apps/backend/.env
+apps/web/.env.local
