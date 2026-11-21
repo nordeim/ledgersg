@@ -78,10 +78,33 @@ describe("GST Engine", () => {
       });
     });
 
+    describe("Server-provided rate override (P3/D-3 — effective-date resolution)", () => {
+      it("uses the server rate in force instead of the static 9% map", () => {
+        // Backdated document: SR was 8% on 2023-06-01 (P2 backend contract)
+        const result = calculateLineGST("1", "100", "0", "SR", false, "0.08");
+
+        expect(result.gst_amount).toBe("8.0000");
+        expect(result.line_total).toBe("108.0000");
+        expect(result.display_gst).toBe("8.00");
+      });
+
+      it("keeps the static map when no override is provided (backward compatible)", () => {
+        const result = calculateLineGST("1", "100", "0", "SR");
+
+        expect(result.gst_amount).toBe("9.0000");
+      });
+
+      it("treats an invalid override as zero rate, never silently 9%", () => {
+        // Fail-closed on garbage server data: no fallback to a plausible rate
+        const result = calculateLineGST("1", "100", "0", "SR", false, "not-a-number");
+
+        expect(result.gst_amount).toBe("0.0000");
+      });
+    });
+
     describe("BCRS Deposit Exemption", () => {
       it("excludes BCRS deposit from GST calculation", () => {
         const result = calculateLineGST("5", "0.10", "0", "SR", true);
-
         // 5 * 0.10 = 0.50, but no GST because BCRS
         expect(result.line_subtotal).toBe("0.5000");
         expect(result.gst_amount).toBe("0.0000");

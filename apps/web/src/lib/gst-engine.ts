@@ -64,18 +64,38 @@ export interface InvoiceTotals {
  * Calculate GST for a single invoice line
  *
  * BCRS deposits are NOT subject to GST (IRAS regulation)
+ *
+ * `rateOverride` (P3/D-3): the server-resolved rate in force on the
+ * document's date (from `GET /gst/tax-codes/?effective_on=`), e.g. "0.08"
+ * for a 2023-dated SR line. When absent the static GST_RATES map applies
+ * (backward compatible). Invalid override values fail closed to a zero
+ * rate — never silently fall back to a plausible rate on a money path.
  */
 export function calculateLineGST(
   quantity: string,
   unit_price: string,
   discount_pct: string,
   tax_code: TaxCode,
-  is_bcrs_deposit: boolean = false
+  is_bcrs_deposit: boolean = false,
+  rateOverride?: string
 ): LineGSTResult {
   const qty = new Decimal(quantity || "0");
   const price = new Decimal(unit_price || "0");
   const discount = new Decimal(discount_pct || "0");
-  const rate = GST_RATES[tax_code] || new Decimal("0");
+  let rate: Decimal;
+  if (rateOverride !== undefined) {
+    // Fail closed: an unparseable server rate yields a zero rate — never a
+    // silent fallback to the static 9% map on a money path (decimal.js
+    // throws on invalid arguments, hence the guard).
+    try {
+      const parsed = new Decimal(rateOverride);
+      rate = parsed.isNaN() ? new Decimal("0") : parsed;
+    } catch {
+      rate = new Decimal("0");
+    }
+  } else {
+    rate = GST_RATES[tax_code] || new Decimal("0");
+  }
 
   // Line amount = qty × price × (1 - discount/100)
   const line_subtotal = qty
@@ -169,7 +189,10 @@ export type GSTCalculatableLine = Required<
   >
 >;
 
-export function calculateFromLines(lines: GSTCalculatableLine[]): {
+export function calculateFromLines(
+  lines: GSTCalculatableLine[],
+  rateOverrides?: Partial<Record<TaxCode, string>>
+): {
   lineResults: LineGSTResult[];
   totals: InvoiceTotals;
 } {
@@ -179,7 +202,8 @@ export function calculateFromLines(lines: GSTCalculatableLine[]): {
       line.unit_price,
       line.discount_pct,
       line.tax_code,
-      line.is_bcrs_deposit
+      line.is_bcrs_deposit,
+      rateOverrides?.[line.tax_code]
     )
   );
 
