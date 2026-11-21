@@ -6,8 +6,19 @@ import { defineConfig, devices } from "@playwright/test";
  * Purpose: E2E testing for critical user flows
  * Coverage: Auth, Invoice creation, Dashboard navigation
  *
+ * Projects:
+ * - Default: chromium only (works on any machine with `npx playwright install chromium`)
+ * - Full matrix (firefox, webkit, Mobile Chrome, Mobile Safari): opt in with
+ *   PLAYWRIGHT_PROJECTS=all — requires `npx playwright install` for those browsers.
+ *   Rationale (B-1): declaring browsers that are not installed makes
+ *   `npm run test:e2e` fail wholesale; green-by-default beats red-by-default.
+ *   Mobile viewport coverage is always exercised by the responsive tests in
+ *   e2e/navigation.spec.ts via setViewportSize, so the default set loses nothing.
+ *
  * See https://playwright.dev/docs/test-configuration
  */
+
+const fullMatrix = process.env.PLAYWRIGHT_PROJECTS === "all";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -24,8 +35,11 @@ export default defineConfig({
   /* Opt out of parallel tests on CI for stability */
   workers: process.env.CI ? 1 : undefined,
 
-  /* Reporter to use */
-  reporter: "html",
+  /* Terminal summary always; HTML report written without opening a browser */
+  reporter: [["list"], ["html", { open: "never" }]],
+
+  /* Artifacts from failed runs */
+  outputDir: "./test-results",
 
   /* Shared settings for all the projects below */
   use: {
@@ -51,33 +65,33 @@ export default defineConfig({
     navigationTimeout: 15000,
   },
 
-  /* Configure projects for major browsers */
+  /* Configure projects — chromium by default, full matrix via PLAYWRIGHT_PROJECTS=all */
   projects: [
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
 
-    {
-      name: "firefox",
-      use: { ...devices["Desktop Firefox"] },
-    },
-
-    {
-      name: "webkit",
-      use: { ...devices["Desktop Safari"] },
-    },
-
-    /* Test against mobile viewports */
-    {
-      name: "Mobile Chrome",
-      use: { ...devices["Pixel 5"] },
-    },
-
-    {
-      name: "Mobile Safari",
-      use: { ...devices["iPhone 12"] },
-    },
+    ...(fullMatrix
+      ? [
+          {
+            name: "firefox",
+            use: { ...devices["Desktop Firefox"] },
+          },
+          {
+            name: "webkit",
+            use: { ...devices["Desktop Safari"] },
+          },
+          {
+            name: "Mobile Chrome",
+            use: { ...devices["Pixel 5"] },
+          },
+          {
+            name: "Mobile Safari",
+            use: { ...devices["iPhone 12"] },
+          },
+        ]
+      : []),
   ],
 
   /* Run local dev server before starting the tests */
