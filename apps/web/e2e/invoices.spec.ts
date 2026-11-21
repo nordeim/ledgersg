@@ -184,3 +184,62 @@ test.describe("New Invoice form (authenticated)", () => {
     test.expect(count).toBeGreaterThanOrEqual(1);
   });
 });
+
+test.describe("Invoice detail page (P6/C-5 — real data)", () => {
+  test("renders the real document with its payment state (never mocks)", async ({ page }) => {
+    const token = await apiLoginToken(page);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    // List the org's documents through the public API, take the first.
+    const orgsResponse = await page.request.get(`${apiUrl}/api/v1/auth/organisations/`, {
+      headers: auth,
+    });
+    test.expect(orgsResponse.ok()).toBeTruthy();
+    const orgs = (await orgsResponse.json()) as Array<{ org: { id: string } }>;
+    const orgId = orgs[0]?.org.id;
+    test.expect(orgId).toBeTruthy();
+
+    const listResponse = await page.request.get(
+      `${apiUrl}/api/v1/${orgId}/invoicing/documents/`,
+      { headers: auth }
+    );
+    test.expect(listResponse.ok()).toBeTruthy();
+    const listBody = (await listResponse.json()) as {
+      results: Array<{ id: string; document_number: string }>;
+    };
+
+    await page.goto("/login");
+    await page.locator("input[type='email']").fill(
+      process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
+    );
+    await page.locator("input[type='password']").fill(
+      process.env.E2E_DEMO_PASSWORD ?? "demo1234"
+    );
+    await page.getByRole("button", { name: /sign in/i }).click();
+
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });
+
+    await page.getByRole("link", { name: /^Invoices$/ }).click();
+    await expect(page).toHaveURL(/\/invoices\/?$/);
+
+    if (listBody.results.length === 0) {
+      // Truthful empty state — the org has no documents.
+      await expect(page.getByText(/no invoices yet/i)).toBeVisible({ timeout: 30000 });
+      return;
+    }
+
+    const first = listBody.results[0];
+    await page.locator("table tbody tr a").first().click();
+    await expect(page).toHaveURL(new RegExp(`/invoices/${first.id}`), {
+      timeout: 30000,
+    });
+
+    // The real document number, and the payment state (P6/F-11) — the
+    // mock fixture's INV-2024-0001 demo IDs are gone.
+    await expect(page.getByText(first.document_number).first()).toBeVisible({
+      timeout: 30000,
+    });
+    await expect(page.getByText(/amount due/i).first()).toBeVisible();
+    await expect(page.getByText("INV-2024-0001")).toHaveCount(0);
+  });
+});

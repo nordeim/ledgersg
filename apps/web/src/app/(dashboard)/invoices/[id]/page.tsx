@@ -1,14 +1,15 @@
 import { InvoiceDetailClient } from "./invoice-detail-client";
 
-// Generate static params for demo invoices
-export function generateStaticParams() {
-  return [
-    { id: "INV-2024-0001" },
-    { id: "INV-2024-0002" },
-    { id: "INV-2024-0003" },
-  ];
-}
-
-export default function InvoiceDetailPage({ params }: { params: { id: string } }) {
-  return <InvoiceDetailClient id={params.id} />;
+/**
+ * P6/D-1: route params are a Promise in this Next.js version — the page
+ * must await them. The mock-era generateStaticParams (demo invoice IDs)
+ * is gone: the page is client-driven against the real detail endpoint.
+ */
+export default async function InvoiceDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return <InvoiceDetailClient id={id} />;
 }
