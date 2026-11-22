@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, CreditCard, RefreshCw } from "lucide-react";
-import { usePayments, useVoidPayment } from "@/hooks/use-banking";
+import { AlertTriangle, ChevronDown, CreditCard, RefreshCw } from "lucide-react";
+import { usePayments, usePayment, useVoidPayment } from "@/hooks/use-banking";
 import { PaymentCard } from "./payment-card";
 import { Input } from "@/components/ui/input";
+import { formatMoney } from "@/shared/format";
 import type { Payment } from "@/shared/schemas";
 
 interface PaymentListProps {
@@ -134,6 +135,9 @@ function PaymentRow({
   const voidPayment = useVoidPayment(orgId, payment.id);
   const [voiding, setVoiding] = useState(false);
   const [reason, setReason] = useState("");
+  // P10/M-7: the inline allocations expansion — which documents this
+  // payment settled (the list serializer carries no allocations).
+  const [expanded, setExpanded] = useState(false);
 
   const submitVoid = () => {
     if (!reason.trim()) return;
@@ -148,6 +152,24 @@ function PaymentRow({
         showActions={true}
         onVoid={() => setVoiding(true)}
       />
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 text-xs text-text-secondary"
+        aria-expanded={expanded}
+        aria-controls={`payment-allocations-${payment.id}`}
+        onClick={() => setExpanded((e) => !e)}
+      >
+        <ChevronDown
+          className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+          aria-hidden
+        />
+        Allocations · {payment.payment_number}
+      </Button>
+      {expanded && (
+        <PaymentAllocationsPanel orgId={orgId} paymentId={payment.id} />
+      )}
       {voiding && !payment.is_voided && (
         <div className="mt-2 rounded-sm border border-border bg-surface p-3 space-y-2">
           <label htmlFor={`void-reason-${payment.id}`} className="text-sm text-text-secondary">
@@ -186,6 +208,100 @@ function PaymentRow({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * P10/M-7: the per-row allocations panel — consumes usePayment (the dead
+ * detail hook) and renders the settled documents with their allocated
+ * amounts. Inline by design; a dedicated payment route stays deferred.
+ */
+function PaymentAllocationsPanel({
+  orgId,
+  paymentId,
+}: {
+  orgId: string;
+  paymentId: string;
+}) {
+  const { data: detail, isLoading, error, refetch } = usePayment(orgId, paymentId);
+
+  if (isLoading) {
+    return (
+      <div
+        id={`payment-allocations-${paymentId}`}
+        className="mb-2 rounded-sm border border-border bg-surface p-3 space-y-2"
+        data-testid="payment-allocations-loading"
+      >
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-4 w-56" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        id={`payment-allocations-${paymentId}`}
+        className="mb-2 rounded-sm border border-border bg-surface p-3"
+      >
+        <p className="text-sm text-alert" role="alert">
+          Failed to load allocations.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2 rounded-sm"
+          onClick={() => refetch()}
+        >
+          <RefreshCw className="h-3.5 w-3.5 mr-1" aria-hidden />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (!detail || detail.allocations.length === 0) {
+    return (
+      <div
+        id={`payment-allocations-${paymentId}`}
+        className="mb-2 rounded-sm border border-border bg-surface p-3"
+        data-testid="payment-allocations-empty"
+      >
+        <p className="text-sm text-text-secondary">
+          Not allocated to any document yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      id={`payment-allocations-${paymentId}`}
+      className="mb-2 rounded-sm border border-border bg-surface p-3"
+      data-testid="payment-allocations-panel"
+    >
+      <p className="text-xs font-medium text-text-secondary mb-2">
+        Settled documents
+      </p>
+      <div className="space-y-1">
+        {detail.allocations.map((allocation) => (
+          <div
+            key={allocation.id}
+            className="flex items-center justify-between text-sm"
+          >
+            <span className="text-text-primary font-mono">
+              {allocation.document_number}
+            </span>
+            <span className="text-text-secondary tabular-nums">
+              {detail.currency} {formatMoney(allocation.allocated_amount)}
+              <span className="text-text-muted"> of </span>
+              {formatMoney(allocation.document_total)}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

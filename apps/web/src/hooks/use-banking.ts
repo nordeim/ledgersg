@@ -18,6 +18,7 @@ import type {
   BankAccountInput,
   BankAccountUpdate,
   Payment,
+  PaymentDetail,
   PaymentReceiveInput,
   PaymentMakeInput,
   PaymentVoidInput,
@@ -213,13 +214,14 @@ export function usePayments(
 }
 
 /**
- * Get single payment detail
+ * Get single payment detail (P10/M-7: the payload carries `allocations` —
+ * which documents the payment settled — per PaymentDetailView).
  */
 export function usePayment(orgId: string | null, paymentId: string | null) {
   return useQuery({
     queryKey: [orgId, "payments", paymentId],
     queryFn: async () => {
-      const response = await api.get<Payment>(
+      const response = await api.get<PaymentDetail>(
         endpoints.banking(orgId!).paymentDetail(paymentId!)
       );
       return response;

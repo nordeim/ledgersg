@@ -178,6 +178,29 @@ export type Payment = z.infer<typeof paymentSchema>;
 export type PaymentReceiveInput = z.infer<typeof paymentReceiveInputSchema>;
 export type PaymentMakeInput = z.infer<typeof paymentMakeInputSchema>;
 
+/**
+ * Payment Allocation Schema (Read — the detail endpoint's ad-hoc key).
+ *
+ * Matches PaymentAllocationSerializer from backend
+ * (apps/backend/apps/banking/serializers/allocation.py) — the payload
+ * GET /payments/{id}/ returns under `allocations`.
+ */
+export const paymentAllocationSchema = z.object({
+  id: z.string().uuid(),
+  payment: z.string().uuid(),
+  document: z.string().uuid(),
+  document_number: z.string(),
+  document_total: z.string(),
+  allocated_amount: z.string(),
+  base_allocated_amount: z.string(),
+  created_at: z.string(),
+});
+
+/** The GET payment-detail payload: the payment plus its allocations. */
+export type PaymentDetail = Payment & {
+  allocations: z.infer<typeof paymentAllocationSchema>[];
+};
+
 /** P9/B-3b: one allocation row — the backend's inline contract
  * (PaymentAllocationInputSerializer: document_id + allocated_amount). */
 export interface PaymentAllocationEntry {
