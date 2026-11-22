@@ -234,10 +234,28 @@ class AccountService:
         # (service API) or via kwargs from the serializer's field of the
         # same name — normalise to a single value before create().
         kwargs.setdefault("is_bank", is_bank_account)
+
+        # P8/R-4: link the coarse account_type_ref FK — the financial
+        # statements (P&L / balance sheet) aggregate via
+        # account_type_ref__code, and a custom account without the FK was
+        # invisible to them while seeded accounts showed up fine. The
+        # group's `category` is too coarse (COS's category is EXPENSE),
+        # so the mapping is by group name; TAX has no coarse counterpart
+        # and stays unlinked (documented).
+        from apps.coa.type_mapping import GROUP_TO_COARSE_TYPE
+
+        coarse_code = GROUP_TO_COARSE_TYPE.get(account_type)
+        type_ref = None
+        if coarse_code:
+            from apps.core.models import AccountType
+
+            type_ref = AccountType.objects.filter(code=coarse_code).first()
+
         account = Account.objects.create(
             org_id=org_id,
             code=code,
             name=name.strip(),
+            account_type_ref=type_ref,
             account_type=account_type,
             parent=parent,
             description=description.strip(),

@@ -11,6 +11,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 from django.db.models import Sum, F
 from decimal import Decimal
+from uuid import UUID
 from datetime import datetime
 
 from apps.core.permissions import IsOrgMember, CanViewReports
@@ -136,33 +137,74 @@ class FinancialReportView(APIView):
         elif report_type == "balance_sheet":
             return self._get_balance_sheet(org_id, as_at_date)
         else:
-            # Trial balance - simplified
-            return Response({"report_type": report_type, "data": {}})
+            # P8/R-2: the stub {"data": {}} is gone — the real trial balance
+            # lives in the journal service (date-based, same semantics as
+            # the P2 rewrite; the coa variant keeps fiscal-year filtering).
+            from apps.journal.services import JournalService
+
+            lines = JournalService.get_trial_balance(
+                UUID(str(org_id)), date_to=as_at_date
+            )
+            total_debits = sum(
+                (Decimal(row["total_debits"]) for row in lines), Decimal("0.0000")
+            )
+            total_credits = sum(
+                (Decimal(row["total_credits"]) for row in lines), Decimal("0.0000")
+            )
+            return Response({
+                "report_type": "trial_balance",
+                "as_at_date": as_at_date,
+                "currency": "SGD",
+                "data": {
+                    "lines": lines,
+                    "totals": {
+                        "total_debits": str(total_debits),
+                        "total_credits": str(total_credits),
+                        "balanced": total_debits == total_credits,
+                    },
+                },
+            })
 
     def _get_profit_loss(self, org_id, start_date, end_date):
-        # Query revenue and expenses
+        # P8/R-3: per-account lines (not just totals) — each section lists
+        # its accounts with amounts, ordered by code, plus the section
+        # totals the stub-era response carried.
         lines = JournalLine.objects.filter(org_id=org_id)
         if start_date:
             lines = lines.filter(entry__entry_date__gte=start_date)
         if end_date:
             lines = lines.filter(entry__entry_date__lte=end_date)
 
-        # Revenue (Credit positive)
         # Use account_type_ref__code because account_type might be null
-        revenue_total = lines.filter(
-            account__account_type_ref__code__in=["REVENUE", "OTHER_INCOME"]
-        ).aggregate(
-            total=Sum(F("credit") - F("debit"), default=Decimal("0.0000"))
-        )["total"] or Decimal("0.0000")
+        revenue_rows = (
+            lines.filter(account__account_type_ref__code__in=["REVENUE", "OTHER_INCOME"])
+            .values("account_id", "account__code", "account__name")
+            .annotate(amount=Sum(F("credit") - F("debit"), default=Decimal("0.0000")))
+            .order_by("account__code")
+        )
+        expense_rows = (
+            lines.filter(account__account_type_ref__code__in=["EXPENSE", "COGS", "OTHER_EXPENSE"])
+            .values("account_id", "account__code", "account__name")
+            .annotate(amount=Sum(F("debit") - F("credit"), default=Decimal("0.0000")))
+            .order_by("account__code")
+        )
 
-        # Expenses (Debit positive)
-        expense_total = lines.filter(
-            account__account_type_ref__code__in=["EXPENSE", "COGS", "OTHER_EXPENSE"]
-        ).aggregate(
-            total=Sum(F("debit") - F("credit"), default=Decimal("0.0000"))
-        )["total"] or Decimal("0.0000")
+        def _row(r, positive_credit):
+            amount = r["amount"] or Decimal("0.0000")
+            return {
+                "account_code": r["account__code"],
+                "account_name": r["account__name"],
+                "amount": str(amount),
+            }
 
-        net_profit = revenue_total - expense_total
+        revenue_lines = [_row(r, True) for r in revenue_rows if (r["amount"] or 0) != 0]
+        expense_lines = [_row(r, False) for r in expense_rows if (r["amount"] or 0) != 0]
+        revenue_total = sum(
+            (Decimal(r["amount"]) for r in revenue_lines), Decimal("0.0000")
+        )
+        expense_total = sum(
+            (Decimal(r["amount"]) for r in expense_lines), Decimal("0.0000")
+        )
 
         return Response({
             "report_type": "profit_loss",
@@ -170,45 +212,81 @@ class FinancialReportView(APIView):
             "period_end": end_date,
             "currency": "SGD",
             "data": {
-                "revenue": {"Total": str(revenue_total)},
-                "expenses": {"Total": str(expense_total)},
-                "net_profit": str(net_profit)
+                "sections": {"revenue": revenue_lines, "expenses": expense_lines},
+                "revenue_total": str(revenue_total),
+                "expense_total": str(expense_total),
+                "net_profit": str(revenue_total - expense_total),
             }
         })
 
     def _get_balance_sheet(self, org_id, as_at_date):
+        # P8/R-3: the statement ties out — current-period earnings (all-time
+        # revenue - expense balances up to as_at) are folded in as retained
+        # earnings, so assets == liabilities + equity + retained whenever
+        # the books balance (the stub-era report omitted them and never
+        # balanced with P&L activity).
         lines = JournalLine.objects.filter(org_id=org_id)
         if as_at_date:
             lines = lines.filter(entry__entry_date__lte=as_at_date)
 
-        # Assets (Debit positive)
-        assets_total = lines.filter(
-            account__account_type_ref__code__startswith="ASSET"
+        def _section(codes, positive_credit):
+            rows = (
+                lines.filter(account__account_type_ref__code__startswith=codes)
+                .values("account__code", "account__name")
+                .annotate(
+                    amount=Sum(
+                        (F("credit") - F("debit"))
+                        if positive_credit
+                        else (F("debit") - F("credit")),
+                        default=Decimal("0.0000"),
+                    )
+                )
+                .order_by("account__code")
+            )
+            out = [
+                {"account_code": r["account__code"], "account_name": r["account__name"],
+                 "amount": str(r["amount"] or Decimal("0.0000"))}
+                for r in rows
+                if (r["amount"] or 0) != 0
+            ]
+            total = sum((Decimal(r["amount"]) for r in out), Decimal("0.0000"))
+            return out, total
+
+        asset_lines, assets_total = _section("ASSET", positive_credit=False)
+        liability_lines, liabilities_total = _section("LIABILITY", positive_credit=True)
+        equity_lines, equity_total = _section("EQUITY", positive_credit=True)
+
+        # Retained earnings: all-time P&L up to as_at (revenue - expenses)
+        revenue = lines.filter(
+            account__account_type_ref__code__in=["REVENUE", "OTHER_INCOME"]
+        ).aggregate(
+            total=Sum(F("credit") - F("debit"), default=Decimal("0.0000"))
+        )["total"] or Decimal("0.0000")
+        expenses = lines.filter(
+            account__account_type_ref__code__in=["EXPENSE", "COGS", "OTHER_EXPENSE"]
         ).aggregate(
             total=Sum(F("debit") - F("credit"), default=Decimal("0.0000"))
         )["total"] or Decimal("0.0000")
+        retained = revenue - expenses
 
-        # Liabilities (Credit positive)
-        liabilities_total = lines.filter(
-            account__account_type_ref__code__startswith="LIABILITY"
-        ).aggregate(
-            total=Sum(F("credit") - F("debit"), default=Decimal("0.0000"))
-        )["total"] or Decimal("0.0000")
-
-        # Equity (Credit positive)
-        equity_total = lines.filter(
-            account__account_type_ref__code__startswith="EQUITY"
-        ).aggregate(
-            total=Sum(F("credit") - F("debit"), default=Decimal("0.0000"))
-        )["total"] or Decimal("0.0000")
+        balanced = (
+            assets_total == liabilities_total + equity_total + retained
+        )
 
         return Response({
             "report_type": "balance_sheet",
             "as_at_date": as_at_date,
             "currency": "SGD",
             "data": {
-                "assets": {"Total": str(assets_total)},
-                "liabilities": {"Total": str(liabilities_total)},
-                "equity": {"Total": str(equity_total)}
+                "sections": {
+                    "assets": asset_lines,
+                    "liabilities": liability_lines,
+                    "equity": equity_lines,
+                },
+                "assets_total": str(assets_total),
+                "liabilities_total": str(liabilities_total),
+                "equity_total": str(equity_total),
+                "retained_earnings": str(retained),
+                "balanced": balanced,
             }
         })
