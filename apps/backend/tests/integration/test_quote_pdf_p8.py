@@ -7,9 +7,10 @@ Quotes now render quote_pdf.html ("QUOTATION" framing, no tax-invoice
 labelling).
 """
 
-import pytest
 from datetime import date
 from decimal import Decimal
+
+import pytest
 
 from apps.core.models import Contact, InvoiceDocument
 from apps.invoicing.services import DocumentService
