@@ -90,10 +90,12 @@ async function openNewInvoiceForm(page: import("@playwright/test").Page) {
 
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });
 
-  // Client-side navigations only (in-memory session)
+  // Client-side navigations only (in-memory session). The New Invoice
+  // link is scoped to the main region — the shell header also carries one
+  // since P7/F-17 (strict mode resolves both otherwise).
   await page.getByRole("link", { name: /^Invoices$/ }).click();
   await expect(page).toHaveURL(/\/invoices\/?$/);
-  await page.getByRole("link", { name: /new invoice/i }).click();
+  await page.getByRole("main").getByRole("link", { name: /new invoice/i }).click();
   await expect(page).toHaveURL(/\/invoices\/new\/?$/);
 
   await expect(page.getByRole("heading", { name: /new invoice/i })).toBeVisible({
