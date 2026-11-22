@@ -1,9 +1,9 @@
 ---
 name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 1.8.0
-last_updated: 2026-11-22
-project_state: "P9 remediated; all gates green — 668 backend tests (0 failed, 5 skipped), frontend 454 vitest + 26 e2e (9 default / 17 backend-gated, live workflow green), typecheck 0 errors; schema v1.1.0 NUMERIC(19,4) money; onboarding & banking truth: organisation creation ships at /settings/organisations/new, the payment workflow real end to end (multipart statement import via api.postForm, rendered reconciliation matches with envelope+field mapping, searchable contact picker, inline allocations that settle invoices, Record Payment deep link defaulting the banking tab, bank-account dialog with zod + ?is_bank=true GL picker, payment void + transaction unreconcile), dashboard truthful (no invented GST boxes/trends), invoices list type-filtered, seeded accounts filterable (account_type backfill + is_bank), quote-convert envelope pinned (nested invoice), InvoiceNow invoice-only + CanCreateInvoices, aged reports as-at bounded, transport faults keep sessions, XSD validation fails closed"
+version: 1.9.0
+last_updated: 2026-11-23
+project_state: "P10 remediated; all gates green — 687 backend tests (0 failed, 5 skipped), frontend 505 vitest + 31 e2e (11 default / 20 backend-gated; the live suite 30/30 green twice consecutively), typecheck 0 errors, coverage green at the measured-floor ratchet, standalone the only build (export retired); schema v1.1.0 NUMERIC(19,4) money; P10: the self-serve loop closes (registration page + org creation, the anonymous-401 bounce fixed), the invoice form picks real contacts (no duplicate rows; the wire contract e2e-asserted), the GST F5 tab ships the full lifecycle (create periods, compute, review, file, amend, deadlines), contacts management (search/edit/deactivate), bank-account edit + deactivate, payment allocations visible, fiscal-period open, change password, InvoiceNow settings card; the live gate's own fixes: rate-limited requests return the 429 contract (never a raw 403), organisation UEN collisions are clean 400s, development settings copy-on-write"
 ---
 
 # LedgerSG — Engineering Skill
@@ -481,6 +481,52 @@ write inside `transaction.atomic()`; new tests RED before the fix.
    "still failing" after a serializer fix was the stale process).
    Teardown must pkill the process tree; before debugging a "fix didn't
    work", check the port actually serves the code you changed.
+
+36. (P10) A mount-time session check must know which pages are public:
+   checkSession runs on EVERY page and treated the anonymous 401 an
+   unauthenticated /register visitor gets from /auth/me as session
+   expiry — clearAuth + redirect to /login. The registration form only
+   ever worked by winning that race (the e2e click landed
+   mid-navigation). Public-route exemptions belong beside the loop guard.
+
+37. (P10) A rate-limit block must not masquerade as an authorization
+   failure: django-ratelimit's Ratelimited is a bare PermissionDenied
+   subclass — on a DRF view it fell through the fallback as a raw 403
+   "You do not have permission…", which the frontend api-client treats
+   as auth failure (bounce to /login). Map it in custom_exception_handler
+   to the documented 429 contract (code, retry_after, Retry-After). And
+   when raising a rate budget for e2e, enumerate EVERY knob — the login
+   IP budget (P4) and refresh IP budget (P6) were raised, the per-user
+   login budget was missed and blocked the grown suite's tail.
+
+38. (P10) Settings modules must copy-on-write their base structures:
+   development.py did INSTALLED_APPS += […] and MIDDLEWARE.insert(…) —
+   in-place mutations of the lists `from .base import *` shares. Any
+   process importing development.py under other settings (a test
+   asserting its knobs) injected debug_toolbar into the live registry
+   mid-run — a 79-test middleware cascade that looked like everything
+   and was one file.
+
+39. (P10) A constraint guard must cover every writer path: the UEN
+   UNIQUE was validated only in the CREATE serializer — the detail PATCH
+   is a raw request.data allowlist (no serializer at all) and the settings
+   PATCH passes no instance, so a taken UEN was an IntegrityError 500 on
+   all three paths. Share one guard (ensure_uen_available) across them;
+   enumerate writer paths when a constraint exists.
+
+40. (P10) Verify raw bytes before declaring corruption: the "corrupted CI
+   trigger" (branches: ain]) was a tool-DISPLAY artifact — the output
+   layer eats the byte sequence [m when rendering text; the file on disk
+   was always intact (od -c ground truth at both commits). When a finding
+   turns out to be an artifact, correct the record explicitly.
+
+41. (P10) e2e specs must not depend on fixture names from other eras:
+   the banking statement spec filtered on "Marina" — a P9-era bootstrap
+   customer name that broke when P10's bootstrap named a customer
+   differently. Specs against a persistent dev DB generate run-unique
+   data (timestamps in descriptions/references); a shell breadcrumb h2
+   duplicating each page's h1 belongs demoted to aria-hidden (strict mode
+   + one-h1-per-page).
 
 ## 12. Quick Reference Card
 

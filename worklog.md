@@ -1,5 +1,39 @@
 # LedgerSG — Worklog
 
+## 2026-11-23 — Session 20: P10 Sprint (Self-Serve Loop & Compliance Truth)
+
+**Base:** `e37f12f0` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-22_P10.md` · **Report:** `docs/REMEDIATION_2026-11-22_P10_REPORT.md` · **Session log:** `docs/session_21.md`
+
+### Environment (two sandbox recycles, recovered; zero pushed loss)
+
+- The sandbox was recycled twice mid-sprint. Tasks 1–16 were pushed after every commit (the workspace-reset safeguard) and survived; the environment (PG data + binaries, Redis, venvs, node_modules, playwright browsers) was rebuilt from the documented runbooks both times — PG's wiped empty subdirs (pg_tblspc, pg_replslot, …) restored, Redis debs re-extracted, `uv sync --all-extras` + `npm ci` + `npx playwright install chromium` re-run.
+- The uncommitted Task-17 work (the e2e spec + live-run fixes) was lost with the first recycle and rebuilt against the pushed state — its debugging conclusions (the register race, the demo-login failure pair) carried over and finally rooted-caused.
+- All four baselines reproduced exactly before each continuation (668P/5S → 683P/5S after Tasks 1–8; 454 → 477 → 494 vitest; typecheck 0; e2e gated parity).
+
+### Audit (Mode C) — findings this session
+
+Scanner pass clean (all hits in the documented FP classes). Three parallel deep-audit agents + lead hand-verification of every Critical/High: **H-1** the invoice form created a contact on EVERY submission (duplicating UEN-less customers, 409-ing repeat UENs); **H-2** no registration page existed (the login link was a dead `#`; the register endpoint had zero consumers — the self-serve loop closed); **H-3** the GST F5 File button POSTed an always-DRAFT return while the review/amend endpoints sat unconsumed; plus the M/L register (PayNow PATCH parity, VOID fail-open, org-choice persistence, transmission error keys, dead contacts/bank-edit/allocations/fiscal-open/change-password/InvoiceNow surfaces, the export-mode lie, the never-passing 85% coverage gate, the truth/UI batch).
+
+### Remediation executed (TDD — 19 backend + 51 vitest + 5 e2e specs, all RED first)
+
+Tasks 1–16 per the plan (see the report's §2 table for the finding/fix/evidence of each). Task 14's "corrupted CI trigger" was corrected on the record: the file was never corrupt (`od -c` ground truth) — a tool-display artifact that eats the `[m` byte sequence in rendered output; the corrective commit documents it.
+
+### The live gate — the phase that earned its name
+
+Five production defects surfaced only when the product actually ran, each fixed with a RED regression test:
+
+1. **The register bounce** (LG-1): the auth-provider's mount-time session check treated the anonymous 401 (an unauthenticated /register visitor gets it from /auth/me) as session expiry and bounced to /login — the form only ever worked by winning the race. Public auth pages are exempt now.
+2. **The rate-limit 403 masquerade** (LG-2): a 35-login API burst tripped at #30 with a raw 403 "You do not have permission…" — django-ratelimit's `Ratelimited` (a bare PermissionDenied subclass) fell through DRF's fallback. Now the documented 429 contract.
+3. **The missed third knob** (LG-3): `LOGIN_RATELIMIT_USER` 30/min blocked the grown suite's tail; dev raises to 120/min (production unchanged, asserted).
+4. **The settings copy-on-write cascade** (LG-4): `development.py` mutated the shared base lists in place; importing it under other settings (the knob test) crashed a 79-test middleware cascade. Copy-on-write, per the file's own documented rule.
+5. **The UEN 500** (LG-5): a taken organisation UEN was an unhandled IntegrityError on org-create and both PATCH paths (the detail PATCH has no serializer at all). Clean 400s everywhere; the blank-UEN schema modeling deferred explicitly.
+
+Plus spec hygiene: the banking statement spec's silent "Marina" fixture-name dependency, the shell breadcrumb h2 duplicating each page's h1 (strict-mode + a11y), and the empty-list double CTA. **Canonical runs: e2e:full 30/30 green TWICE consecutively.**
+
+### Final state (all Verified)
+
+Backend **687P/0F/5S**; invariants 27P; security 55P/3S; vitest **505/505**; typecheck **0**; coverage green at the honest ratchet (62.88/52.33/51.97/63.19); `build:server` green (the only build — export retired); default e2e **11 + 20 gated**; live e2e **30/30 twice**; screenshots 53..58_session20 (6, content-verified); docs truth-passed (README v0.2.0/v0.5.2, counts 1,223; AGENTS P10 patterns ×6; DEPLOYMENT P10 revision + the live-gate bootstrap sequence; PAD/SKILL/CLAUDE updated); `.env.example` re-audited 1:1 (no new vars; the export-mode claim corrected). All commits on main, pushed via the SSH wrapper with remote-ref verification.
+
 ## 2026-11-22 — Session 18: P9 Sprint (Onboarding & Banking Truth)
 
 **Base:** `b6bdfb40` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-22_P9.md` · **Report:** `docs/REMEDIATION_2026-11-22_P9_REPORT.md` · **Session log:** `docs/session_19.md`

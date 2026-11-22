@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.13.0
-> **Last Updated**: 2026-11-22
-> **Status**: P9 Remediated 🟢 — all gates green (backend 668P/0F/5S, frontend vitest 454/454, typecheck 0 errors, e2e 26 total / 9+17skip default, live workflow green); onboarding & banking truth: organisation creation ships (the dead-end CTA is real), the payment workflow is real end to end (multipart import, rendered reconciliation matches, contact picker, allocations that settle invoices, Record Payment deep link, bank-account dialog, void/unreconcile corrections), the dashboard tells the truth (no invented GST boxes or trends), the invoices list shows invoices, seeded accounts are filterable (account_type backfill + is_bank), the quote-conversion envelope pinned, InvoiceNow invoice-only, aged as-at bounded, transport faults keep sessions, XSD fails closed (see `docs/REMEDIATION_2026-11-22_P9_REPORT.md`, plus the P0–P8 reports)
+> **Version**: 2.14.0
+> **Last Updated**: 2026-11-23
+> **Status**: P10 Remediated 🟢 — all gates green (backend 687P/0F/5S, frontend vitest 505/505, typecheck 0 errors, e2e 31 specs / 11+20skip default, the live suite 30/30 green twice consecutively); self-serve loop & compliance truth: the registration page ships and org-less accounts route to org creation (the anonymous-401 bounce on public pages fixed), the invoice form picks real contacts (no duplicate rows; the wire contract e2e-asserted), the GST F5 tab ships the full lifecycle (create periods, compute, review, file, amend, deadlines), contacts management (search/edit/deactivate), bank-account edit + deactivate, payment allocations visible, fiscal-period open, change password, InvoiceNow settings; the export build retired (standalone only), the coverage gate at the honest measured floor; rate-limited requests return the 429 contract (never a raw 403), organisation UEN collisions are clean 400s, development settings copy-on-write (see `docs/REMEDIATION_2026-11-22_P10_REPORT.md`, plus the P0–P9 reports)
 
 ---
 
@@ -30,8 +30,8 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.9 | ✅ Ready | 15 pages, 454 unit + 26 e2e tests (9 always + 17 backend-gated), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages, working void dialog + real error messages + PDF/InvoiceNow actions, real reports + quotes pages, organisation creation + full payment workflow + truthful dashboard (P5–P9) |
-| **Backend** | v0.5.1 | ✅ Suite Fully Green | 90+ endpoints, **668 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth, per-status transition permissions + active custom exception handler, real financial reports + aged AR/AP + quote lifecycle + the P9 banking/onboarding contracts (P5–P9) |
+| **Frontend** | v0.2.0 | ✅ Ready | 16 pages, 505 unit + 31 e2e tests (11 always + 20 backend-gated; the live suite 30/30 twice), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages, working void dialog + real error messages + PDF/InvoiceNow actions, real reports + quotes pages, organisation creation + full payment workflow + truthful dashboard (P5–P9), registration + contacts + the contact-picker invoice form + the GST F5 lifecycle + bank edit/deactivate + fiscal open + change password + InvoiceNow settings (P10) |
+| **Backend** | v0.5.2 | ✅ Suite Fully Green | 90+ endpoints, **687 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth, per-status transition permissions + active custom exception handler, real financial reports + aged AR/AP + quote lifecycle + the P9 banking/onboarding contracts (P5–P9), GST F5 review/amend + fiscal-period open + UEN 400s + the 429 rate-limit contract (P10) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables, NUMERIC(19,4) money |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
 | **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on (settings-driven login knobs), HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes |

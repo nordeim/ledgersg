@@ -1,8 +1,9 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.6.0
-> **Last Updated**: 2026-11-22
+> **Version**: 3.7.0
+> **Last Updated**: 2026-11-23
+> **P10 note**: self-serve loop & compliance truth — the registration page ships (org-less accounts route to org creation; the anonymous-401 bounce fixed), the invoice form picks real contacts (no duplicate rows), the GST F5 tab ships the full lifecycle (periods, compute, review, file, amend, deadlines), contacts management, bank-account edit/deactivate, payment allocations visible, fiscal-period open, change password, InvoiceNow settings; the export build retired (standalone only), the coverage gate at the honest floor; rate-limited requests return the 429 contract, UEN collisions are clean 400s; see `docs/REMEDIATION_2026-11-22_P10_REPORT.md`.
 > **P9 note**: onboarding & banking truth — organisation creation ships, the payment workflow is real end to end (multipart import, rendered reconciliation matches, contact picker, allocations, Record Payment deep link, bank-account dialog, void/unreconcile corrections), dashboard truth (no invented figures), invoices list typed, seeded accounts filterable, InvoiceNow invoice-only, aged as-at bounded; see `docs/REMEDIATION_2026-11-22_P9_REPORT.md`.
 > **P8 note**: reporting truth & quote lifecycle — real financial reports (TB/P&L/BS tie-out), aged AR/AP, real reports + quotes pages, persisted quote conversion, fiscal close preconditions; see `docs/REMEDIATION_2026-11-22_P8_REPORT.md`.
 > **P7 note**: API truth & permission hardening — status-transition authorization, routed fiscal endpoints, fail-closed payments, real error messages, working void/send actions; see `docs/REMEDIATION_2026-11-22_P7_REPORT.md`.

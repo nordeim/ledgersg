@@ -6,8 +6,9 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-22, session 18 / P9) re-verified every command against the current
-codebase (backend 647P/0F/5S, vitest 418/418, e2e 23/23 full).
+(2026-11-23, session 20 / P10) re-verified every command against the current
+codebase (backend 687P/0F/5S, vitest 505/505, live e2e 30/30 — two
+consecutive runs).
 
 Verified truths this guide is built on: the schema file
 `apps/backend/database_schema.sql` (v1.1.0) CREATEs ROLEs inside DO blocks
@@ -194,9 +195,9 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-22 P9): 668 passed, 0 failed, 5 skipped
+# expected (post-2026-11-23 P10): 687 passed, 0 failed, 5 skipped
 pytest tests/invariants -q    # 27 passed (schema conformance + capacity + balance)
-pytest tests/security -q      # 53 passed, 3 skipped (RLS, tokens, cookies, posture gates)
+pytest tests/security -q      # 55 passed, 3 skipped (RLS, tokens, cookies, posture gates)
 ```
 
 ## 8. Run the backend
@@ -230,26 +231,47 @@ Development server (hot reload; expects the backend on :8000):
 npm run dev          # http://localhost:3000
 ```
 
-Production server build (standalone, with API integration):
+Production server build (standalone — the ONLY supported build since
+P10/M-12; the static-export mode was retired because API-driven detail
+routes cannot prerender):
 
 ```bash
 npm run build:server         # NEXT_OUTPUT_MODE=standalone + static copy
 npm run start                # node .next/standalone/server.js
 ```
 
-Static CDN build (no API integration — pages that need the backend degrade):
-
-```bash
-npm run build && npm run serve
-```
-
 Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 418 vitest tests
+npm test                    # 505 vitest tests
+npm run test:coverage       # green at the honest measured-floor ratchet
+npm run build:server        # the only build mode
 npm run test:e2e            # green without a backend (gated specs skip)
-E2E_API_URL=http://127.0.0.1:8000 npm run test:e2e:full   # 21/21 (live stack)
+```
+
+The full live gate (`npm run test:e2e:full`) additionally needs the dev DB
+bootstrapped with a demo user, organisation, and one approved invoice
+(the banking spec's dependency). The e2e specs read `E2E_DEMO_EMAIL` /
+`E2E_DEMO_PASSWORD` (defaults `demo@ledgersg.sg` / `demo1234` — override
+with a 12+ char password to satisfy the register floor). Bootstrap through
+the public API (idempotent), then run the suite serially:
+
+```bash
+export E2E_API_URL=http://127.0.0.1:8000 E2E_DEMO_EMAIL=demo@ledgersg.sg \
+       E2E_DEMO_PASSWORD=demo1234pass
+# 1) register/login the demo user:  POST /api/v1/auth/register/
+#    {"full_name":"Demo User","email":"demo@ledgersg.sg","password":"demo1234pass"}
+#    (201 with tokens; 200 login if the user already exists)
+# 2) create the demo org with the token:  POST /api/v1/organisations/
+#    {"name":"Ledger Demo Pte Ltd","uen":"202612345D","entity_type":"PRIVATE_LIMITED",
+#     "gst_registered":true,"gst_reg_number":"M90345678","gst_reg_date":"2026-01-01",
+#     "fy_start_month":1,"base_currency":"SGD"}   (seeds CoA + fiscal year + tax codes)
+# 3) create + approve one invoice:  POST /api/v1/{org}/invoicing/documents/
+#    (line: a REVENUE account id, optionally the SR tax code) then
+#    POST …/documents/{id}/approve/
+npm run test:e2e:full       # 31 specs: 11 always + 20 backend-gated (30/30 live-green,
+                           # 1 data-conditional skip)
 ```
 
 ## 10. (Optional) Celery worker — async tasks
@@ -324,12 +346,35 @@ curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
 #      opens with bank-type GL options; Receive Payment picks contacts
 #      through the searchable picker and lists the contact's open invoices
 #      for allocation; the dashboard shows only real figures.
+
+# 9. P10 self-serve + compliance spot checks
+#    - duplicate organisation UEN is a clean 400 (was an IntegrityError 500):
+#      POST /api/v1/organisations/ with an existing UEN -> 400 {"uen": [...]}
+#    - a rate-limited request returns the 429 contract (not a raw 403):
+#      burst past a limit -> 429 {"error":{"code":"rate_limit_exceeded",
+#      "details":{"retry_after":60}}} with a Retry-After header
+#    - the fiscal-period open endpoint (P10/M-8):
+#      POST /api/v1/$ORG_ID/fiscal-periods/{period_id}/open/ -> 200 (manager)
+#    - the GST F5 review route (P10/H-3):
+#      POST /api/v1/$ORG_ID/gst/returns/{return_id}/review/ -> 200 (manager)
+#    - Browser (P10): /register — a fresh visitor can self-serve (register →
+#      org creation → dashboard; the anonymous 401 never bounces them);
+#      /contacts — search, edit, deactivate; /invoices/new — the Customer
+#      picker defaults to existing contacts (no contact row created);
+#      /reports GST F5 tab — create periods, compute, review, file, amend +
+#      the next-filing deadline banner; /settings — change password + the
+#      InvoiceNow card + fiscal open/close; /banking Accounts — per-row Edit
+#      + deactivate; Payments — per-payment allocation rows with a toggle.
 ```
 
-The full e2e run performs ~25 logins/refreshes. The dev settings budget
-(60/min IP logins, 240/min refresh — `LOGIN_RATELIMIT_IP`,
-`REFRESH_RATELIMIT_IP`) covers it; production keeps 10/min + 20/min. If a
-dev run fails only on login/refresh 429s, flush the dev cache
+The full e2e run performs ~30 logins/refreshes. The dev settings budgets
+(`LOGIN_RATELIMIT_IP` 60/min, `LOGIN_RATELIMIT_USER` 120/min,
+`REFRESH_RATELIMIT_IP` 240/min — the P10 pass raised the per-user login
+budget after the suite's tail tripped the base 30/min) cover it; production
+keeps 10/min IP + 30/min user + 20/min refresh. A rate-limited request now
+returns the documented 429 `rate_limit_exceeded` contract (P10 — previously
+a raw 403 "You do not have permission…", indistinguishable from an authz
+failure). If a dev run fails only on login/refresh 429s, flush the dev cache
 (`redis-cli -n 0 FLUSHDB`) or wait out the window.
 
 ## 12. Production notes
@@ -346,7 +391,8 @@ dev run fails only on login/refresh 429s, flush the dev cache
   needs it — do not use it as the runtime role in production.
 - **Rate limiting** is ON by default (`RATELIMIT_ENABLE=true`); login and
   refresh rates are settings knobs — production defaults 10/min per IP
-  (login), 30/min per user, 20/min (refresh).
+  (login), 30/min per user, 20/min (refresh). Blocked requests return the
+  429 `rate_limit_exceeded` contract with a `Retry-After` header (P10).
 - **Session cookies (P4)**: the refresh cookie is `SameSite=Lax`, correct
   when web + API share a site. For a **cross-site production topology**
   (web on `app.example.com`, API on `api.example.com`), cookies must be
@@ -392,9 +438,10 @@ and code still agree.
 | Endpoint 404 that "exists" in a urls.py | Route defined in the shadowed `apps/core/urls.py` module | Register in the `apps/core/urls/` PACKAGE (P7/F-4) |
 | In-view permission errors surface as 500 | Custom exception handler not active | Check `EXCEPTION_HANDLER` (not `DEFAULT_EXCEPTION_HANDLER`) in REST_FRAMEWORK (P7/F-19) |
 | Dashboard "Loading..." stuck in production build | Missing static files in standalone output | `npm run build:server` (auto-copies `.next/static`) |
-| Login silently does nothing | Password shorter than 8 chars — native `minLength` blocks the submit | Use an 8+ character password |
+| Login silently does nothing | Password shorter than 12 chars — the native `minLength` on the register/change-password forms blocks the submit (the backend floor since the P10 audit: `AUTH_PASSWORD_VALIDATORS` `min_length: 12`) | Use a 12+ character password |
 | e2e `Executable doesn't exist` | Declared browsers not installed | `npx playwright install chromium` |
-| e2e full-run login/refresh 429s | Dev rate window spent | Dev budgets 60/240 per min; flush the dev Redis cache or wait |
+| e2e full-run login/refresh 429s | Dev rate window spent | Dev budgets 60/120/240 per min (login IP / login user / refresh); flush the dev Redis cache or wait |
+| Second organisation without a UEN → 500 | `core.organisation.uen` is VARCHAR UNIQUE — two blank (`''`) UENs collide at the DB (multiple NULLs would not); the P10 serializer guard skips blanks, so the DB constraint itself fires | Known deferred debt (needs the null-vs-blank schema decision); give the org a UEN for now |
 | GST computed at the wrong rate | Document date outside the code's effective window | Pass `document_date` inside the row's window (P2 contract) |
 | `psql ... liblzf.so.1: cannot open shared object file` | Redis extraction missing liblzf | `apt-get download liblzf1` + extract (§5) |
 

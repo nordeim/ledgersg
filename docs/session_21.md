@@ -1,0 +1,32 @@
+# Session 20 Log — P10 Sprint: Self-Serve Loop & Compliance Truth (2026-11-23)
+
+Workspace refreshed from the remote after a mid-sprint sandbox recycle — Tasks 1–16 were already pushed (the push-after-every-commit safeguard paid for itself); the environment was rebuilt from the documented runbooks (PG empty-subdir restoration, Redis debs, `uv sync --all-extras`, `npm ci`, playwright chromium), and all four baselines reproduced exactly before any change (668P/5S → 683P/5S with Tasks 1–8 in, 454 → 494 vitest, typecheck 0, gated e2e parity). The uncommitted Task-17 work was lost to the recycle and rebuilt — its debugging conclusions (a register-page race and a demo-login failure pair that had resisted isolation) carried over.
+
+Audit (Mode C) per `skills/skills-catalog.md`: the scanner pass (all hits in the documented FP classes) plus three parallel deep-audit agents; the lead hand-verified every Critical/High before planning. The register that shaped the sprint: **H-1** every invoice-form submission created a contact (duplicating UEN-less customers, 409-ing repeat UENs); **H-2** the login page's "Create account" link was a dead `#` while the register endpoint sat unconsumed — the self-serve loop was closed; **H-3** the GST F5 File button POSTed a return that was forever DRAFT while the review/amend endpoints had zero callers; plus the M/L register — PayNow PATCH parity, the fail-open VOID seam, the org choice that reset on reload, transmission error keys, the missing contacts / bank-edit / allocations / fiscal-open / change-password / InvoiceNow surfaces, the export-mode build that had been broken for months while documented as supported, and a coverage gate set at 85% that had never once passed.
+
+Plan written and validated (`docs/REMEDIATION_PLAN_2026-11-22_P10.md`), then executed task-by-task in TDD with a push after every commit (18 code commits, Tasks 1–16):
+
+- **Task 1 (H-2)** the registration page + the login links (8 vitest; the self-serve loop's first half).
+- **Task 2 (H-1)** the two-mode Customer card + the shared ContactPicker's `onSelect` (6 vitest; the wire contract e2e-asserted later).
+- **Tasks 3–13 (M-5, M-1..M-4+L-6, M-6, M-7, M-8, M-9, M-10)** the contacts page, the F5 lifecycle tab, the contract fixes, and the five new settings/banking surfaces — each RED first.
+- **Task 14 (M-11)** the CI trigger — which turned into the session's honesty lesson: the "corruption" was a tool-display artifact (the output layer eats the `[m` byte sequence), the file was never broken (`od -c` ground truth at both commits), and the corrective commit sets the record straight instead of leaving a false fix in the history.
+- **Task 15 (M-12/M-13/L-7)** the export mode retired truthfully (detail routes cannot prerender live IDs), standalone as the only build, the coverage ratchet at the measured floor (62.88/52.33/51.97/63.19), the Suspense boundary.
+- **Task 16 (L-1..L-5)** the truth/UI batch.
+
+**The live gate (Task 17) — rebuilt after the recycle, and it earned its keep.** The rebuilt e2e spec (register render, the self-serve loop, contacts, the H-1 picker regression at the wire level) plus the existing specs surfaced five production defects no mocked gate could see, each reproduced at the API level, root-caused, and fixed with a RED regression test:
+
+1. The register test's button "detached" mid-click and the page landed on /login — not rate limiting (that returns 429), not the dashboard guard: the auth-provider's mount-time session check treated the anonymous 401 an unauthenticated /register visitor gets as session expiry and bounced. Public auth pages are exempt now (LG-1).
+2. A 35-login burst tripped at exactly #30 with a raw 403 "You do not have permission…" — django-ratelimit's `Ratelimited` (a bare PermissionDenied subclass) fell through DRF's fallback, indistinguishable from an authz failure. The custom handler now maps it to the documented 429 contract (LG-2).
+3. The grown suite's tail tripped `LOGIN_RATELIMIT_USER` (30/min — the third knob the P4/P6 budget raises missed); dev is 120/min, production unchanged and test-asserted (LG-3).
+4. The knob test's import of `development.py` crashed a 79-test cascade — the module mutated the shared base INSTALLED_APPS/MIDDLEWARE/LOGGING in place (the very copy-on-write rule it documented for REST_FRAMEWORK). Fixed for every shared structure (LG-4).
+5. A re-run against a populated dev DB produced `org-create=500`: a taken UEN hit the DB-level UNIQUE constraint — unvalidated on create and both PATCH paths (the detail PATCH is a raw allowlist with no serializer). `ensure_uen_available()` guards all three paths with a clean 400; the blank-UEN `''`-collision schema modeling is deferred on the record (LG-5).
+
+Plus spec hygiene: the banking statement spec's silent "Marina" fixture-name dependency replaced with run-unique data, the shell breadcrumb h2 (which duplicated every page's h1 and strict-mode-resolved twice) demoted to an aria-hidden div, and the empty-list double CTA scoped.
+
+**Canonical runs: the live e2e gate 30/30 green twice consecutively** (31 specs; 1 data-conditional skip — no voidable documents after the payment settles).
+
+Screenshots (Task 17c): 53..58_session20 — the registration page, contacts page, the invoice picker with results open, the GST F5 tab with created periods + the boxes panel open, the settings cards (full page), and the bank-account edit dialog — all through the real UI login path with content-based waits, capture driver committed (`apps/web/scripts/p10_screenshots.mjs`).
+
+Docs truth pass (Tasks 18–20): `.env.example` re-audited 1:1 against every `config(`/`process.env` read (no new P10 vars; the export-mode claims corrected in both files); README (v0.2.0/v0.5.2, counts 1,223 = 687 backend + 505 vitest + 31 e2e, the P10 milestone section, both stale tables fixed); DEPLOYMENT.md re-verified end-to-end against the current tree (P10 revision: the live-gate bootstrap sequence documented, the static-export block removed, the P10 spot checks, the 12-char password floor, the new rate budgets, the blank-UEN known-debt row); AGENTS.md (six new P10 patterns); PAD/SKILL/CLAUDE updated; this log and the worklog entry; the P10 report.
+
+Final state (all Verified): backend 687P/0F/5S, invariants 27P, security 55P/3S, vitest 505/505, typecheck 0, coverage green at the ratchet, build:server green, default e2e 11+20 gated, live e2e 30/30 twice, six content-verified screenshots — every commit on main, pushed via the SSH wrapper with remote-ref verification.

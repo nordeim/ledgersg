@@ -1125,3 +1125,60 @@ contract break (mocked tests passed), the deep-link tab default
 (PaymentsTab reads params it never sees — the tab never mounted), and the
 is_bank children invisibility. Budget for e2e iterations; treat each
 failure as a lead-verify-then-fix cycle, not as flake.
+
+## 2026-11-23 P10 Sprint — New Patterns & Lessons (session 20)
+
+### A Mount-Time Session Check Must Know Which Pages Are Public (H-2 follow-up)
+The auth-provider's `checkSession` runs on every page, including public
+ones — and treated the anonymous 401 an unauthenticated visitor gets from
+/auth/me like session expiry: clearAuth + redirect to /login. The
+registration form only ever worked by winning that race (the e2e click
+landed mid-navigation, "element detached"). Redirect guards need the
+public-route exemption list as explicit as the loop guard (/login) already
+was.
+
+### A Rate-Limit Block Must Not Masquerade As An Authorization Failure (LG-2)
+django-ratelimit's `Ratelimited` is a bare `PermissionDenied` subclass; on
+a DRF view it fell through the fallback handler as 403 "You do not have
+permission to perform this action." Clients cannot distinguish throttling
+from authz — and the frontend api-client treats 403 as an auth failure and
+bounces to /login mid-spec. Map it in `custom_exception_handler` to the
+documented 429 contract (code, retry_after, Retry-After header). When you
+raise a rate budget, remember EVERY knob: the login IP budget was raised in
+P4 and the refresh IP budget in P6, but the per-user login budget was
+missed and blocked the grown suite's tail.
+
+### Settings Modules Must Copy-On-Write Their Base Structures (LG-4)
+`development.py` did `INSTALLED_APPS += [...]` and `MIDDLEWARE.insert(...)` —
+in-place mutations of the module-level lists `from .base import *` shares.
+Importing development.py into ANY process running other settings (a test
+asserting its knobs) injected debug_toolbar into the live app registry
+mid-run and crashed middleware loading — a 79-test cascade that looked like
+everything and was one file. The file already documented the rule for
+REST_FRAMEWORK ("Copy-on-write: never mutate the shared base dict") — the
+rule applies to every shared structure.
+
+### Serializer-Guarded Endpoints Need The Guard On Every Path (LG-5)
+`core.organisation.uen` is UNIQUE at the DB level, but only the CREATE
+serializer validated it — the detail PATCH is a raw request.data allowlist
+(no serializer at all) and the settings PATCH passes no instance. A taken
+UEN was an IntegrityError 500 on all three paths. When a constraint guard
+exists, enumerate every writer path (including raw allowlists) and share
+the check (`ensure_uen_available(uen, exclude_org=…)`).
+
+### Verify Raw Bytes Before Declaring Corruption (M-11 correction)
+The "corrupted CI trigger" (`branches: ain]`) was a tool-DISPLAY artifact:
+the output layer eats the byte sequence `[m` when rendering text. The file
+on disk was always intact (`od -c` ground truth at both commits). Before
+acting on "corruption" seen through a tool, check the raw bytes; and when a
+finding turns out to be an artifact, correct the record explicitly (the
+corrective commit) rather than leaving the false history in place.
+
+### e2e Specs Must Not Depend On Fixture Names From Other Eras (LG-6)
+The banking statement spec filtered on "Marina" — a P9-era fixture name
+that silently depended on the dev-DB bootstrap's customer naming; it broke
+the moment P10's bootstrap named a customer differently. Specs against a
+persistent dev DB must generate run-unique data (timestamps in
+descriptions/references) and assert on values read from the system, and
+duplicate-looking headings (a shell breadcrumb h2 next to each page's h1)
+belong to ONE heading per page — demote the decorative one to aria-hidden.
