@@ -14,6 +14,7 @@ import { SettingsClient } from "../settings-client";
 import * as orgHooks from "@/hooks/use-organisation";
 
 // P7/F-12: hoisted mutable auth state so the no-org case is testable.
+// P10/M-8: hasPermission — the fiscal card gates its control buttons on it.
 const { __testAuth } = vi.hoisted(() => ({
   __testAuth: {
     currentOrg: { id: "org-123", name: "Ledger Demo Pte Ltd" } as
@@ -25,6 +26,7 @@ const { __testAuth } = vi.hoisted(() => ({
       full_name: "Demo User",
     },
     isLoading: false,
+    hasPermission: vi.fn(() => false),
   },
 }));
 
@@ -33,6 +35,21 @@ vi.mock("@/providers/auth-provider", () => ({
 }));
 
 vi.mock("@/hooks/use-organisation");
+
+// P10/M-8: the settings page renders the fiscal card — benign stubs so
+// the org-settings assertions above stay focused.
+vi.mock("@/hooks/use-fiscal", () => ({
+  useFiscalYears: vi.fn().mockReturnValue({
+    data: { data: [], count: 0 },
+    isLoading: false,
+  }),
+  useFiscalPeriods: vi.fn().mockReturnValue({
+    data: { results: [], count: 0 },
+  }),
+  useOpenFiscalPeriod: vi.fn().mockReturnValue({ mutate: vi.fn(), isPending: false }),
+  useCloseFiscalPeriod: vi.fn().mockReturnValue({ mutate: vi.fn(), isPending: false }),
+  useCloseFiscalYear: vi.fn().mockReturnValue({ mutate: vi.fn(), isPending: false }),
+}));
 
 const mockMutation = () => ({
   mutate: vi.fn(),

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/providers/auth-provider";
+import { FiscalCard } from "./components/fiscal-card";
 import {
   useOrganisation,
   useUpdateOrganisation,
@@ -279,6 +280,10 @@ export function SettingsClient() {
           )}
         </CardContent>
       </Card>
+
+      {/* P10/M-8: fiscal years & periods — the control surface the
+          invoice-approval error points at. */}
+      <FiscalCard orgId={currentOrg.id} />
 
       {/* User Profile (read-only view of the signed-in user) */}
       <Card className="border-border bg-carbon rounded-sm">

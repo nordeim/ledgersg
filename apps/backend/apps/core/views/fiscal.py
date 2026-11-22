@@ -150,3 +150,55 @@ class FiscalPeriodCloseView(APIView):
                 {"error": {"code": "not_found", "message": "Fiscal period not found"}},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+class FiscalPeriodOpenView(APIView):
+    """
+    POST: Open a fiscal period.
+
+    P10/M-8: the symmetric control act — the invoice-approval error
+    ("Please open the fiscal period or change the invoice date") pointed
+    at an action no endpoint could perform; back-dated invoices outside
+    the seeded open periods were a hard dead end.
+
+    Manager-gated like close; clears the close stamp (locked_at/locked_by).
+    Refuses an already-open period and refuses periods under a closed
+    fiscal year (a closed year is history — the close precondition must
+    not be circumventable by reopening a period).
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsOrgMember, CanManageOrg]
+
+    @wrap_response
+    def post(self, request, org_id: str, period_id: str) -> Response:
+        """Open fiscal period."""
+        try:
+            period = FiscalPeriod.objects.select_related("fiscal_year").get(
+                id=period_id, org_id=org_id
+            )
+
+            if period.is_open:
+                raise ValidationError("Fiscal period is already open")
+
+            if period.fiscal_year.is_closed:
+                raise ValidationError(
+                    "The fiscal year is closed — its periods cannot be reopened"
+                )
+
+            period.is_open = True
+            period.locked_at = None
+            period.locked_by = None
+            period.save()
+
+            return Response(
+                {
+                    "message": "Fiscal period opened successfully",
+                    "period_id": str(period.id),
+                }
+            )
+        except FiscalPeriod.DoesNotExist:
+            return Response(
+                {"error": {"code": "not_found", "message": "Fiscal period not found"}},
+                status=status.HTTP_404_NOT_FOUND,
+            )

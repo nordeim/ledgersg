@@ -17,6 +17,7 @@ from apps.core.views.fiscal import (
     FiscalPeriodListView,
     FiscalYearCloseView,
     FiscalPeriodCloseView,
+    FiscalPeriodOpenView,
 )
 
 
@@ -52,6 +53,14 @@ org_scoped_urlpatterns = [
         "fiscal-periods/<str:period_id>/close/",
         FiscalPeriodCloseView.as_view(),
         name="fiscal-period-close",
+    ),
+    # Fiscal period open - api/v1/{org_id}/fiscal-periods/{period_id}/open/
+    # (P10/M-8: the symmetric act — the approval error named it but no
+    # endpoint could perform it)
+    path(
+        "fiscal-periods/<str:period_id>/open/",
+        FiscalPeriodOpenView.as_view(),
+        name="fiscal-period-open",
     ),
     # Organisation summary - mounted at api/v1/{org_id}/summary/
     path("summary/", OrganisationSummaryView.as_view(), name="org-summary"),

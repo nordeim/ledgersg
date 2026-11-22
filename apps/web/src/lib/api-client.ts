@@ -445,6 +445,8 @@ export const endpoints = {
     periods: `/api/v1/${orgId}/fiscal-periods/`,
     closeYear: (id: string) => `/api/v1/${orgId}/fiscal-years/${id}/close/`,
     closePeriod: (id: string) => `/api/v1/${orgId}/fiscal-periods/${id}/close/`,
+    // P10/M-8: the symmetric open act — the approval error named it.
+    openPeriod: (id: string) => `/api/v1/${orgId}/fiscal-periods/${id}/open/`,
   }),
 
   // Peppol
