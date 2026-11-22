@@ -46,7 +46,7 @@ export interface DocumentLinePayload {
 }
 
 export interface DocumentPayload {
-  document_type: "SALES_INVOICE";
+  document_type: "SALES_INVOICE" | "SALES_QUOTE";
   contact_id: string;
   issue_date: string;
   due_date: string;
@@ -70,10 +70,11 @@ export function buildContactPayload(invoice: Invoice): ContactPayload {
 export function buildDocumentPayload(
   invoice: Invoice,
   contactId: string,
-  taxCodeIdByCode: ReadonlyMap<TaxCode, string>
+  taxCodeIdByCode: ReadonlyMap<TaxCode, string>,
+  documentType: DocumentPayload["document_type"] = "SALES_INVOICE"
 ): DocumentPayload {
   return {
-    document_type: "SALES_INVOICE",
+    document_type: documentType,
     contact_id: contactId,
     issue_date: invoice.issue_date,
     due_date: invoice.due_date,

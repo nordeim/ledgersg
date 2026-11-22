@@ -400,6 +400,13 @@ export const endpoints = {
     aged: `/api/v1/${orgId}/reports/aged/`,
   }),
 
+  // Quotes (org-scoped) — P8/Q-4: quotes are SALES_QUOTE documents on the
+  // same documents endpoint (filtered with ?type=) plus the convert route.
+  quotes: (orgId: string) => ({
+    list: `/api/v1/${orgId}/invoicing/documents/?type=SALES_QUOTE`,
+    convert: `/api/v1/${orgId}/invoicing/quotes/convert/`,
+  }),
+
   // Fiscal (org-scoped)
   fiscal: (orgId: string) => ({
     years: `/api/v1/${orgId}/fiscal-years/`,

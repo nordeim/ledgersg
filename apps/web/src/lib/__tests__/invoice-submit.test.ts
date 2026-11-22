@@ -72,6 +72,23 @@ describe("buildContactPayload", () => {
 });
 
 describe("buildDocumentPayload", () => {
+  it("maps the form to a quote payload when documentType is passed (P8/Q-4)", () => {
+    const invoice = readyInvoice();
+    const taxCodeIdByCode = new Map<TaxCode, string>([["SR", "sr-row-uuid"]]);
+
+    const payload = buildDocumentPayload(
+      invoice,
+      "contact-uuid-1",
+      taxCodeIdByCode,
+      "SALES_QUOTE"
+    );
+
+    expect(payload.document_type).toBe("SALES_QUOTE");
+    // everything else matches the invoice contract
+    expect(payload.contact_id).toBe("contact-uuid-1");
+    expect(payload.lines).toHaveLength(1);
+  });
+
   it("maps the form to the backend document create contract", () => {
     const invoice = readyInvoice();
     const taxCodeIdByCode = new Map<TaxCode, string>([["SR", "sr-row-uuid"]]);

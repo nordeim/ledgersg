@@ -20,18 +20,21 @@ const InvoiceForm = dynamic(
 interface InvoiceFormWrapperProps {
   initialData?: Partial<InvoiceInput>;
   isGSTRegistered?: boolean;
+  documentType?: "SALES_INVOICE" | "SALES_QUOTE";
   onSuccess?: (invoiceId: string) => void;
 }
 
 export function InvoiceFormWrapper({
   initialData,
   isGSTRegistered = true,
+  documentType = "SALES_INVOICE",
   onSuccess,
 }: InvoiceFormWrapperProps) {
   return (
     <InvoiceForm
       initialData={initialData}
       isGSTRegistered={isGSTRegistered}
+      documentType={documentType}
       onSuccess={onSuccess}
     />
   );

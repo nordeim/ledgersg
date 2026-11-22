@@ -34,12 +34,14 @@ import { useCreateInvoice } from "@/hooks/use-invoices";
 interface InvoiceFormProps {
   initialData?: Partial<InvoiceInput>;
   isGSTRegistered?: boolean;
+  documentType?: "SALES_INVOICE" | "SALES_QUOTE";
   onSuccess?: (invoiceId: string) => void;
 }
 
 export function InvoiceForm({
   initialData,
   isGSTRegistered = true,
+  documentType = "SALES_INVOICE",
   onSuccess,
 }: InvoiceFormProps) {
   const { setHasUnsavedChanges } = useInvoiceStore();
@@ -153,7 +155,12 @@ export function InvoiceForm({
         buildContactPayload(data as Invoice)
       );
       const document = await createInvoice.mutateAsync(
-        buildDocumentPayload(data as Invoice, contact.id, taxCodeIdByCode)
+        buildDocumentPayload(
+          data as Invoice,
+          contact.id,
+          taxCodeIdByCode,
+          documentType
+        )
       );
 
       if (!document.id) {

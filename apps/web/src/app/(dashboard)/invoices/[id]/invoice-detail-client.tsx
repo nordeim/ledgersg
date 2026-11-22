@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  ArrowRightLeft,
   Printer,
   Send,
   CheckCircle,
@@ -29,6 +30,7 @@ import { useAuth } from "@/providers/auth-provider";
 import {
   useInvoice,
   useApproveInvoice,
+  useConvertQuote,
   useVoidInvoice,
   useSendInvoice,
   useInvoicePDF,
@@ -90,11 +92,16 @@ function formatDate(value: string) {
 
 interface InvoiceDetailClientProps {
   id: string;
+  /** P8/Q-4: quotes reuse this client with quote framing — the invoice-only
+   * surfaces (payment state, approval, InvoiceNow) are gated out and a
+   * Convert-to-invoice action joins the toolbar. */
+  variant?: "invoice" | "quote";
 }
 
-export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
+export function InvoiceDetailClient({ id, variant = "invoice" }: InvoiceDetailClientProps) {
   const { currentOrg, isLoading: authLoading } = useAuth();
   const orgId = currentOrg?.id ?? null;
+  const isQuote = variant === "quote";
 
   const { data: invoice, isLoading, isError } = useInvoice(orgId as string, id);
   const approveInvoice = useApproveInvoice(orgId as string, id);
@@ -104,6 +111,7 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
   // auth path; P5/C-2 InvoiceNow transmission), so the detail page now
   // actually exposes them.
   const downloadPdf = useInvoicePDF(orgId as string, id);
+  const convertQuote = useConvertQuote(orgId as string);
   const sendInvoiceNow = useSendInvoiceNow(orgId as string, id);
   const { data: invoiceNowStatus } = useInvoiceNowStatus(orgId as string, id);
   const [sending, setSending] = useState(false);
@@ -200,7 +208,7 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
   // InvoiceNow requires an APPROVED (ledger-posted) document — the backend
   // refuses anything else (P8/G-8: the old !isDraft && !isVoid gate
   // enabled SENT/PARTIALLY_PAID/PAID/OVERDUE buttons that always 400'd).
-  const canSendInvoiceNow = invoice.status === "APPROVED";
+  const canSendInvoiceNow = invoice.status === "APPROVED" && !isQuote;
   // Void is available exactly for the statuses the engine accepts
   // (P8/G-3: PAID is remedied with a credit note; a paid invoice's Void
   // button was a guaranteed 400).
@@ -213,9 +221,10 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
     invoice.contact.email &&
     !sendInvoice.isPending &&
     !sending;
-  // The payment state is truthful for every non-void document — an
-  // unpaid invoice owes its full total (P6/F-11: always surface it).
-  const showPaymentState = !isVoid;
+  // The payment state is truthful for every non-void INVOICE — an unpaid
+  // invoice owes its full total (P6/F-11: always surface it). Quotes never
+  // carry payments (P8/Q-4).
+  const showPaymentState = !isVoid && !isQuote;
 
   const handleSend = async () => {
     if (!invoice.contact.email) return;
@@ -288,7 +297,7 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          {isDraft && (
+          {isDraft && !isQuote && (
             <Button
               onClick={() => approveInvoice.mutate()}
               disabled={approveInvoice.isPending}
@@ -300,6 +309,22 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
                 <CheckCircle className="h-4 w-4" />
               )}
               Approve
+            </Button>
+          )}
+
+          {isQuote && (invoice.status === "DRAFT" || invoice.status === "SENT") && (
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled={convertQuote.isPending}
+              onClick={() => convertQuote.mutate(id)}
+            >
+              {convertQuote.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowRightLeft className="h-4 w-4" />
+              )}
+              Convert to Invoice
             </Button>
           )}
 
@@ -396,12 +421,14 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
             </div>
             <div className="text-left md:text-right">
               <h3 className="font-display text-xl font-bold text-text-primary mb-2">
-                {invoice.document_type === "SALES_CREDIT_NOTE"
-                  ? "CREDIT NOTE"
-                  : "INVOICE"}
+                {isQuote
+                  ? "QUOTATION"
+                  : invoice.document_type === "SALES_CREDIT_NOTE"
+                    ? "CREDIT NOTE"
+                    : "INVOICE"}
               </h3>
               <p className="text-sm text-text-secondary">
-                <span className="font-medium">Invoice #:</span>{" "}
+                <span className="font-medium">{isQuote ? "Quote #" : "Invoice #"}:</span>{" "}
                 {invoice.document_number}
               </p>
               <p className="text-sm text-text-secondary">
@@ -409,7 +436,9 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
                 {formatDate(invoice.issue_date)}
               </p>
               <p className="text-sm text-text-secondary">
-                <span className="font-medium">Due Date:</span>{" "}
+                <span className="font-medium">
+                  {isQuote ? "Valid Until:" : "Due Date:"}
+                </span>{" "}
                 {formatDate(invoice.due_date)}
               </p>
               {invoice.reference && (

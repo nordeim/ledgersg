@@ -13,6 +13,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { api, endpoints } from "@/lib/api-client";
 import { toast } from "@/hooks/use-toast";
 import type { Invoice } from "@/shared/schemas/invoice";
@@ -390,6 +391,46 @@ export function useInvoicePDF(orgId: string, invoiceId: string) {
       toast({
         title: "Download failed",
         description: error.message || "The PDF could not be downloaded.",
+        variant: "error",
+      });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Quotes (P8/Q-4) — SALES_QUOTE documents share the documents endpoint;
+// conversion creates the linked invoice.
+// ---------------------------------------------------------------------------
+
+/** POST /invoicing/quotes/convert/ — convert a DRAFT/SENT quote to an
+ * invoice (the backend persists quote.related_document). */
+export function useConvertQuote(orgId: string) {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  return useMutation({
+    mutationFn: async (quoteId: string) => {
+      const response = await api.post<{ id: string; document_number: string }>(
+        endpoints.quotes(orgId).convert,
+        { quote_id: quoteId }
+      );
+      return response;
+    },
+    onSuccess: (invoice) => {
+      toast({
+        title: "Quote converted",
+        description: `Invoice ${invoice.document_number} created from the quote.`,
+        variant: "success",
+      });
+      // The quote list + detail and the invoices list all change shape
+      queryClient.invalidateQueries({ queryKey: [orgId, "invoices"] });
+      queryClient.invalidateQueries({ queryKey: [orgId, "invoice"] });
+      queryClient.invalidateQueries({ queryKey: [orgId, "dashboard"] });
+      router.push(`/invoices/${invoice.id}`);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Conversion failed",
+        description: error.message || "The quote could not be converted.",
         variant: "error",
       });
     },
