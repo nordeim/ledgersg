@@ -18,6 +18,9 @@ export interface AccountOption {
   name: string;
   account_type: string;
   is_active: boolean;
+  /** True for bank-eligible ledger accounts (the seeded 1100 series) —
+   * the bank-account dialog's GL picker filters on it (P9/B-4). */
+  is_bank: boolean;
 }
 
 export function useAccounts(

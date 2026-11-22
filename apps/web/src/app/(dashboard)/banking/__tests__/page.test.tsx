@@ -25,7 +25,17 @@ vi.mock("@/providers/auth-provider", () => ({
 }));
 
 // Mock banking hooks
-vi.mock("@/hooks/use-banking");
+vi.mock("@/hooks/use-banking", () => ({
+  // P9/B-4: the accounts tab renders the BankAccountDialog — its hooks
+  // need stubs even in page-level tests that never open the dialog.
+  useCreateBankAccount: vi.fn().mockReturnValue({ mutate: vi.fn(), isPending: false }),
+  useBankAccounts: vi.fn(),
+  usePayments: vi.fn(),
+  useBankTransactions: vi.fn(),
+}));
+vi.mock("@/hooks/use-accounts", () => ({
+  useAccounts: vi.fn().mockReturnValue({ data: [], isLoading: false }),
+}));
 
 const mockBankAccounts = {
   results: [

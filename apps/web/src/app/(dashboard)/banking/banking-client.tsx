@@ -18,6 +18,7 @@ import { TransactionFilters, type TransactionFilters as TransactionFiltersType }
 import { ReconciliationSummary } from "./components/reconciliation-summary";
 import { ImportTransactionsForm } from "./components/import-transactions-form";
 import { ReconcileForm } from "./components/reconcile-form";
+import { BankAccountDialog } from "./components/bank-account-dialog";
 import type { Payment } from "@/shared/schemas";
 import type { BankTransaction } from "@/shared/schemas";
 
@@ -118,8 +119,13 @@ interface BankAccountsTabProps {
 }
 
 function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProps) {
+  const { currentOrg } = useAuth();
+  const orgId = currentOrg?.id ?? null;
+  const [showAccountDialog, setShowAccountDialog] = useState(false);
+
+  let content: React.ReactNode;
   if (isLoading) {
-    return (
+    content = (
       <Card className="border-border bg-carbon rounded-sm">
         <CardContent className="py-12">
           <div data-testid="accounts-loading-skeleton" className="flex items-center justify-center">
@@ -128,10 +134,8 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
         </CardContent>
       </Card>
     );
-  }
-
-  if (error) {
-    return (
+  } else if (error) {
+    content = (
       <Card className="border-border bg-carbon rounded-sm">
         <CardContent className="py-12">
           <div className="text-center">
@@ -144,10 +148,8 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
         </CardContent>
       </Card>
     );
-  }
-
-  if (!accountsData || accountsData.count === 0) {
-    return (
+  } else if (!accountsData || accountsData.count === 0) {
+    content = (
       <Card className="border-border bg-carbon rounded-sm">
         <CardContent className="py-12">
           <div className="text-center">
@@ -158,7 +160,10 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
             <p className="text-text-secondary mb-4">
               Add your first bank account to start tracking transactions
             </p>
-            <Button className="rounded-sm bg-accent-primary text-void hover:bg-accent-primary-dim">
+            <Button
+              className="rounded-sm bg-accent-primary text-void hover:bg-accent-primary-dim"
+              onClick={() => setShowAccountDialog(true)}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Bank Account
             </Button>
@@ -166,9 +171,8 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
         </CardContent>
       </Card>
     );
-  }
-
-  return (
+  } else {
+    content = (
     <Card className="border-border bg-carbon rounded-sm">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="font-display text-lg text-text-primary">
@@ -178,6 +182,7 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
           size="sm"
           type="button"
           className="rounded-sm bg-accent-primary text-void hover:bg-accent-primary-dim"
+          onClick={() => setShowAccountDialog(true)}
         >
           <Plus className="h-4 w-4 mr-2" />
           Add Account
@@ -226,6 +231,21 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
         </div>
       </CardContent>
     </Card>
+    );
+  }
+
+  // The dialog is reachable from every branch (the empty state's CTA too).
+  return (
+    <>
+      {content}
+      {orgId && (
+        <BankAccountDialog
+          open={showAccountDialog}
+          onOpenChange={setShowAccountDialog}
+          orgId={orgId}
+        />
+      )}
+    </>
   );
 }
 
