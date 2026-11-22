@@ -8,13 +8,13 @@ core.document_sequence config (SALES_QUOTE: QUO vs QT-; PURCHASE_INVOICE:
 PINV vs BILL-) — the schema file is the source of truth.
 """
 
-import pytest
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
 from apps.core.models import Contact, DocumentSequence, InvoiceDocument
 from apps.invoicing.services.document_service import DOCUMENT_TYPES, DocumentService
-from apps.core.models import FiscalPeriod, FiscalYear
 
 
 @pytest.mark.django_db
@@ -128,3 +128,56 @@ class TestQuoteConversionP8:
                 python_prefix,
                 seeded_prefix,
             )
+
+
+@pytest.mark.django_db
+class TestQuoteConvertEndpointEnvelopeP9:
+    """P9/C-1: pin the HTTP envelope the frontend consumes.
+
+    useConvertQuote read the convert response FLAT (response.id /
+    response.document_number) while the endpoint nests the invoice under
+    "invoice" — every conversion routed to /invoices/undefined. Nothing
+    pinned the endpoint shape (service tests only); this test does.
+    """
+
+    def _quote_with_line(self, org, tax_codes):
+        from apps.core.models import Account
+
+        quote = TestQuoteConversionP8()._quote(org)
+        revenue = Account.objects.create(
+            org=org, code="4000", name="Sales",
+            account_type="REVENUE", is_system=True, is_active=True,
+        )
+        quote.lines.create(
+            org=org,
+            line_number=1, account=revenue, description="Consulting",
+            quantity=Decimal("1.0000"), unit_price=Decimal("100.0000"),
+            tax_code=tax_codes["SR"], tax_rate=Decimal("0.0900"),
+            line_amount=Decimal("100.0000"), gst_amount=Decimal("9.0000"),
+            total_amount=Decimal("109.0000"), base_line_amount=Decimal("100.0000"),
+            base_gst_amount=Decimal("9.0000"), base_total_amount=Decimal("109.0000"),
+        )
+        return quote
+
+    def test_convert_response_nests_the_invoice(
+        self, auth_client, test_organisation, test_fiscal_period, test_tax_codes
+    ):
+        TestQuoteConversionP8()._org_with_sequences(test_organisation)
+        quote = self._quote_with_line(test_organisation, test_tax_codes)
+
+        response = auth_client.post(
+            f"/api/v1/{test_organisation.id}/invoicing/quotes/convert/",
+            {"quote_id": str(quote.id)},
+            format="json",
+        )
+
+        assert response.status_code == 201, response.data
+        body = response.data
+        assert body["message"] == "Quote converted to invoice"
+        invoice = body["invoice"]
+        assert str(invoice["id"]) != str(quote.id), "a new invoice row"
+        assert invoice["document_number"].startswith("INV-")
+        assert invoice["document_type"] == "SALES_INVOICE"
+        # the two fields the frontend hook consumes for its toast + route
+        assert invoice["document_number"]
+        assert invoice["id"]

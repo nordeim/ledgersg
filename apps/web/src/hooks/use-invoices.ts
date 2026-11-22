@@ -403,17 +403,20 @@ export function useInvoicePDF(orgId: string, invoiceId: string) {
 // ---------------------------------------------------------------------------
 
 /** POST /invoicing/quotes/convert/ — convert a DRAFT/SENT quote to an
- * invoice (the backend persists quote.related_document). */
+ * invoice (the backend persists quote.related_document). The response
+ * nests the created invoice under "invoice" (pinned by
+ * TestQuoteConvertEndpointEnvelopeP9) — P9/C-1 unwraps it; the old flat
+ * read routed to /invoices/undefined on every conversion. */
 export function useConvertQuote(orgId: string) {
   const queryClient = useQueryClient();
   const router = useRouter();
   return useMutation({
     mutationFn: async (quoteId: string) => {
-      const response = await api.post<{ id: string; document_number: string }>(
-        endpoints.quotes(orgId).convert,
-        { quote_id: quoteId }
-      );
-      return response;
+      const response = await api.post<{
+        message: string;
+        invoice: { id: string; document_number: string };
+      }>(endpoints.quotes(orgId).convert, { quote_id: quoteId });
+      return response.invoice;
     },
     onSuccess: (invoice) => {
       toast({
@@ -423,7 +426,6 @@ export function useConvertQuote(orgId: string) {
       });
       // The quote list + detail and the invoices list all change shape
       queryClient.invalidateQueries({ queryKey: [orgId, "invoices"] });
-      queryClient.invalidateQueries({ queryKey: [orgId, "invoice"] });
       queryClient.invalidateQueries({ queryKey: [orgId, "dashboard"] });
       router.push(`/invoices/${invoice.id}`);
     },
