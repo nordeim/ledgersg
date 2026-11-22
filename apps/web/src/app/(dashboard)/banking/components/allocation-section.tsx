@@ -42,10 +42,17 @@ export function AllocationSection({
   onChange,
   disabled = false,
 }: AllocationSectionProps) {
-  const { data, isLoading } = useInvoices(orgId, {
-    type: documentType,
-    contact_id: contactId,
-  });
+  const { data, isLoading } = useInvoices(
+    orgId,
+    {
+      type: documentType,
+      contact_id: contactId,
+    },
+    // P10/L-3: no org-wide fetch before a contact is picked — the empty
+    // string was filtered out of the query, making the mount-time fetch
+    // unscoped (every open document in the org).
+    { enabled: !!contactId }
+  );
 
   const openDocuments = useMemo(() => {
     const rows = data?.results ?? [];

@@ -108,7 +108,7 @@ describe("AllocationSection (P9/B-3b)", () => {
     expect(screen.queryByText("INV-000044")).not.toBeInTheDocument();
   });
 
-  it("queries the contact's documents through the list endpoint", () => {
+  it("queries the contact's documents through the list endpoint — gated on the contact (P10/L-3)", () => {
     render(
       <AllocationSection
         orgId="org-1"
@@ -119,10 +119,34 @@ describe("AllocationSection (P9/B-3b)", () => {
       />
     );
 
-    expect(useInvoices).toHaveBeenCalledWith("org-1", {
-      type: "SALES_INVOICE",
-      contact_id: "c-1",
-    });
+    expect(useInvoices).toHaveBeenCalledWith(
+      "org-1",
+      {
+        type: "SALES_INVOICE",
+        contact_id: "c-1",
+      },
+      // P10/L-3: no org-wide fetch pre-pick — the query is held off
+      // until a contact exists.
+      { enabled: true }
+    );
+  });
+
+  it("holds the query off entirely when no contact is picked (P10/L-3)", () => {
+    render(
+      <AllocationSection
+        orgId="org-1"
+        contactId=""
+        documentType="SALES_INVOICE"
+        allocations={[]}
+        onChange={vi.fn()}
+      />
+    );
+
+    expect(useInvoices).toHaveBeenCalledWith(
+      "org-1",
+      { type: "SALES_INVOICE", contact_id: "" },
+      { enabled: false }
+    );
   });
 
   it("builds the allocations payload and clamps to the outstanding balance", async () => {

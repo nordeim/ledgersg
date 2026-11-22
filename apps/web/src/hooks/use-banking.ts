@@ -437,10 +437,12 @@ export function useImportBankTransactions(orgId: string) {
       formData.append("bank_account_id", data.bank_account_id);
       formData.append("file", data.file);
 
+      // P10/L-4: the wire contract (ReconciliationService.import_csv) —
+      // `skipped` (not "duplicates") and errors as per-row strings.
       const response = await api.postForm<{
         imported: number;
-        duplicates: number;
-        errors?: Array<{ row: number; message: string }>;
+        skipped: number;
+        errors?: string[];
       }>(
         endpoints.banking(orgId).transactionImport,
         formData
@@ -450,7 +452,7 @@ export function useImportBankTransactions(orgId: string) {
     onSuccess: (data) => {
       toast({
         title: "Transactions imported",
-        description: `Imported ${data.imported} transactions. ${data.duplicates > 0 ? `${data.duplicates} duplicates skipped.` : ''}`,
+        description: `Imported ${data.imported} transactions. ${data.skipped > 0 ? `${data.skipped} duplicates skipped.` : ''}`,
         variant: "success",
       });
       queryClient.invalidateQueries({ queryKey: [orgId, "bank-transactions"] });

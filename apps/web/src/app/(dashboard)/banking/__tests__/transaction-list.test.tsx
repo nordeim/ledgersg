@@ -155,7 +155,7 @@ describe("TransactionList", () => {
     expect(screen.getByText("Unreconciled")).toBeInTheDocument();
   });
 
-  test("7. Shows load more button when has next page", () => {
+  test("7. No load-more button — it was doubly dead (P10/L-2)", () => {
     mockUseBankTransactions.mockReturnValue({
       data: { results: [], count: 100, next: "?page=2", previous: null },
       isLoading: false,
@@ -165,7 +165,13 @@ describe("TransactionList", () => {
 
     render(<TransactionList orgId={orgId} />);
 
-    expect(screen.getByRole("button", { name: /load more/i })).toBeInTheDocument();
+    // No onClick AND the backend never sends next — the button was pure
+    // decoration. The truthful count line stays; pagination is
+    // registered debt.
+    expect(
+      screen.queryByRole("button", { name: /load more/i })
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/100 transactions/i)).toBeInTheDocument();
   });
 
   test("8. Applies filters correctly", () => {

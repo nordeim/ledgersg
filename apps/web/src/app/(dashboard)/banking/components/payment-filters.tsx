@@ -58,9 +58,11 @@ export function PaymentFilters({ filters, onChange }: PaymentFiltersProps) {
 
       {/* Additional Filters */}
       <div className="flex flex-wrap gap-4 items-end">
-        {/* Reconciliation Status */}
+        {/* Reconciliation Status — P10/L-5: htmlFor/id pairing (the
+            transaction-filters pattern) so the labels are programmatically
+            associated (WCAG). */}
         <div className="flex-1 min-w-[200px]">
-          <label className="text-sm text-text-muted mb-1.5 block">
+          <label className="text-sm text-text-muted mb-1.5 block" htmlFor="payment-reconciliation-status">
             Reconciliation Status
           </label>
           <Select
@@ -70,7 +72,7 @@ export function PaymentFilters({ filters, onChange }: PaymentFiltersProps) {
               onChange({ ...filters, is_reconciled });
             }}
           >
-            <SelectTrigger className="w-full" data-testid="reconciliation-select">
+            <SelectTrigger className="w-full" id="payment-reconciliation-status" data-testid="reconciliation-select">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -83,11 +85,12 @@ export function PaymentFilters({ filters, onChange }: PaymentFiltersProps) {
 
         {/* Date Range */}
         <div className="flex-1 min-w-[200px]">
-          <label className="text-sm text-text-muted mb-1.5 block">
+          <label className="text-sm text-text-muted mb-1.5 block" htmlFor="payment-date-from">
             From Date
           </label>
           <input
             type="date"
+            id="payment-date-from"
             value={filters.date_from || ""}
             onChange={(e) => onChange({ ...filters, date_from: e.target.value || undefined })}
             className="w-full h-10 px-3 rounded-md border border-border bg-background text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
@@ -96,11 +99,12 @@ export function PaymentFilters({ filters, onChange }: PaymentFiltersProps) {
         </div>
 
         <div className="flex-1 min-w-[200px]">
-          <label className="text-sm text-text-muted mb-1.5 block">
+          <label className="text-sm text-text-muted mb-1.5 block" htmlFor="payment-date-to">
             To Date
           </label>
           <input
             type="date"
+            id="payment-date-to"
             value={filters.date_to || ""}
             onChange={(e) => onChange({ ...filters, date_to: e.target.value || undefined })}
             className="w-full h-10 px-3 rounded-md border border-border bg-background text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"

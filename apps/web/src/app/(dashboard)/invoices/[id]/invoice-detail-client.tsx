@@ -103,6 +103,11 @@ export function InvoiceDetailClient({ id, variant = "invoice" }: InvoiceDetailCl
   const { currentOrg, isLoading: authLoading } = useAuth();
   const orgId = currentOrg?.id ?? null;
   const isQuote = variant === "quote";
+  // P10/L-1: quote users came through /quotes — every back link (and the
+  // error card's vocabulary) must follow the variant, not hardcode
+  // /invoices.
+  const backHref = isQuote ? "/quotes" : "/invoices";
+  const docNoun = isQuote ? "quote" : "invoice";
 
   const { data: invoice, isLoading, isError } = useInvoice(orgId as string, id);
   const approveInvoice = useApproveInvoice(orgId as string, id);
@@ -140,7 +145,7 @@ export function InvoiceDetailClient({ id, variant = "invoice" }: InvoiceDetailCl
       <div className="space-y-4">
         <div className="flex items-center gap-4">
           <Link
-            href="/invoices"
+            href={backHref}
             className="inline-flex h-10 w-10 items-center justify-center border border-border text-text-secondary hover:bg-surface"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -173,7 +178,8 @@ export function InvoiceDetailClient({ id, variant = "invoice" }: InvoiceDetailCl
       <div className="space-y-4">
         <div className="flex items-center gap-4">
           <Link
-            href="/invoices"
+            href={backHref}
+            aria-label={isQuote ? "Back to quotes" : "Back to invoices"}
             className="inline-flex h-10 w-10 items-center justify-center border border-border text-text-secondary hover:bg-surface"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -183,18 +189,18 @@ export function InvoiceDetailClient({ id, variant = "invoice" }: InvoiceDetailCl
           <CardContent className="flex flex-col items-center gap-3 py-16">
             <AlertTriangle className="h-8 w-8 text-alert" />
             <p className="font-medium text-text-primary">
-              Failed to load invoice
+              Failed to load {docNoun}
             </p>
             <p className="text-sm text-text-secondary">
-              The invoice could not be loaded. It may have been deleted, or
+              The {docNoun} could not be loaded. It may have been deleted, or
               the connection to the server failed.
             </p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => window.location.reload()}>
                 Retry
               </Button>
-              <Link href="/invoices">
-                <Button variant="outline">Back to invoices</Button>
+              <Link href={backHref}>
+                <Button variant="outline">Back to {docNoun}s</Button>
               </Link>
             </div>
           </CardContent>
@@ -275,7 +281,7 @@ export function InvoiceDetailClient({ id, variant = "invoice" }: InvoiceDetailCl
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link
-            href="/invoices"
+            href={backHref}
             className="inline-flex h-10 w-10 items-center justify-center border border-border text-text-secondary hover:bg-surface"
           >
             <ArrowLeft className="h-4 w-4" />

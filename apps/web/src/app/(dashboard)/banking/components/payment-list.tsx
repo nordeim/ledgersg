@@ -93,14 +93,12 @@ export function PaymentList({ orgId, filters = {}, onPaymentClick }: PaymentList
   return (
     <div className="space-y-3" data-testid="payments-list">
       <div className="flex items-center justify-between text-sm text-text-muted mb-2">
+        {/* P10/L-2: the "Load more" button was doubly dead (no onClick,
+            and the backend never sends next). The truthful count line
+            stays; pagination remains registered debt. */}
         <span>
           Showing {data.results.length} of {data.count} payments
         </span>
-        {data.next && (
-          <Button variant="link" size="sm" className="h-auto p-0">
-            Load more
-          </Button>
-        )}
       </div>
       
       {data.results.map((payment) => (

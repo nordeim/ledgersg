@@ -85,7 +85,7 @@ describe("ImportTransactionsForm", () => {
   test("4. Submits form successfully", async () => {
     const mutateAsync = vi.fn().mockResolvedValue({
       imported: 10,
-      duplicates: 2,
+      skipped: 2,
       errors: [],
     });
     const onSuccess = vi.fn();
@@ -114,11 +114,11 @@ describe("ImportTransactionsForm", () => {
     });
   });
 
-  test("5. Shows import results after success", async () => {
+  test("5. Shows import results after success — including the per-row errors (P10/L-4)", async () => {
     const mutateAsync = vi.fn().mockResolvedValue({
       imported: 10,
-      duplicates: 2,
-      errors: [],
+      skipped: 2,
+      errors: ["Row 3: Missing amount", "Row 7: Invalid date format '31/02/2026'"],
     });
 
     mockUseImportBankTransactions.mockReturnValue({
@@ -141,21 +141,30 @@ describe("ImportTransactionsForm", () => {
     await waitFor(() => {
       expect(screen.getByText(/10 transactions imported/i)).toBeInTheDocument();
     });
+    // The truthful duplicates line (the wire key is `skipped`) …
+    expect(screen.getByText(/2 duplicates skipped/i)).toBeInTheDocument();
+    // … and the actionable per-row errors the backend actually returns
+    // (strings, not the old imagined object shape).
+    expect(screen.getByText(/2 rows could not be imported/i)).toBeInTheDocument();
+    expect(screen.getByText("Row 3: Missing amount")).toBeInTheDocument();
+    expect(
+      screen.getByText("Row 7: Invalid date format '31/02/2026'")
+    ).toBeInTheDocument();
   });
 
 test("6. Shows loading state during import", () => {
-		mockUseImportBankTransactions.mockReturnValue({
-			mutateAsync: vi.fn(),
-			isPending: true, // Changed from isLoading to isPending (TanStack Query v5)
-		});
+                mockUseImportBankTransactions.mockReturnValue({
+                        mutateAsync: vi.fn(),
+                        isPending: true, // Changed from isLoading to isPending (TanStack Query v5)
+                });
 
-		render(<ImportTransactionsForm orgId={orgId} onCancel={vi.fn()} />);
+                render(<ImportTransactionsForm orgId={orgId} onCancel={vi.fn()} />);
 
-		// Should show loading indicator on button
-		const importButton = screen.getByRole("button", { name: /importing/i });
-		expect(importButton).toBeDisabled();
-		expect(importButton).toHaveTextContent("Importing...");
-	});
+                // Should show loading indicator on button
+                const importButton = screen.getByRole("button", { name: /importing/i });
+                expect(importButton).toBeDisabled();
+                expect(importButton).toHaveTextContent("Importing...");
+        });
 
   test("7. Handles import errors", async () => {
     const mutateAsync = vi.fn().mockRejectedValue(new Error("Import failed"));

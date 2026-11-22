@@ -28,9 +28,14 @@ export function ImportTransactionsForm({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
+    // P10/L-4: the wire contract (ReconciliationService.import_csv) —
+    // `skipped` (not "duplicates") and errors as per-row STRINGS
+    // ("Row 3: Missing amount"). The old type (duplicates + object
+    // errors) matched nothing on the wire — the per-row messages were
+    // dropped and the duplicates line never rendered.
     imported: number;
-    duplicates: number;
-    errors?: Array<{ row: number; message: string }>;
+    skipped: number;
+    errors?: string[];
   } | null>(null);
 
   const bankAccounts = accountsData?.results || [];
@@ -95,17 +100,22 @@ export function ImportTransactionsForm({
             <span>{result.imported} transactions imported</span>
           </div>
           
-          {result.duplicates > 0 && (
+          {result.skipped > 0 && (
             <div className="text-text-muted">
-              {result.duplicates} duplicates skipped
+              {result.skipped} duplicates skipped
             </div>
           )}
 
           {result.errors && result.errors.length > 0 && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                {result.errors.length} errors occurred
+              <AlertDescription className="space-y-1">
+                <p>{result.errors.length} rows could not be imported:</p>
+                <ul className="list-disc pl-4 text-xs">
+                  {result.errors.map((rowError) => (
+                    <li key={rowError}>{rowError}</li>
+                  ))}
+                </ul>
               </AlertDescription>
             </Alert>
           )}

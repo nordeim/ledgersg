@@ -129,6 +129,13 @@ export function useInvoices(
     /** The backend list filters by contact — the payment forms' allocation
      * section queries a contact's outstanding documents (P9/B-3b). */
     contact_id?: string;
+  },
+  options?: {
+    /** P10/L-3: callers can hold the query off — e.g. the allocation
+     * section waits for a picked contact instead of firing an org-wide
+     * fetch on every form mount (an empty-string contact_id was filtered
+     * out of the query, so the fetch was unscoped). */
+    enabled?: boolean;
   }
 ) {
   const queryString = filters
@@ -143,7 +150,7 @@ export function useInvoices(
       );
       return response;
     },
-    enabled: !!orgId,
+    enabled: (options?.enabled ?? true) && !!orgId,
   });
 }
 
