@@ -1,5 +1,53 @@
 # LedgerSG — Worklog
 
+## 2026-11-22 — Session 14: P7 Sprint (API Truth & Permission Hardening)
+
+**Base:** `9077381b` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-22_P7.md` · **Report:** `docs/REMEDIATION_2026-11-22_P7_REPORT.md` · **Session log:** `docs/session_15.md`
+
+### Environment (fresh sandbox, rebuilt from the repo's own scripts)
+
+- Rootless PostgreSQL 17 via `docs/setup_pg_z.sh` + `skills/rootless-postgresql/SKILL.md` (TCP psql hangs on the scram prompt — operate via socket + `PGPASSWORD`, the documented lesson); schema v1.1.0 loaded into BOTH databases and verified (47 NUMERIC(19,4) columns, seeded SR rate history, 30+2 tables); Redis 8 (liblzf prerequisite); `skills/` excluded from all checks per instructions.
+- Baselines reproduced EXACTLY before any change: backend **588P/0F/5S**, vitest **383/383**, typecheck **0 errors**, e2e default **9 + 11 gated** — the documented P6 state.
+
+### Audit (Mode C) — findings this session
+
+Repo-skill scanners per `skills/skills-catalog.md` (criticals all in the documented FP classes) + two deep manual review passes (frontend P6 surfaces, backend views) + parallel audit subagents. Verified in source before planning: **F-1** the void flow sends `reason: ""` (every UI void 400s, hidden by F-7); **F-2** `/status/` compares against `"VOIDED"` while the enum is `VOID` — the `CanVoidInvoices` branch is DEAD CODE, any member could void any document (bypass live, reproduced); **F-3** org-create serializer declares a phantom `address` (TypeError 500 on the API's own advertised field); **F-4** the three fiscal routes live only in the shadowed `apps/core/urls.py` module (frontend 404s); **F-5** payment service accepts `gl_account=None` (raw IntegrityError 500); **F-6** frontend sends `to` as a string (Celery email task crashes silently while the UI toasts success); **F-7** api-client reads keys the backend never writes; **F-9** payables exclude PARTIALLY_PAID bills; **F-10** settings PATCHes are raw setattr + member-reachable; **F-11** malformed query params → raw 500s (banking tolerance probe silently defaults garbage); **F-12/F-13/F-14/F-17/F-18** frontend truthfulness + dead code (mock-era edit route, `useUpdateInvoice`, legacy server api-client, unwired PDF/InvoiceNow hooks); **F-15** missing permission classes; **F-16** ledger a11y; **F-19** (discovered during F-2 RED) `REST_FRAMEWORK` uses `DEFAULT_EXCEPTION_HANDLER` — DRF's key is `EXCEPTION_HANDLER`, so the custom exception handler NEVER ran.
+
+### Remediation executed (TDD — 36 backend + 15 vitest + 1 e2e spec, all RED first)
+
+| Task | Change | Evidence |
+|---|---|---|
+| 1 (F-2, F-19) | ChoiceField over the model status vocabulary + per-transition permission map + payment statuses reserved to the allocation service; exception-handler settings key fixed | 4 RED (the void bypass was live) + 2 posture gates; suite 588→595 |
+| 2 (F-3) | Phantom `address` removed from the create serializer | 2 RED (500 TypeError) → 201; +2 tests |
+| 3 (F-4) | Fiscal routes into the active urls package; close views `CanManageOrg` + tz-aware; shadowed module deleted (rode the F-3 commit — traced in report §5) | 3 RED (404s) → 200; suite 600 |
+| 4 (F-5) | Service-seam ValidationError + payment-JE defense-in-depth guard (DB/serializer seams were already closed) | 3 RED at the true seams; suite 604 |
+| 5 (F-7) | api-client reads `{error:{message}}` + DRF field errors (`ApiError.errors`) | 3 vitest RED→GREEN |
+| 6 (F-1, F-8, F-12) | Radix/Shadcn Dialog + Textarea primitives; REQUIRED-reason void dialog; ledger invalidation; no-org guard + unhandled-rejection catch | 4 vitest RED→GREEN |
+| 7 (F-6) | `RecipientListField` normalizes string→list + email-validates; hook type `to: string[]` (rode the frontend batch commit) | 3 RED → 200 with list delivered to the task |
+| 8 (F-9) | Payables status filter includes PARTIALLY_PAID (rode the frontend batch commit) | 1 RED (docstring claimed it; code never did) → GREEN |
+| 9 (F-12/F-14/F-17) | No-org states on ledger/settings/detail; org-derived GST columns; shell nav id + Demo User + dead New Invoice button | 2 vitest RED→GREEN + e2e |
+| 12 (F-13/F-18) | Edit route + `useUpdateInvoice` + legacy server client deleted; `useInvoicePDF`/InvoiceNow wired on the detail page | 3 vitest RED→GREEN; typecheck gate caught 2 import misses |
+| 10 (F-10) | Typed settings serializers + `can_manage_org` via `get_permissions()` (GET stays member-readable) | 5 RED → 403/400; suite 616 |
+| 11 (F-11) | Shared `common/query_params.py` helpers (date/UUID/int → 400 naming the param) at all audited sites; tolerance-probe bare `except:` gone | 6 RED + sanity GREEN; ruff 119→117; suite 623 |
+| 13 (F-15/F-16) | `can_view_reports` on dashboard metrics/alerts; `IsOrgMember` on org-scoped GST views; ledger `scope`/`aria-sort` | suite 624; +1 vitest; gated e2e |
+
+### Final gate (all Verified, executed)
+
+- `pytest --reuse-db --no-migrations -q` → **0 failed, 624 passed, 5 skipped** · invariants 27P · security 53P/3S (2 new posture gates)
+- `npm test` → **398/398** · `npm run typecheck` → 0 errors · e2e default 9 + 12 gated · **e2e full 21/21** (live dev stack, dev DB bootstrapped through the public API; first run 18/21 — a spec-level strict-mode collision with the new shell link, scoped to main, re-run green)
+- Frontend gates re-verified on the final tree post-session-resume: typecheck 0, vitest 398/398, e2e default 9 + 12 gated — identical; backend unchanged since `c9e42840` (zero backend diffs in the working tree)
+- 6 real-data screenshots (`docs/screenshots/35..40_*_session14.png` — md5-unique, 1440×900, incl. the void dialog open)
+- `.env.example` cross-check: web `BACKEND_URL` moved to the reserved section (its only reader was deleted as dead code); root index updated
+- Docs truth pass: README (P7 milestone, 1,043 = 624 + 398 + 21), PAD v3.4, CLAUDE v2.11, ledgersg_SKILL v1.7 (+lessons 20–25), AGENTS P7 patterns, **DEPLOYMENT.md rewritten as a verified fresh-host step-by-step guide (§1–§15)**
+
+### Deferred (registered, not dropped)
+
+P6 register carried forward (H-02, M-1, M-10, M-11, M-14, H-07 ruff/eslint debt, F5 rate-basis, A-10, GST pay_return, contact picker, Reg-11, reports/quotes real pages — the P8 candidate, account_type seed population). New: B6 list-envelope standardization, invoice edit flow (needs a wider backend update contract), ledger pagination, settings form reset UX, org-state propagation to the auth provider, fiscal close precondition (B9), COA serializer dropped fields, checkSession transport-vs-401, dashboard service duplication (core vs reporting — the frontend only calls reporting).
+
+### Commits
+
+12 conventional commits on `main`, **pushed incrementally after each task** via `docs/ssh_git_wrapper_v3.py` (paramiko shim; remote ref verified on every push; deploy key shredded after the final push). Two `git add -A` sweeps traced in the report §5 (F-9 + F-6-backend + env files rode the frontend batch; the shadowed urls.py deletion rode the F-3 commit).
+
 ## 2026-11-22 — Session 12: P6 Sprint (C-5 Completion & Payment Posting Integrity)
 
 **Base:** `20069486` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-22_P6.md` · **Report:** `docs/REMEDIATION_2026-11-22_P6_REPORT.md`
