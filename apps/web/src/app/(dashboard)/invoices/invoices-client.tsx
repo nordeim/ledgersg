@@ -55,7 +55,13 @@ export function InvoicesClient() {
   const orgId = currentOrg?.id ?? null;
   const [search, setSearch] = useState("");
 
-  const { data, isLoading, isError, error } = useInvoices(orgId);
+  const { data, isLoading, isError, error } = useInvoices(orgId, {
+    // P9/C-2: this page is the invoices list — without the type filter the
+    // backend returns EVERY document (quotes and bills rendered as
+    // invoices, opening at /invoices/{id} labelled INVOICE with a
+    // fabricated Amount Due). The quotes page sends its own filter.
+    type: "SALES_INVOICE",
+  });
 
   const filtered = useMemo(() => {
     const invoices = data?.results ?? [];
@@ -227,6 +233,11 @@ export function InvoicesClient() {
                           <span className="font-mono text-sm text-text-primary group-hover:text-accent-primary">
                             {invoice.document_number}
                           </span>
+                          {invoice.document_type !== "SALES_INVOICE" ? (
+                            <span className="px-1.5 py-0.5 rounded-sm text-[10px] font-medium uppercase tracking-wide bg-surface text-text-secondary border border-border">
+                              {invoice.document_type.replace(/_/g, " ").toLowerCase()}
+                            </span>
+                          ) : null}
                         </Link>
                       </td>
                       <td className="py-4">

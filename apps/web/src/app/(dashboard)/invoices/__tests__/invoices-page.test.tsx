@@ -80,6 +80,36 @@ describe("InvoicesClient (real data)", () => {
     expect(screen.getByText("XYZ Corporation")).toBeInTheDocument();
     // mock data must be gone — these strings only existed in the old fixture
     expect(screen.queryByText("Singapore Tech Solutions")).not.toBeInTheDocument();
+    // P9/C-2: the page must ask for invoices only — without the type filter
+    // the backend lists EVERY document (quotes and bills as invoices).
+    expect(invoiceHooks.useInvoices).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: "SALES_INVOICE" })
+    );
+  });
+
+  it("labels a non-invoice document type instead of implying an invoice", async () => {
+    // Defensive truth: if any other document type ever reaches this list,
+    // it is labelled — not silently rendered as an invoice.
+    vi.mocked(invoiceHooks.useInvoices).mockReturnValue({
+      data: {
+        results: [
+          mockInvoice({
+            document_type: "SALES_CREDIT_NOTE",
+            document_number: "CN-000007",
+          }),
+        ],
+        count: 1,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof invoiceHooks.useInvoices>);
+
+    renderPage();
+
+    expect(await screen.findByText("CN-000007")).toBeInTheDocument();
+    expect(screen.getByText("sales credit note")).toBeInTheDocument();
   });
 
   it("shows the empty state when the org has no invoices", async () => {
