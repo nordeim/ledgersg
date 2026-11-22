@@ -124,17 +124,19 @@ test("statement import sends real multipart and matches reconcile (P9/B-1, B-2, 
 
   await page.getByRole("link", { name: /^Banking$/ }).click();
 
-  // Read the payment amount from the Payments tab (the settled payment).
+  // Read the payment amount from the Payments tab — any settled payment
+  // works (the previous test guarantees at least one): the statement row
+  // must carry the same amount for the reconcile suggestion to fire. The
+  // old filter hardcoded "Marina" — a P9-era fixture name that silently
+  // depended on the dev-DB bootstrap's customer naming.
   await page.getByRole("tab", { name: /payments/i }).click();
-  const paymentCard = page
-    .getByTestId("payment-card")
-    .filter({ hasText: "Marina" })
-    .first();
+  const paymentCard = page.getByTestId("payment-card").first();
   await expect(paymentCard).toBeVisible({ timeout: 15000 });
   const amountText =
     (await paymentCard.getByText("+SGD").first().textContent()) ?? "";
   const amount = amountText.replace(/[^\d.]/g, "");
   expect(amount).toMatch(/\d+/);
+  const runId = Date.now().toString(36);
 
   await page.getByRole("tab", { name: /transactions/i }).click();
   await page.getByRole("button", { name: /import statement/i }).click();
@@ -149,12 +151,14 @@ test("statement import sends real multipart and matches reconcile (P9/B-1, B-2, 
 
   // Real file upload — the multipart path (pre-P9 the import could never
   // succeed: JSON.stringify(FormData) sent "{}" with a JSON content-type).
+  // Run-unique description/reference: re-runs accumulate rows against the
+  // live dev DB and must resolve only their own.
   await overlay.locator("#csv-file").setInputFiles({
     name: "statement.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(
       "transaction_date,amount,description,reference\n" +
-        `2026-11-15,${amount},Payment received - Marina Consulting,E2E-REF-001\n`,
+        `2026-11-15,${amount},Payment received - E2E Statement ${runId},E2E-REF-${runId}\n`,
       "utf8"
     ),
   });
@@ -163,7 +167,7 @@ test("statement import sends real multipart and matches reconcile (P9/B-1, B-2, 
   // The import succeeded — the form closed and the transaction lists.
   await expect(overlay).toBeHidden({ timeout: 20000 });
   const transactionRow = page.getByTestId("transaction-row").filter({
-    hasText: "Marina Consulting",
+    hasText: `E2E Statement ${runId}`,
   });
   await expect(transactionRow.first()).toBeVisible({ timeout: 20000 });
 

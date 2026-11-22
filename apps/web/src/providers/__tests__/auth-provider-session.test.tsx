@@ -8,7 +8,7 @@
  * the same split).
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 import * as apiClient from "@/lib/api-client";
 import { AuthProvider, useAuth } from "../auth-provider";
@@ -79,6 +79,44 @@ describe("checkSession transport-vs-auth (P9/S-2)", () => {
       },
       { timeout: 3000 }
     );
+  });
+});
+
+describe("checkSession public-route guard (P10/H-2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    push.mockReset();
+    window.history.pushState({}, "", "/register");
+  });
+
+  afterEach(() => {
+    window.history.pushState({}, "", "/");
+  });
+
+  it("an anonymous 401 on /register does NOT bounce the visitor to login", async () => {
+    // The mount-time session check fires on every page — including public
+    // ones. An anonymous visitor on /register gets a plain 401 from
+    // /auth/me; treating it like session expiry raced the form (the
+    // e2e register test's button click landed mid-navigation) and in
+    // production bounced self-serve signups to /login.
+    vi.mocked(apiClient.api.get).mockRejectedValue(
+      new ApiError(401, "Authentication credentials were not provided.")
+    );
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(
+      () => {
+        expect(document.body.textContent).toContain("ready");
+      },
+      { timeout: 3000 }
+    );
+
+    expect(push).not.toHaveBeenCalled();
   });
 });
 

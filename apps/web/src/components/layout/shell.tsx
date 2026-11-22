@@ -249,12 +249,18 @@ export function Shell({ children }: ShellProps) {
             )}
           </Button>
 
-          {/* Breadcrumb / Page Title */}
+          {/* Breadcrumb / Page Title — a visual label, not a heading: each
+              page already owns its h1, and a second same-text heading
+              duplicated the document outline (and strict-mode-resolved
+              twice in e2e). */}
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-display font-semibold text-text-primary truncate">
+            <div
+              aria-hidden="true"
+              className="text-lg font-display font-semibold text-text-primary truncate"
+            >
               {navItems.find((item) => isActiveRoute(item.href))?.label ||
                 "LedgerSG"}
-            </h2>
+            </div>
           </div>
 
           {/* Right Actions */}

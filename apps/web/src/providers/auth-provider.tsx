@@ -139,10 +139,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       // No valid session - redirect to login
       clearAuth();
-      // Only redirect if not already on login page (prevent redirect loops)
+      // Only redirect from protected pages (prevent redirect loops AND
+      // keep public surfaces public: an anonymous visitor on /register
+      // gets a plain 401 here — bouncing them to /login raced the
+      // registration form and closed the self-serve loop (P10/H-2)).
       if (typeof window !== 'undefined') {
         const currentPath = window.location.pathname;
-        if (!currentPath.includes('/login')) {
+        const onPublicAuthPage =
+          currentPath.includes('/login') || currentPath.includes('/register');
+        if (!onPublicAuthPage) {
           const returnUrl = currentPath !== '/' ? `?redirect=${encodeURIComponent(currentPath)}` : '';
           router.push(`/login${returnUrl}`);
         }

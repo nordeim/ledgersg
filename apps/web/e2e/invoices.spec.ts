@@ -95,7 +95,13 @@ async function openNewInvoiceForm(page: import("@playwright/test").Page) {
   // since P7/F-17 (strict mode resolves both otherwise).
   await page.getByRole("link", { name: /^Invoices$/ }).click();
   await expect(page).toHaveURL(/\/invoices\/?$/);
-  await page.getByRole("main").getByRole("link", { name: /new invoice/i }).click();
+  // The list header always carries the CTA; the empty state adds a second
+  // one inside main (strict mode) — take the first.
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: /new invoice/i })
+    .first()
+    .click();
   await expect(page).toHaveURL(/\/invoices\/new\/?$/);
 
   await expect(page.getByRole("heading", { name: /new invoice/i })).toBeVisible({
