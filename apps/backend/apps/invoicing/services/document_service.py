@@ -432,9 +432,26 @@ class DocumentService:
                 # delegates to void_document (allocation guard, reason
                 # requirement, credit-note guidance for PAID). The inline
                 # branch bypassed all of it.
+                #
+                # P10/M-2: fail CLOSED on a missing/unknown poster — the
+                # reversing journal entry's posted_by is NOT NULL, so a
+                # void without an accountable user must refuse with a
+                # clean error, never post anonymously (and never crash
+                # with AttributeError/DoesNotExist).
                 from apps.core.models import AppUser
 
-                void_user = AppUser.objects.get(id=user_id) if user_id else None
+                if user_id is None:
+                    raise ValidationError(
+                        "A user_id is required to void a document — the "
+                        "reversing journal entry needs a poster."
+                    )
+                try:
+                    void_user = AppUser.objects.get(id=user_id)
+                except AppUser.DoesNotExist:
+                    raise ValidationError(
+                        f"User {user_id} does not exist — the reversing "
+                        "journal entry needs a valid poster."
+                    )
                 return DocumentService.void_document(
                     org_id, document.id, user=void_user, reason="Voided via status transition"
                 )
