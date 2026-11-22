@@ -11,7 +11,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { useMakePayment, useBankAccounts } from "@/hooks/use-banking";
 import { paymentMakeInputSchema } from "@/shared/schemas";
 import type { PaymentMakeInput } from "@/shared/schemas";
-import { ContactPicker } from "./contact-picker";
+import { ContactPicker } from "@/components/contact-picker";
 import { AllocationSection } from "./allocation-section";
 import type { PaymentAllocationEntry } from "@/shared/schemas/payment";
 import { z } from "zod";

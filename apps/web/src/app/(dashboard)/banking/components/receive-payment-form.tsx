@@ -10,7 +10,7 @@ import { Loader2, AlertCircle, X } from "lucide-react";
 import { MoneyInput } from "@/components/ui/money-input";
 import { useReceivePayment } from "@/hooks/use-banking";
 import { useBankAccounts } from "@/hooks/use-banking";
-import { ContactPicker } from "./contact-picker";
+import { ContactPicker } from "@/components/contact-picker";
 import { AllocationSection } from "./allocation-section";
 import type { PaymentAllocationEntry } from "@/shared/schemas/payment";
 import { paymentReceiveInputSchema } from "@/shared/schemas";

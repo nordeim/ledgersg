@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { useState } from "react";
 import userEvent from "@testing-library/user-event";
-import { ContactPicker } from "../components/contact-picker";
+import { ContactPicker } from "../contact-picker";
 import { useContacts } from "@/hooks/use-contacts";
 
 vi.mock("@/hooks/use-contacts", () => ({

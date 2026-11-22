@@ -16,7 +16,7 @@ import { TaxBreakdownCard } from "./tax-breakdown-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, AlertCircle } from "lucide-react";
+import { Plus, Search, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { calculateFromLines } from "@/lib/gst-engine";
 import {
@@ -30,6 +30,7 @@ import { useTaxCodes } from "@/hooks/use-tax-codes";
 import { useRevenueAccounts } from "@/hooks/use-accounts";
 import { useCreateContact } from "@/hooks/use-contacts";
 import { useCreateInvoice } from "@/hooks/use-invoices";
+import { ContactPicker } from "@/components/contact-picker";
 
 interface InvoiceFormProps {
   initialData?: Partial<InvoiceInput>;
@@ -47,6 +48,18 @@ export function InvoiceForm({
   const { setHasUnsavedChanges } = useInvoiceStore();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  // P10/H-1: the customer card has two modes. "select" (the default)
+  // picks an EXISTING contact through the searchable picker — no contact
+  // row is created on submit (the old flow unconditionally created one,
+  // duplicating UEN-less customers on every invoice and failing on repeat
+  // UENs). "new" is the explicit new-customer act that still creates.
+  const [contactMode, setContactMode] = React.useState<"select" | "new">(
+    "select"
+  );
+  const [pickedContactId, setPickedContactId] = React.useState<string | null>(
+    null
+  );
 
   const { currentOrg } = useAuth();
   const orgId = currentOrg?.id ?? null;
@@ -134,8 +147,10 @@ export function InvoiceForm({
     }
   };
 
-  // Form submission (P3/D-1): create the contact, then the document, via
-  // the real API — the server recalculates every amount authoritatively.
+  // Form submission (P3/D-1 + P10/H-1): a picked existing contact submits
+  // with its contact_id (no contact row is created); the explicit
+  // new-customer mode creates the contact first. In both paths the server
+  // recalculates every amount authoritatively.
   const onSubmit = async (data: InvoiceInput) => {
     setIsSubmitting(true);
     setError(null);
@@ -145,19 +160,36 @@ export function InvoiceForm({
         (taxCodes ?? []).map((tc) => [tc.code, tc.id] as const)
       );
 
-      const problems = validateSubmissionReadiness(data as Invoice, taxCodeIdByCode);
+      const problems = validateSubmissionReadiness(
+        data as Invoice,
+        taxCodeIdByCode,
+        { requireCustomerName: contactMode === "new" }
+      );
       if (problems.length > 0) {
         setError(problems[0]);
         return;
       }
 
-      const contact = await createContact.mutateAsync(
-        buildContactPayload(data as Invoice)
-      );
+      let contactId: string;
+      if (contactMode === "select") {
+        if (!pickedContactId) {
+          setError(
+            "Select a customer (or switch to New customer to create one)."
+          );
+          return;
+        }
+        contactId = pickedContactId;
+      } else {
+        const contact = await createContact.mutateAsync(
+          buildContactPayload(data as Invoice)
+        );
+        contactId = contact.id;
+      }
+
       const document = await createInvoice.mutateAsync(
         buildDocumentPayload(
           data as Invoice,
-          contact.id,
+          contactId,
           taxCodeIdByCode,
           documentType
         )
@@ -180,7 +212,23 @@ export function InvoiceForm({
   const onSaveDraft = () => {
     // The create endpoint always creates a DRAFT document — "save draft"
     // runs the same validated submission path.
-    handleSubmit(onSubmit)();
+    handleSubmit(onSubmit, onInvalidSubmit)();
+  };
+
+  // P10/H-1: in select mode the customer card renders no name input, so
+  // zod's customer.name requirement fails invisibly — surface the real
+  // guidance (pick a customer or switch to new-customer mode) instead.
+  const onInvalidSubmit = (errors: Record<string, { message?: string }>) => {
+    if (contactMode === "select" && !pickedContactId) {
+      setError("Select a customer (or switch to New customer to create one).");
+      return;
+    }
+    // A picked customer satisfies the schema; any other validation miss
+    // surfaces its message instead of failing silently.
+    const first = Object.values(errors)[0];
+    if (first?.message) {
+      setError(first.message);
+    }
   };
 
   const accountOptions: LineAccountOption[] = React.useMemo(
@@ -195,7 +243,10 @@ export function InvoiceForm({
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form
+        onSubmit={handleSubmit(onSubmit, onInvalidSubmit)}
+        className="space-y-6"
+      >
         {error && (
           <div
             className="bg-alert/10 border border-alert rounded-sm p-4 flex items-start gap-3"
@@ -246,40 +297,108 @@ export function InvoiceForm({
               </CardContent>
             </Card>
 
-            {/* Customer Details */}
+            {/* Customer Details — P10/H-1: pick an existing customer (the
+                default; no contact row is created on submit) or explicitly
+                create a new one. The old card created a contact on EVERY
+                submission — duplicating UEN-less customers and failing on
+                repeat UENs. */}
             <Card className="border-border bg-carbon rounded-sm">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="font-display text-lg text-text-primary">
                   Customer
                 </CardTitle>
+                {contactMode === "select" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-sm border-border"
+                    onClick={() => {
+                      setContactMode("new");
+                      setPickedContactId(null);
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5" aria-hidden />
+                    New customer
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-sm border-border"
+                    onClick={() => {
+                      setContactMode("select");
+                      setPickedContactId(null);
+                    }}
+                  >
+                    <Search className="h-3.5 w-3.5" aria-hidden />
+                    Search existing customers
+                  </Button>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    label="Customer Name"
-                    {...methods.register("customer.name")}
-                    error={methods.formState.errors.customer?.name?.message}
-                  />
-                  <Input
-                    label="Email"
-                    type="email"
-                    {...methods.register("customer.email")}
-                    error={methods.formState.errors.customer?.email?.message}
-                  />
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    label="UEN (Optional)"
-                    {...methods.register("customer.uen")}
-                    placeholder="201912345A"
-                    error={methods.formState.errors.customer?.uen?.message}
-                  />
-                  <Input
-                    label="GST Registration No (Optional)"
-                    {...methods.register("customer.gst_registration_no")}
-                    placeholder="M90345678"
-                  />
-                </div>
+                {contactMode === "select" ? (
+                  <div className="space-y-2">
+                    <span
+                      id="customer-picker-label"
+                      className="text-sm font-medium text-text-secondary"
+                    >
+                      Customer
+                    </span>
+                    <ContactPicker
+                      orgId={orgId ?? ""}
+                      type="customer"
+                      value={pickedContactId ?? ""}
+                      onChange={setPickedContactId}
+                      onSelect={(contact) => {
+                        // Mirror the picked row into the form state so the
+                        // zod schema (customer.name required) is satisfied;
+                        // the submit path uses pickedContactId itself.
+                        methods.setValue("customer.id", contact.id, {
+                          shouldValidate: false,
+                        });
+                        methods.setValue("customer.name", contact.name, {
+                          shouldValidate: false,
+                        });
+                      }}
+                      disabled={isSubmitting}
+                    />
+                    <p className="text-xs text-text-muted">
+                      Pick an existing customer — invoicing them again reuses
+                      the same contact record.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Input
+                        label="Customer Name"
+                        {...methods.register("customer.name")}
+                        error={methods.formState.errors.customer?.name?.message}
+                      />
+                      <Input
+                        label="Email"
+                        type="email"
+                        {...methods.register("customer.email")}
+                        error={methods.formState.errors.customer?.email?.message}
+                      />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Input
+                        label="UEN (Optional)"
+                        {...methods.register("customer.uen")}
+                        placeholder="201912345A"
+                        error={methods.formState.errors.customer?.uen?.message}
+                      />
+                      <Input
+                        label="GST Registration No (Optional)"
+                        {...methods.register("customer.gst_registration_no")}
+                        placeholder="M90345678"
+                      />
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -392,7 +511,7 @@ export function InvoiceForm({
             <TaxBreakdownCard
               isGSTRegistered={isGSTRegistered}
               totals={totals}
-              onSubmit={handleSubmit(onSubmit)}
+              onSubmit={handleSubmit(onSubmit, onInvalidSubmit)}
               onSaveDraft={onSaveDraft}
               isSubmitting={isSubmitting}
             />

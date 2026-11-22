@@ -21,6 +21,10 @@ interface ContactPickerProps {
   type: "customer" | "supplier";
   value: string;
   onChange: (contactId: string) => void;
+  /** P10/H-1: optional full-contact callback — the invoice form mirrors
+   * the picked contact's name into its own form state (its zod schema
+   * requires customer.name) without re-fetching the row. */
+  onSelect?: (contact: Contact) => void;
   disabled?: boolean;
   invalid?: boolean;
 }
@@ -30,6 +34,7 @@ export function ContactPicker({
   type,
   value,
   onChange,
+  onSelect,
   disabled = false,
   invalid = false,
 }: ContactPickerProps) {
@@ -74,6 +79,7 @@ export function ContactPicker({
   const handleSelect = (contact: Contact) => {
     setSelected(contact);
     onChange(contact.id);
+    onSelect?.(contact);
     setOpen(false);
     setQuery("");
   };

@@ -95,16 +95,22 @@ export function buildDocumentPayload(
 /**
  * Pre-flight validation for the pieces the backend contract requires that
  * the form schema alone does not enforce (posting account per line,
- * server-resolved tax-code row per line, customer name). Returns a list of
+ * server-resolved tax-code row per line, customer). Returns a list of
  * human-readable problems; empty list = ready to submit.
+ *
+ * P10/H-1: `requireCustomerName` is false when the form is picking an
+ * EXISTING contact (the name lives on the picked row, not the form state);
+ * the caller checks the picked id separately.
  */
 export function validateSubmissionReadiness(
   invoice: Invoice,
-  taxCodeIdByCode: ReadonlyMap<TaxCode, string>
+  taxCodeIdByCode: ReadonlyMap<TaxCode, string>,
+  options: { requireCustomerName?: boolean } = {}
 ): string[] {
+  const { requireCustomerName = true } = options;
   const problems: string[] = [];
 
-  if (!invoice.customer.name.trim()) {
+  if (requireCustomerName && !invoice.customer.name.trim()) {
     problems.push("Customer name is required.");
   }
 

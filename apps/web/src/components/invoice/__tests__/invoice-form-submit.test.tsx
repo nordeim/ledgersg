@@ -22,6 +22,20 @@ vi.mock("@/hooks/use-contacts", () => ({
   useCreateContact: () => ({
     mutateAsync: createContactMock,
   }),
+  useContacts: () => ({
+    data: [
+      {
+        id: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        name: "Marina Consulting Group Pte Ltd",
+        email: "billing@marina.example.sg",
+        is_customer: true,
+        is_supplier: false,
+        is_active: true,
+      },
+    ],
+    isLoading: false,
+    isError: false,
+  }),
 }));
 
 vi.mock("@/hooks/use-invoices", () => ({
@@ -73,6 +87,9 @@ vi.mock("@/providers/auth-provider", () => ({
 }));
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
+  // P10/H-1: the customer card defaults to the picker; the legacy
+  // create-on-submit contract is now the explicit new-customer mode.
+  await user.click(screen.getByRole("button", { name: /new customer/i }));
   await user.type(screen.getByLabelText("Customer Name"), "Acme Pte Ltd");
   await user.type(screen.getByLabelText("Line description"), "Consulting");
   await user.clear(screen.getByLabelText("Quantity"));
@@ -161,6 +178,7 @@ describe("InvoiceForm submit", () => {
 
     const user = userEvent.setup();
     // fill everything EXCEPT the account selection
+    await user.click(screen.getByRole("button", { name: /new customer/i }));
     await user.type(screen.getByLabelText("Customer Name"), "Acme Pte Ltd");
     await user.type(screen.getByLabelText("Line description"), "Consulting");
     await user.clear(screen.getByLabelText("Quantity"));
@@ -176,6 +194,95 @@ describe("InvoiceForm submit", () => {
     expect(createContactMock).not.toHaveBeenCalled();
     expect(createInvoiceMock).not.toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();
+  });
+});
+
+describe("InvoiceForm submit — contact picker contract (P10/H-1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  async function fillLines(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByLabelText("Line description"), "Consulting");
+    await user.clear(screen.getByLabelText("Quantity"));
+    await user.type(screen.getByLabelText("Quantity"), "2");
+    await user.clear(screen.getByLabelText("Unit price"));
+    await user.type(screen.getByLabelText("Unit price"), "100");
+    const accountSelect = screen.getByRole("combobox", { name: "Account" });
+    await user.click(accountSelect);
+    await user.keyboard("{ArrowDown}{Enter}");
+  }
+
+  it("picking an existing customer submits with its contact_id and creates NO contact", async () => {
+    const onSuccess = vi.fn();
+    renderForm({ onSuccess });
+    const user = userEvent.setup();
+
+    // The customer card defaults to search mode: pick the existing contact.
+    const search = screen.getByRole("combobox", { name: /search customer/i });
+    await user.click(search);
+    await user.type(search, "Marina");
+    const option = await screen.findByRole("option", {
+      name: /marina consulting group/i,
+    });
+    await user.click(option);
+
+    await fillLines(user);
+
+    createInvoiceMock.mockResolvedValueOnce({ id: "doc-uuid-9", status: "DRAFT" });
+    await user.click(screen.getByRole("button", { name: /send invoice/i }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith("doc-uuid-9"));
+
+    // The H-1 defect: no duplicate contact row per submission.
+    expect(createContactMock).not.toHaveBeenCalled();
+    expect(createInvoiceMock).toHaveBeenCalledTimes(1);
+    expect(createInvoiceMock.mock.calls[0][0]).toMatchObject({
+      document_type: "SALES_INVOICE",
+      contact_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    });
+  });
+
+  it("new-customer mode is an explicit user act and still creates the contact", async () => {
+    const onSuccess = vi.fn();
+    renderForm({ onSuccess });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /new customer/i }));
+    await user.type(screen.getByLabelText("Customer Name"), "Brand New Pte Ltd");
+    await fillLines(user);
+
+    createContactMock.mockResolvedValueOnce({ id: "contact-uuid-9" });
+    createInvoiceMock.mockResolvedValueOnce({ id: "doc-uuid-9", status: "DRAFT" });
+    await user.click(screen.getByRole("button", { name: /send invoice/i }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith("doc-uuid-9"));
+    expect(createContactMock).toHaveBeenCalledTimes(1);
+    expect(createContactMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contact_type: "CUSTOMER",
+        name: "Brand New Pte Ltd",
+        is_customer: true,
+      })
+    );
+    expect(createInvoiceMock.mock.calls[0][0]).toMatchObject({
+      contact_id: "contact-uuid-9",
+    });
+  });
+
+  it("refuses to submit in select mode with no customer chosen", async () => {
+    const onSuccess = vi.fn();
+    renderForm({ onSuccess });
+    const user = userEvent.setup();
+
+    await fillLines(user);
+    await user.click(screen.getByRole("button", { name: /send invoice/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/select a customer/i)
+    );
+    expect(createContactMock).not.toHaveBeenCalled();
+    expect(createInvoiceMock).not.toHaveBeenCalled();
   });
 });
 
