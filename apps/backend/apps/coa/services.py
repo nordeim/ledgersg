@@ -72,7 +72,14 @@ class AccountService:
         queryset = Account.objects.filter(org_id=org_id)
 
         if account_type:
-            queryset = queryset.filter(account_type=account_type)
+            # P9/C-4: match the VARCHAR or the coarse FK code. Orgs seeded
+            # before the P9 seed backfill carry only the FK; API-created
+            # accounts carry both. Either way the filter must find the row.
+            from django.db.models import Q
+
+            queryset = queryset.filter(
+                Q(account_type=account_type) | Q(account_type_ref__code=account_type)
+            )
 
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active)
@@ -424,7 +431,14 @@ class AccountService:
         # Get all accounts for org
         queryset = Account.objects.filter(org_id=org_id, is_active=True)
         if account_type:
-            queryset = queryset.filter(account_type=account_type)
+            # P9/C-4: match the VARCHAR or the coarse FK code. Orgs seeded
+            # before the P9 seed backfill carry only the FK; API-created
+            # accounts carry both. Either way the filter must find the row.
+            from django.db.models import Q
+
+            queryset = queryset.filter(
+                Q(account_type=account_type) | Q(account_type_ref__code=account_type)
+            )
 
         accounts = list(queryset)
 

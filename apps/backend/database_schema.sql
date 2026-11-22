@@ -3054,6 +3054,22 @@ BEGIN
         (p_org_id, 'PAYMENT_RECEIVED',       'REC-',  1, 5),
         (p_org_id, 'PAYMENT_MADE',           'PAY-',  1, 5);
 
+    -- ═══════════════════════════════════════════
+    -- ACCOUNT TYPE VARCHAR BACKFILL (P9/C-4)
+    -- The account_type VARCHAR(50) is the column the API filter reads
+    -- (coa/services.list_accounts); the inserts above only set the FK.
+    -- Without this backfill the seeded 4000-series revenue accounts are
+    -- invisible to ?account_type=REVENUE — the invoice form's
+    -- posting-account dropdown is empty on every fresh org.
+    -- ═══════════════════════════════════════════
+
+    UPDATE coa.account AS a
+       SET account_type = at.code
+      FROM coa.account_type AS at
+     WHERE at.id = a.account_type_id
+       AND a.org_id = p_org_id
+       AND a.account_type IS DISTINCT FROM at.code;
+
 END;
 $$;
 
