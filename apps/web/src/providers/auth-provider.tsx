@@ -66,6 +66,11 @@ interface AuthContextType {
   logout: () => Promise<void>;
   switchOrg: (orgId: string) => void;
   hasPermission: (permission: keyof UserOrganisation["role"]) => boolean;
+  /** P8/S-2: re-fetch the organisation list into provider state — after a
+   * settings PATCH (rename), the sidebar's org name updates without a
+   * reload (the list lived in useState that react-query invalidation
+   * could not reach). */
+  refreshOrganisations: () => Promise<void>;
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
@@ -131,6 +136,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     checkSession();
   }, []);
+
+  // P8/S-2: the organisation list is provider state (not a react-query
+  // cache), so mutations that change org data must explicitly refresh it.
+  const refreshOrganisations = async () => {
+    try {
+      const orgsData = await api.get<UserOrganisation[]>(
+        endpoints.organisations.list
+      );
+      setOrganisations(orgsData);
+    } catch {
+      // Transport failures keep the last known list; the session path
+      // handles auth expiry.
+    }
+  };
 
   const login = async (email: string, password: string) => {
     // Backend returns: { user, tokens: { access, refresh, access_expires } }
@@ -205,6 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     switchOrg,
     hasPermission,
+    refreshOrganisations,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -7,6 +7,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, endpoints } from "@/lib/api-client";
+import { useAuth } from "@/providers/auth-provider";
 import { toast } from "@/hooks/use-toast";
 
 /** The backend OrganisationSerializer contract. */
@@ -75,6 +76,7 @@ export function useOrganisation(orgId: string | null | undefined) {
 
 export function useUpdateOrganisation(orgId: string) {
   const queryClient = useQueryClient();
+  const { refreshOrganisations } = useAuth();
 
   return useMutation({
     mutationFn: async (updates: OrganisationUpdate) => {
@@ -91,6 +93,9 @@ export function useUpdateOrganisation(orgId: string) {
         variant: "success",
       });
       queryClient.invalidateQueries({ queryKey: [orgId, "organisation"] });
+      // P8/S-2: the sidebar org name reads provider state — refresh it so
+      // a rename propagates without a reload.
+      refreshOrganisations();
     },
     onError: (error: Error) => {
       toast({

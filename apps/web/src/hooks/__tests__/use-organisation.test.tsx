@@ -8,6 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
+import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useOrganisation,
@@ -29,6 +30,13 @@ vi.mock("@/lib/api-client", () => ({
 
 vi.mock("@/hooks/use-toast", () => ({
   toast: vi.fn(),
+}));
+
+// P8/S-2: the update hook refreshes the auth provider's org list — a
+// shared spy so every test in this file sees a no-op by default.
+const __testRefreshOrganisations = vi.fn();
+vi.mock("@/providers/auth-provider", () => ({
+  useAuth: () => ({ refreshOrganisations: __testRefreshOrganisations }),
 }));
 
 const mockOrg = {
@@ -165,4 +173,30 @@ describe("useGstDeregistration", () => {
 
     expect(api.delete).toHaveBeenCalledWith("/api/v1/org-123/gst/");
   });
+
+describe("useUpdateOrganisation — org-state propagation (P8/S-2)", () => {
+  it("refreshes the auth provider's organisations after a successful rename", async () => {
+    const refreshOrganisations = vi.fn();
+    __testRefreshOrganisations.mockImplementation(refreshOrganisations);
+    vi.mocked(api.patch).mockResolvedValue({ ...mockOrg, name: "Renamed Pte Ltd" });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useUpdateOrganisation("org-123"), { wrapper });
+    act(() => {
+      result.current.mutate({ name: "Renamed Pte Ltd" });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // The sidebar org name comes from the provider's state — without this
+    // call it stayed stale until a full reload (P8/S-2).
+    expect(refreshOrganisations).toHaveBeenCalled();
+  });
+});
+
 });

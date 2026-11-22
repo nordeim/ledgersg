@@ -36,10 +36,13 @@ export function SettingsClient() {
   const [gstNumber, setGstNumber] = useState("");
   const [gstDate, setGstDate] = useState("");
 
-  React.useEffect(() => {
-    // Reset local edits whenever fresh org data arrives.
+  // P8/S-2: local edits survive background refetches — the reset fires
+  // only when the user's own save lands (onSuccess below). The old
+  // updated_at-keyed effect wiped in-flight edits whenever GST
+  // register/deregister invalidated the org query.
+  const handleSaveSuccess = () => {
     setForm({});
-  }, [org?.updated_at]);
+  };
 
   React.useEffect(() => {
     setGstNumber(org?.gst_reg_number ?? "");
@@ -106,7 +109,7 @@ export function SettingsClient() {
 
   const handleSave = () => {
     if (Object.keys(form).length === 0) return;
-    updateOrganisation.mutate(form);
+    updateOrganisation.mutate(form, { onSuccess: handleSaveSuccess });
   };
 
   const handleRegister = () => {
