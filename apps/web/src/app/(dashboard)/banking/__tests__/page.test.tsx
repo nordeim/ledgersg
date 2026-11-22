@@ -16,9 +16,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BankingClient } from "../banking-client";
 import * as bankingHooks from "@/hooks/use-banking";
 
-// P9/B-3b: PaymentsTab reads the Record Payment deep link params
+// P9/B-3b: BankingClient + PaymentsTab read the Record Payment deep link
+// params. Mutable so a test can simulate ?receive=1.
+const mockSearchParams = { params: new URLSearchParams() };
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams.params,
 }));
 
 // Mock auth provider
@@ -37,6 +39,13 @@ vi.mock("@/hooks/use-banking", () => ({
   useBankAccounts: vi.fn(),
   usePayments: vi.fn(),
   useBankTransactions: vi.fn(),
+  // P9/B-3b: the payments tab's receive form (deep-link test)
+  useReceivePayment: vi.fn().mockReturnValue({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  }),
 }));
 vi.mock("@/hooks/use-accounts", () => ({
   useAccounts: vi.fn().mockReturnValue({ data: [], isLoading: false }),
@@ -146,6 +155,36 @@ describe("BankingPage", () => {
 
       const accountsTab = screen.getByRole("tab", { name: /accounts/i });
       expect(accountsTab).toHaveAttribute("data-state", "active");
+    });
+  });
+
+  describe("Record Payment deep link (P9/B-3b)", () => {
+    it("lands on the payments tab when ?receive=1 is present", async () => {
+      mockSearchParams.params = new URLSearchParams("receive=1&contact=c-1");
+      vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
+        data: { results: mockBankAccounts.results, count: mockBankAccounts.count },
+        isLoading: false,
+        error: null,
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
+      vi.mocked(bankingHooks.usePayments).mockReturnValue({
+        data: { results: [], count: 0 },
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      } as unknown as ReturnType<typeof bankingHooks.usePayments>);
+      try {
+        render(<BankingClient />, { wrapper: createWrapper() });
+
+        // The payments tab is ACTIVE (its content renders), not accounts.
+        // .first(): the payments content carries the filter's own inner
+        // tabs (All/Received/Made) — the outer trigger comes first.
+        const paymentsTrigger = await screen
+          .findAllByRole("tab", { name: /^payments/i, selected: true })
+          .then((tabs) => tabs[0]);
+        expect(paymentsTrigger).toBeInTheDocument();
+      } finally {
+        mockSearchParams.params = new URLSearchParams();
+      }
     });
   });
 

@@ -202,7 +202,7 @@ test.describe("Invoice detail page (P6/C-5 — real data)", () => {
     test.expect(orgId).toBeTruthy();
 
     const listResponse = await page.request.get(
-      `${apiUrl}/api/v1/${orgId}/invoicing/documents/`,
+      `${apiUrl}/api/v1/${orgId}/invoicing/documents/?type=SALES_INVOICE`,
       { headers: auth }
     );
     test.expect(listResponse.ok()).toBeTruthy();
@@ -260,16 +260,21 @@ test.describe("Invoice detail — void flow (P7/F-1)", () => {
     test.expect(orgId).toBeTruthy();
 
     const listResponse = await page.request.get(
-      `${apiUrl}/api/v1/${orgId}/invoicing/documents/`,
+      `${apiUrl}/api/v1/${orgId}/invoicing/documents/?type=SALES_INVOICE`,
       { headers: auth }
     );
     const listBody = (await listResponse.json()) as {
-      results: Array<{ id: string; status: string }>;
+      results: Array<{ id: string; status: string; document_number: string }>;
     };
     test.skip(!listBody.results?.length, "org has no documents to void against");
 
-    const target = listBody.results.find((d) => d.status !== "VOID");
-    test.skip(!target, "only VOID documents exist");
+    // P9: the banking workflow spec settles the approved invoice first
+    // (alphabetical file order) — a PAID invoice has no Void button
+    // (P8/G-3: credit note is the remedy), so target a VOIDABLE status.
+    const VOIDABLE = ["DRAFT", "SENT", "APPROVED", "OVERDUE", "PARTIALLY_PAID"];
+    const target = listBody.results.find((d) => VOIDABLE.includes(d.status));
+    test.skip(!target, "no voidable documents exist");
+    const voidable = target!;
 
     await page.goto("/login");
     await page.locator("input[type='email']").fill(
@@ -284,7 +289,13 @@ test.describe("Invoice detail — void flow (P7/F-1)", () => {
     // Client-side navigation to the detail page
     await page.getByRole("link", { name: /^Invoices$/ }).click();
     await expect(page).toHaveURL(/\/invoices\/?$/);
-    await page.locator("table tbody tr a").first().click();
+    // Click the TARGET's row (the first row may be the settled PAID
+    // invoice from the banking workflow spec).
+    await page
+      .locator("tr", { hasText: voidable.document_number })
+      .getByRole("link")
+      .first()
+      .click();
     await expect(page).toHaveURL(/\/invoices\//, { timeout: 30000 });
 
     // Void opens the dialog (never a bare mutation — P7/F-1)

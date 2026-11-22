@@ -92,8 +92,11 @@ class AccountService:
 
         if parent_id:
             queryset = queryset.filter(parent_id=parent_id)
-        elif not code and not search:
-            # Default: only top-level accounts if no specific filter provided
+        elif not code and not search and not account_type:
+            # Default: only top-level accounts if no specific filter provided.
+            # A type filter lifts the restriction (P9/B-4): the seeded bank
+            # accounts are CHILDREN of the 1000 header — hiding them left the
+            # bank-account dialog's GL picker empty.
             queryset = queryset.filter(parent__isnull=True)
 
         if search:

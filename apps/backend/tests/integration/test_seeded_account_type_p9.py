@@ -72,3 +72,20 @@ class TestSeededAccountTypeP9:
             org_id=test_organisation.id, account_type="REVENUE"
         )
         assert any(r.code == "4900" for r in rows), [r.code for r in rows]
+
+    def test_account_type_filter_includes_child_accounts(self, test_user):
+        """P9/B-4 follow-up: the seeded bank accounts (1100 series) are
+        CHILDREN of the 1000 header — the list service's default
+        top-level-only filter hid them from every ?account_type= query,
+        so the bank-account dialog's GL picker was empty. A type filter
+        must see the children."""
+        from apps.coa.services import AccountService
+
+        org = self._seeded_org(test_user)
+
+        rows = AccountService.list_accounts(org_id=org.id, account_type="ASSET")
+        codes = [r.code for r in rows]
+        assert any(c.startswith("11") for c in codes), (
+            "the seeded bank accounts (children of the 1000 header) must "
+            f"appear in the ASSET-filtered list; got {codes[:15]}…"
+        )

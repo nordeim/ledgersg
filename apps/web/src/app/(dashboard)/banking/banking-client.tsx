@@ -28,6 +28,12 @@ export function BankingClient() {
   const { currentOrg, isLoading: authLoading } = useAuth();
   const orgId = currentOrg?.id ?? null;
 
+  // P9/B-3b: the invoice detail's Record Payment deep link
+  // (?receive=1&…) must LAND on the payments tab — the params are read in
+  // PaymentsTab, which never mounts while the accounts tab is default.
+  const searchParams = useSearchParams();
+  const defaultTab = searchParams.get("receive") === "1" ? "payments" : "accounts";
+
   const { data: accountsData, isLoading, error } = useBankAccounts(orgId, {
     is_active: true,
   });
@@ -71,7 +77,7 @@ export function BankingClient() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="accounts" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-3">
           <TabsTrigger value="accounts" className="gap-2">
             <Building2 className="h-4 w-4" />

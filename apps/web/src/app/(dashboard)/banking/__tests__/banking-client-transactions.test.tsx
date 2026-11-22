@@ -15,6 +15,11 @@ import BankingClient from "../banking-client";
 import * as bankingHooks from "@/hooks/use-banking";
 
 // Mock auth provider
+// P9/B-3b: BankingClient reads the Record Payment deep-link params
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock("@/providers/auth-provider", () => ({
   useAuth: () => ({
     currentOrg: { id: "org-1", name: "Test Org" },
