@@ -74,7 +74,18 @@ class XMLValidationService:
             List of error dictionaries
         """
         if schema is None:
-            return []
+            # P9/S-3: fail CLOSED. A schema that failed to load must never
+            # validate silently — the pre-P9 branch returned [] (valid),
+            # inverting the Peppol path's posture exactly when it mattered.
+            return [
+                {
+                    "path": "/",
+                    "message": (
+                        "XSD schema could not be loaded — validation "
+                        "unavailable; refusing to pass the document."
+                    ),
+                }
+            ]
 
         errors = []
 

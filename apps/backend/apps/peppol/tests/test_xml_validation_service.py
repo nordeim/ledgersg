@@ -270,3 +270,29 @@ class TestXMLValidationService:
 
         # Should have loaded invoice schema
         assert hasattr(validator, "_invoice_schema") or True  # May be private
+
+
+class TestXSDFailClosedP9:
+    """P9/S-3: XSD validation must FAIL CLOSED.
+
+    _validate_xsd returned [] when the schema object was None — a schema
+    load failure at startup validated EVERYTHING. The Peppol path's
+    posture inverted exactly when it mattered.
+    """
+
+    def test_none_schema_reports_an_error_not_silence(self):
+        from lxml import etree
+
+        from apps.peppol.services.xml_validation_service import XMLValidationService
+
+        service = XMLValidationService()
+        xml_doc = etree.fromstring(
+            b"<Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\"/>"
+        )
+
+        errors = service._validate_xsd(xml_doc, None)
+
+        assert errors, "a missing schema must never validate silently"
+        assert any(
+            "schema" in str(e.get("message", "")).lower() for e in errors
+        ), errors

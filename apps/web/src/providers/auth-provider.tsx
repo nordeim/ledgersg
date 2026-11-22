@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { api, endpoints, setAccessToken, clearAuth } from "@/lib/api-client";
+import { api, endpoints, setAccessToken, clearAuth, ApiError } from "@/lib/api-client";
 import { queryClient } from "@/lib/api-client";
 
 // Types matching backend schema
@@ -118,7 +118,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (orgsData.length > 0) {
         setCurrentOrgId(orgsData[0].org.id);
       }
-    } catch {
+    } catch (error) {
+      // P9/S-2: only AUTH failures clear the session — a transport fault
+      // (network down, 5xx) keeps the in-memory session so a transient
+      // outage does not bounce a logged-in user to /login (the same split
+      // refreshOrganisations got in P8).
+      const isAuthExpiry =
+        error instanceof ApiError && (error.status === 401 || error.status === 403);
+      if (!isAuthExpiry) {
+        console.warn('[Auth] Session check failed (non-auth error); keeping session state.');
+        return;
+      }
       // No valid session - redirect to login
       clearAuth();
       // Only redirect if not already on login page (prevent redirect loops)
