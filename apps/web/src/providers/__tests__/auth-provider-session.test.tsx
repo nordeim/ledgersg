@@ -117,10 +117,12 @@ describe("switchOrg persists the choice (P10/M-3)", () => {
     const postMock = vi.fn().mockResolvedValue({});
     (apiClient.api as unknown as { post: unknown }).post = postMock;
 
-    let switcher: ((orgId: string) => void) | null = null;
+    // A holder object (not a bare outer variable) — the lint rule forbids
+    // reassigning outer-scope let bindings inside a component.
+    const holder: { switch: ((orgId: string) => void) | null } = { switch: null };
     function SwitchProbe() {
       const auth = useAuth();
-      switcher = auth.switchOrg;
+      holder.switch = auth.switchOrg;
       return <div data-testid="switch-probe">{auth.currentOrg?.id ?? "none"}</div>;
     }
 
@@ -135,8 +137,7 @@ describe("switchOrg persists the choice (P10/M-3)", () => {
       expect(document.body.textContent).toContain(orgA);
     });
 
-    // TS cannot see the render assigned the holder; re-narrow explicitly.
-    (switcher as ((orgId: string) => void) | null)?.(orgB);
+    holder.switch?.(orgB);
 
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith(
@@ -158,10 +159,12 @@ describe("switchOrg persists the choice (P10/M-3)", () => {
     const postMock = vi.fn().mockRejectedValue(new Error("offline"));
     vi.mocked(apiClient.api).post = postMock;
 
-    let switcher: ((orgId: string) => void) | null = null;
+    // A holder object (not a bare outer variable) — the lint rule forbids
+    // reassigning outer-scope let bindings inside a component.
+    const holder: { switch: ((orgId: string) => void) | null } = { switch: null };
     function SwitchProbe() {
       const auth = useAuth();
-      switcher = auth.switchOrg;
+      holder.switch = auth.switchOrg;
       return <div data-testid="switch-probe">{auth.currentOrg?.id ?? "none"}</div>;
     }
 
@@ -175,8 +178,7 @@ describe("switchOrg persists the choice (P10/M-3)", () => {
       expect(document.body.textContent).toContain(orgA);
     });
 
-    // TS cannot see the render assigned the holder; re-narrow explicitly.
-    (switcher as ((orgId: string) => void) | null)?.(orgB);
+    holder.switch?.(orgB);
 
     await waitFor(() => {
       expect(document.body.textContent).toContain(orgB);
