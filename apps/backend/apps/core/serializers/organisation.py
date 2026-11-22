@@ -17,6 +17,28 @@ from apps.core.models import (
 )
 
 
+def ensure_uen_available(uen, exclude_org=None):
+    """P10 (found during the live e2e gate): core.organisation.uen is
+    UNIQUE at the DB level, but nothing validated it — a taken UEN surfaced
+    as an unhandled IntegrityError (500) on create and both PATCH paths.
+    Guard at the validation layer so it is a 400 field error instead.
+
+    Blank UENs skip the check: the DB collides on '' too (VARCHAR UNIQUE,
+    and the ORM writes '' for blank), which is a schema-modeling gap
+    (multiple NULLs are allowed, multiple '' are not) — deferred to the
+    debt register rather than changing the wire contract here.
+    """
+    if not uen:
+        return
+    qs = Organisation.objects.filter(uen=uen)
+    if exclude_org is not None:
+        qs = qs.exclude(pk=exclude_org.pk)
+    if qs.exists():
+        raise serializers.ValidationError(
+            {"uen": "An organisation with this UEN already exists."}
+        )
+
+
 class OrganisationSerializer(serializers.ModelSerializer):
     """Serializer for Organisation model."""
     
@@ -66,6 +88,10 @@ class OrganisationCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"gst_reg_date": "GST registration date is required when GST is registered."}
                 )
+
+        # P10: DB-level uen UNIQUE must surface as a 400 field error, not
+        # an IntegrityError 500.
+        ensure_uen_available(data.get("uen"))
         return data
 
 

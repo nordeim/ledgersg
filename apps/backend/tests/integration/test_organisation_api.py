@@ -338,3 +338,55 @@ def test_create_organisation_serializer_has_no_address_field():
     assert "address" not in fields, fields.keys()
     for real_field in ("name", "legal_name", "uen", "gst_registered"):
         assert real_field in fields
+
+
+def _org_create_payload(**overrides):
+    base = {
+        "name": "UEN Guard Org",
+        "uen": "202312345D",
+        "entity_type": "PRIVATE_LIMITED",
+        "gst_registered": False,
+        "fy_start_month": 1,
+        "base_currency": "SGD",
+    }
+    base.update(overrides)
+    return base
+
+
+@pytest.mark.django_db
+def test_create_organisation_duplicate_uen_is_a_clean_400(auth_client, test_user):
+    """P10 (found during the live e2e gate): the DB enforces uen UNIQUE
+    (core.organisation.uen) but the create serializer never checked, so a
+    taken UEN surfaced as an unhandled IntegrityError -> 500 instead of a
+    client error the org-create form can show."""
+    url = "/api/v1/organisations/"
+
+    first = auth_client.post(url, _org_create_payload(), format="json")
+    assert first.status_code == status.HTTP_201_CREATED
+
+    second = auth_client.post(url, _org_create_payload(name="UEN Guard Org 2"), format="json")
+    assert second.status_code == status.HTTP_400_BAD_REQUEST, second.data
+    assert "uen" in second.data, second.data
+
+
+@pytest.mark.django_db
+def test_update_organisation_duplicate_uen_is_a_clean_400(auth_client, test_organisation):
+    """Same guard on the settings PATCH: pointing an org's UEN at another
+    org's UEN must be a 400 field error, not an IntegrityError 500."""
+    Organisation.objects.create(
+        name="Other Org",
+        legal_name="Other Org Pte Ltd",
+        uen="202399999X",
+        fy_start_month=1,
+        base_currency="SGD",
+        is_active=True,
+    )
+
+    response = auth_client.patch(
+        f"/api/v1/{test_organisation.id}/",
+        {"uen": "202399999X"},
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST, response.data
+    assert "uen" in response.data, response.data

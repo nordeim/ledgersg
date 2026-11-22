@@ -120,6 +120,13 @@ class OrganisationDetailView(APIView):
 
         updates = {k: v for k, v in request.data.items() if k in allowed_fields}
 
+        # P10: DB-level uen UNIQUE must surface as a 400 field error here
+        # too (this PATCH path is a raw allowlist — no serializer guards it).
+        if "uen" in updates:
+            from apps.core.serializers.organisation import ensure_uen_available
+
+            ensure_uen_available(updates["uen"], exclude_org=org)
+
         org = organisation_service.update_organisation(org, **updates)
         return Response(OrganisationSerializer(org).data)
 
@@ -330,13 +337,19 @@ class OrganisationSettingsView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # P10: DB-level uen UNIQUE must surface as a 400 field error here
+        # too (the serializer has no instance context to exclude self).
+        if "uen" in validated:
+            from apps.core.serializers.organisation import ensure_uen_available
+
+            ensure_uen_available(validated["uen"], exclude_org=org)
+
         updated_fields = []
         for field, value in validated.items():
             setattr(org, field, value)
             updated_fields.append(field)
 
         org.save()
-
         return Response(
             {
                 "message": "Settings updated successfully",
