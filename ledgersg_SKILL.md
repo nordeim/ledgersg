@@ -1,9 +1,9 @@
 ---
 name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 1.7.0
+version: 1.8.0
 last_updated: 2026-11-22
-project_state: "P7 remediated; all gates green — 624 backend tests (0 failed, 5 skipped), frontend 398 vitest + 21 e2e (9 default / 12 backend-gated), typecheck 0 errors; schema v1.1.0 NUMERIC(19,4) money; API truth & permission hardening: per-status transition permissions (payment statuses reserved to the allocation service), custom exception handler ACTIVE (the DRF settings key was wrong pre-P7), fiscal routes live, typed settings PATCHes + manager gates, 400s for malformed query params, working void-reason dialog + real error messages + PDF/InvoiceNow actions on the invoice detail page"
+project_state: "P8 remediated; all gates green — 647 backend tests (0 failed, 5 skipped), frontend 418 vitest + 23 e2e (9 default / 14 backend-gated), typecheck 0 errors; schema v1.1.0 NUMERIC(19,4) money; reporting truth & quote lifecycle: real financial reports (TB/P&L/BS with retained-earnings tie-out + per-account lines), aged AR/AP endpoint, real reports + quotes pages with the convert flow, quote conversion links persisted (related_document), QT-/BILL- prefixes aligned to the seeded sequences, quotation PDF template, void contract aligned across the state machine (PAID → credit note, allocations released first), GST registration manager-gated again, fiscal close requires closed periods, dead core dashboard retired"
 ---
 
 # LedgerSG — Engineering Skill
@@ -413,6 +413,36 @@ write inside `transaction.atomic()`; new tests RED before the fix.
    POSTing it (the field the API itself advertised) was a TypeError 500.
    Serializer field sets are contracts: mirror the model, and
    regression-test every advertised field round-trips or no-ops.
+
+26. (P8) A permission refactor must match the view's actual verbs: the
+   P7/F-10 get_permissions() pattern (gate PATCH, keep GET readable) was
+   applied to GSTRegistrationView — whose mutations are POST/DELETE —
+   loosening GST register/deregister to any member for a sprint. When
+   copying a hardening pattern, list the view's mutating verbs first.
+
+27. (P8) An advertised state machine and its engine must agree:
+   STATUS_TRANSITIONS listed DRAFT/PAID/OVERDUE→VOID while void_document
+   accepted only APPROVED/SENT/PARTIALLY_PAID — an OVERDUE invoice could
+   be voided through NO endpoint, and users saw buttons that always
+   400'd. Fix by making the accepted set EXACTLY the advertised one, and
+   refuse paid documents with credit-note guidance (the accounting
+   remedy), never silently.
+
+28. (P8) Serializer fields are promises: InvoiceSendSerializer validated
+   cc/bcc/message but the Celery task received only `to` — the frontend
+   was actively sending a `message` nobody delivered. Either wire the
+   field through or delete it from the contract; both sides then match.
+
+29. (P8) Config has two sources of truth: DOCUMENT_TYPES hardcoded
+   QUO/PINV while core.document_sequence (the schema seed) promises QT-/
+   BILL-. The schema file is the source of truth — align Python to it
+   (issued numbers are stored and unaffected).
+
+30. (P8) Assignment to a non-existent field is a silent no-op:
+   quote.converted_to_id = invoice.id set a TRANSIENT attribute that
+   save() discarded — the quote→invoice link never existed in the DB.
+   Persist links through the real FK (related_document), and
+   regression-test the round-trip through refresh_from_db.
 
 ## 12. Quick Reference Card
 

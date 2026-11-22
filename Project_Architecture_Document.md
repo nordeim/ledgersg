@@ -1,8 +1,9 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.4.0
+> **Version**: 3.5.0
 > **Last Updated**: 2026-11-21
+> **P8 note**: reporting truth & quote lifecycle — real financial reports (TB/P&L/BS tie-out), aged AR/AP, real reports + quotes pages, persisted quote conversion, fiscal close preconditions; see `docs/REMEDIATION_2026-11-22_P8_REPORT.md`.
 > **P7 note**: API truth & permission hardening — status-transition authorization, routed fiscal endpoints, fail-closed payments, real error messages, working void/send actions; see `docs/REMEDIATION_2026-11-22_P7_REPORT.md`.
 > **P5 note**: truth restoration sprint — real InvoiceNow transmission wiring, `amount_paid`/void-reversal accounting integrity, fail-closed control accounts, real dashboard alerts + cache invalidation, repo hygiene; test metrics below reflect the P5 verified counts.
 > **Status**: Production Ready ✅
@@ -33,7 +34,7 @@
 ### Key Metrics
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,043 Tests Passing** | 624 Backend + 398 Frontend unit + 21 e2e (9 always + 12 backend-gated) |
+| **Test Coverage** | **1,088 Tests Passing** | 647 Backend + 418 Frontend unit + 23 e2e (9 always + 14 backend-gated) |
 | **API Surface** | **95 Endpoints** | RESTful, JSON-API compliant |
 | **Security** | **100% Score** | CSP, Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 30 Tables, Row-Level Security Enforced |
@@ -232,6 +233,8 @@ Every dashboard page is wired to the real API — mock fixtures are deleted:
 *   **General ledger** (P6): `useLedger` → the flat line-level `journal-entries/ledger/` endpoint (one row per journal line; the aggregated entries list cannot drive a line-level table).
 *   **Settings** (P6): `useOrganisation` → org detail + allowlisted PATCH updates + GST register/deregister (the GST endpoints seed the GST control accounts).
 *   **Invoice actions** (P7): the detail page exposes Approve / Void (REQUIRED-reason dialog) / Send email / Send via InvoiceNow (with live status badge) / PDF download / Print; error toasts surface the backend's real messages (`{error:{message}}` envelope parsed by the api-client).
+*   **Reports** (P8): the tabbed reports page reads the real financial endpoints — trial balance (as-at, balanced badge), P&L (per-account lines), balance sheet (retained earnings + tie-out), GST F5 (compute/file lifecycle), aged AR/AP (bucket tables); 403 renders a permission state, never fake data.
+*   **Quotes** (P8): the quotes pages are real — list via `?type=SALES_QUOTE` (the filter key the backend reads), new via the shared form with `document_type: SALES_QUOTE` (QT- numbering), detail in quote mode (QUOTATION framing, invoice-only surfaces gated), Convert-to-invoice on DRAFT/SENT (the backend persists `related_document`).
 
 ---
 
@@ -374,7 +377,7 @@ psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 pytest --reuse-db --no-migrations
 
 # Expected Output:
-# ============================= 624 passed, 0 failed, 5 skipped =============================
+# ============================= 647 passed, 0 failed, 5 skipped =============================
 # (P1 fixed the 26 documented fixture failures; the suite has been fully green since)
 ```
 

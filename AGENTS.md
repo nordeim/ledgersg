@@ -1041,3 +1041,42 @@ InvalidOperation -> 500 at every audited list endpoint, and banking's
 tolerance probe silently DEFAULTED garbage via a bare `except:`. Shared
 helpers (`common.query_params.parse_*_param`) map them to clean 400s with the
 param name in the message.
+
+## 2026-11-22 P8 Sprint — New Patterns & Lessons (session 16)
+
+### Copy a Permission Pattern Only After Listing the View's Verbs (G-1)
+The P7/F-10 `get_permissions()` pattern (gate PATCH, keep GET member-
+readable) was applied to `GSTRegistrationView` — which has no PATCH: its
+mutations are POST/DELETE. Class-level `CanManageOrg` was removed, and any
+member could register/deregister the org for GST. Before transplanting a
+hardening pattern, enumerate the target view's mutating verbs.
+
+### The Advertised Map and the Enforced Set Must Be One Contract (G-3)
+`STATUS_TRANSITIONS` (served to clients) advertised DRAFT/PAID/OVERDUE→VOID
+while `void_document` accepted only APPROVED/SENT/PARTIALLY_PAID. An
+OVERDUE invoice could be voided through NO endpoint; DRAFT/PAID users saw
+a Void button that always 400'd. The accepted set now equals the
+advertised one, PAID is refused with credit-note guidance, and payment
+allocations must be released before any void (no orphaned allocation rows).
+
+### A Serializer Field Is a Promise (G-6)
+`InvoiceSendSerializer` validated `cc`/`bcc`/`message` while the email
+task received only `to` — the frontend actively sent `message` and it was
+silently dropped. Fields either deliver end-to-end or leave the contract.
+
+### The Schema Seed Is the Source of Truth for Sequences (Q-3)
+Python-hardcoded prefixes (QUO, PINV) drifted from the seeded
+`core.document_sequence` (QT-, BILL-). Align Python to the schema; issued
+numbers are stored values and unaffected.
+
+### Phantom-Field Assignment Fails Silently (Q-1)
+`quote.converted_to_id = invoice.id` set a transient attribute that
+`save()` discarded — the conversion link never reached the DB. Persist
+through the real FK (`related_document`) and regression-test via
+`refresh_from_db`.
+
+### Report Aggregates Need Every Account (R-4)
+P&L/BS aggregate via `account_type_ref__code`, but `create_account` never
+set the FK — an org's own revenue account was invisible to its statements.
+New accounts link the coarse FK through `GROUP_TO_COARSE_TYPE` (the
+groups' `category` field is too coarse: COS's category is EXPENSE).

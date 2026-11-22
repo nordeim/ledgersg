@@ -6,8 +6,8 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-22, session 14 / P7) re-verified every command against the current
-codebase (backend 624P/0F/5S, vitest 398/398, e2e 21/21 full).
+(2026-11-22, session 16 / P8) re-verified every command against the current
+codebase (backend 647P/0F/5S, vitest 418/418, e2e 23/23 full).
 
 Verified truths this guide is built on: the schema file
 `apps/backend/database_schema.sql` (v1.1.0) CREATEs ROLEs inside DO blocks
@@ -194,7 +194,7 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-22 P7): 624 passed, 0 failed, 5 skipped
+# expected (post-2026-11-22 P8): 647 passed, 0 failed, 5 skipped
 pytest tests/invariants -q    # 27 passed (schema conformance + capacity + balance)
 pytest tests/security -q      # 53 passed, 3 skipped (RLS, tokens, cookies, posture gates)
 ```
@@ -247,7 +247,7 @@ Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 398 vitest tests
+npm test                    # 418 vitest tests
 npm run test:e2e            # green without a backend (gated specs skip)
 E2E_API_URL=http://127.0.0.1:8000 npm run test:e2e:full   # 21/21 (live stack)
 ```
@@ -292,6 +292,22 @@ curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
 #    - malformed query params are 400s, not 500s:
 curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
   "http://127.0.0.1:8000/api/v1/$ORG_ID/journal-entries/entries/?date_from=garbage"  # 400
+
+# 6. P8 reporting-truth spot checks
+#    - financial reports (the route is single-prefixed /reports/financial/):
+curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
+  "http://127.0.0.1:8000/api/v1/$ORG_ID/reports/financial/?report_type=trial_balance&as_at_date=2026-12-31"  # 200
+#    - aged receivables buckets:
+curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
+  "http://127.0.0.1:8000/api/v1/$ORG_ID/reports/aged/?type=receivables"   # 200
+#    - quotes list via the type filter key the backend reads:
+curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
+  "http://127.0.0.1:8000/api/v1/$ORG_ID/invoicing/documents/?type=SALES_QUOTE"  # 200
+
+# 7. Browser (P8): open /reports — the tabs (Trial Balance / P&L / Balance
+#    Sheet / GST F5 / Aged AR-AP) render real statements (rows or an
+#    explicit empty state); open /quotes — the list, New Quote form and
+#    the quote detail (QUOTATION framing + Convert) are live.
 ```
 
 The full e2e run performs ~25 logins/refreshes. The dev settings budget
