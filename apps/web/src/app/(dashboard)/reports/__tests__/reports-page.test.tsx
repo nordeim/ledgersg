@@ -16,12 +16,24 @@ vi.mock("@/providers/auth-provider", () => ({
   useAuth: vi.fn(),
 }));
 
+const reviewMutateMock = vi.fn();
+const amendMutateMock = vi.fn();
+const createPeriodsMutateMock = vi.fn();
+
 vi.mock("@/hooks/use-reports", () => ({
   useFinancialReport: vi.fn(),
   useAgedReport: vi.fn(),
   useGSTReturns: vi.fn(),
   useGenerateGSTReturn: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useFileGSTReturn: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useGSTReturn: vi.fn(),
+  useReviewGSTReturn: vi.fn(() => ({ mutate: reviewMutateMock, isPending: false })),
+  useAmendGSTReturn: vi.fn(() => ({ mutate: amendMutateMock, isPending: false })),
+  useCreateGSTReturnPeriods: vi.fn(() => ({
+    mutate: createPeriodsMutateMock,
+    isPending: false,
+  })),
+  useGSTDeadlines: vi.fn(),
 }));
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- test mocks */
@@ -50,6 +62,9 @@ const ORG = { id: "org-1", name: "Reports Org", gst_registered: true };
 
 describe("ReportsClient (P8/R-7 — real data)", () => {
   beforeEach(() => {
+    vi.mocked(reportHooks.useGSTDeadlines).mockReturnValue(
+      mockQuery({ data: { results: [], count: 0 } })
+    );
     vi.clearAllMocks();
     vi.mocked(authModule.useAuth).mockReturnValue({
       currentOrg: ORG,
@@ -230,5 +245,121 @@ describe("ReportsClient (P8/R-7 — real data)", () => {
 
     expect(await screen.findByText("Acme Pte Ltd")).toBeInTheDocument();
     expect(screen.getAllByText("109.00").length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("ReportsClient GST F5 — the whole truth (P10/H-3)", () => {
+  const computedRow = {
+    id: "r-computed",
+    return_type: "F5",
+    period_start: "2024-01-01",
+    period_end: "2024-01-31",
+    filing_due_date: "2024-02-29",
+    status: "COMPUTED",
+    days_until_due: 12,
+    net_gst: "90.0000",
+  };
+  const filedRow = {
+    ...computedRow,
+    id: "r-filed",
+    status: "FILED",
+  };
+
+  function mockGst(rows: unknown[]) {
+    vi.mocked(reportHooks.useFinancialReport).mockReturnValue(mockQuery({ data: undefined }));
+    vi.mocked(reportHooks.useAgedReport).mockReturnValue(mockQuery({ data: undefined }));
+    vi.mocked(reportHooks.useGSTReturns).mockReturnValue(
+      mockQuery({ data: { results: rows, count: rows.length } })
+    );
+    vi.mocked(reportHooks.useGSTDeadlines).mockReturnValue(
+      mockQuery({ data: { results: [computedRow], count: 1 } })
+    );
+  }
+
+  it("renders the next filing deadline banner from the deadlines endpoint", async () => {
+    mockGst([]);
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /gst f5/i }));
+
+    expect(await screen.findByText(/next filing due/i)).toBeInTheDocument();
+    expect(screen.getByText(/2024-02-29/)).toBeInTheDocument();
+  });
+
+  it("shows the computed F5 boxes before File (no more blind filing)", async () => {
+    mockGst([computedRow]);
+    vi.mocked(reportHooks.useGSTReturn).mockReturnValue(
+      mockQuery({
+        data: {
+          id: "r-computed",
+          return_type: "F5",
+          period_start: "2024-01-01",
+          period_end: "2024-01-31",
+          filing_due_date: "2024-02-29",
+          status: "COMPUTED",
+          notes: "",
+          boxes: { box1: "1000.0000", box6: "90.0000", box8: "90.0000" },
+          computed_at: "2026-11-22T00:00:00Z",
+          filed_at: null,
+        },
+      })
+    );
+
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /gst f5/i }));
+    await userEvent.click(
+      (await screen.findAllByRole("button", { name: /view boxes/i }))[0]
+    );
+
+    // The IRAS box values render — the user can inspect before filing.
+    expect(await screen.findByText(/^Box 1 —/)).toBeInTheDocument();
+    expect(screen.getByText("1000.0000")).toBeInTheDocument();
+    expect(screen.getAllByText("90.0000").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("offers Review on a COMPUTED return (the previously-unrouted edge)", async () => {
+    mockGst([computedRow]);
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /gst f5/i }));
+
+    expect(await screen.findByRole("button", { name: /review/i })).toBeInTheDocument();
+  });
+
+  it("offers Amend with a required reason on a FILED return", async () => {
+    mockGst([filedRow]);
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /gst f5/i }));
+
+    await userEvent.click(await screen.findByRole("button", { name: /amend/i }));
+
+    // The reason dialog gates the amendment (the backend requires it).
+    const reason = await screen.findByLabelText(/reason/i);
+    await userEvent.type(reason, "Box 1 included an exempt supply");
+    await userEvent.click(screen.getByRole("button", { name: /submit amendment/i }));
+
+    expect(amendMutateMock).toHaveBeenCalledWith(
+      { returnId: "r-filed", reason: "Box 1 included an exempt supply" },
+      expect.anything()
+    );
+  });
+
+  it("creates return periods from the UI (the empty state's dead text replaced)", async () => {
+    mockGst([]);
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: /gst f5/i }));
+
+    expect(
+      await screen.findByText(/no gst return periods/i)
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: /create return periods/i })
+    );
+
+    const start = await screen.findByLabelText(/period start/i);
+    await userEvent.type(start, "2024-01-01");
+    await userEvent.click(screen.getByRole("button", { name: /create periods/i }));
+
+    expect(
+      screen.queryByText(/periods are created from the api/i)
+    ).toBeNull();
   });
 });

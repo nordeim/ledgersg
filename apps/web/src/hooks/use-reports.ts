@@ -266,3 +266,68 @@ export function useFileGSTReturn(orgId: string) {
     },
   });
 }
+
+// P10/H-3 — the full F5 lifecycle wiring: review (the previously-unrouted
+// edge), amend (reason required by the backend), and the deadlines banner.
+
+/** POST /gst/returns/{id}/review/ — COMPUTED -> REVIEWED. */
+export function useReviewGSTReturn(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (returnId: string) =>
+      api.post(endpoints.gst(orgId).returnReview(returnId), {}),
+    onSuccess: () => {
+      toast({
+        title: "GST return reviewed",
+        description: "The return is marked as reviewed.",
+        variant: "success",
+      });
+      queryClient.invalidateQueries({ queryKey: [orgId, "gst"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Review failed",
+        description: error.message,
+        variant: "error",
+      });
+    },
+  });
+}
+
+/** POST /gst/returns/{id}/amend/ — FILED -> AMENDED (reason required). */
+export function useAmendGSTReturn(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { returnId: string; reason: string }) => {
+      const { returnId, ...body } = payload;
+      return api.post(endpoints.gst(orgId).returnAmend(returnId), body);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Amendment submitted",
+        description: "The filed return is marked for amendment.",
+        variant: "success",
+      });
+      queryClient.invalidateQueries({ queryKey: [orgId, "gst"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Amendment failed",
+        description: error.message,
+        variant: "error",
+      });
+    },
+  });
+}
+
+/** GET /gst/returns/deadlines/ — upcoming filing deadlines. */
+export function useGSTDeadlines(orgId: string | null | undefined) {
+  return useQuery({
+    queryKey: [orgId, "gst", "deadlines"],
+    queryFn: async () =>
+      api.get<{ results: GSTReturnRow[]; count: number }>(
+        endpoints.gst(orgId as string).returnDeadlines
+      ),
+    enabled: !!orgId,
+  });
+}

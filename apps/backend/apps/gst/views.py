@@ -438,6 +438,39 @@ class GSTReturnAmendView(APIView):
         )
 
 
+class GSTReturnReviewView(APIView):
+    """
+    POST: Mark a computed return as reviewed (COMPUTED -> REVIEWED).
+
+    P10/H-3: the review transition existed in the service
+    (return_service.review_return) but had NO route — the F5 state
+    machine (DRAFT -> COMPUTED -> REVIEWED -> FILED -> AMENDED) could not
+    be walked by any client while its sibling edges (file/amend) were
+    routed. Permission parity with file/amend (CanFileGST).
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsOrgMember, CanFileGST]
+
+    @wrap_response
+    def post(self, request, org_id: str, return_id: str) -> Response:
+        """Review GST return."""
+        from uuid import UUID
+
+        gst_return = GSTReturnService.review_return(
+            org_id=org_id,
+            return_id=UUID(return_id),
+            reviewed_by_id=request.user.id,
+        )
+
+        return Response(
+            {
+                "message": "GST return reviewed",
+                "return": GSTReturnDetailSerializer(gst_return).data,
+            }
+        )
+
+
 class GSTReturnPayView(APIView):
     """
     POST: Record payment for GST return

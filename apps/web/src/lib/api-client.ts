@@ -418,6 +418,11 @@ export const endpoints = {
     returns: `/api/v1/${orgId}/gst/returns/`,
     returnDetail: (id: string) => `/api/v1/${orgId}/gst/returns/${id}/`,
     returnFile: (id: string) => `/api/v1/${orgId}/gst/returns/${id}/file/`,
+    // P10/H-3: the full F5 lifecycle — review (the previously-unrouted
+    // edge), amend (reason required), and the deadlines banner.
+    returnReview: (id: string) => `/api/v1/${orgId}/gst/returns/${id}/review/`,
+    returnAmend: (id: string) => `/api/v1/${orgId}/gst/returns/${id}/amend/`,
+    returnDeadlines: `/api/v1/${orgId}/gst/returns/deadlines/`,
   }),
 
   // Reports (org-scoped) — P8: financial statements (P&L / balance sheet /

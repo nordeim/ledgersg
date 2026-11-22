@@ -13,6 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/providers/auth-provider";
 import {
   useFinancialReport,
@@ -20,6 +28,11 @@ import {
   useGSTReturns,
   useGenerateGSTReturn,
   useFileGSTReturn,
+  useReviewGSTReturn,
+  useAmendGSTReturn,
+  useCreateGSTReturnPeriods,
+  useGSTDeadlines,
+  useGSTReturn,
   type FinancialReportLine,
 } from "@/hooks/use-reports";
 import { ApiError } from "@/lib/api-client";
@@ -108,6 +121,16 @@ export function ReportsClient() {
   const gstReturns = useGSTReturns(orgId, gstYear);
   const generateReturn = useGenerateGSTReturn(orgId ?? "");
   const fileReturn = useFileGSTReturn(orgId ?? "");
+  // P10/H-3: the full F5 lifecycle — review/amend actions, the deadlines
+  // banner, and period creation from the UI (the hooks existed; only
+  // compute/file were wired, and the computed boxes never rendered).
+  const reviewReturn = useReviewGSTReturn(orgId ?? "");
+  const amendReturn = useAmendGSTReturn(orgId ?? "");
+  const createPeriods = useCreateGSTReturnPeriods(orgId ?? "");
+  const gstDeadlines = useGSTDeadlines(orgId);
+  const [amending, setAmending] = React.useState<string | null>(null);
+  const [showCreatePeriods, setShowCreatePeriods] = React.useState(false);
+  const [expandedBoxes, setExpandedBoxes] = React.useState<string | null>(null);
 
   if (authLoading) {
     return (
@@ -410,7 +433,29 @@ export function ReportsClient() {
                 <h2 className="font-display text-lg font-semibold text-text-primary">
                   GST F5 Returns ({gstYear})
                 </h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-sm border-border"
+                  onClick={() => setShowCreatePeriods(true)}
+                >
+                  Create return periods
+                </Button>
               </div>
+
+              {/* P10/H-3: the next filing deadline, from the real endpoint. */}
+              {gstDeadlines.data?.results?.[0] && (
+                <p className="text-sm text-text-secondary" data-testid="gst-deadline-banner">
+                  Next filing due:{" "}
+                  <span className="font-medium text-text-primary">
+                    {gstDeadlines.data.results[0].filing_due_date}
+                  </span>{" "}
+                  ({gstDeadlines.data.results[0].days_until_due} days) — period{" "}
+                  {gstDeadlines.data.results[0].period_start} →{" "}
+                  {gstDeadlines.data.results[0].period_end}
+                </p>
+              )}
+
               {gstReturns.isLoading ? (
                 <div className="flex items-center justify-center gap-2 py-16 text-text-secondary">
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -426,8 +471,8 @@ export function ReportsClient() {
                     No GST return periods for {gstYear}.
                   </p>
                   <p className="text-xs text-text-muted">
-                    Periods are created from the API (filing_frequency + start
-                    date); compute generates the F5 boxes from your documents.
+                    Create periods with a filing frequency and start date, then
+                    compute generates the F5 boxes from your documents.
                   </p>
                 </div>
               ) : (
@@ -443,50 +488,123 @@ export function ReportsClient() {
                   </thead>
                   <tbody>
                     {gstReturns.data?.results.map((row) => (
-                      <tr key={row.id} className="border-b border-border/50">
-                        <td className="py-2 pr-4 text-text-primary">
-                          {row.period_start} → {row.period_end}
-                        </td>
-                        <td className="py-2 pr-4 text-text-secondary">{row.filing_due_date}</td>
-                        <td className="py-2 pr-4">
-                          <StatusBadge status={row.status} />
-                        </td>
-                        <td className="py-2 pr-4 text-right font-mono text-text-primary">
-                          {formatAmount(row.net_gst)}
-                        </td>
-                        <td className="py-2 text-right">
-                          <div className="inline-flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 rounded-sm border-border"
-                              disabled={
-                                generateReturn.isPending || row.status === "FILED"
-                              }
-                              onClick={() => generateReturn.mutate(row.id)}
-                            >
-                              {generateReturn.isPending ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="h-3.5 w-3.5" />
+                      <React.Fragment key={row.id}>
+                        <tr className="border-b border-border/50">
+                          <td className="py-2 pr-4 text-text-primary">
+                            {row.period_start} → {row.period_end}
+                          </td>
+                          <td className="py-2 pr-4 text-text-secondary">{row.filing_due_date}</td>
+                          <td className="py-2 pr-4">
+                            <StatusBadge status={row.status} />
+                          </td>
+                          <td className="py-2 pr-4 text-right font-mono text-text-primary">
+                            {formatAmount(row.net_gst)}
+                          </td>
+                          <td className="py-2 text-right">
+                            <div className="inline-flex flex-wrap gap-2 justify-end">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 rounded-sm border-border"
+                                aria-expanded={expandedBoxes === row.id}
+                                onClick={() =>
+                                  setExpandedBoxes(
+                                    expandedBoxes === row.id ? null : row.id
+                                  )
+                                }
+                              >
+                                View boxes
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 rounded-sm border-border"
+                                disabled={
+                                  generateReturn.isPending || row.status === "FILED"
+                                }
+                                onClick={() => generateReturn.mutate(row.id)}
+                              >
+                                {generateReturn.isPending ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                )}
+                                Compute
+                              </Button>
+                              {row.status === "COMPUTED" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 rounded-sm border-border"
+                                  disabled={reviewReturn.isPending}
+                                  onClick={() => reviewReturn.mutate(row.id)}
+                                >
+                                  Review
+                                </Button>
                               )}
-                              Compute
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 rounded-sm border-border"
-                              disabled={fileReturn.isPending || row.status === "FILED"}
-                              onClick={() => fileReturn.mutate({ returnId: row.id })}
-                            >
-                              File
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 rounded-sm border-border"
+                                disabled={fileReturn.isPending || row.status === "FILED"}
+                                onClick={() => fileReturn.mutate({ returnId: row.id })}
+                              >
+                                File
+                              </Button>
+                              {row.status === "FILED" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 rounded-sm border-border"
+                                  onClick={() => setAmending(row.id)}
+                                >
+                                  Amend
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        {expandedBoxes === row.id && (
+                          <tr className="border-b border-border/50">
+                            <td colSpan={5} className="py-3">
+                              <F5BoxesPanel orgId={orgId ?? ""} returnId={row.id} />
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
+              )}
+
+              {/* Create-periods dialog (P10/H-3 — the empty state's "created
+                  from the API" text replaced by a real affordance). */}
+              {showCreatePeriods && (
+                <CreatePeriodsDialog
+                  open={showCreatePeriods}
+                  onOpenChange={setShowCreatePeriods}
+                  isPending={createPeriods.isPending}
+                  onSubmit={(payload) => {
+                    createPeriods.mutate(payload, {
+                      onSuccess: () => setShowCreatePeriods(false),
+                    });
+                  }}
+                />
+              )}
+
+              {/* Amend-reason dialog (the backend requires a reason). */}
+              {amending && (
+                <AmendReasonDialog
+                  open={!!amending}
+                  onOpenChange={(open) => !open && setAmending(null)}
+                  isPending={amendReturn.isPending}
+                  onSubmit={(reason) => {
+                    amendReturn.mutate(
+                      { returnId: amending, reason },
+                      { onSuccess: () => setAmending(null) }
+                    );
+                  }}
+                />
               )}
             </CardContent>
           </Card>
@@ -558,5 +676,217 @@ export function ReportsClient() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// P10/H-3 — the F5 lifecycle helpers
+// ---------------------------------------------------------------------------
+
+/** IRAS box labels (the schema's own convention, gst.return CHECKs). */
+const F5_BOX_LABELS: [string, string][] = [
+  ["box1", "Box 1 — Standard-rated supplies"],
+  ["box2", "Box 2 — Zero-rated supplies"],
+  ["box3", "Box 3 — Exempt supplies"],
+  ["box4", "Box 4 — Total supplies (1+2+3)"],
+  ["box5", "Box 5 — Total taxable purchases"],
+  ["box6", "Box 6 — Output tax due"],
+  ["box7", "Box 7 — Input tax claimed"],
+  ["box8", "Box 8 — Net GST (6−7)"],
+  ["box13", "Box 13 — Total value of supplies"],
+  ["box14", "Box 14 — Reverse charge supplies"],
+];
+
+function F5BoxesPanel({ orgId, returnId }: { orgId: string; returnId: string }) {
+  const detail = useGSTReturn(orgId, returnId);
+
+  if (detail.isLoading) {
+    return (
+      <p className="text-sm text-text-secondary py-2">Loading the computed boxes…</p>
+    );
+  }
+  if (detail.isError || !detail.data) {
+    return (
+      <p className="text-sm text-alert py-2">
+        Failed to load the computed boxes.{" "}
+        {detail.data === null && "Compute the return first."}
+      </p>
+    );
+  }
+  const boxes = detail.data.boxes ?? {};
+  return (
+    <div className="rounded-sm border border-border bg-surface/40 p-3" data-testid="f5-boxes-panel">
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+        {F5_BOX_LABELS.map(([key, label]) => (
+          <div key={key} className="flex items-center justify-between gap-2">
+            <dt className="text-text-secondary">{label}</dt>
+            <dd className="font-mono text-text-primary">
+              {boxes[key] !== undefined ? boxes[key] : "—"}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-xs text-text-muted mt-2">
+        Computed {detail.data.computed_at ?? "—"} · status {detail.data.status}
+      </p>
+    </div>
+  );
+}
+
+function CreatePeriodsDialog({
+  open,
+  onOpenChange,
+  isPending,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isPending: boolean;
+  onSubmit: (payload: {
+    filing_frequency: "MONTHLY" | "QUARTERLY";
+    start_date: string;
+  }) => void;
+}) {
+  const [frequency, setFrequency] = React.useState<"MONTHLY" | "QUARTERLY">(
+    "QUARTERLY"
+  );
+  const [startDate, setStartDate] = React.useState(todayISO());
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="border-border bg-carbon rounded-sm max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl text-text-primary">
+            Create return periods
+          </DialogTitle>
+          <DialogDescription>
+            Draft F5 periods are created for the frequency from the start date;
+            compute generates the boxes from your documents.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <label
+              htmlFor="gst-frequency"
+              className="text-sm font-medium text-text-secondary"
+            >
+              Filing frequency
+            </label>
+            <select
+              id="gst-frequency"
+              value={frequency}
+              onChange={(e) =>
+                setFrequency(e.target.value as "MONTHLY" | "QUARTERLY")
+              }
+              className="h-10 w-full rounded-sm border border-border bg-surface px-3 text-sm text-text-primary"
+            >
+              <option value="QUARTERLY">Quarterly</option>
+              <option value="MONTHLY">Monthly</option>
+            </select>
+          </div>
+          <Input
+            label="Period start"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            disabled={isPending}
+          />
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-sm border-border"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            className="rounded-sm bg-accent-primary text-void hover:bg-accent-primary-dim"
+            disabled={isPending || !startDate}
+            onClick={() => onSubmit({ filing_frequency: frequency, start_date: startDate })}
+          >
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              "Create Periods"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AmendReasonDialog({
+  open,
+  onOpenChange,
+  isPending,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isPending: boolean;
+  onSubmit: (reason: string) => void;
+}) {
+  const [reason, setReason] = React.useState("");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="border-border bg-carbon rounded-sm max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl text-text-primary">
+            Amend filed return
+          </DialogTitle>
+          <DialogDescription>
+            The return is marked for amendment — a reason is required (max 500
+            characters).
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <label
+            htmlFor="amend-reason"
+            className="text-sm font-medium text-text-secondary"
+          >
+            Reason
+          </label>
+          <textarea
+            id="amend-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={500}
+            rows={3}
+            className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-text-primary"
+            placeholder="e.g. Box 1 included an exempt supply"
+            disabled={isPending}
+          />
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-sm border-border"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            className="rounded-sm bg-accent-primary text-void hover:bg-accent-primary-dim"
+            disabled={isPending || !reason.trim()}
+            onClick={() => onSubmit(reason.trim())}
+          >
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              "Submit Amendment"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
