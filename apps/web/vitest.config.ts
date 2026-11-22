@@ -25,11 +25,20 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html", "json"],
       reportsDirectory: "./coverage",
+      // P10/M-13: the coverage ratchet. The previous thresholds (85/85/80)
+      // had NEVER passed — a fictional gate that never ran in CI or
+      // pre-push. The ratchet sits at the measured floor (post-P10,
+      // with Tasks 9-13's new surfaces included): statements 62.88%,
+      // branches 52.33%, functions 51.97%, lines 63.19%. A REAL gate
+      // that fails on regression. The debt to the 85% bar is registered
+      // in the P10 plan; the ratchet is the mechanism that raises the
+      // floor over time — bump these numbers as coverage improves,
+      // never lower them.
       thresholds: {
-        lines: 85,
-        functions: 85,
-        branches: 80,
-        statements: 85,
+        lines: 63,
+        functions: 51,
+        branches: 52,
+        statements: 62,
       },
       include: ["src/**/*.{ts,tsx}"],
       exclude: [

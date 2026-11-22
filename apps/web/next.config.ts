@@ -4,18 +4,24 @@ import type { NextConfig } from "next";
  * LEDGERSG NEXT.JS CONFIGURATION
  *
  * Features:
- * - Dual mode: Static export (default) OR Server mode (with backend)
- * - Security headers (CSP, HSTS, etc.)
+ * - Server mode (standalone) — the ONLY production path (P10/M-12:
+ *   the static-export mode was retired truthfully: it cannot support
+ *   API-driven detail routes — generateStaticParams cannot enumerate
+ *   live IDs, and the export build was already failing on
+ *   /invoices/[id] and /quotes/[id])
+ * - Security headers (CSP, HSTS, etc.) — served via headers() in server mode
  * - CORS configuration for backend API
- * - Image optimization (disabled for static, enabled for server)
+ * - Image optimization
  *
  * Mode Selection:
- * - Static export: `npm run build` → `npm run serve` (default)
- * - Server mode: `npm run build:server` → `npm run start` (backend integration)
+ * - `npm run build:server` → `npm run start` (standalone; the default)
+ * - NEXT_OUTPUT_MODE=export is still honoured for experiments, but no
+ *   script ships it and the export build fails on detail routes.
  */
 
-// Determine output mode from environment variable
-const outputMode = process.env.NEXT_OUTPUT_MODE || "export";
+// Determine output mode from environment variable. Default standalone —
+// a raw `next build` (no env) must produce the WORKING mode (P10/M-12).
+const outputMode = process.env.NEXT_OUTPUT_MODE || "standalone";
 const isStaticExport = outputMode === "export";
 const isServerMode = outputMode === "standalone" || !isStaticExport;
 
@@ -23,7 +29,7 @@ const isServerMode = outputMode === "standalone" || !isStaticExport;
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const nextConfig: NextConfig = {
-  // Output mode: 'export' for static, 'standalone' for server
+  // Output mode: 'standalone' (default) or 'export' (experimental — see header)
   output: isServerMode ? "standalone" : "export",
   distDir: isServerMode ? ".next" : "dist",
 

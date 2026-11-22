@@ -5,9 +5,10 @@ import { DashboardClient } from "./dashboard-client";
  *
  * Delegates to client component which uses auth context for org_id.
  * This ensures dynamic organization context instead of hardcoded values.
- * 
- * NOTE: For production use with backend API, use `npm run build:server`
- * instead of `npm run build` (which is for static export).
+ *
+ * NOTE: `npm run build:server` is the only production build (P10/M-12 —
+ * the static-export mode was retired; it cannot support API-driven
+ * detail routes).
  */
 export default function DashboardPage() {
   return <DashboardClient />;
