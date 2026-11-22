@@ -172,6 +172,29 @@ def custom_exception_handler(exc, context):
         }
         return Response(data, status=exc.status_code)
 
+    # django-ratelimit's blocked requests (block=True decorators) raise
+    # Ratelimited — a bare PermissionDenied subclass with no payload. On a
+    # DRF view the fallback below would render it as 403 "You do not have
+    # permission to perform this action.", which clients cannot distinguish
+    # from a real authorization failure (the frontend api-client treats it
+    # as an auth failure and bounces to /login). Map it to the documented
+    # 429 rate_limit_exceeded contract instead (P10).
+    from django_ratelimit.exceptions import Ratelimited
+
+    if isinstance(exc, Ratelimited):
+        retry_after = getattr(exc, "retry_after", 60)
+        return Response(
+            {
+                "error": {
+                    "code": "rate_limit_exceeded",
+                    "message": "Rate limit exceeded. Please try again later.",
+                    "details": {"retry_after": retry_after},
+                }
+            },
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+            headers={"Retry-After": str(retry_after)},
+        )
+
     # Fall back to DRF's default exception handler
     response = exception_handler(exc, context)
 

@@ -170,6 +170,37 @@ class TestRateLimitException:
         assert exc.status_code == 429
         assert exc.code == "rate_limit_exceeded"
 
+    def test_custom_handler_maps_ratelimited_to_429(self):
+        """P10: django-ratelimit's Ratelimited is a bare PermissionDenied
+        subclass, so on a DRF view it falls through to DRF's fallback and
+        surfaces as 403 "You do not have permission to perform this
+        action." — indistinguishable from a real authz failure (the
+        frontend api-client treats it as an auth failure and bounces to
+        /login). The custom handler must map it to the documented 429
+        rate_limit_exceeded contract instead."""
+        from django_ratelimit.exceptions import Ratelimited
+        from rest_framework.response import Response
+
+        from common.exceptions import custom_exception_handler
+
+        response = custom_exception_handler(Ratelimited(), context={})
+
+        assert isinstance(response, Response)
+        assert response.status_code == 429
+        assert response.data["error"]["code"] == "rate_limit_exceeded"
+        assert response.headers["Retry-After"] == "60"
+
+    def test_dev_settings_raise_login_user_budget_for_e2e(self):
+        """P10: the full e2e suite legitimately issues ~30 logins per run
+        against the local dev server; LOGIN_RATELIMIT_USER (30/minute,
+        per user_or_ip — the IP for anonymous logins) blocked the tail of
+        the suite. The P4/P6 knob pattern applies: raise the development
+        budget, keep the production (base) posture unchanged."""
+        from config.settings import base, development
+
+        assert base.LOGIN_RATELIMIT_USER == "30/minute"
+        assert development.LOGIN_RATELIMIT_USER == "120/minute"
+
 
 class TestAuthRateLimiting:
     """Test rate limiting on authentication endpoints."""

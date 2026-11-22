@@ -10,6 +10,11 @@ Development settings for LedgerSG API.
 
 from .base import *
 
+# Explicit re-bindings of the star-imported structures this module overrides
+# below (copy-on-write): explicit imports keep the override lines F405-clean
+# (import-star-usage) instead of deepening that debt class.
+from .base import INSTALLED_APPS, LOGGING, MIDDLEWARE
+
 # =============================================================================
 # DEBUG SETTINGS
 # =============================================================================
@@ -49,16 +54,32 @@ DATABASES["default"]["HOST"] = config("DB_HOST", default="localhost")
 # LOGGING (Development - Debug Level)
 # =============================================================================
 
-LOGGING["loggers"]["django"]["level"] = "DEBUG"
-LOGGING["loggers"]["ledgersg"]["level"] = "DEBUG"
+# Copy-on-write (the same rule the REST_FRAMEWORK override below documents):
+# never mutate the shared base structures in place. Any process that imports
+# this module while running under other settings — e.g. a test suite
+# importing development.py to assert its knobs — would otherwise inject
+# debug_toolbar into the live INSTALLED_APPS/MIDDLEWARE mid-run and crash
+# middleware loading with "HistoryEntry isn't in an application in
+# INSTALLED_APPS" (P10).
+LOGGING = {
+    **LOGGING,
+    "loggers": {
+        **LOGGING["loggers"],
+        "django": {**LOGGING["loggers"]["django"], "level": "DEBUG"},
+        "ledgersg": {**LOGGING["loggers"]["ledgersg"], "level": "DEBUG"},
+    },
+}
 
 # =============================================================================
 # DEBUG TOOLBAR (Optional)
 # =============================================================================
 
 if config("DEBUG_TOOLBAR", default=True, cast=bool):
-    INSTALLED_APPS += ["debug_toolbar"]
-    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
+    # Copy-on-write — see the LOGGING note above: += / .insert() would
+    # mutate the shared base lists and poison any process importing this
+    # module under other settings.
+    INSTALLED_APPS = [*INSTALLED_APPS, "debug_toolbar"]
+    MIDDLEWARE = ["debug_toolbar.middleware.DebugToolbarMiddleware", *MIDDLEWARE]
     INTERNAL_IPS = ["127.0.0.1"]
 
 # =============================================================================
@@ -86,6 +107,14 @@ SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"] = timedelta(days=30)
 # =============================================================================
 
 LOGIN_RATELIMIT_IP = "60/minute"
+
+# P10: the login per-user_or_ip budget (anonymous logins key by IP) was the
+# third knob the P4/P6 pass missed — the full e2e suite legitimately issues
+# ~30 logins per run against the local dev server, so base's 30/minute
+# blocked the tail of the suite with a raw 403 (Ratelimited rendered as a
+# permission failure, bouncing the frontend to /login mid-spec). Raise the
+# development budget only; production (base settings) keeps 30/minute.
+LOGIN_RATELIMIT_USER = "120/minute"
 
 # P6/E-1: raise the refresh + DRF throttle budgets for the local e2e
 # suite (npm run test:e2e:full legitimately issues ~37 refreshes and
