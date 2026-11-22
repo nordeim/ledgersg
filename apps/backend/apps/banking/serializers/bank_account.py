@@ -54,7 +54,10 @@ class BankAccountCreateSerializer(serializers.ModelSerializer):
     # The ModelSerializer default rejected null, so the UI dialog (which
     # sends null when nothing is selected) could never create an account.
     paynow_type = serializers.ChoiceField(
-        choices=["UEN", "MOBILE", "NRIC"], required=False, allow_null=True
+        choices=["UEN", "MOBILE", "NRIC"],
+        required=False,
+        allow_null=True,
+        allow_blank=True,
     )
     paynow_id = serializers.CharField(
         max_length=20, required=False, allow_blank=True, allow_null=True
@@ -174,6 +177,20 @@ class BankAccountCreateSerializer(serializers.ModelSerializer):
 class BankAccountUpdateSerializer(serializers.ModelSerializer):
     """Write serializer for updating BankAccount."""
 
+    # P10/M-1: the P9/B-4 null-PayNow fix, mirrored onto the update path —
+    # the model-derived field rejected null (400) and passed "" through to
+    # the DB CHECK (paynow_type IS NULL OR paynow_type IN (...)) →
+    # IntegrityError 500. Both "unset" wire values normalise to NULL.
+    paynow_type = serializers.ChoiceField(
+        choices=["UEN", "MOBILE", "NRIC"],
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+    )
+    paynow_id = serializers.CharField(
+        max_length=20, required=False, allow_blank=True, allow_null=True
+    )
+
     class Meta:
         model = BankAccount
         fields = [
@@ -205,19 +222,33 @@ class BankAccountUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        paynow_type = data.get("paynow_type")
-        paynow_id = data.get("paynow_id")
+        # Partial PATCH: the effective pair combines the request with the
+        # persisted instance values (a field the request omitted keeps its
+        # stored value — DRF partial semantics).
+        instance_type = getattr(self.instance, "paynow_type", None)
+        instance_id = getattr(self.instance, "paynow_id", None)
+        eff_type = data.get("paynow_type", instance_type)
+        eff_id = data.get("paynow_id", instance_id)
 
-        # "" and null both mean "unset"; the DB stores NULL (P9/B-4)
-        if paynow_id == "":
-            data["paynow_id"] = None
+        # "" and null both mean "unset"; the DB stores NULL (P9/B-4, P10/M-1)
+        if eff_type in ("", None):
+            eff_type = None
+        if eff_id in ("", None):
+            eff_id = None
 
-        if paynow_type and not paynow_id:
+        # Normalise the explicitly-sent fields for storage.
+        if "paynow_type" in data:
+            data["paynow_type"] = eff_type
+        if "paynow_id" in data:
+            data["paynow_id"] = eff_id
+
+        # P10/M-1 (the I-5 rider): clearing paynow_id alone leaves the old
+        # paynow_type dangling — refuse the broken pair with a clean 400.
+        if eff_type is not None and eff_id is None:
             raise serializers.ValidationError(
                 {"paynow_id": _("PayNow ID is required when PayNow type is specified.")}
             )
-
-        if paynow_id and not paynow_type:
+        if eff_id is not None and eff_type is None:
             raise serializers.ValidationError(
                 {"paynow_type": _("PayNow type is required when PayNow ID is provided.")}
             )

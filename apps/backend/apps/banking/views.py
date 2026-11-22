@@ -30,6 +30,7 @@ from apps.banking.serializers import (
     BankTransactionReconcileSerializer,
 )
 from apps.banking.services import BankAccountService, PaymentService, ReconciliationService
+from apps.core.models import BankAccount
 from common.views import wrap_response
 from common.exceptions import ValidationError as AppValidationError
 
@@ -123,7 +124,13 @@ class BankAccountDetailView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # P10/M-1: the instance must be bound so partial-PATCH semantics
+        # hold — the PayNow pair validation reads the persisted values for
+        # the fields the request omitted (an unbound serializer saw None).
+        account = BankAccount.objects.get(id=account_id, org_id=org_id)
+
         serializer = BankAccountUpdateSerializer(
+            account,
             data=request.data,
             partial=True,
             context={"org_id": org_id},
