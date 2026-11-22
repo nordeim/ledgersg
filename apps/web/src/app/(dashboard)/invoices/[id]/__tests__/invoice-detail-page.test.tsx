@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { InvoiceDetailClient } from "../invoice-detail-client";
@@ -306,6 +306,41 @@ describe("InvoiceDetailClient — void flow (P7/F-1, F-8)", () => {
     expect(voidMutation.mutate).not.toHaveBeenCalled();
   });
 
+  it("renders the Void action only for statuses the engine accepts (P8/G-3)", async () => {
+    // PAID and VOID: no Void button (a paid invoice needs a credit note;
+    // the pre-P8 gate rendered a button that always 400'd).
+    for (const notVoidable of ["PAID", "VOID"]) {
+      cleanup();
+      vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
+        data: mockDetail({ status: notVoidable }),
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+      renderPage();
+      await screen.findAllByText("INV-000042");
+      expect(
+        screen.queryByRole("button", { name: /^void$/i })
+      ).not.toBeInTheDocument();
+    }
+
+    // DRAFT (and the other accepted sources): the button is available.
+    for (const voidable of ["DRAFT", "OVERDUE"]) {
+      cleanup();
+      vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
+        data: mockDetail({ status: voidable }),
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+      renderPage();
+      await screen.findAllByText("INV-000042");
+      expect(
+        screen.getByRole("button", { name: /^void$/i })
+      ).toBeInTheDocument();
+    }
+  });
+
   it("blocks submission of an empty reason (client-side, native + message)", async () => {
     const voidMutation = await renderApproved();
 
@@ -385,26 +420,35 @@ describe("InvoiceDetailClient — PDF + InvoiceNow actions (P7/F-13)", () => {
     expect(pdf.mutate).toHaveBeenCalled();
   });
 
-  it("shows the InvoiceNow send action only for non-draft documents", async () => {
-    // DRAFT: no InvoiceNow button
-    vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
-      data: mockDetail({ status: "DRAFT", approved_at: null }),
-      isLoading: false,
-      isError: false,
-      error: null,
-    } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+  it("shows the InvoiceNow send action only for APPROVED documents (P8/G-8)", async () => {
+    // DRAFT and every non-APPROVED status: no InvoiceNow button — the
+    // backend refuses anything but APPROVED, so the old !isDraft &&
+    // !isVoid gate rendered buttons that always 400'd.
+    for (const notEligible of ["DRAFT", "SENT", "PARTIALLY_PAID", "PAID", "OVERDUE"]) {
+      cleanup();
+      vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
+        data: mockDetail({ status: notEligible }),
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+      const sendNow = mockMutation();
+      vi.mocked(invoiceHooks.useSendInvoiceNow).mockReturnValue(
+        sendNow as unknown as ReturnType<typeof invoiceHooks.useSendInvoiceNow>
+      );
+
+      renderPage();
+      await screen.findAllByText("INV-000042");
+      expect(
+        screen.queryByRole("button", { name: /send via invoicenow/i })
+      ).not.toBeInTheDocument();
+    }
+
+    // APPROVED: the button fires the real transmission mutation
     const sendNow = mockMutation();
     vi.mocked(invoiceHooks.useSendInvoiceNow).mockReturnValue(
       sendNow as unknown as ReturnType<typeof invoiceHooks.useSendInvoiceNow>
     );
-
-    renderPage();
-    await screen.findAllByText("INV-000042");
-    expect(
-      screen.queryByRole("button", { name: /send via invoicenow/i })
-    ).not.toBeInTheDocument();
-
-    // APPROVED: the button fires the real transmission mutation
     vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
       data: mockDetail({ status: "APPROVED" }),
       isLoading: false,

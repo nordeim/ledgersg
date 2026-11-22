@@ -307,7 +307,12 @@ class InvoiceDocumentStatusView(APIView):
 
         if new_status == "VOID":
             # Canonical void path: persists the reason and posts the reversal.
-            reason = serializer.validated_data.get("reason", "") or "Voided via status transition"
+            # P8/G-5: the reason contract matches the dedicated /void/
+            # endpoint — no silent filler default (a void without a recorded
+            # reason violates the audit trail the DB CHECK exists for).
+            reason = serializer.validated_data.get("reason", "")
+            if not reason:
+                raise ValidationError("Void reason is required.")
             document = DocumentService.void_document(
                 org_uuid, doc_uuid, request.user, reason=reason
             )

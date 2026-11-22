@@ -43,7 +43,10 @@ STATUS_TRANSITIONS = {
     "SENT": ["APPROVED", "VOID"],
     "APPROVED": ["PARTIALLY_PAID", "PAID", "VOID"],
     "PARTIALLY_PAID": ["PAID", "VOID"],
-    "PAID": ["VOID"],
+    # P8/G-3: PAID no longer lists VOID — a paid invoice is remedied with a
+    # credit note (voiding would orphan its payment allocations); the
+    # advertised map must match what the engine enforces.
+    "PAID": [],
     "VOID": [],
     "OVERDUE": ["PAID", "VOID"],
 }
@@ -679,27 +682,50 @@ class DocumentService:
                 id=document_id, org_id=org_id
             )
 
-            if document.status not in ["APPROVED", "SENT", "PARTIALLY_PAID"]:
+            # P8/G-3: the accepted set mirrors STATUS_TRANSITIONS — every
+            # source that advertises VOID can actually void (DRAFT is
+            # journal-safe: no entry exists to reverse). PAID is refused
+            # outright: the accounting remedy for a paid invoice is a credit
+            # note, not a void (its allocations would be orphaned).
+            if document.status == "PAID":
                 raise ValidationError(
-                    f"Cannot void document with status '{document.status}'. "
-                    "Only APPROVED, SENT, or PARTIALLY_PAID documents can be voided."
+                    "A paid invoice cannot be voided. Issue a credit note "
+                    "instead, or unallocate the payments first."
+                )
+            if document.status not in ["DRAFT", "SENT", "APPROVED", "OVERDUE", "PARTIALLY_PAID"]:
+                raise ValidationError(
+                    f"Cannot void document with status '{document.status}'."
                 )
 
-            # Verify fiscal period is open
-            from apps.core.models import FiscalPeriod
+            # P8/G-3: voiding must never orphan payment allocations — the
+            # allocation service owns them; refuse until they are released.
+            from apps.core.models import PaymentAllocation
 
-            try:
-                fiscal_period = FiscalPeriod.objects.get(
-                    org_id=org_id,
-                    start_date__lte=document.issue_date,
-                    end_date__gte=document.issue_date,
-                    is_open=True,
-                )
-            except FiscalPeriod.DoesNotExist:
+            if PaymentAllocation.objects.filter(document_id=document.id).exists():
                 raise ValidationError(
-                    "No open fiscal period found for the invoice date. "
-                    "Cannot void invoice in a closed period."
+                    "This document has payment allocations. Unallocate the "
+                    "payments before voiding it."
                 )
+
+            # Verify fiscal period is open — but only when there is a
+            # journal entry to reverse (P8/G-3: a DRAFT void is a pure
+            # status retirement; the period check exists so the REVERSAL
+            # lands in an open period, and a draft has none to place).
+            if document.journal_entry_id:
+                from apps.core.models import FiscalPeriod
+
+                try:
+                    FiscalPeriod.objects.get(
+                        org_id=org_id,
+                        start_date__lte=document.issue_date,
+                        end_date__gte=document.issue_date,
+                        is_open=True,
+                    )
+                except FiscalPeriod.DoesNotExist:
+                    raise ValidationError(
+                        "No open fiscal period found for the invoice date. "
+                        "Cannot void invoice in a closed period."
+                    )
 
             # Update document status (C-02: persist void_reason — the DB
             # CHECK chk_void_reason requires it whenever voided_at is set)

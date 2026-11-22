@@ -196,9 +196,17 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
 
   const isDraft = invoice.status === "DRAFT";
   const isVoid = invoice.status === "VOID";
-  // InvoiceNow needs an approved (ledger-posted) document (P5/C-2: the
-  // transmission posts against the real document).
-  const canSendInvoiceNow = !isDraft && !isVoid;
+  const isPaid = invoice.status === "PAID";
+  // InvoiceNow requires an APPROVED (ledger-posted) document — the backend
+  // refuses anything else (P8/G-8: the old !isDraft && !isVoid gate
+  // enabled SENT/PARTIALLY_PAID/PAID/OVERDUE buttons that always 400'd).
+  const canSendInvoiceNow = invoice.status === "APPROVED";
+  // Void is available exactly for the statuses the engine accepts
+  // (P8/G-3: PAID is remedied with a credit note; a paid invoice's Void
+  // button was a guaranteed 400).
+  const canVoid = ["DRAFT", "SENT", "APPROVED", "OVERDUE", "PARTIALLY_PAID"].includes(
+    invoice.status
+  );
   const canSend =
     !isDraft &&
     !isVoid &&
@@ -208,7 +216,6 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
   // The payment state is truthful for every non-void document — an
   // unpaid invoice owes its full total (P6/F-11: always surface it).
   const showPaymentState = !isVoid;
-  const isPaid = invoice.status === "PAID";
 
   const handleSend = async () => {
     if (!invoice.contact.email) return;
@@ -295,7 +302,7 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
             </Button>
           )}
 
-          {!isVoid && (
+          {canVoid && (
             <Button
               variant="outline"
               onClick={openVoidDialog}
@@ -532,8 +539,10 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
           <DialogHeader>
             <DialogTitle>Void invoice {invoice.document_number}?</DialogTitle>
             <DialogDescription>
-              Voiding posts a reversing journal entry and releases any
-              payment allocations. This cannot be undone.
+              Voiding posts a reversing journal entry (drafts simply retire)
+              and marks the document VOID. Documents with payment
+              allocations must be unallocated first; paid invoices require
+              a credit note instead. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

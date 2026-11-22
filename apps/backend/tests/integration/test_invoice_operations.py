@@ -165,18 +165,22 @@ class TestInvoiceOperationsBusinessLogic:
         assert voided.status == "VOID"
 
     @pytest.mark.django_db
-    def test_cannot_void_draft_invoice(
+    def test_draft_invoice_voids_as_a_pure_status_retirement(
         self, test_user, test_organisation, test_fiscal_period, period_invoice_with_lines,
     ):
-        """Voids must be rejected for DRAFT documents."""
-        import pytest as _pytest
-        from common.exceptions import ValidationError as LedgerSGValidationError
+        """P8/G-3: DRAFT→VOID is advertised by STATUS_TRANSITIONS and is how
+        a wrong draft is retired — the void succeeds with no journal side
+        effects (the pre-P8 engine refused drafts while advertising the
+        transition, a guaranteed-400 contradiction). A draft WITH a payment
+        allocation is still refused (the allocation guard)."""
         from apps.invoicing.services import DocumentService
 
-        with _pytest.raises(LedgerSGValidationError, match="[Cc]annot void"):
-            DocumentService.void_document(
-                test_organisation.id, period_invoice_with_lines.id, test_user, "no"
-            )
+        voided = DocumentService.void_document(
+            test_organisation.id, period_invoice_with_lines.id, test_user, "created by mistake"
+        )
+        assert voided.status == "VOID"
+        assert voided.void_reason == "created by mistake"
+        assert voided.journal_entry_id is None  # nothing was ever posted
 
     @pytest.mark.django_db
     def test_pdf_generation_returns_valid_pdf(self, auth_client, test_organisation, test_invoice):
