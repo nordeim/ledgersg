@@ -54,6 +54,11 @@ def get_aged_report(org_id: UUID, report_type: str, as_at: date) -> dict:
             status__in=OUTSTANDING_STATUSES,
         )
         .filter(amount_paid__lt=F("total_incl"))
+        # P9/D-1: the statement is "as at" a date — a document issued after
+        # that date did not exist for the report's reader and must not
+        # appear (status/amount_paid stay current-state; the issue-date
+        # bound removes the impossible history).
+        .filter(issue_date__lte=as_at)
         .select_related("contact")
     )
 

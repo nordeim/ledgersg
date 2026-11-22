@@ -195,3 +195,59 @@ class TestAgedReportsP8:
         client = _client(limited)
         response = client.get(self.url(org, type="receivables"))
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestAgedAsAtBoundP9:
+    """P9/D-1: the as_at date bounds the document set.
+
+    Pre-P9 the queryset had no date bound — a document issued 2025-06
+    appeared in an as_at=2024-12-31 report (bucketed "current"), so any
+    historical date produced a materially wrong statement. The reports
+    page exposes the As-at picker.
+    """
+
+    def test_document_issued_after_as_at_is_excluded(self):
+        user, org = _make_user_org()
+        client = _client(user)
+        contact = Contact.objects.create(
+            org=org, contact_type="CUSTOMER", name="AsAt Customer",
+            is_customer=True, is_active=True,
+        )
+        # One document in force before the as-at date…
+        _doc(org, contact, "INV-ASAT-1",
+             issue=date(2024, 6, 1), due=date(2024, 7, 1))
+        # …and one issued AFTER it.
+        _doc(org, contact, "INV-ASAT-2",
+             issue=date(2025, 6, 1), due=date(2025, 7, 1))
+
+        response = client.get(
+            f"/api/v1/{org.id}/reports/aged/?type=receivables&as_at=2024-12-31"
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.data
+        results = response.data["results"]
+        assert len(results) == 1, results
+        assert results[0]["document_count"] == 1
+        assert results[0]["outstanding_total"] == "109.0000"
+
+    def test_today_still_includes_everything_outstanding(self):
+        user, org = _make_user_org()
+        client = _client(user)
+        contact = Contact.objects.create(
+            org=org, contact_type="CUSTOMER", name="AsAt Customer 2",
+            is_customer=True, is_active=True,
+        )
+        _doc(org, contact, "INV-ASAT-3",
+             issue=date(2024, 6, 1), due=date(2024, 7, 1))
+        _doc(org, contact, "INV-ASAT-4",
+             issue=date(2025, 6, 1), due=date(2025, 7, 1))
+
+        response = client.get(
+            f"/api/v1/{org.id}/reports/aged/?type=receivables&as_at=2026-11-22"
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.data
+        results = response.data["results"]
+        assert len(results) == 1
+        assert results[0]["document_count"] == 2
