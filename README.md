@@ -101,8 +101,8 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.8 | ✅ Production Ready | 14 pages, **418 unit tests + 23 e2e** (9 always + 14 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8) |
-| **Backend** | v0.5.0 | ✅ Suite Fully Green | 90+ endpoints, **647 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8) |
+| **Frontend** | v0.1.9 | ✅ Production Ready | 15 pages, **454 unit tests + 26 e2e** (9 always + 17 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9) |
+| **Backend** | v0.5.1 | ✅ Suite Fully Green | 90+ endpoints, **668 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8), InvoiceNow invoice-only gate, nullable-PayNow bank-account contract, as-at-bounded aged reports, seeded account_type backfill + is_bank filter (P9) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables, **NUMERIC(19,4) money** |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
@@ -113,7 +113,22 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 ### Latest Milestone
 
-#### 🎉 P8 Sprint: Reporting Truth & Quote Lifecycle — 2026-11-22 (session 16)
+#### 🎉 P9 Sprint: Onboarding & Banking Truth — 2026-11-22 (session 18)
+
+Source: the post-P8 audit re-verified in source (`docs/REMEDIATION_PLAN_2026-11-22_P9.md`); three live e2e iterations surfaced contract breaks the mocked unit gates could not see.
+
+- ✅ **Organisation creation ships** (O-1 — the Critical): registration created a user with no organisation and the dashboard's only CTA linked to a route that did not exist — a self-serve user hit a 404 and could not use the product at all. The page ships at the route the CTA already targets (name/UEN/entity type/GST toggle; the backend seeds the chart, fiscal year, roles, and tax codes)
+- ✅ **The payment workflow is real end to end** (B-1..B-3b): statement import sends real multipart (the old `JSON.stringify(FormData)` sent `"{}"` — no bank transaction could ever enter the app); reconciliation matches render (the `{results, count}` envelope had no `.length` — "No matching payments found" every time); payment forms pick real contacts through a searchable picker (the Customer field was a raw UUID text input); allocations settle invoices (the backend accepted inline allocations since P5 — no UI ever sent them); the invoice detail's Record Payment deep-links into Banking prefilled
+- ✅ **Bank account management + corrections** (B-4..B-6): the Add Account buttons were dead (no form existed); the bank-account dialog ships (zod-validated, bank-type GL picker); payment Void and transaction Unreconcile give the P5/P6 void-with-reversal engine its first UI
+- ✅ **The dashboard tells the truth** (D-2..D-4): the GST F5 chart's invented Box 1/2 bars and default output/input figures are gone (only the real Net GST renders); the static "+8.2%/-2.4%/+12.5%/On track" trend claims are removed (not backfilled with guesses); the dead `href="#"` CTAs route to the real reports page
+- ✅ **The invoices list shows invoices** (C-2): the page now filters `type=SALES_INVOICE` — quotes and bills no longer render as invoices with fabricated Amount Due states; non-invoice types are labelled if they ever leak through
+- ✅ **Seeded accounts are filterable** (C-4 + follow-ups): the org seed now backfills the `account_type` varchar (the column the API filter reads was NULL on every seeded account — the invoice form's account dropdown was empty on fresh orgs), and the bank accounts (children of the 1000 header) are reachable via the `is_bank` filter (the top-level-only list default hid them)
+- ✅ **The quote-conversion envelope is pinned and read** (C-1): the endpoint nests the invoice under `invoice` but the hook read it flat — every conversion toasted "Invoice undefined" and routed to `/invoices/undefined`; `status_history` synthesizes from the model's timestamps (C-5); the CONVERTED badge gates on the persisted link, not the status (C-6)
+- ✅ **Hardening riders** (B-7/S-1/S-4): the suggest-matches `?tolerance=` NameError 500 and the documents-list garbage-date 500 are 400s; InvoiceNow transmits invoices only (an APPROVED quote could be delivered as a UBL Invoice into a recipient's AP pipeline by any member — type gate + `CanCreateInvoices`); the aged report honours its as-at date (D-1); the stale root `requirements.txt` (a sandbox pip-freeze contradicting the backend pins) is retired
+- ✅ **Session + Peppol posture** (S-2/S-3): a transport fault no longer bounces a logged-in user to /login (only 401/403 clear the session); XSD validation fails CLOSED when the schema cannot load (it previously validated everything)
+- ✅ **The live workflow e2e spec ships** (the gate): bank account dialog → Record Payment deep link + contact picker + allocation → multipart import → rendered 100% match → reconcile → invoice Paid — 26/26 e2e green against the live stack
+
+#### P8 Sprint: Reporting Truth & Quote Lifecycle — 2026-11-22 (session 16)
 
 Source: the post-P7 audit re-verified in source (`docs/REMEDIATION_PLAN_2026-11-22_P8.md`).
 
@@ -253,7 +268,7 @@ Source: the independent audit (`docs/ledgersg-audit-report.md`, every Critical/H
 
 ## 🧪 Test Suites & Execution
 
-LedgerSG employs comprehensive testing across multiple layers with **1,088 tests passing** (647 backend + 418 frontend unit + 23 e2e: 9 always + 14 backend-gated).
+LedgerSG employs comprehensive testing across multiple layers with **1,148 tests passing** (668 backend + 454 frontend unit + 26 e2e: 9 always + 17 backend-gated).
 
 ### Test Suite Breakdown
 

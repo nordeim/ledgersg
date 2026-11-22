@@ -1,8 +1,9 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.5.0
-> **Last Updated**: 2026-11-21
+> **Version**: 3.6.0
+> **Last Updated**: 2026-11-22
+> **P9 note**: onboarding & banking truth — organisation creation ships, the payment workflow is real end to end (multipart import, rendered reconciliation matches, contact picker, allocations, Record Payment deep link, bank-account dialog, void/unreconcile corrections), dashboard truth (no invented figures), invoices list typed, seeded accounts filterable, InvoiceNow invoice-only, aged as-at bounded; see `docs/REMEDIATION_2026-11-22_P9_REPORT.md`.
 > **P8 note**: reporting truth & quote lifecycle — real financial reports (TB/P&L/BS tie-out), aged AR/AP, real reports + quotes pages, persisted quote conversion, fiscal close preconditions; see `docs/REMEDIATION_2026-11-22_P8_REPORT.md`.
 > **P7 note**: API truth & permission hardening — status-transition authorization, routed fiscal endpoints, fail-closed payments, real error messages, working void/send actions; see `docs/REMEDIATION_2026-11-22_P7_REPORT.md`.
 > **P5 note**: truth restoration sprint — real InvoiceNow transmission wiring, `amount_paid`/void-reversal accounting integrity, fail-closed control accounts, real dashboard alerts + cache invalidation, repo hygiene; test metrics below reflect the P5 verified counts.
@@ -235,6 +236,9 @@ Every dashboard page is wired to the real API — mock fixtures are deleted:
 *   **Invoice actions** (P7): the detail page exposes Approve / Void (REQUIRED-reason dialog) / Send email / Send via InvoiceNow (with live status badge) / PDF download / Print; error toasts surface the backend's real messages (`{error:{message}}` envelope parsed by the api-client).
 *   **Reports** (P8): the tabbed reports page reads the real financial endpoints — trial balance (as-at, balanced badge), P&L (per-account lines), balance sheet (retained earnings + tie-out), GST F5 (compute/file lifecycle), aged AR/AP (bucket tables); 403 renders a permission state, never fake data.
 *   **Quotes** (P8): the quotes pages are real — list via `?type=SALES_QUOTE` (the filter key the backend reads), new via the shared form with `document_type: SALES_QUOTE` (QT- numbering), detail in quote mode (QUOTATION framing, invoice-only surfaces gated), Convert-to-invoice on DRAFT/SENT (the backend persists `related_document`).
+*   **Banking** (P9): the payment workflow is real — statement import sends true multipart (`api.postForm`; the JSON helper stringified FormData into `"{}"`), reconciliation match suggestions render from the real `{results, count}` envelope with field mapping, payment forms pick contacts through a searchable picker (`?search=&is_customer=`), allocations settle the contact's open invoices inline, the invoice detail's Record Payment deep-links into Banking prefilled (`?receive=1&contact=&document=&amount=` — the tab defaults to Payments), the bank-account dialog validates via the shared zod schema with a bank-type GL picker (`?is_bank=true`), and payment Void (reason required) / transaction Unreconcile expose the correction engine.
+*   **Organisation creation** (P9): `/settings/organisations/new` — the route the dashboard's empty state always targeted — posts `OrganisationCreateSerializer` (GST-number validation mirrored client-side) and lands the user in the new org (list refreshed, org selected, dashboard).
+*   **Dashboard** (P9): only real figures render — the GST F5 chart shows the real Net GST (the invented Box 1/2 bars and default output/input figures are gone), no static trend claims, and the File F5 / compliance CTAs route to `/reports`.
 
 ---
 

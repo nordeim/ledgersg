@@ -3,7 +3,7 @@ name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
 version: 1.8.0
 last_updated: 2026-11-22
-project_state: "P8 remediated; all gates green — 647 backend tests (0 failed, 5 skipped), frontend 418 vitest + 23 e2e (9 default / 14 backend-gated), typecheck 0 errors; schema v1.1.0 NUMERIC(19,4) money; reporting truth & quote lifecycle: real financial reports (TB/P&L/BS with retained-earnings tie-out + per-account lines), aged AR/AP endpoint, real reports + quotes pages with the convert flow, quote conversion links persisted (related_document), QT-/BILL- prefixes aligned to the seeded sequences, quotation PDF template, void contract aligned across the state machine (PAID → credit note, allocations released first), GST registration manager-gated again, fiscal close requires closed periods, dead core dashboard retired"
+project_state: "P9 remediated; all gates green — 668 backend tests (0 failed, 5 skipped), frontend 454 vitest + 26 e2e (9 default / 17 backend-gated, live workflow green), typecheck 0 errors; schema v1.1.0 NUMERIC(19,4) money; onboarding & banking truth: organisation creation ships at /settings/organisations/new, the payment workflow real end to end (multipart statement import via api.postForm, rendered reconciliation matches with envelope+field mapping, searchable contact picker, inline allocations that settle invoices, Record Payment deep link defaulting the banking tab, bank-account dialog with zod + ?is_bank=true GL picker, payment void + transaction unreconcile), dashboard truthful (no invented GST boxes/trends), invoices list type-filtered, seeded accounts filterable (account_type backfill + is_bank), quote-convert envelope pinned (nested invoice), InvoiceNow invoice-only + CanCreateInvoices, aged reports as-at bounded, transport faults keep sessions, XSD validation fails closed"
 ---
 
 # LedgerSG — Engineering Skill
@@ -443,6 +443,44 @@ write inside `transaction.atomic()`; new tests RED before the fix.
    save() discarded — the quote→invoice link never existed in the DB.
    Persist links through the real FK (related_document), and
    regression-test the round-trip through refresh_from_db.
+
+31. (P9) Mocked unit tests cannot see wire contracts: the bank-account
+   dialog's vitest suite passed while the real POST 400'd — the payload
+   carried paynow_type: null and the ModelSerializer rejected null (the
+   DB column is nullable; the CHECK allows NULL or UEN/MOBILE/NRIC, and
+   "" violates it). Pin the exact payload in the unit test AND keep a
+   live e2e that posts it for real; "null vs omitted vs empty" is a
+   contract decision the DB schema already made — read it.
+
+32. (P9) A list service's "default view" can silently hide filtered
+   rows: list_accounts defaulted to top-level-only (parent__isnull=True)
+   even WITH an account_type query, and the seeded bank accounts are
+   CHILDREN of the 1000 header — the dialog's GL picker was empty while
+   every unit test passed (the fixtures were top-level). When a filter
+   narrows by type/flag, lift the structural default; test with the
+   SEEDED shape (children), not just synthetic rows.
+
+33. (P9) fullyParallel races writer specs: the banking workflow's three
+   tests are a chain sharing live data (test 2 needs test 1's bank
+   account), and cross-file workers raced the writer against the
+   reader specs on one shared dev DB. test.describe.configure({ mode:
+   "serial" }) for chains; --workers=1 for any run that mutates shared
+   state. Strict-mode tip: overlay buttons collide with the page behind
+   them — scope locators to div.fixed.inset-0.
+
+34. (P9) Locator semantics bite: get_by_role(name) matches SUBSTRINGS,
+   but "Add Account" is NOT a substring of "Add Bank Account" — an
+   either-branch locator needs a regex alternation. Playwright payment
+   numbers came out RCP- (not REC- as the seed table suggested for
+   PAYMENT_RECEIVED) — assert on data you READ from the system, never
+   on a prefix you assumed from config.
+
+35. (P9) Orphaned dev servers poison later runs: killing the npm wrapper
+   leaves next-server alive holding port 3000, and a stale Django
+   runserver serves OLD code while you debug NEW fixes (the e2e
+   "still failing" after a serializer fix was the stale process).
+   Teardown must pkill the process tree; before debugging a "fix didn't
+   work", check the port actually serves the code you changed.
 
 ## 12. Quick Reference Card
 

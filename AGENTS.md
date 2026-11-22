@@ -1080,3 +1080,48 @@ P&L/BS aggregate via `account_type_ref__code`, but `create_account` never
 set the FK — an org's own revenue account was invisible to its statements.
 New accounts link the coarse FK through `GROUP_TO_COARSE_TYPE` (the
 groups' `category` field is too coarse: COS's category is EXPENSE).
+
+## 2026-11-22 P9 Sprint — New Patterns & Lessons (session 18)
+
+### The Wire Contract Lives in Three Places (B-4 follow-up)
+The bank-account dialog's unit test passed, the zod schema validated, and
+the live POST still 400'd: the payload sent `paynow_type: null` and the
+ModelSerializer rejected null while the DB column is nullable (the CHECK
+allows NULL or UEN/MOBILE/NRIC — "" violates it). Pin the exact payload
+in the unit test AND keep a live e2e that posts it; "null vs omitted vs
+empty" is decided by the schema, not by the serializer's default.
+
+### A Structural List Default Can Hide Filtered Rows (C-4 follow-up)
+`list_accounts` defaulted to top-level-only (`parent__isnull=True`) even
+with an `account_type` query — and the seeded bank accounts are CHILDREN
+of the 1000 header, so the dialog's GL picker was empty while every test
+passed (fixtures were top-level). When a filter narrows by type or flag,
+lift the structural default; test against the SEEDED shape.
+
+### Writer Specs Need Serial Execution (the live gate)
+`fullyParallel: true` raced the banking workflow's three chained tests
+against each other and against the reader specs on one shared dev DB.
+Chains get `test.describe.configure({ mode: "serial" })`; runs that
+mutate shared state get `--workers=1`. Overlay dialogs collide with the
+page behind them in strict mode — scope locators to the overlay.
+
+### Locator Semantics (the small print)
+`get_by_role(name)` matches substrings, but "Add Account" is NOT a
+substring of "Add Bank Account" — either-branch locators need a regex
+alternation. And the payment sequence emitted `RCP-` where the seed table
+suggested `REC-` for PAYMENT_RECEIVED: assert on values read from the
+system, never on prefixes assumed from config.
+
+### Orphaned Dev Servers Serve Stale Code (the debugging trap)
+Killing the npm wrapper leaves `next-server` holding port 3000; a stale
+Django runserver kept serving the pre-fix serializer while the "fix
+didn't work" was being debugged. Teardown pkills the process tree, and
+the first debugging step for a failed fix is verifying the port serves
+the changed code.
+
+### The e2e Phase Is a Finding Source, Not Just a Gate
+Three production defects surfaced only in the live runs: the null-PayNow
+contract break (mocked tests passed), the deep-link tab default
+(PaymentsTab reads params it never sees — the tab never mounted), and the
+is_bank children invisibility. Budget for e2e iterations; treat each
+failure as a lead-verify-then-fix cycle, not as flake.

@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.12.0
-> **Last Updated**: 2026-11-21
-> **Status**: P8 Remediated 🟢 — all gates green (backend 647P/0F/5S, frontend vitest 418/418, typecheck 0 errors, e2e 23 total / 9+14skip default); reporting truth & quote lifecycle: real financial reports (trial balance / P&L / balance sheet with retained earnings tie-out, per-account lines), aged AR/AP endpoint, real reports + quotes pages with the convert flow, quote conversion links persisted, QT-/BILL- numbering aligned to the seeded sequences, quotation PDF template, void contract aligned across the state machine (PAID → credit note; allocations released first), GST registration manager-gated again, fiscal close preconditions, dead core dashboard retired (see `docs/REMEDIATION_2026-11-22_P8_REPORT.md`, plus the P0–P7 reports)
+> **Version**: 2.13.0
+> **Last Updated**: 2026-11-22
+> **Status**: P9 Remediated 🟢 — all gates green (backend 668P/0F/5S, frontend vitest 454/454, typecheck 0 errors, e2e 26 total / 9+17skip default, live workflow green); onboarding & banking truth: organisation creation ships (the dead-end CTA is real), the payment workflow is real end to end (multipart import, rendered reconciliation matches, contact picker, allocations that settle invoices, Record Payment deep link, bank-account dialog, void/unreconcile corrections), the dashboard tells the truth (no invented GST boxes or trends), the invoices list shows invoices, seeded accounts are filterable (account_type backfill + is_bank), the quote-conversion envelope pinned, InvoiceNow invoice-only, aged as-at bounded, transport faults keep sessions, XSD fails closed (see `docs/REMEDIATION_2026-11-22_P9_REPORT.md`, plus the P0–P8 reports)
 
 ---
 
@@ -30,14 +30,27 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.8 | ✅ Ready | 14 pages, 418 unit + 23 e2e tests (9 always + 14 backend-gated), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages, working void dialog + real error messages + PDF/InvoiceNow actions, real reports + quotes pages (P5–P8) |
-| **Backend** | v0.5.0 | ✅ Suite Fully Green | 90+ endpoints, **647 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth, per-status transition permissions + active custom exception handler, real financial reports + aged AR/AP + quote lifecycle (P5–P8) |
+| **Frontend** | v0.1.9 | ✅ Ready | 15 pages, 454 unit + 26 e2e tests (9 always + 17 backend-gated), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages, working void dialog + real error messages + PDF/InvoiceNow actions, real reports + quotes pages, organisation creation + full payment workflow + truthful dashboard (P5–P9) |
+| **Backend** | v0.5.1 | ✅ Suite Fully Green | 90+ endpoints, **668 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth, per-status transition permissions + active custom exception handler, real financial reports + aged AR/AP + quote lifecycle + the P9 banking/onboarding contracts (P5–P9) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables, NUMERIC(19,4) money |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
 | **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on (settings-driven login knobs), HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes |
 | **API Contracts** | v1.2.0 | ✅ Standardized | {results, count} lists; auth contract aligned to tests 2026-11-21; error envelope {error:{code,message,details}} active in DRF (P7/F-19) |
 
-### Latest Milestone: P5 Sprint — Truth Restoration (Repo Hygiene, Real InvoiceNow, Accounting Integrity & Real Dashboard Data) ✅ — 2026-11-21 (session 11)
+### Latest Milestone: P9 Sprint — Onboarding & Banking Truth ✅ — 2026-11-22 (session 18)
+
+| Fix | Impact |
+|-----|--------|
+| **O-1** | Organisation creation ships at the route the dashboard's dead-end CTA targeted — a self-serve user could previously not use the product at all (registration creates no org; the CTA 404'd) |
+| **B-1/B-2** | Statement import sends real multipart (`JSON.stringify(FormData)` sent `"{}"` — the import could never succeed); reconciliation match suggestions render (envelope + field mapping — the form always said "No matching payments found") |
+| **B-3/B-3b** | Payment forms pick real contacts (the Customer field was a raw UUID text input) and settle invoices through inline allocations; the invoice detail's Record Payment deep-links into Banking prefilled |
+| **B-4..B-6** | The bank-account dialog ships (the Add buttons were dead); payment Void + transaction Unreconcile give the P5/P6 correction engine its first UI |
+| **C-1/C-2** | The quote-conversion envelope is pinned and read (the flat read routed to `/invoices/undefined` on every conversion); the invoices list shows invoices (quotes/bills no longer render as invoices) |
+| **C-4** | Seeded accounts are filterable: the seed backfills `account_type` (the invoice form's dropdown was empty on fresh orgs) and the bank accounts are reachable via `is_bank` |
+| **D-1..D-4** | The aged report honours its as-at date; the dashboard's invented GST boxes/trends are removed; the dead CTAs route to /reports |
+| **C-3/B-7/S-1..S-4** | InvoiceNow transmits invoices only (an APPROVED quote could be delivered as a UBL Invoice — type gate + permission parity); tolerance/date NameError-500s are 400s; transport faults keep sessions; XSD fails closed; the stale root requirements.txt retired |
+
+### Previous Milestone: P5 Sprint — Truth Restoration (Repo Hygiene, Real InvoiceNow, Accounting Integrity & Real Dashboard Data) ✅ — 2026-11-21 (session 11)
 
 Built on the independent audit (`docs/ledgersg-audit-report.md`; every Critical/High re-verified in source):
 

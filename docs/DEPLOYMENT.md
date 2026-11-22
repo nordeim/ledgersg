@@ -6,7 +6,7 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-22, session 16 / P8) re-verified every command against the current
+(2026-11-22, session 18 / P9) re-verified every command against the current
 codebase (backend 647P/0F/5S, vitest 418/418, e2e 23/23 full).
 
 Verified truths this guide is built on: the schema file
@@ -194,7 +194,7 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-22 P8): 647 passed, 0 failed, 5 skipped
+# expected (post-2026-11-22 P9): 668 passed, 0 failed, 5 skipped
 pytest tests/invariants -q    # 27 passed (schema conformance + capacity + balance)
 pytest tests/security -q      # 53 passed, 3 skipped (RLS, tokens, cookies, posture gates)
 ```
@@ -308,6 +308,22 @@ curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
 #    Sheet / GST F5 / Aged AR-AP) render real statements (rows or an
 #    explicit empty state); open /quotes — the list, New Quote form and
 #    the quote detail (QUOTATION framing + Convert) are live.
+
+# 8. P9 onboarding + banking spot checks
+#    - the seeded bank accounts are filterable (children of the 1000 header):
+curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
+  "http://127.0.0.1:8000/api/v1/$ORG_ID/accounts/?is_bank=true"        # 200 (results non-empty)
+#    - the aged report honours its as-at date (docs issued after it are excluded)
+#    - InvoiceNow refuses non-invoice types (a converted quote is APPROVED
+#      but must not transmit as a UBL Invoice):
+#      POST /invoicing/documents/{quote_id}/send-invoicenow/ -> 400 naming the type
+#    - the bank-account create accepts null PayNow (the no-PayNow wire value):
+#      POST /banking/bank-accounts/ with "paynow_type": null -> 201
+#    - Browser (P9): /settings/organisations/new renders the create form
+#      (the onboarding dead-end closer); /banking — the Add Account dialog
+#      opens with bank-type GL options; Receive Payment picks contacts
+#      through the searchable picker and lists the contact's open invoices
+#      for allocation; the dashboard shows only real figures.
 ```
 
 The full e2e run performs ~25 logins/refreshes. The dev settings budget

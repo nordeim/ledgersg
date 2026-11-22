@@ -1,5 +1,50 @@
 # LedgerSG — Worklog
 
+## 2026-11-22 — Session 18: P9 Sprint (Onboarding & Banking Truth)
+
+**Base:** `b6bdfb40` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-22_P9.md` · **Report:** `docs/REMEDIATION_2026-11-22_P9_REPORT.md` · **Session log:** `docs/session_19.md`
+
+### Environment (one incident, recovered; one deliberate reset)
+
+- PG + Redis + venv + node_modules + live-phase scripts survived the session reset; the four P8 baselines reproduced EXACTLY before any change (647P/0F/5S, 418 vitest, typecheck 0, 9+14 e2e).
+- **Incident (recovered, zero loss):** the dev DB had been wiped to a 2-table stub since P8 — schema reloaded from `database_schema.sql` (32 tables / 47 NUMERIC(19,4) verified) before the baseline run. A second deliberate drop-and-reload preceded the canonical live phase (fresh org for the e2e chain + screenshots).
+- **Live-phase lesson:** killing the npm wrapper leaves `next-server` holding port 3000; a stale runserver served pre-fix code mid-debug. The teardown now pkills the process tree.
+
+### Audit (Mode C) — findings this session
+
+Scanner criticals in the documented FP classes (single production hit = the Storecove docstring placeholder, M-14 deferred). Three parallel deep-audit agents + lead hand-verification of every Critical/High: **O-1** the onboarding dead end (registration creates no org; the dashboard CTA links to a nonexistent route — the product unusable for self-serve users); **B-1** `JSON.stringify(FormData)` → `"{}"` (the statement import could never succeed); **B-2** the suggest-matches envelope mismatch (matches never rendered); **B-3/B-3b/B-5** the raw-UUID customer field, no allocation UI (the P5 engine unreachable; invoices could never reach PAID), the dead Make Payment state; **B-4** the dead Add Account buttons; **B-6** no void/unreconcile UI; **B-7** the tolerance NameError 500 (the P7 fix itself broken); **C-1** the convert envelope flat-read (`/invoices/undefined`); **C-2** the untyped invoices list; **C-3** InvoiceNow could transmit an APPROVED quote as a UBL Invoice (any member); **C-4** the account_type seed gap (empty account dropdown on fresh orgs); **C-5/C-6/D-1..D-4** the lying status_history, the conflated CONVERTED badge, the unbounded aged as-at, the invented dashboard figures; **S-1..S-4** the last garbage-date 500s, the transport-fault logout, the XSD fail-open, the stale root requirements.txt.
+
+### Remediation executed (TDD — 21 backend + 36 vitest + 3 e2e specs, all RED first)
+
+| Task | Change | Evidence |
+|---|---|---|
+| 1 (C-3) | InvoiceNow invoice-only + CanCreateInvoices | 2 RED → quote 400 / member 403 / invoice still queues |
+| 2 (B-7/S-1/S-4) | tolerance + document-date 400s; NaN/Infinity rejected; requirements.txt retired | 4 RED (NameError + filter 500s) → 400s |
+| 3 (C-1) | convert envelope pinned (HTTP test) + hook unwraps `.invoice` | RED: `/invoices/undefined` verbatim |
+| 4 (C-2) | invoices list `type=SALES_INVOICE` + leak labelling | filter + badge tests |
+| 5 (C-4) | seed backfills account_type; filter matches either column | 3 RED → fresh-org REVENUE list non-empty |
+| 6 (B-1) | `api.postForm` + FormData-aware headers | 2 RED → real multipart at the fetch level |
+| 7 (B-2) | suggest-matches envelope unwrap + field mapping | 1 RED against the real backend shape |
+| 8 (O-1) | organisation creation page at the CTA's route | 5 tests; the Critical closed |
+| 9 (B-4) | bank-account dialog (zod; bank-type GL picker) | 3 tests |
+| 10 (B-3/B-5/K-5) | ContactPicker (real filter keys) + Make Payment form | 4 + 2 tests |
+| 11 (B-3b) | allocation sections + Record Payment deep link + list amount fields | 5 + 1 + 1 tests |
+| 12 (B-6) | payment Void (reason) + transaction Unreconcile | 2 + 2 tests |
+| 13 (D-1) | aged `issue_date__lte=as_at` | 1 RED (post-as-at doc included) |
+| 14 (D-2..D-4) | dashboard truth: invented boxes/trends removed, live links | the dashboard's first 4 tests |
+| 15 (C-5/C-6/K-*) | status_history synthesis; badge gates on the link; VOID branch delegates | 3 backend + page tests |
+| 16 (S-2/S-3) | transport-vs-auth session split; XSD fails closed | 1 + 1 RED |
+
+### The live gate — three iterations, each a real finding
+
+1. The deep link never opened the form (PaymentsTab reads params; the accounts tab is the default — the tab now defaults from `?receive=1`); the GL picker was empty (the seeded bank accounts are CHILDREN of the 1000 header — a type filter lifts the top-level-only default); the invoices specs desynced from the page's new filter.
+2. The bank-account POST 400'd: the dialog sends `paynow_type: null`, the serializer rejected null, the DB column is nullable and the CHECK allows NULL ("" violates it) — both serializers accept null; `is_bank` ships end-to-end; the workflow spec made serial + idempotent; `--workers=1` for the full run; the strict-mode/locator semantics fixed (overlay scoping; the RCP- prefix; "Add Account" is NOT a substring of "Add Bank Account").
+3. **Canonical run: e2e:full 26/26 + 6/6 screenshots** (two VLM-verified: the receive form's customer chip + allocation rows; the reconciled transaction at a 100% reconciliation rate).
+
+### Final state (all Verified)
+
+Backend **668P/0F/5S**; invariants 27P; security 53P/3S; vitest **454/454**; typecheck **0**; default e2e **9 + 17 gated**; live e2e **26/26**; screenshots 47..52_session18 (6, md5-unique, 2 VLM-verified); docs truth-passed (README v0.1.9/v0.5.1 counts 1,148; PAD v3.6; CLAUDE v2.13; ledgersg_SKILL v1.9 lessons 31–35; AGENTS P9 patterns; DEPLOYMENT §11 + P9 spot checks); `.env.example` cross-checked (no new vars). 20 commits on main, all pushed and remote-verified.
+
 ## 2026-11-22 — Session 16: P8 Sprint (Reporting Truth & Quote Lifecycle)
 
 **Base:** `251b3577` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-22_P8.md` · **Report:** `docs/REMEDIATION_2026-11-22_P8_REPORT.md` · **Session log:** `docs/session_17.md`
