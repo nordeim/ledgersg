@@ -89,11 +89,25 @@ describe("QuotesClient (P8/Q-4)", () => {
             contact_name: "Beta Ltd",
             issue_date: "2024-03-02",
             due_date: "2024-04-02",
-            status: "APPROVED", // converted
+            status: "APPROVED",
+            // P9/C-6: CONVERTED means the link exists — an approved quote
+            // WITHOUT a linked invoice is just APPROVED (the badge gates on
+            // related_document_id now, not the status).
+            related_document_id: "inv-from-q2",
             total_incl: "500.0000",
           },
+          {
+            id: "q3",
+            document_number: "QT-00003",
+            contact_name: "Gamma Pte Ltd",
+            issue_date: "2024-03-03",
+            due_date: "2024-04-03",
+            status: "APPROVED",
+            related_document_id: null,
+            total_incl: "300.0000",
+          },
         ],
-        count: 2,
+        count: 3,
       },
       isLoading: false,
       isError: false,
@@ -105,8 +119,12 @@ describe("QuotesClient (P8/Q-4)", () => {
     expect(screen.getByText("Acme Pte Ltd")).toBeInTheDocument();
     // Converted quotes show the truthful state, not a Convert action
     expect(screen.getByText("CONVERTED")).toBeInTheDocument();
+    // An approved-but-unconverted quote shows APPROVED (not CONVERTED)
+    expect(screen.getByText("APPROVED")).toBeInTheDocument();
     const convertButtons = screen.getAllByRole("button", { name: /convert/i });
-    expect(convertButtons).toHaveLength(1); // only the DRAFT row
+    // only the DRAFT row — the engine converts DRAFT/SENT quotes; an
+    // APPROVED quote without a link shows APPROVED but cannot convert
+    expect(convertButtons).toHaveLength(1);
   });
 
   it("fires the convert mutation when Convert is clicked", async () => {

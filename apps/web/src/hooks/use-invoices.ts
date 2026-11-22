@@ -40,6 +40,8 @@ export interface InvoiceListItem {
    * section needs what is left to settle per row. */
   amount_paid: string;
   amount_due: string;
+  /** P9/C-6: the quote→invoice link — the CONVERTED badge gates on it. */
+  related_document_id: string | null;
 }
 
 export interface InvoiceListResponse {
@@ -277,7 +279,7 @@ export function useSendInvoice(orgId: string, invoiceId: string) {
        * straight to the email task; a bare string crashes it silently. */
       to: string[];
       cc?: string[];
-      message?: string;
+      bcc?: string[];
     }) => {
       const response = await api.post<Invoice>(
         endpoints.invoices(orgId).send(invoiceId),

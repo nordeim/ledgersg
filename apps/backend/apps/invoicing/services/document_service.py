@@ -428,12 +428,16 @@ class DocumentService:
                     DocumentService._post_journal_entry(org_id, document, user_id)
 
             elif new_status == "VOID":
-                document.voided_at = timezone.now()
-                document.voided_by_id = user_id
+                # P9/K-1: one engine, one contract — the generic endpoint
+                # delegates to void_document (allocation guard, reason
+                # requirement, credit-note guidance for PAID). The inline
+                # branch bypassed all of it.
+                from apps.core.models import AppUser
 
-                # Reverse journal entry if posted (user_id required: journal.entry.posted_by is NOT NULL)
-                if document.journal_entry_id:
-                    DocumentService._reverse_journal_entry(org_id, document, user_id)
+                void_user = AppUser.objects.get(id=user_id) if user_id else None
+                return DocumentService.void_document(
+                    org_id, document.id, user=void_user, reason="Voided via status transition"
+                )
 
             document.save()
 
@@ -668,22 +672,26 @@ class DocumentService:
     @staticmethod
     def void_document(org_id: UUID, document_id: UUID, user, reason: str) -> InvoiceDocument:
         """
-        Void an approved document (APPROVED → VOID).
+        Void a document (P8/G-3: DRAFT/SENT/APPROVED/OVERDUE/PARTIALLY_PAID
+        → VOID; PAID is refused — a credit note is the remedy).
 
-        Creates reversal journal entries for the voided document.
+        Creates a reversal journal entry when one exists (drafts have
+        nothing to reverse), refuses while payment allocations exist, and
+        requires a non-empty reason.
 
         Args:
             org_id: Organisation ID
             document_id: Document ID to void
             user: User performing the void operation
-            reason: Reason for voiding
+            reason: Reason for voiding (required, non-empty)
 
         Returns:
             Voided InvoiceDocument
 
         Raises:
             ResourceNotFound: If document doesn't exist
-            ValidationError: If document is not in APPROVED status
+            ValidationError: If the status is not in the accepted set, the
+                document is PAID, or allocations still exist
         """
         with transaction.atomic():
             document = InvoiceDocument.objects.select_for_update().get(

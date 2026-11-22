@@ -126,6 +126,9 @@ class InvoiceDocumentListSerializer(serializers.ModelSerializer):
             "issue_date", "due_date", "status", "status_display",
             "total_incl", "currency",
             "amount_paid", "amount_due",
+            # P9/C-6: the quotes list's CONVERTED badge gates on the link
+            # (an approved-but-unconverted quote is APPROVED, not CONVERTED).
+            "related_document_id",
         ]
 
     def get_amount_due(self, obj: InvoiceDocument) -> str:
@@ -170,9 +173,20 @@ class InvoiceDocumentDetailSerializer(serializers.ModelSerializer):
         ]
     
     def get_status_history(self, obj: InvoiceDocument) -> list:
-        """Get audit log for status changes."""
-        # TODO: Implement once audit module is ready
-        return []
+        """Synthesize the status history from the model's timestamps
+        (P9/C-5 — the field previously returned [] behind a TODO).
+
+        created_at -> DRAFT, approved_at -> APPROVED, voided_at -> VOID.
+        SENT and PAID have no dedicated timestamps (the model stores no
+        sent_at/paid_at) — they are absent rather than invented; a full
+        event log needs the audit module's coverage decision.
+        """
+        history = [{"status": "DRAFT", "at": obj.created_at.isoformat()}]
+        if obj.approved_at:
+            history.append({"status": "APPROVED", "at": obj.approved_at.isoformat()})
+        if obj.voided_at:
+            history.append({"status": "VOID", "at": obj.voided_at.isoformat()})
+        return history
 
     def get_amount_due(self, obj: InvoiceDocument) -> str:
         """Outstanding balance — mirrors the DB generated column

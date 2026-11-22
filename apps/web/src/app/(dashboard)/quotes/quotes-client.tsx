@@ -136,10 +136,14 @@ export function QuotesClient() {
                     <td className="py-2 pr-4">
                       <Badge
                         variant={
-                          quote.status === "APPROVED" ? "default" : "secondary"
+                          quote.related_document_id ? "default" : "secondary"
                         }
                       >
-                        {quote.status === "APPROVED" ? "CONVERTED" : quote.status}
+                        {/* P9/C-6: CONVERTED means a linked invoice exists —
+                            an approved-but-unconverted quote is APPROVED. */}
+                        {quote.related_document_id
+                          ? "CONVERTED"
+                          : quote.status}
                       </Badge>
                     </td>
                     <td className="py-2 pr-4 text-right font-mono text-text-primary">
