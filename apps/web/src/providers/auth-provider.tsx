@@ -260,6 +260,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCurrentOrgId(orgId);
       // Invalidate org-scoped queries
       queryClient.invalidateQueries({ queryKey: [orgId] });
+      // P10/M-3: persist the choice — POST /auth/set-default-org/ existed
+      // with zero callers, so a multi-org user's selection reset to the
+      // default on every page refresh. Fire-and-forget: the local switch
+      // is immediate; a failed persist (offline) keeps the session.
+      api
+        .post(endpoints.auth.setDefault, { org_id: orgId })
+        .catch((error) => {
+          console.warn(
+            "[Auth] Failed to persist the default organisation:",
+            error instanceof Error ? error.message : error
+          );
+        });
     }
   };
 

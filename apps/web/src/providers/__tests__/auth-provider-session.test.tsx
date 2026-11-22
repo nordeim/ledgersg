@@ -81,3 +81,106 @@ describe("checkSession transport-vs-auth (P9/S-2)", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// P10/M-3: the chosen organisation survives the refresh — switchOrg
+// persists via POST /auth/set-default-org/ (the endpoint existed with zero
+// callers; the choice was local state that reset on every reload).
+// ---------------------------------------------------------------------------
+
+describe("switchOrg persists the choice (P10/M-3)", () => {
+  const orgA = "11111111-1111-4111-8111-111111111111";
+  const orgB = "22222222-2222-4222-8222-222222222222";
+  const orgsPayload = [
+    {
+      org: { id: orgA, name: "Org A" },
+      role: { can_manage_org: true },
+      is_default: true,
+    },
+    {
+      org: { id: orgB, name: "Org B" },
+      role: { can_manage_org: true },
+      is_default: false,
+    },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    push.mockReset();
+  });
+
+  it("switchOrg fires the set-default-org endpoint (fire-and-forget)", async () => {
+    vi.mocked(apiClient.api.get).mockImplementation(async (url: string) => {
+      if (url.includes("/organisations/")) return orgsPayload;
+      return { id: "u1", email: "u@example.sg", full_name: "U" };
+    });
+    const postMock = vi.fn().mockResolvedValue({});
+    (apiClient.api as unknown as { post: unknown }).post = postMock;
+
+    let switcher: ((orgId: string) => void) | null = null;
+    function SwitchProbe() {
+      const auth = useAuth();
+      switcher = auth.switchOrg;
+      return <div data-testid="switch-probe">{auth.currentOrg?.id ?? "none"}</div>;
+    }
+
+    render(
+      <AuthProvider>
+        <SwitchProbe />
+      </AuthProvider>
+    );
+
+    // Wait for checkSession to resolve the org list.
+    await waitFor(() => {
+      expect(document.body.textContent).toContain(orgA);
+    });
+
+    // TS cannot see the render assigned the holder; re-narrow explicitly.
+    (switcher as ((orgId: string) => void) | null)?.(orgB);
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith(
+        expect.stringContaining("set-default-org"),
+        expect.objectContaining({ org_id: orgB })
+      );
+    });
+    // The local state switches immediately too.
+    await waitFor(() => {
+      expect(document.body.textContent).toContain(orgB);
+    });
+  });
+
+  it("a failed persistence POST keeps the local switch (fire-and-forget)", async () => {
+    vi.mocked(apiClient.api.get).mockImplementation(async (url: string) => {
+      if (url.includes("/organisations/")) return orgsPayload;
+      return { id: "u1", email: "u@example.sg", full_name: "U" };
+    });
+    const postMock = vi.fn().mockRejectedValue(new Error("offline"));
+    vi.mocked(apiClient.api).post = postMock;
+
+    let switcher: ((orgId: string) => void) | null = null;
+    function SwitchProbe() {
+      const auth = useAuth();
+      switcher = auth.switchOrg;
+      return <div data-testid="switch-probe">{auth.currentOrg?.id ?? "none"}</div>;
+    }
+
+    render(
+      <AuthProvider>
+        <SwitchProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain(orgA);
+    });
+
+    // TS cannot see the render assigned the holder; re-narrow explicitly.
+    (switcher as ((orgId: string) => void) | null)?.(orgB);
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain(orgB);
+    });
+    expect(push).not.toHaveBeenCalled();
+  });
+});
