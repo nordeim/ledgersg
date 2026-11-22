@@ -32,7 +32,6 @@ from apps.banking.serializers import (
 from apps.banking.services import BankAccountService, PaymentService, ReconciliationService
 from common.views import wrap_response
 from common.exceptions import ValidationError as AppValidationError
-from common.exceptions import ValidationError
 
 
 class BankAccountListView(APIView):
@@ -195,9 +194,10 @@ class PaymentListView(APIView):
         if is_voided is not None:
             is_voided_bool = is_voided.lower() in ("true", "1", "yes")
 
-        from common.query_params import parse_date_param
+        from common.query_params import parse_date_param, parse_uuid_param
 
-        # P7/F-11: garbage query params are a 400, not an unhandled 500.
+        # P7/F-11 + P8/G-2: garbage query params are a 400, not an unhandled 500
+        # (the UUID filters in this same function were left raw by the P7 sweep).
         date_from_parsed = (
             parse_date_param(date_from, "date_from").date() if date_from else None
         )
@@ -208,8 +208,12 @@ class PaymentListView(APIView):
         payments = PaymentService.list(
             org_id=org_id,
             payment_type=payment_type,
-            contact_id=UUID(contact_id) if contact_id else None,
-            bank_account_id=UUID(bank_account_id) if bank_account_id else None,
+            contact_id=parse_uuid_param(contact_id, "contact_id") if contact_id else None,
+            bank_account_id=(
+                parse_uuid_param(bank_account_id, "bank_account_id")
+                if bank_account_id
+                else None
+            ),
             date_from=date_from_parsed,
             date_to=date_to_parsed,
             is_reconciled=is_reconciled_bool,
@@ -447,9 +451,9 @@ class BankTransactionListView(APIView):
         if is_reconciled is not None:
             is_reconciled_bool = is_reconciled.lower() in ("true", "1", "yes")
 
-        from common.query_params import parse_date_param
+        from common.query_params import parse_date_param, parse_uuid_param
 
-        # P7/F-11: garbage query params are a 400, not an unhandled 500.
+        # P7/F-11 + P8/G-2: garbage query params are a 400, not an unhandled 500.
         date_from_parsed = (
             parse_date_param(date_from, "date_from").date() if date_from else None
         )
@@ -459,7 +463,11 @@ class BankTransactionListView(APIView):
 
         transactions = ReconciliationService.list_transactions(
             org_id=org_id,
-            bank_account_id=UUID(bank_account_id) if bank_account_id else None,
+            bank_account_id=(
+                parse_uuid_param(bank_account_id, "bank_account_id")
+                if bank_account_id
+                else None
+            ),
             date_from=date_from_parsed,
             date_to=date_to_parsed,
             is_reconciled=is_reconciled_bool,

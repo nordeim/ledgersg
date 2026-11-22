@@ -298,8 +298,11 @@ class AccountSearchView(APIView):
         account_type = request.query_params.get("account_type")
         from common.query_params import parse_int_param
 
-        # P7/F-11: garbage query params are a 400, not an unhandled 500.
-        limit = parse_int_param(request.query_params.get("limit", "10"), "limit")
+        # P7/F-11 + P8/G-2: garbage or negative limits are a 400 (a negative
+        # slice bound is an AssertionError 500 inside Django's queryset).
+        limit = parse_int_param(
+            request.query_params.get("limit", "10"), "limit", min_value=1
+        )
 
         if not query:
             return Response({"results": [], "count": 0})

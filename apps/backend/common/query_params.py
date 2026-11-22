@@ -31,11 +31,21 @@ def parse_uuid_param(value: str, param: str) -> UUID:
         ) from err
 
 
-def parse_int_param(value: str, param: str) -> int:
-    """Parse an integer query param; 400 with the param name on garbage."""
+def parse_int_param(value: str, param: str, *, min_value: int | None = None) -> int:
+    """Parse an integer query param; 400 with the param name on garbage.
+
+    P8/G-2: `min_value` rejects semantically-invalid integers (e.g. a
+    negative slice limit) that parse fine but blow up (or misbehave)
+    downstream — an out-of-range int is as malformed as a non-int.
+    """
     try:
-        return int(value)
+        parsed = int(value)
     except (ValueError, TypeError) as err:
         raise ValidationError(
             f"Invalid '{param}' — expected an integer, got '{value}'."
         ) from err
+    if min_value is not None and parsed < min_value:
+        raise ValidationError(
+            f"Invalid '{param}' — must be >= {min_value}, got {parsed}."
+        )
+    return parsed

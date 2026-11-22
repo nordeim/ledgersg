@@ -483,8 +483,10 @@ class GSTReturnDeadlinesView(APIView):
 
         from common.query_params import parse_int_param
 
-        # P7/F-11: garbage query params are a 400, not an unhandled 500.
-        days = parse_int_param(request.query_params.get("days", "30"), "days")
+        # P7/F-11 + P8/G-2: garbage or negative lookaheads are a 400.
+        days = parse_int_param(
+            request.query_params.get("days", "30"), "days", min_value=0
+        )
 
         deadlines = GSTReturnService.get_upcoming_deadlines(org_id=org_id, days=days)
 

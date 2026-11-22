@@ -22,6 +22,17 @@ class TestQueryParamValidation:
         ("journal ledger account_id", lambda org: f"/api/v1/{org.id}/journal-entries/ledger/?account_id=not-a-uuid"),
         ("coa trial balance fiscal_year_id", lambda org: f"/api/v1/{org.id}/accounts/trial-balance/?fiscal_year_id=not-a-uuid"),
         ("gst deadlines days", lambda org: f"/api/v1/{org.id}/gst/returns/deadlines/?days=not-a-number"),
+        # P8/G-2 — the gaps the P7 sweep missed in the same functions:
+        ("banking payments contact_id", lambda org: f"/api/v1/{org.id}/banking/payments/?contact_id=not-a-uuid"),
+        ("banking payments bank_account_id", lambda org: f"/api/v1/{org.id}/banking/payments/?bank_account_id=not-a-uuid"),
+        ("banking transactions bank_account_id", lambda org: f"/api/v1/{org.id}/banking/bank-transactions/?bank_account_id=not-a-uuid"),
+        ("journal ledger date_from", lambda org: f"/api/v1/{org.id}/journal-entries/ledger/?date_from=not-a-date"),
+        ("journal ledger date_to", lambda org: f"/api/v1/{org.id}/journal-entries/ledger/?date_to=not-a-date"),
+        ("coa search negative limit", lambda org: f"/api/v1/{org.id}/accounts/search/?q=x&limit=-1"),
+        ("gst deadlines negative days", lambda org: f"/api/v1/{org.id}/gst/returns/deadlines/?days=-5"),
+        ("reports financial start_date", lambda org: f"/api/v1/{org.id}/reports/financial/?report_type=profit_loss&start_date=not-a-date"),
+        ("reports financial end_date", lambda org: f"/api/v1/{org.id}/reports/financial/?report_type=profit_loss&end_date=not-a-date"),
+        ("reports financial as_at_date", lambda org: f"/api/v1/{org.id}/reports/financial/?report_type=balance_sheet&as_at_date=not-a-date"),
     ]
 
     @pytest.mark.parametrize("label,url_factory", CASES, ids=[c[0] for c in CASES])

@@ -372,9 +372,18 @@ class LedgerView(APIView):
         )
 
         if date_from:
-            queryset = queryset.filter(entry__entry_date__gte=date_from)
+            from common.query_params import parse_date_param
+
+            # P8/G-2: garbage dates are a 400, not a Django filter 500.
+            queryset = queryset.filter(
+                entry__entry_date__gte=parse_date_param(date_from, "date_from").date()
+            )
         if date_to:
-            queryset = queryset.filter(entry__entry_date__lte=date_to)
+            from common.query_params import parse_date_param
+
+            queryset = queryset.filter(
+                entry__entry_date__lte=parse_date_param(date_to, "date_to").date()
+            )
         if account_id:
             from common.query_params import parse_uuid_param
 

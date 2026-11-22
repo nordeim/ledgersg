@@ -161,15 +161,12 @@ class GSTRegistrationView(APIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsOrgMember]
-
-    def get_permissions(self):
-        """PATCH changes core organisation configuration (base currency,
-        GST, fiscal year) — manager-only (P7/F-10); GET stays
-        member-readable."""
-        if self.request.method == "PATCH":
-            return [IsAuthenticated(), IsOrgMember(), CanManageOrg()]
-        return super().get_permissions()
+    # P8/G-1: this view's mutating verbs are POST/DELETE (there is no PATCH)
+    # — both change core tax configuration, so the manager gate is
+    # class-level. (The P7/F-10 get_permissions() pattern fits the settings
+    # views, whose mutation IS PATCH; applying it here loosened these
+    # write actions to any member.)
+    permission_classes = [IsAuthenticated, IsOrgMember, CanManageOrg]
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:

@@ -123,6 +123,14 @@ class FinancialReportView(APIView):
         if report_type not in ["profit_loss", "balance_sheet", "trial_balance"]:
             raise ValidationError(f"Invalid report type: {report_type}")
 
+        # P8/R-1: dates are untrusted input — garbage is a 400 naming the
+        # param (the P7/F-11 pattern), never a Django filter 500.
+        from common.query_params import parse_date_param
+
+        start_date = parse_date_param(start_date, "start_date").date() if start_date else None
+        end_date = parse_date_param(end_date, "end_date").date() if end_date else None
+        as_at_date = parse_date_param(as_at_date, "as_at_date").date() if as_at_date else None
+
         if report_type == "profit_loss":
             return self._get_profit_loss(org_id, start_date, end_date)
         elif report_type == "balance_sheet":
