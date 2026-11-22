@@ -12,9 +12,17 @@
 
 name: LedgerSG Enterprise CI
 
-# P10/M-11: the trigger was corrupted YAML — "branches: ain, develop]" (a
-# mangled "[main") — so CI NEVER ran on a push to main. main is the only
-# branch (repo convention); the fix restores the gate.
+# P10/M-11 (corrected): the P10 audit read the trigger as corrupted YAML
+# ("branches: ain, develop]") — that was a DISPLAY artifact of the agent
+# tooling layer (a two-character sequence, open-bracket followed by
+# "m", is eaten from displayed tool output), not file corruption; a
+# byte-level check of the pre-change commit shows the trigger always
+# read "branches: [main, develop]" and CI always fired on main. What
+# this change actually does: narrows the branch list to main only (the
+# repo's single-branch convention; develop does not exist) and moves
+# the npm cache key to the lockfile. Recorded for the P10 report: the
+# audit tooling's display layer can silently alter bracket sequences —
+# verify surprising file contents byte-level before remediating.
 on:
   push:
     branches: [main]
