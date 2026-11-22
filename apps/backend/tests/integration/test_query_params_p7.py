@@ -33,6 +33,17 @@ class TestQueryParamValidation:
         ("reports financial start_date", lambda org: f"/api/v1/{org.id}/reports/financial/?report_type=profit_loss&start_date=not-a-date"),
         ("reports financial end_date", lambda org: f"/api/v1/{org.id}/reports/financial/?report_type=profit_loss&end_date=not-a-date"),
         ("reports financial as_at_date", lambda org: f"/api/v1/{org.id}/reports/financial/?report_type=balance_sheet&as_at_date=not-a-date"),
+        # P9/S-1 + B-7 — the last siblings of the sweep:
+        ("invoicing documents date_from", lambda org: f"/api/v1/{org.id}/invoicing/documents/?date_from=not-a-date"),
+        ("invoicing documents date_to", lambda org: f"/api/v1/{org.id}/invoicing/documents/?date_to=not-a-date"),
+        (
+            "banking suggest-matches transaction_id",
+            lambda org: f"/api/v1/{org.id}/banking/bank-transactions/not-a-uuid/suggest-matches/",
+        ),
+        (
+            "banking suggest-matches tolerance",
+            lambda org: f"/api/v1/{org.id}/banking/bank-transactions/00000000-0000-0000-0000-000000000000/suggest-matches/?tolerance=abc",
+        ),
     ]
 
     @pytest.mark.parametrize("label,url_factory", CASES, ids=[c[0] for c in CASES])

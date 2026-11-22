@@ -600,19 +600,33 @@ class BankTransactionSuggestMatchesView(APIView):
         """Suggest payment matches for a bank transaction."""
         from decimal import Decimal, InvalidOperation
 
+        from common.query_params import parse_uuid_param
+
+        # P9/B-7: the path id is parsed with the shared helper (garbage is a
+        # 400), and the tolerance branch raises the APP ValidationError —
+        # the P7 fix raised the bare name, which is not imported here (the
+        # NameError turned a malformed tolerance into a 500).
+        transaction_id = parse_uuid_param(transaction_id, "transaction_id")
+
         tolerance_str = request.query_params.get("tolerance", "1.00")
         try:
             tolerance = Decimal(tolerance_str)
         except InvalidOperation as err:
             # P7/F-11: a malformed tolerance is a 400 — the pre-P7 bare
             # except: silently defaulted it, hiding client bugs.
-            raise ValidationError(
+            raise AppValidationError(
                 f"Invalid 'tolerance' — expected a decimal, got '{tolerance_str}'."
             ) from err
+        if not tolerance.is_finite():
+            # NaN/Infinity parse as Decimal but compare falsely against
+            # everything — reject them as malformed.
+            raise AppValidationError(
+                f"Invalid 'tolerance' — must be a finite decimal, got '{tolerance_str}'."
+            )
 
         suggestions = ReconciliationService.suggest_matches(
             org_id=org_id,
-            transaction_id=UUID(transaction_id),
+            transaction_id=transaction_id,
             tolerance=tolerance,
         )
 

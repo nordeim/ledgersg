@@ -159,10 +159,17 @@ class InvoiceDocumentListCreateView(APIView):
 
         from uuid import UUID
 
-        if contact_id:
-            from common.query_params import parse_uuid_param
+        from common.query_params import parse_date_param, parse_uuid_param
 
+        if contact_id:
             contact_id = parse_uuid_param(str(contact_id), "contact_id")
+
+        # P9/S-1: garbage date params are a 400, not a Django filter 500
+        # (the service passes the raw string into issue_date filters).
+        if date_from:
+            date_from = parse_date_param(date_from, "date_from").date()
+        if date_to:
+            date_to = parse_date_param(date_to, "date_to").date()
 
         documents = DocumentService.list_documents(
             org_id=UUID(str(org_id)),
