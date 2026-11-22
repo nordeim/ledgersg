@@ -82,8 +82,15 @@ async function fetchWithAuth(
 ): Promise<Response> {
   const url = `${API_BASE_URL}${endpoint}`;
 
+  // P9/B-1: a FormData body must NOT carry a JSON Content-Type — the
+  // browser sets multipart/form-data with the boundary. An explicit
+  // application/json header makes the backend parse the body as JSON and
+  // request.FILES stays empty (the statement import could never succeed).
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
+
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     Accept: "application/json",
     ...(options.headers as Record<string, string>),
   };
@@ -266,6 +273,17 @@ export const api = {
     request<T>(endpoint, {
       method: "POST",
       body: data ? JSON.stringify(data) : undefined,
+    }),
+  /**
+   * Multipart POST (P9/B-1): the FormData goes out as the raw body — the
+   * browser sets the Content-Type with boundary. Never JSON.stringify a
+   * FormData ("{}" with a JSON content-type = the backend's request.FILES
+   * is empty).
+   */
+  postForm: <T>(endpoint: string, data: FormData) =>
+    request<T>(endpoint, {
+      method: "POST",
+      body: data,
     }),
   put: <T>(endpoint: string, data: unknown) =>
     request<T>(endpoint, {

@@ -42,6 +42,7 @@ vi.mock("@/lib/api-client", () => ({
   api: {
     get: vi.fn(),
     post: vi.fn(),
+    postForm: vi.fn(),
     patch: vi.fn(),
     delete: vi.fn(),
   },
@@ -885,7 +886,7 @@ describe("Banking Hooks", () => {
         duplicates: 2,
       };
 
-      vi.mocked(apiClient.api.post).mockResolvedValueOnce(mockResult);
+      vi.mocked(apiClient.api.postForm).mockResolvedValueOnce(mockResult);
 
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -919,6 +920,37 @@ describe("Banking Hooks", () => {
           variant: "success",
         })
       );
+    });
+
+    it("sends real multipart — postForm with FormData, never the JSON helper (P9/B-1)", async () => {
+      // Pre-P9 the hook posted the FormData through api.post, whose
+      // JSON.stringify(FormData) sent "{}" with a JSON content-type — the
+      // backend's request.FILES was always empty and every import failed.
+      vi.mocked(apiClient.api.postForm).mockResolvedValueOnce({
+        imported: 1,
+        duplicates: 0,
+      });
+
+      const { result } = renderHook(
+        () => useImportBankTransactions(validOrgId),
+        { wrapper: createWrapper() }
+      );
+
+      const file = new File(["a,b,c"], "statement.csv", { type: "text/csv" });
+      await act(async () => {
+        result.current.mutate({ bank_account_id: validAccountId, file });
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(apiClient.api.postForm).toHaveBeenCalledTimes(1);
+      const [endpoint, body] = vi.mocked(apiClient.api.postForm).mock
+        .calls[0] as [string, FormData];
+      expect(endpoint).toContain("/bank-transactions/import/");
+      expect(body).toBeInstanceOf(FormData);
+      expect(body.get("bank_account_id")).toBe(validAccountId);
+      expect(body.get("file")).toBe(file);
+      expect(apiClient.api.post).not.toHaveBeenCalled();
     });
   });
 

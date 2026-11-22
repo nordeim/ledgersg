@@ -435,7 +435,7 @@ export function useImportBankTransactions(orgId: string) {
       formData.append("bank_account_id", data.bank_account_id);
       formData.append("file", data.file);
 
-      const response = await api.post<{
+      const response = await api.postForm<{
         imported: number;
         duplicates: number;
         errors?: Array<{ row: number; message: string }>;
