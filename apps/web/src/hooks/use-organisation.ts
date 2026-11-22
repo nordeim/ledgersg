@@ -6,6 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { api, endpoints } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import { toast } from "@/hooks/use-toast";
@@ -159,6 +160,60 @@ export function useGstDeregistration(orgId: string) {
       toast({
         title: "Failed to deregister",
         description: error.message || "An error occurred while deregistering.",
+        variant: "error",
+      });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Organisation creation (P9/O-1)
+// ---------------------------------------------------------------------------
+
+/** Payload for POST /api/v1/organisations/ (OrganisationCreateSerializer).
+ * `gst_registered: true` requires `gst_reg_number` (the backend's
+ * validate() enforces the same rule — the client mirrors it). */
+export interface OrganisationCreateInput {
+  name: string;
+  legal_name: string;
+  uen: string;
+  entity_type: string;
+  gst_registered: boolean;
+  gst_reg_number: string;
+  base_currency: string;
+  fy_start_month: number;
+}
+
+/** Create an organisation, then land the user in it: the org list is
+ * refreshed (the creator becomes its Owner), the new org is selected, and
+ * the user is routed home. This closes the onboarding dead end — the
+ * dashboard's "Create Organisation" CTA finally goes somewhere. */
+export function useCreateOrganisation() {
+  const { refreshOrganisations, switchOrg } = useAuth();
+  const router = useRouter();
+
+  return useMutation({
+    mutationFn: async (input: OrganisationCreateInput) => {
+      const org = await api.post<OrganisationDetail>(
+        endpoints.organisations.create,
+        input
+      );
+      return org;
+    },
+    onSuccess: async (org) => {
+      toast({
+        title: "Organisation created",
+        description: `${org.name} is ready — its chart of accounts and first fiscal year are set up.`,
+        variant: "success",
+      });
+      await refreshOrganisations();
+      switchOrg(org.id);
+      router.push("/dashboard");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Could not create the organisation",
+        description: error.message || "An error occurred while creating it.",
         variant: "error",
       });
     },

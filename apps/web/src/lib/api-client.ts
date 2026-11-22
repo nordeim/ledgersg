@@ -336,6 +336,9 @@ export const endpoints = {
   // Organisations
   organisations: {
     list: "/api/v1/auth/organisations/",
+    // P9/O-1: the create endpoint (OrganisationListCreateView) — the
+    // onboarding dead-end closer. Distinct from the auth-scoped list.
+    create: "/api/v1/organisations/",
     detail: (id: string) => `/api/v1/${id}/`,
     settings: (id: string) => `/api/v1/${id}/settings/`,
     gst: (id: string) => `/api/v1/${id}/gst/`,
