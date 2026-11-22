@@ -614,7 +614,9 @@ class InvoiceSendInvoiceNowView(APIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsOrgMember]
+    # P9/C-3: parity with QuoteConvertView — the send is an invoice-creating
+    # transmission; IsOrgMember alone was looser than every sibling mutation.
+    permission_classes = [IsAuthenticated, IsOrgMember, CanCreateInvoices]
 
     @wrap_response
     def post(self, request, org_id: str, document_id: str) -> Response:

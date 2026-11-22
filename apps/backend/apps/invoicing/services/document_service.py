@@ -879,6 +879,17 @@ class DocumentService:
 
         document = InvoiceDocument.objects.get(id=document_id, org_id=org_id)
 
+        # P9/C-3: InvoiceNow is an invoice transmission channel. The mapping
+        # layer renders anything non-credit-note as a UBL Invoice, so a quote
+        # sent here would be delivered as a tax invoice into the recipient's
+        # AP pipeline. Refuse non-invoice types before anything is queued.
+        if document.document_type != "SALES_INVOICE":
+            raise ValidationError(
+                f"Cannot send via InvoiceNow. Document type is "
+                f"'{document.document_type}'. Only SALES_INVOICE documents can "
+                "be transmitted."
+            )
+
         if document.status != "APPROVED":
             raise ValidationError(
                 f"Cannot send via InvoiceNow. Document status is '{document.status}'. "
