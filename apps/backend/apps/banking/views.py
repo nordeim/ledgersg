@@ -32,6 +32,7 @@ from apps.banking.serializers import (
 from apps.banking.services import BankAccountService, PaymentService, ReconciliationService
 from common.views import wrap_response
 from common.exceptions import ValidationError as AppValidationError
+from common.exceptions import ValidationError
 
 
 class BankAccountListView(APIView):
@@ -194,15 +195,15 @@ class PaymentListView(APIView):
         if is_voided is not None:
             is_voided_bool = is_voided.lower() in ("true", "1", "yes")
 
-        from datetime import datetime as dt
+        from common.query_params import parse_date_param
 
-        date_from_parsed = None
-        if date_from:
-            date_from_parsed = dt.strptime(date_from, "%Y-%m-%d").date()
-
-        date_to_parsed = None
-        if date_to:
-            date_to_parsed = dt.strptime(date_to, "%Y-%m-%d").date()
+        # P7/F-11: garbage query params are a 400, not an unhandled 500.
+        date_from_parsed = (
+            parse_date_param(date_from, "date_from").date() if date_from else None
+        )
+        date_to_parsed = (
+            parse_date_param(date_to, "date_to").date() if date_to else None
+        )
 
         payments = PaymentService.list(
             org_id=org_id,
@@ -446,15 +447,15 @@ class BankTransactionListView(APIView):
         if is_reconciled is not None:
             is_reconciled_bool = is_reconciled.lower() in ("true", "1", "yes")
 
-        from datetime import datetime as dt
+        from common.query_params import parse_date_param
 
-        date_from_parsed = None
-        if date_from:
-            date_from_parsed = dt.strptime(date_from, "%Y-%m-%d").date()
-
-        date_to_parsed = None
-        if date_to:
-            date_to_parsed = dt.strptime(date_to, "%Y-%m-%d").date()
+        # P7/F-11: garbage query params are a 400, not an unhandled 500.
+        date_from_parsed = (
+            parse_date_param(date_from, "date_from").date() if date_from else None
+        )
+        date_to_parsed = (
+            parse_date_param(date_to, "date_to").date() if date_to else None
+        )
 
         transactions = ReconciliationService.list_transactions(
             org_id=org_id,
@@ -589,13 +590,17 @@ class BankTransactionSuggestMatchesView(APIView):
     @wrap_response
     def get(self, request, org_id: str, transaction_id: str) -> Response:
         """Suggest payment matches for a bank transaction."""
-        from decimal import Decimal
+        from decimal import Decimal, InvalidOperation
 
         tolerance_str = request.query_params.get("tolerance", "1.00")
         try:
             tolerance = Decimal(tolerance_str)
-        except:
-            tolerance = Decimal("1.00")
+        except InvalidOperation as err:
+            # P7/F-11: a malformed tolerance is a 400 — the pre-P7 bare
+            # except: silently defaulted it, hiding client bugs.
+            raise ValidationError(
+                f"Invalid 'tolerance' — expected a decimal, got '{tolerance_str}'."
+            ) from err
 
         suggestions = ReconciliationService.suggest_matches(
             org_id=org_id,

@@ -255,11 +255,12 @@ class TrialBalanceView(APIView):
     @wrap_response
     def get(self, request, org_id: str) -> Response:
         """Get trial balance."""
-        from uuid import UUID
+        from common.query_params import parse_uuid_param
 
         fiscal_year_id = request.query_params.get("fiscal_year_id")
         if fiscal_year_id:
-            fiscal_year_id = UUID(fiscal_year_id)
+            # P7/F-11: garbage query params are a 400, not an unhandled 500.
+            fiscal_year_id = parse_uuid_param(fiscal_year_id, "fiscal_year_id")
 
         trial_balance = AccountService.get_trial_balance(org_id, fiscal_year_id=fiscal_year_id)
 
@@ -295,7 +296,10 @@ class AccountSearchView(APIView):
         """Search accounts."""
         query = request.query_params.get("q", "").strip()
         account_type = request.query_params.get("account_type")
-        limit = int(request.query_params.get("limit", 10))
+        from common.query_params import parse_int_param
+
+        # P7/F-11: garbage query params are a 400, not an unhandled 500.
+        limit = parse_int_param(request.query_params.get("limit", "10"), "limit")
 
         if not query:
             return Response({"results": [], "count": 0})

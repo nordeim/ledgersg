@@ -190,7 +190,10 @@ class TaxCodeIrasInfoView(APIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    # P7/F-15: org-scoped tax-code resolution — carry IsOrgMember like every
+    # sibling view (the tenant middleware already blocks non-members; this
+    # is the documented second layer).
+    permission_classes = [IsAuthenticated, IsOrgMember]
 
     @wrap_response
     def get(self, request, org_id: str) -> Response:
@@ -205,7 +208,10 @@ class GSTCalculateView(APIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    # P7/F-15: org-scoped tax-code resolution — carry IsOrgMember like every
+    # sibling view (the tenant middleware already blocks non-members; this
+    # is the documented second layer).
+    permission_classes = [IsAuthenticated, IsOrgMember]
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
@@ -262,7 +268,10 @@ class GSTCalculateDocumentView(APIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    # P7/F-15: org-scoped tax-code resolution — carry IsOrgMember like every
+    # sibling view (the tenant middleware already blocks non-members; this
+    # is the documented second layer).
+    permission_classes = [IsAuthenticated, IsOrgMember]
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
@@ -297,7 +306,10 @@ class GSTReturnListCreateView(APIView):
         year = request.query_params.get("year")
 
         if year:
-            year = int(year)
+            from common.query_params import parse_int_param
+
+            # P7/F-11: garbage query params are a 400, not an unhandled 500.
+            year = parse_int_param(year, "year")
 
 
         returns = GSTReturnService.list_returns(org_id=org_id, status=status_filter, year=year)
@@ -469,7 +481,10 @@ class GSTReturnDeadlinesView(APIView):
     def get(self, request, org_id: str) -> Response:
         """Get upcoming deadlines."""
 
-        days = int(request.query_params.get("days", 30))
+        from common.query_params import parse_int_param
+
+        # P7/F-11: garbage query params are a 400, not an unhandled 500.
+        days = parse_int_param(request.query_params.get("days", "30"), "days")
 
         deadlines = GSTReturnService.get_upcoming_deadlines(org_id=org_id, days=days)
 

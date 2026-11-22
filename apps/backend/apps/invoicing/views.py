@@ -160,7 +160,9 @@ class InvoiceDocumentListCreateView(APIView):
         from uuid import UUID
 
         if contact_id:
-            contact_id = UUID(str(contact_id))
+            from common.query_params import parse_uuid_param
+
+            contact_id = parse_uuid_param(str(contact_id), "contact_id")
 
         documents = DocumentService.list_documents(
             org_id=UUID(str(org_id)),

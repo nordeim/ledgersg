@@ -47,14 +47,24 @@ class JournalEntryListCreateView(APIView):
             "source_document_id"
         )
 
-        from uuid import UUID
+        from common.query_params import parse_uuid_param
 
+        # P7/F-11: garbage query params are a 400, not an unhandled 500.
         if fiscal_period_id:
-            fiscal_period_id = UUID(fiscal_period_id)
+            fiscal_period_id = parse_uuid_param(fiscal_period_id, "fiscal_period_id")
         if account_id:
-            account_id = UUID(account_id)
+            account_id = parse_uuid_param(account_id, "account_id")
         if source_id:
-            source_id = UUID(source_id)
+            source_id = parse_uuid_param(source_id, "source_id")
+
+        from common.query_params import parse_date_param
+
+        # P7/F-11: garbage query params are a 400, not an unhandled 500
+        # (the service passes the raw string into queryset date filters).
+        if date_from:
+            date_from = parse_date_param(date_from, "date_from").date()
+        if date_to:
+            date_to = parse_date_param(date_to, "date_to").date()
 
         entries = JournalService.list_entries(
             org_id=org_id,
@@ -174,9 +184,12 @@ class TrialBalanceView(APIView):
     def get(self, request, org_id: str) -> Response:
         """Get trial balance as of date."""
 
+        from common.query_params import parse_date_param
+
         date_to = request.query_params.get("date_to")
         if date_to:
-            date_to = date.fromisoformat(date_to)
+            # P7/F-11: garbage query params are a 400, not an unhandled 500.
+            date_to = parse_date_param(date_to, "date_to").date()
 
         entries = JournalService.get_trial_balance(org_id=org_id, date_to=date_to)
 
@@ -209,9 +222,12 @@ class AccountBalanceView(APIView):
         """Get account balance."""
         from uuid import UUID
 
+        from common.query_params import parse_date_param
+
         date_to = request.query_params.get("date_to")
         if date_to:
-            date_to = date.fromisoformat(date_to)
+            # P7/F-11: garbage query params are a 400, not an unhandled 500.
+            date_to = parse_date_param(date_to, "date_to").date()
 
         balance = JournalService.get_account_balance(
             org_id=org_id, account_id=UUID(account_id), date_to=date_to
@@ -360,7 +376,12 @@ class LedgerView(APIView):
         if date_to:
             queryset = queryset.filter(entry__entry_date__lte=date_to)
         if account_id:
-            queryset = queryset.filter(account_id=UUID(account_id))
+            from common.query_params import parse_uuid_param
+
+            # P7/F-11: garbage query params are a 400, not an unhandled 500.
+            queryset = queryset.filter(
+                account_id=parse_uuid_param(account_id, "account_id")
+            )
         if source_type:
             queryset = queryset.filter(entry__source_type=source_type)
 
