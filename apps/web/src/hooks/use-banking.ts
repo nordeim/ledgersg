@@ -540,6 +540,8 @@ export function useSuggestMatches(
     ? `?tolerance=${tolerance}`
     : "";
 
+  /** The row shape the reconcile form renders (mapped from the backend's
+   * suggestion shape — see the queryFn below, P9/B-2). */
   interface PaymentMatch {
     payment_id: string;
     payment_number: string;
@@ -548,13 +550,37 @@ export function useSuggestMatches(
     match_score: number;
   }
 
+  /** The REAL backend contract: {"results": [...], "count": n} with rows
+   * shaped {payment_id, payment_number, amount, contact, score} (the
+   * score is a 0–100 integer). */
+  interface SuggestMatchesResponse {
+    results: Array<{
+      payment_id: string;
+      payment_number: string;
+      amount: string;
+      contact: string;
+      score: number;
+    }>;
+    count: number;
+  }
+
   return useQuery({
     queryKey: [orgId, "bank-transactions", transactionId, "matches", tolerance],
-    queryFn: async () => {
-      const response = await api.get<PaymentMatch[]>(
+    queryFn: async (): Promise<PaymentMatch[]> => {
+      const response = await api.get<SuggestMatchesResponse>(
         endpoints.banking(orgId!).transactionSuggestMatches(transactionId!) + queryString
       );
-      return response;
+      // P9/B-2: unwrap the envelope and map the backend's field names to
+      // the row shape the form renders (contact -> contact_name,
+      // score -> match_score). Returning the raw envelope gave the form an
+      // object with no .length — "No matching payments found" every time.
+      return response.results.map((row) => ({
+        payment_id: row.payment_id,
+        payment_number: row.payment_number,
+        amount: row.amount,
+        contact_name: row.contact,
+        match_score: row.score,
+      }));
     },
     enabled: !!orgId && !!transactionId,
   });

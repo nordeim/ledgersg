@@ -1044,17 +1044,26 @@ describe("Banking Hooks", () => {
   });
 
   describe("useSuggestMatches", () => {
-    it("should fetch match suggestions", async () => {
-      const mockSuggestions = [
-        {
-          payment_id: validPaymentId,
-          payment_number: "RCP-000001",
-          amount: "1000.0000",
-          match_score: 0.95,
-        },
-      ];
+    it("unwraps the {results, count} envelope and maps the backend fields (P9/B-2)", async () => {
+      // The REAL backend contract (banking/views.py suggest-matches):
+      // {"results": [{payment_id, payment_number, amount, contact, score}],
+      //  "count": n}. The pre-P9 hook typed a bare array with
+      // contact_name/match_score — the envelope has no .length, so the
+      // reconcile form always rendered "No matching payments found".
+      const backendEnvelope = {
+        results: [
+          {
+            payment_id: validPaymentId,
+            payment_number: "RCP-000001",
+            amount: "1000.0000",
+            contact: "ABC Pte Ltd",
+            score: 100,
+          },
+        ],
+        count: 1,
+      };
 
-      vi.mocked(apiClient.api.get).mockResolvedValueOnce(mockSuggestions);
+      vi.mocked(apiClient.api.get).mockResolvedValueOnce(backendEnvelope);
 
       const { result } = renderHook(
         () => useSuggestMatches(validOrgId, validTransactionId),
@@ -1063,7 +1072,14 @@ describe("Banking Hooks", () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-      expect(result.current.data).toHaveLength(1);
+      // The hook must hand the form a mapped ARRAY.
+      const data = result.current.data as Array<{
+        contact_name: string;
+        match_score: number;
+      }>;
+      expect(data).toHaveLength(1);
+      expect(data[0].contact_name).toBe("ABC Pte Ltd");
+      expect(data[0].match_score).toBe(100);
       expect(apiClient.api.get).toHaveBeenCalledWith(
         expect.stringContaining("/suggest-matches/")
       );
