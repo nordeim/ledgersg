@@ -61,7 +61,9 @@ class FiscalYearCloseView(APIView):
     POST: Close a fiscal year.
 
     Closes the fiscal year and prevents further entries.
-    Requires all periods to be closed first (validation TBD).
+    Requires all periods to be closed first — P8/S-1: enforced (the
+    validation was "TBD" since the view was written; closing a year with
+    open periods silently locked accounting history inconsistently).
     P7/F-4: routed (was only in the shadowed urls module), gated on
     can_manage_org, and stamps with timezone-aware now().
     """
@@ -77,6 +79,17 @@ class FiscalYearCloseView(APIView):
 
             if year.is_closed:
                 raise ValidationError("Fiscal year is already closed")
+
+            # P8/S-1: every period must be closed before the year closes —
+            # the 400 names the open periods so the manager can close them.
+            open_periods = list(
+                year.periods.filter(is_open=True).values_list("label", flat=True)
+            )
+            if open_periods:
+                raise ValidationError(
+                    "All periods must be closed before closing the fiscal "
+                    f"year. Open periods: {', '.join(open_periods)}."
+                )
 
             # Close the year
             year.is_closed = True

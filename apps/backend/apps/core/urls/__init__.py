@@ -13,7 +13,6 @@ from apps.core.views.organisations import (
     OrganisationSummaryView,
     OrganisationSettingsView,
 )
-from apps.core.views.dashboard import DashboardView
 from apps.core.views.fiscal import (
     FiscalPeriodListView,
     FiscalYearCloseView,
@@ -56,8 +55,6 @@ org_scoped_urlpatterns = [
     ),
     # Organisation summary - mounted at api/v1/{org_id}/summary/
     path("summary/", OrganisationSummaryView.as_view(), name="org-summary"),
-    # Dashboard - mounted at api/v1/{org_id}/dashboard/
-    path("dashboard/", DashboardView.as_view(), name="org-dashboard"),
     # Organisation settings - mounted at api/v1/{org_id}/settings/
     path("settings/", OrganisationSettingsView.as_view(), name="org-settings"),
 ]

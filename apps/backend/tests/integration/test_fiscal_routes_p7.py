@@ -36,8 +36,12 @@ class TestFiscalRoutes:
         assert period.is_open is False
 
     def test_fiscal_year_close_routed(self, auth_client, test_organisation, test_fiscal_period):
-        """POST /fiscal-years/{id}/close/ is routed (was 404)."""
+        """POST /fiscal-years/{id}/close/ is routed (was 404). P8/S-1: the
+        year close now requires its periods to be closed first (the P7
+        version of this test relied on the missing validation)."""
         year = test_fiscal_period.fiscal_year
+        test_fiscal_period.is_open = False
+        test_fiscal_period.save()
         url = f"/api/v1/{test_organisation.id}/fiscal-years/{year.id}/close/"
         response = auth_client.post(url)
         assert response.status_code == status.HTTP_200_OK, response.data
