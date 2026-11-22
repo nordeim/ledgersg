@@ -12,7 +12,7 @@ from rest_framework import status
 from django.db.models import Sum, F
 from decimal import Decimal
 from uuid import UUID
-from datetime import datetime
+from datetime import date, datetime
 
 from apps.core.permissions import IsOrgMember, CanViewReports
 from apps.core.models import Account, JournalLine
@@ -290,3 +290,35 @@ class FinancialReportView(APIView):
                 "balanced": balanced,
             }
         })
+
+
+class AgedReportView(APIView):
+    """
+    GET: Aged receivables / payables (P8/R-5).
+
+    Per-contact rows bucketed by days past due at `as_at`, mirroring the
+    dashboard's outstanding semantics.
+    """
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsOrgMember, CanViewReports]
+
+    @wrap_response
+    def get(self, request, org_id: str) -> Response:
+        """Return the aged report for ?type=receivables|payables&as_at=."""
+        report_type = request.query_params.get("type", "receivables")
+        if report_type not in ("receivables", "payables"):
+            raise ValidationError(
+                f"Invalid 'type' — expected receivables or payables, got '{report_type}'."
+            )
+
+        from common.query_params import parse_date_param
+
+        as_at = parse_date_param(
+            request.query_params.get("as_at", date.today().isoformat()), "as_at"
+        ).date()
+
+        from apps.reporting.services.aged_service import get_aged_report
+
+        data = get_aged_report(UUID(str(org_id)), report_type, as_at)
+        return Response(data)

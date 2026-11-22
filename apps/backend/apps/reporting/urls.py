@@ -10,6 +10,7 @@ from .views import (
     DashboardMetricsView,
     DashboardAlertsView,
     FinancialReportView,
+    AgedReportView,
 )
 
 app_name = "reporting"
@@ -23,4 +24,6 @@ urlpatterns = [
     # to /reports/reports/financial/, which no client could guess; the clean
     # path is /api/v1/{org}/reports/financial/. No consumer existed.)
     path("financial/", FinancialReportView.as_view(), name="financial-report"),
+    # Aged receivables / payables (P8/R-5)
+    path("aged/", AgedReportView.as_view(), name="aged-report"),
 ]
