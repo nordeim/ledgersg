@@ -765,8 +765,17 @@ class DocumentService:
         """
         context = DocumentService._get_pdf_context(org_id, document_id)
 
+        # P8/Q-4b: quotations render their own template — the invoice
+        # template titles every document "TAX INVOICE", which is materially
+        # wrong for a quote (IRAS labelling is invoice-specific).
+        template = (
+            "invoicing/quote_pdf.html"
+            if context["document"].document_type == "SALES_QUOTE"
+            else "invoicing/invoice_pdf.html"
+        )
+
         # Render HTML string
-        html_string = render_to_string("invoicing/invoice_pdf.html", context)
+        html_string = render_to_string(template, context)
 
         # Create PDF in memory
         output = io.BytesIO()
