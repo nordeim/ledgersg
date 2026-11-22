@@ -236,7 +236,17 @@ class TransmissionService:
         validation_result = self.validation_service.validate_invoice_xml(xml_payload)
 
         if not validation_result.get("is_valid", False):
-            errors = validation_result.get("errors", ["Unknown validation error"])
+            # P10/M-4: read the keys the validator actually writes
+            # (schema_errors / schematron_errors) — the old "errors" read
+            # surfaced every XSD failure as "Unknown validation error",
+            # hiding the real detail (and the P9/S-3 fail-closed message).
+            # "errors" stays as a legacy fallback for older mock shapes.
+            errors = (
+                validation_result.get("schema_errors")
+                or validation_result.get("schematron_errors")
+                or validation_result.get("errors")
+                or ["Unknown validation error"]
+            )
             return TransmissionResult.failure(
                 error_code="VALIDATION_ERROR",
                 error_message="; ".join(errors),

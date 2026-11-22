@@ -20,7 +20,8 @@ interface PaymentMatch {
   payment_id: string;
   payment_number: string;
   amount: string;
-  contact_name: string;
+  /** Nullable: the backend sends None when the payment has no contact. */
+  contact_name: string | null;
   match_score: number;
 }
 
@@ -135,7 +136,7 @@ export function ReconcileForm({ transaction, orgId, onClose }: ReconcileFormProp
                         </Badge>
                       </div>
                       <p className="text-sm text-text-secondary">
-                        {match.contact_name}
+                        {match.contact_name ?? "No contact"}
                       </p>
                     </div>
                     <div className="text-right">

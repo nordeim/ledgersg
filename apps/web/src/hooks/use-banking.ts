@@ -541,24 +541,28 @@ export function useSuggestMatches(
     : "";
 
   /** The row shape the reconcile form renders (mapped from the backend's
-   * suggestion shape — see the queryFn below, P9/B-2). */
+   * suggestion shape — see the queryFn below, P9/B-2). contact_name is
+   * nullable: the backend sends `payment.contact.name if payment.contact
+   * else None` (P10/L-6). */
   interface PaymentMatch {
     payment_id: string;
     payment_number: string;
     amount: string;
-    contact_name: string;
+    contact_name: string | null;
     match_score: number;
   }
 
   /** The REAL backend contract: {"results": [...], "count": n} with rows
    * shaped {payment_id, payment_number, amount, contact, score} (the
-   * score is a 0–100 integer). */
+   * score is a 0–100 integer; contact can be NULL when the payment has
+   * no contact — the backend sends `payment.contact.name if
+   * payment.contact else None`, P10/L-6). */
   interface SuggestMatchesResponse {
     results: Array<{
       payment_id: string;
       payment_number: string;
       amount: string;
-      contact: string;
+      contact: string | null;
       score: number;
     }>;
     count: number;
