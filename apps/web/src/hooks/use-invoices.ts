@@ -107,12 +107,15 @@ export interface InvoiceDetail {
 }
 
 // List invoices with optional filters (orgId nullable: the query stays
-// disabled until the org context resolves)
+// disabled until the org context resolves). P8/Q-2: the filter key is
+// `type` — the param the backend reads (invoicing/views.py:153); the old
+// `document_type` key was silently ignored, so a quotes page reusing this
+// hook would have listed EVERY document.
 export function useInvoices(
   orgId: string | null | undefined,
   filters?: {
     status?: string;
-    document_type?: string;
+    type?: string;
     search?: string;
     date_from?: string;
     date_to?: string;

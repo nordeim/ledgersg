@@ -26,12 +26,16 @@ from common.decimal_utils import money, sum_money
 from common.exceptions import ResourceNotFound, ValidationError
 
 # Document type definitions - matches SQL ENUM invoicing.doc_type
+# Prefixes match the seeded core.document_sequence config exactly
+# (P8/Q-3: the schema file is the source of truth — SALES_QUOTE was QUO
+# while the seeded sequence promised QT-, PURCHASE_INVOICE PINV vs BILL-).
+# Already-issued numbers are stored values and unaffected.
 DOCUMENT_TYPES = {
     "SALES_INVOICE": {"prefix": "INV", "next_status": "SENT"},
     "SALES_CREDIT_NOTE": {"prefix": "CN", "next_status": "APPROVED"},
     "SALES_DEBIT_NOTE": {"prefix": "DN", "next_status": "APPROVED"},
-    "SALES_QUOTE": {"prefix": "QUO", "next_status": "SENT"},
-    "PURCHASE_INVOICE": {"prefix": "PINV", "next_status": "APPROVED"},
+    "SALES_QUOTE": {"prefix": "QT", "next_status": "SENT"},
+    "PURCHASE_INVOICE": {"prefix": "BILL", "next_status": "APPROVED"},
     "PURCHASE_CREDIT_NOTE": {"prefix": "PCN", "next_status": "APPROVED"},
     "PURCHASE_DEBIT_NOTE": {"prefix": "PDN", "next_status": "APPROVED"},
     "PURCHASE_ORDER": {"prefix": "PO", "next_status": "SENT"},
@@ -487,8 +491,12 @@ class DocumentService:
             )
 
             # Mark quote as approved (converted) - use valid status from SQL enum
+            # P8/Q-1: persist the link through the REAL field — the old
+            # converted_to_id assignment set a transient attribute that
+            # save() silently discarded, so the quote→invoice link never
+            # existed in the database.
             quote.status = "APPROVED"
-            quote.converted_to_id = invoice.id
+            quote.related_document = invoice
             quote.save()
 
         return invoice
