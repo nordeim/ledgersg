@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.10.0
+> **Version**: 2.11.0
 > **Last Updated**: 2026-11-21
-> **Status**: P6 Remediated 🟢 — all gates green (backend 588P/0F/5S, frontend vitest 383/383, typecheck 0 errors, e2e 20 total / 9+11skip default); truth restoration: real InvoiceNow wiring, amount_paid + void reversals, fail-closed control accounts (incl. payment AR/AP), PARTIALLY_PAID allocations, unallocate recompute, every dashboard page on real data (C-5 closed), repo hygiene (see `docs/REMEDIATION_2026-11-22_P6_REPORT.md`, plus the P0–P5 reports and `docs/ledgersg-audit-report.md`)
+> **Status**: P7 Remediated 🟢 — all gates green (backend 624P/0F/5S, frontend vitest 398/398, typecheck 0 errors, e2e 21 total / 9+12skip default); API truth & permission hardening: per-status transition permissions + payment statuses reserved to the allocation service, the custom exception handler actually active (wrong DRF settings key pre-P7 — in-view exceptions were 500s), fiscal routes live, org-create phantom field gone, send-email recipient contract, typed settings PATCHes + manager gates, 400s for malformed query params, working void-reason dialog + real error messages + PDF/InvoiceNow actions (see `docs/REMEDIATION_2026-11-22_P7_REPORT.md`, plus the P0–P6 reports)
 
 ---
 
@@ -30,12 +30,12 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.6 | ✅ Ready | 12 pages, 383 unit + 20 e2e tests (9 always + 11 backend-gated), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6) |
-| **Backend** | v0.4.0 | ✅ Suite Fully Green | 89+ endpoints, **588 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth: exact payment control accounts, PARTIALLY_PAID allocations, unallocate recompute (P5/P6) |
+| **Frontend** | v0.1.7 | ✅ Ready | 12 pages, 398 unit + 21 e2e tests (9 always + 12 backend-gated), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages, working void dialog + real error messages + PDF/InvoiceNow actions (P5–P7) |
+| **Backend** | v0.4.1 | ✅ Suite Fully Green | 90+ endpoints, **624 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth, per-status transition permissions + active custom exception handler (P5–P7) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables, NUMERIC(19,4) money |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
-| **Security** | v1.2.0 | ✅ P0 Hardened + P4 Cookie Auth | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on (settings-driven login knobs), HttpOnly refresh cookie + `session_hint` evidence gate |
-| **API Contracts** | v1.1.0 | ✅ Standardized | {results, count} lists; auth contract aligned to tests 2026-11-21 |
+| **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on (settings-driven login knobs), HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes |
+| **API Contracts** | v1.2.0 | ✅ Standardized | {results, count} lists; auth contract aligned to tests 2026-11-21; error envelope {error:{code,message,details}} active in DRF (P7/F-19) |
 
 ### Latest Milestone: P5 Sprint — Truth Restoration (Repo Hygiene, Real InvoiceNow, Accounting Integrity & Real Dashboard Data) ✅ — 2026-11-21 (session 11)
 

@@ -985,3 +985,59 @@ feature. Every mutation service that changes dashboard-visible state now
 calls the invalidator (local import, exception-guarded so a cache hiccup
 can never fail the mutation). When you add a cache, grep for the
 invalidation call sites in the same commit.
+
+## 2026-11-22 P7 Sprint — New Patterns & Lessons (session 14)
+
+### The Wrong Settings Key Is a Silent Dead Integration (F-19)
+`REST_FRAMEWORK["DEFAULT_EXCEPTION_HANDLER"]` is not a DRF setting — the key is
+`EXCEPTION_HANDLER` (not namespaced under DEFAULT_*). The custom exception
+handler therefore NEVER ran: every LedgerSGException that wrap_response
+re-raises (UnauthorizedOrgAccess, GST calculation, Peppol transmission)
+surfaced as an unhandled 500 instead of its mapped status code. The tell: an
+in-view permission raise produced 500s while middleware-raised ones produced
+403s. Gate integrations by their resolved value, not the settings dict
+(`tests/security/test_settings_gates.py::test_custom_exception_handler_is_active`).
+
+### Permission Literals Come From the Gated Vocabulary (F-2)
+The status-transition view checked `elif new_status == "VOIDED"` — the enum
+value is VOID — so the CanVoidInvoices branch was dead code and ANY org member
+could void ANY document through `/status/`, bypassing the guarded `/void/`
+endpoint. Fix pattern: `ChoiceField(choices=Model.STATUS_CHOICES)` (wrong
+literals become 400s) + a per-target-status permission map + payment-derived
+statuses (PAID/PARTIALLY_PAID) refused outright on generic endpoints — the
+allocation service owns them.
+
+### Advertised Serializer Fields Must Survive Receipt (F-3)
+The org-create serializer declared `address` — the Organisation model has no
+such field — so POSTing it (a field the API itself advertised) crashed with a
+TypeError 500. The PATCH twin was the P6/F-10 fix; always sweep BOTH paths of
+a serializer pair.
+
+### Error Envelopes Are Contracts (F-7)
+The api-client read `errorData.message || errorData.detail` — the backend
+envelope is `{"error": {"code", "message", "details"}}` and DRF field errors
+are `{"field": ["msg"]}`. Neither key existed, so every business-rule failure
+surfaced as "Request failed: Bad Request" — which is exactly what hid the
+always-broken Void button (F-1: the page sent `reason: ""` and every void
+400'd). Parse the real shape and test the parser against both shapes.
+
+### Shadowed URL Modules Keep 404-ing Routes Alive (F-4)
+`apps/core/urls.py` (module) is shadowed by `apps/core/urls/` (package) — the
+three fiscal routes lived only in the dead module, so the frontend's calls
+404'd. The same class bit set-default-org in P2 (NEW-3). When a route 404s,
+check WHICH urls file actually resolves before adding routes to the wrong one.
+
+### Dead Hooks: Wire or Delete, Never Leave Both (F-13)
+`useInvoicePDF` and `useSendInvoiceNow`/`useInvoiceNowStatus` sat fully
+implemented with zero importers beside REAL backends (P3/D-2, P5/C-2) — now
+wired as actions on the invoice detail page. The mock-era edit route and the
+stale `lib/server/api-client.ts` were deleted truthfully (the edit route would
+have created a duplicate contact + invoice if reached by URL). Every sprint:
+grep zero-importer hooks and decide wire-vs-delete explicitly.
+
+### Query Params Are Untrusted Input Too (F-11)
+Malformed `date_from`/UUID/int query params raised raw ValueError/
+InvalidOperation -> 500 at every audited list endpoint, and banking's
+tolerance probe silently DEFAULTED garbage via a bare `except:`. Shared
+helpers (`common.query_params.parse_*_param`) map them to clean 400s with the
+param name in the message.

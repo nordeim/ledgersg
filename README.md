@@ -101,17 +101,35 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.1.6 | ✅ Production Ready | 12 pages, **383 unit tests + 20 e2e** (9 always + 11 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6) |
-| **Backend** | v0.4.0 | ✅ Suite Fully Green | 89+ endpoints, **588 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth: exact payment control accounts, PARTIALLY_PAID allocations, unallocate recompute (P5/P6) |
+| **Frontend** | v0.1.7 | ✅ Production Ready | 12 pages, **398 unit tests + 21 e2e** (9 always + 12 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7) |
+| **Backend** | v0.4.1 | ✅ Suite Fully Green | 90+ endpoints, **624 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables, **NUMERIC(19,4) money** |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
-| **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching |
-| **InvoiceNow** | v0.6.0 | ✅ Real transmission path (P5/C-2) | send-invoicenow creates a real transmission log + queues the Celery task; status reports real log rows; retention-safe cleanup (never deletes DELIVERED/REJECTED) |
-| **Security** | v1.2.0 | ✅ P0 Hardened + P4 Cookie Auth | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on, HttpOnly refresh cookie + `session_hint` evidence gate |
-| **Overall** | — | 🟢 **P0–P6 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P6_REPORT.md` and `docs/ledgersg-audit-report.md` |
+| **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching; payables include PARTIALLY_PAID bills (P7/F-9) |
+| **InvoiceNow** | v0.6.0 | ✅ Real transmission path (P5/C-2) | send-invoicenow creates a real transmission log + queues the Celery task; status reports real log rows; retention-safe cleanup (never deletes DELIVERED/REJECTED); the detail page exposes Send-via-InvoiceNow + status badge (P7) |
+| **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on, HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes, typed query params (400 not 500) |
+| **Overall** | — | 🟢 **P0–P7 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P7_REPORT.md` and `docs/ledgersg-audit-report.md` |
 
 ### Latest Milestone
+
+#### 🎉 P7 Sprint: API Truth & Permission Hardening — 2026-11-22 (session 14)
+
+Source: the post-P6 audit re-verified in source (`docs/REMEDIATION_PLAN_2026-11-22_P7.md`).
+
+- ✅ **The Void button works** (F-1): the detail page opened a REQUIRED-reason dialog (Shadcn/Radix) — the pre-P7 page sent `reason: ""` and every void from the UI 400'd; void also invalidates the ledger cache now
+- ✅ **Status-transition authorization** (F-2): the `/status/` endpoint compared against the non-existent `"VOIDED"` literal, so the `CanVoidInvoices` check never fired — any member could void any document; the status is now a ChoiceField, every transition is permission-gated, and PAID/PARTIALLY_PAID are reserved to the allocation service
+- ✅ **The custom exception handler is actually active** (F-19): `REST_FRAMEWORK` used the wrong DRF key (`DEFAULT_EXCEPTION_HANDLER` — DRF's key is `EXCEPTION_HANDLER`), so every in-view `LedgerSGException` surfaced as an unhandled 500 instead of its mapped status code; fixed + posture-gated
+- ✅ **Fiscal endpoints routed** (F-4): `fiscal-periods/` and the two close endpoints lived only in the shadowed `apps/core/urls.py` module — the frontend's calls 404'd; routes moved into the active package, close views manager-gated + timezone-aware
+- ✅ **Org create no longer crashes on its own advertised field** (F-3): the create serializer's phantom `address` (no such model field) produced a TypeError 500; the PATCH twin was fixed in P6/F-10
+- ✅ **Send-invoice recipients** (F-6): the frontend sent `to` as a string; the email task requires a list and crashed silently while the UI toasted success — normalized + email-validated on both sides
+- ✅ **Real error messages** (F-7): the api-client now reads the backend error envelope (`{error:{message}}`) and DRF field errors — business-rule messages finally reach the user (this is what hid the void defect)
+- ✅ **Outstanding payables include PARTIALLY_PAID bills** (F-9): the status filter made partially-paid bills vanish from payables entirely
+- ✅ **Settings PATCHes typed + manager-gated** (F-10): invalid values were 500s (raw setattr onto models) and any member could flip InvoiceNow/base currency
+- ✅ **Malformed query params are 400s** (F-11): shared parse helpers replace the bare `strptime`/`UUID`/`int` calls at the audited sites (banking tolerance probe included)
+- ✅ **Truthful no-org states** (F-12) + org-derived GST flag (F-14) + shell fixes (F-17); **dead code removed** (F-13): the mock-era edit route (created duplicate contacts if reached by URL), `useUpdateInvoice`, the legacy `lib/server/api-client.ts` — while `useInvoicePDF` + InvoiceNow send/status are wired as real actions on the detail page
+- ✅ **Permission classes** (F-15): dashboard metrics/alerts require `can_view_reports`; the org-scoped GST views carry `IsOrgMember`
+- ✅ **Bank-account GL-account truth fails closed at every seam** (F-5): the service raised a clean ValidationError instead of the database's raw IntegrityError
 
 #### 🎉 P6 Sprint: C-5 Completion & Payment Posting Integrity — 2026-11-22 (session 12)
 
@@ -220,7 +238,7 @@ Source: the independent audit (`docs/ledgersg-audit-report.md`, every Critical/H
 
 ## 🧪 Test Suites & Execution
 
-LedgerSG employs comprehensive testing across multiple layers with **991 tests passing** (588 backend + 383 frontend unit + 20 e2e: 9 always + 11 backend-gated).
+LedgerSG employs comprehensive testing across multiple layers with **1,043 tests passing** (624 backend + 398 frontend unit + 21 e2e: 9 always + 12 backend-gated).
 
 ### Test Suite Breakdown
 
@@ -228,12 +246,12 @@ LedgerSG employs comprehensive testing across multiple layers with **991 tests p
 |-------|-------|-----------|----------|--------|
 | **Backend Core Tests** | 393 passing | pytest-django | Core models, services, API | ✅ 84% pass rate |
 | **Backend Domain Tests** | 252/255 passing | pytest | Banking, Peppol, Reporting | ✅ 98.8% pass rate |
-| **Frontend Unit Tests** | 383 passing | Vitest + RTL | Components, hooks, utilities | ✅ 100% pass rate |
+| **Frontend Unit Tests** | 398 passing | Vitest + RTL | Components, hooks, utilities | ✅ 100% pass rate |
 | **Frontend Typecheck** | 0 errors | tsc --noEmit | All src + e2e + configs | ✅ Green |
 | **API Contract Tests** | 8 passing | pytest | {results, count} format | ✅ 100% pass rate |
 | **InvoiceNow TDD** | 122+ | pytest | XML, AP integration, workflows | ✅ Passing |
 | **Banking UI TDD** | 73 | Vitest | All 3 banking tabs | ✅ Passing |
-| **E2E Workflows** | 16 specs (9 always + 7 backend-gated) | Playwright | Navigation, a11y, login form, invoice form, session persistence | ✅ Verified |
+| **E2E Workflows** | 21 specs (9 always + 12 backend-gated) | Playwright | Navigation, a11y, login form, invoice form, session persistence, void dialog | ✅ Verified |
 | **Total Collected** | **539** | — | Backend tests | ✅ **All Collected** |
 
 ### Backend Test Execution
@@ -254,7 +272,7 @@ source /opt/venv/bin/activate
 cd apps/backend
 pytest --reuse-db --no-migrations -v
 
-# Expected output (post 2026-11-22 P6 remediation): 588 passed, 0 failed, 5 skipped
+# Expected output (post 2026-11-22 P7 remediation): 624 passed, 0 failed, 5 skipped
 ```
 
 **Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). The P2 sprint (`docs/REMEDIATION_2026-11-21_P2_REPORT.md`) added rate-effectiveness regression tests and the custom tax-code create fix. The P3 sprint (`docs/REMEDIATION_2026-11-21_P3_REPORT.md`) widened all monetary columns to NUMERIC(19,4) (schema v1.1.0, §16 in-place migration) and made `add_line` apply `discount_pct` server-side. The P4 sprint (`docs/REMEDIATION_2026-11-21_P4_REPORT.md`) shipped the HttpOnly refresh-cookie session flow with the `session_hint` evidence gate (14 cookie-contract tests). Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance **incl. numeric precision**, balance queries, **monetary capacity**) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
@@ -263,13 +281,13 @@ pytest --reuse-db --no-migrations -v
 
 ```bash
 cd apps/web
-npm test                    # Vitest unit suite (383 tests)
+npm test                    # Vitest unit suite (398 tests)
 npm run typecheck           # tsc --noEmit (0 errors)
 npm run test:coverage       # With coverage report
 npm run test:e2e            # Playwright e2e — 9 tests green without a backend
-                            # (11 backend-gated specs skip with reasons)
+                            # (12 backend-gated specs skip with reasons)
                             # first run: npx playwright install chromium
-npm run test:e2e:full       # all 16 tests — needs the backend on :8000 + Redis
+npm run test:e2e:full       # all 21 tests — needs the backend on :8000 + Redis
                             # (E2E_API_URL-gated auth + invoice-form + session specs)
 PLAYWRIGHT_PROJECTS=all npm run test:e2e   # full browser matrix (needs `npx playwright install`)
 ```

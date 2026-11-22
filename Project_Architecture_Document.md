@@ -1,8 +1,9 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.3.0
+> **Version**: 3.4.0
 > **Last Updated**: 2026-11-21
+> **P7 note**: API truth & permission hardening — status-transition authorization, routed fiscal endpoints, fail-closed payments, real error messages, working void/send actions; see `docs/REMEDIATION_2026-11-22_P7_REPORT.md`.
 > **P5 note**: truth restoration sprint — real InvoiceNow transmission wiring, `amount_paid`/void-reversal accounting integrity, fail-closed control accounts, real dashboard alerts + cache invalidation, repo hygiene; test metrics below reflect the P5 verified counts.
 > **Status**: Production Ready ✅
 > **Security Score**: 100% (SEC-001/002/003 Remediated)
@@ -32,7 +33,7 @@
 ### Key Metrics
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **991 Tests Passing** | 588 Backend + 383 Frontend unit + 20 e2e (9 always + 11 backend-gated) |
+| **Test Coverage** | **1,043 Tests Passing** | 624 Backend + 398 Frontend unit + 21 e2e (9 always + 12 backend-gated) |
 | **API Surface** | **95 Endpoints** | RESTful, JSON-API compliant |
 | **Security** | **100% Score** | CSP, Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 30 Tables, Row-Level Security Enforced |
@@ -41,10 +42,10 @@
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 383 | 100% | Vitest + RTL | ✅ Passing |
-| **Backend (pytest)** | 588 passed / 5 skipped | 100% of run | pytest | ✅ Passing |
-| **E2E (Playwright)** | 20 (9 always + 11 backend-gated) | 100% | Playwright | ✅ Passing |
-| **Total Passing** | **991** | — | Mixed | ✅ Verified |
+| **Frontend Unit** | 398 | 100% | Vitest + RTL | ✅ Passing |
+| **Backend (pytest)** | 624 passed / 5 skipped | 100% of run | pytest | ✅ Passing |
+| **E2E (Playwright)** | 21 (9 always + 12 backend-gated) | 100% | Playwright | ✅ Passing |
+| **Total Passing** | **1,043** | — | Mixed | ✅ Verified |
 
 ---
 
@@ -230,6 +231,7 @@ Every dashboard page is wired to the real API — mock fixtures are deleted:
 *   **Invoice detail** (P6): `useInvoice` → detail serializer incl. `amount_paid`/`amount_due` (F-11); approve/void/send mutations; `await params` in the page component (route params are a Promise in this Next.js version).
 *   **General ledger** (P6): `useLedger` → the flat line-level `journal-entries/ledger/` endpoint (one row per journal line; the aggregated entries list cannot drive a line-level table).
 *   **Settings** (P6): `useOrganisation` → org detail + allowlisted PATCH updates + GST register/deregister (the GST endpoints seed the GST control accounts).
+*   **Invoice actions** (P7): the detail page exposes Approve / Void (REQUIRED-reason dialog) / Send email / Send via InvoiceNow (with live status badge) / PDF download / Print; error toasts surface the backend's real messages (`{error:{message}}` envelope parsed by the api-client).
 
 ---
 
@@ -372,7 +374,7 @@ psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 pytest --reuse-db --no-migrations
 
 # Expected Output:
-# ============================= 588 passed, 0 failed, 5 skipped =============================
+# ============================= 624 passed, 0 failed, 5 skipped =============================
 # (P1 fixed the 26 documented fixture failures; the suite has been fully green since)
 ```
 
@@ -384,8 +386,8 @@ cd apps/web
 npm test
 
 # Expected Output:
-# Test Files: 30 passed (30)
-# Tests: 358 passed (358)
+# Test Files: 37 passed (37)
+# Tests: 398 passed (398)
 # Duration: ~60s
 ```
 

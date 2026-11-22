@@ -1,9 +1,9 @@
 ---
 name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 1.6.0
+version: 1.7.0
 last_updated: 2026-11-22
-project_state: "P6 remediated; all gates green — 588 backend tests (0 failed, 5 skipped), frontend 383 vitest + 20 e2e (9 default / 11 backend-gated), typecheck 0 errors; schema v1.1.0 NUMERIC(19,4) money; real InvoiceNow wiring + accounting truth (amount_paid, void reversals, fail-closed control accounts incl. payment AR/AP, PARTIALLY_PAID allocations, unallocate recompute) + every dashboard page on real data (C-5 closed: detail/ledger/settings) + settings-driven rate budgets"
+project_state: "P7 remediated; all gates green — 624 backend tests (0 failed, 5 skipped), frontend 398 vitest + 21 e2e (9 default / 12 backend-gated), typecheck 0 errors; schema v1.1.0 NUMERIC(19,4) money; API truth & permission hardening: per-status transition permissions (payment statuses reserved to the allocation service), custom exception handler ACTIVE (the DRF settings key was wrong pre-P7), fiscal routes live, typed settings PATCHes + manager gates, 400s for malformed query params, working void-reason dialog + real error messages + PDF/InvoiceNow actions on the invoice detail page"
 ---
 
 # LedgerSG — Engineering Skill
@@ -372,6 +372,47 @@ write inside `transaction.atomic()`; new tests RED before the fix.
    hardcoded 20/minute 429'd the e2e suite mid-run with no knob to turn.
    Anything the e2e suite legitimately exercises must be a settings knob
    (production posture unchanged, development budget raised).
+
+20. (P7) A settings key nobody reads is a dead integration: REST_FRAMEWORK
+   used "DEFAULT_EXCEPTION_HANDLER" — DRF's key is "EXCEPTION_HANDLER" —
+   so the custom exception handler NEVER ran and every in-view
+   LedgerSGException surfaced as an unhandled 500. Symptom that exposed
+   it: a permission check raising UnauthorizedOrgAccess produced a 500,
+   not a 403. Gate integrations by their RESOLVED value
+   (api_settings.EXCEPTION_HANDLER.__module__), not the settings dict.
+
+21. (P7) Permission literals must come from the same vocabulary they gate:
+   the status-transition view compared against "VOIDED" while the enum is
+   VOID, so the CanVoidInvoices branch was dead code — any member could
+   void via the generic endpoint. A ChoiceField over the model's
+   STATUS_CHOICES makes the whole class of wrong-literal bypasses
+   unrepresentable.
+
+22. (P7) Payment-derived statuses belong to the payment service: allowing
+   PAID/PARTIALLY_PAID through a generic status endpoint lets a client
+   assert a payment that does not exist. The generic endpoint now refuses
+   them; only allocate()/unallocate() derive them (with the amount_paid
+   arithmetic that justifies them).
+
+23. (P7) Error envelopes are a contract: the frontend read keys the
+   backend never writes ({message}/{detail} at the top level) — every
+   business-rule failure surfaced as "Request failed: Bad Request", which
+   is exactly what hid an always-broken Void button for two sprints.
+   Parse the real shape ({error:{message}} + DRF field errors) and test
+   the parser against both.
+
+24. (P7) Dead code hides live defects and duplicates them: the mock-era
+   edit route would have created a duplicate contact + invoice if reached
+   by URL; useUpdateInvoice/useInvoicePDF/useSendInvoiceNow sat unimported
+   beside real, working backends. Sweep for zero-importer hooks every
+   sprint: either wire them (PDF + InvoiceNow now ship on the detail
+   page) or delete them truthfully (edit route, legacy server client).
+
+25. (P7) An API that advertises a field must survive receiving it: the
+   org-create serializer declared a phantom `address` the model lacks —
+   POSTing it (the field the API itself advertised) was a TypeError 500.
+   Serializer field sets are contracts: mirror the model, and
+   regression-test every advertised field round-trips or no-ops.
 
 ## 12. Quick Reference Card
 
