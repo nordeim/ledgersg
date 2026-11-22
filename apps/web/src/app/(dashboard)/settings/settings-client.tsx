@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/providers/auth-provider";
 import { FiscalCard } from "./components/fiscal-card";
 import { ChangePasswordCard } from "./components/change-password-card";
+import { InvoiceNowSettingsCard } from "./components/invoicenow-settings-card";
 import {
   useOrganisation,
   useUpdateOrganisation,
@@ -281,6 +282,11 @@ export function SettingsClient() {
           )}
         </CardContent>
       </Card>
+
+      {/* P10/M-10: InvoiceNow / Peppol — the surface the invoice
+          detail's "Configure an access point (Peppol settings)" 400
+          names (its first consumer). */}
+      <InvoiceNowSettingsCard orgId={currentOrg.id} />
 
       {/* P10/M-8: fiscal years & periods — the control surface the
           invoice-approval error points at. */}

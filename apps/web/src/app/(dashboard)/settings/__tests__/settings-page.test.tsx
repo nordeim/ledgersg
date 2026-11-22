@@ -51,6 +51,18 @@ vi.mock("@/hooks/use-fiscal", () => ({
   useCloseFiscalYear: vi.fn().mockReturnValue({ mutate: vi.fn(), isPending: false }),
 }));
 
+// P10/M-10: the InvoiceNow card — benign stub, same reason.
+vi.mock("@/hooks/use-peppol", () => ({
+  usePeppolSettings: vi.fn().mockReturnValue({
+    data: undefined,
+    isLoading: false,
+  }),
+  useUpdatePeppolSettings: vi.fn().mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
+
 const mockMutation = () => ({
   mutate: vi.fn(),
   mutateAsync: vi.fn(),
