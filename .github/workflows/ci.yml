@@ -7,16 +7,19 @@
 # 2. Running pytest with --no-migrations and --reuse-db flags
 # 3. Validating 340+ backend tests against the true production schema
 #
-# Version: 1.0.0
-# Last Updated: 2026-03-08
+# Version: 1.1.0
+# Last Updated: 2026-11-22
 
 name: LedgerSG Enterprise CI
 
+# P10/M-11: the trigger was corrupted YAML — "branches: ain, develop]" (a
+# mangled "[main") — so CI NEVER ran on a push to main. main is the only
+# branch (repo convention); the fix restores the gate.
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 env:
   POSTGRES_USER: ledgersg
@@ -161,7 +164,10 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: "apps/web/package.json"
+          # P10/M-11: the npm cache keys off the LOCKFILE — package.json
+          # changes on every dependency bump, invalidating the cache
+          # uselessly; the lockfile changes only when the tree changes.
+          cache-dependency-path: "apps/web/package-lock.json"
 
       - name: 📦 Install Frontend Dependencies
         working-directory: ./apps/web
