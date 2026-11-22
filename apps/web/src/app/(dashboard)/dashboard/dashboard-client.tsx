@@ -5,11 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  TrendingUp,
-  TrendingDown,
   AlertTriangle,
   FileText,
-  PieChart,
   Calendar,
   Loader2,
 } from "lucide-react";
@@ -170,7 +167,7 @@ export function DashboardClient() {
                 <p className="text-xs text-text-secondary">{alert.message}</p>
               </div>
               <Link
-                href="#"
+                href="/reports"
                 className="px-3 py-1.5 text-xs font-medium rounded-sm border border-border bg-surface text-text-secondary hover:text-text-primary hover:bg-carbon transition-colors"
               >
                 {alert.action_required}
@@ -207,12 +204,6 @@ export function DashboardClient() {
               </span>
               <span className="text-sm text-text-secondary">SGD</span>
             </div>
-            <div className="mt-4 flex items-center gap-2 text-sm">
-              <TrendingUp className="h-4 w-4 text-accent-primary" />
-              <span className="text-accent-primary">+8.2%</span>
-              <span className="text-text-muted">vs last period</span>
-            </div>
-
             {/* GST F5 Breakdown Chart */}
             <div className="mt-6 pt-6 border-t border-border">
               <div className="flex items-center justify-between mb-4">
@@ -220,7 +211,7 @@ export function DashboardClient() {
                   GST F5 Breakdown
                 </h3>
                 <Link
-                  href="#"
+                  href="/reports"
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-sm border border-border bg-surface text-text-secondary hover:text-text-primary hover:bg-carbon transition-colors"
                 >
                   <FileText className="h-3 w-3" />
@@ -268,11 +259,6 @@ export function DashboardClient() {
             <div className="text-2xl font-mono font-bold text-text-primary tabular-nums slashed-zero">
               S$ {data.cash_on_hand}
             </div>
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <TrendingDown className="h-4 w-4 text-warning" />
-              <span className="text-warning">-2.4%</span>
-              <span className="text-text-muted">vs last month</span>
-            </div>
           </CardContent>
         </Card>
 
@@ -286,11 +272,6 @@ export function DashboardClient() {
           <CardContent>
             <div className="text-2xl font-mono font-bold text-text-primary tabular-nums slashed-zero">
               S$ {data.revenue_mtd}
-            </div>
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <TrendingUp className="h-4 w-4 text-accent-primary" />
-              <span className="text-accent-primary">+12.5%</span>
-              <span className="text-text-muted">vs last month</span>
             </div>
           </CardContent>
         </Card>
@@ -351,10 +332,6 @@ export function DashboardClient() {
           <CardContent>
             <div className="text-2xl font-mono font-bold text-text-primary tabular-nums slashed-zero">
               S$ {data.revenue_ytd}
-            </div>
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <PieChart className="h-4 w-4 text-accent-secondary" />
-              <span className="text-text-secondary">On track for target</span>
             </div>
           </CardContent>
         </Card>

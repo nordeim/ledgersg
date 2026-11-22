@@ -31,24 +31,26 @@ interface F5BoxData {
 }
 
 interface GSTF5ChartProps {
+  /** The real Net GST (Box 8) from the dashboard metrics. */
   gstPayable: string;
-  outputTax?: string;
-  inputTax?: string;
 }
 
-export function GSTF5Chart({
-  gstPayable,
-  outputTax = "15000.00",
-  inputTax = "2550.00",
-}: GSTF5ChartProps) {
+export function GSTF5Chart({ gstPayable }: GSTF5ChartProps) {
   const [showTable, setShowTable] = React.useState(false);
 
+  // P9/D-2: only real data renders. The pre-P9 chart hardcoded Box 1
+  // (150,000) / Box 2 (25,000) and defaulted output/input tax
+  // (15,000 / 2,550) — invented figures on a compliance-facing chart.
+  // The dashboard payload carries Net GST only; the per-box F5 detail
+  // lives in Reports → GST F5 (real returns with real boxes).
+  const net = parseFloat(gstPayable.replace(/,/g, ""));
   const chartData: F5BoxData[] = [
-    { box: "Box 1", label: "Standard-Rated", value: 150000, color: CHART_COLORS.primary },
-    { box: "Box 2", label: "Zero-Rated", value: 25000, color: CHART_COLORS.secondary },
-    { box: "Box 6", label: "Output Tax", value: parseFloat(outputTax), color: CHART_COLORS.primary },
-    { box: "Box 7", label: "Input Tax", value: parseFloat(inputTax), color: CHART_COLORS.secondary },
-    { box: "Box 8", label: "Net GST", value: parseFloat(gstPayable.replace(/,/g, "")), color: CHART_COLORS.alert },
+    {
+      box: "Box 8",
+      label: "Net GST",
+      value: Number.isFinite(net) ? net : 0,
+      color: net < 0 ? CHART_COLORS.primary : CHART_COLORS.alert,
+    },
   ];
 
   // Custom tooltip for brutalist aesthetic
@@ -159,12 +161,8 @@ export function GSTF5Chart({
 
       {/* Screen Reader Summary */}
       <div className="sr-only" aria-live="polite">
-        GST F5 Breakdown: Box 1 Standard-Rated Supplies S${" "}
-        {chartData[0].value.toLocaleString()}, Box 2 Zero-Rated Supplies S${" "}
-        {chartData[1].value.toLocaleString()}, Box 6 Output Tax S${" "}
-        {chartData[2].value.toLocaleString()}, Box 7 Input Tax S${" "}
-        {chartData[3].value.toLocaleString()}, Box 8 Net GST Payable S${" "}
-        {gstPayable}
+        GST F5: Box 8 Net GST Payable S${gstPayable}. The per-box breakdown
+        (Boxes 1-14) is available in Reports, GST F5.
       </div>
     </div>
   );
