@@ -9,6 +9,11 @@ vi.mock("@/hooks/use-banking", () => ({
   useBankAccounts: vi.fn(),
 }));
 
+// P9/B-3: the contact picker's search hook (customer-side)
+vi.mock("@/hooks/use-contacts", () => ({
+  useContacts: vi.fn().mockReturnValue({ data: [], isLoading: false }),
+}));
+
 const mockUseBankAccounts = useBankAccounts as Mock;
 const mockUseReceivePayment = useReceivePayment as Mock;
 
@@ -46,7 +51,9 @@ describe("ReceivePaymentForm", () => {
 
     // Check for unique elements
     expect(screen.getByRole("heading", { name: /receive payment/i })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search customer...")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Search customers by name…")
+    ).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Additional notes...")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /receive payment/i })).toBeInTheDocument();
   });

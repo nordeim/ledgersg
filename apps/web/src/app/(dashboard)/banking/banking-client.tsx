@@ -13,6 +13,7 @@ import { formatOpeningBalance } from "@/shared/schemas/bank-account";
 import { PaymentList } from "./components/payment-list";
 import { PaymentFilters, type PaymentFilters as PaymentFiltersType } from "./components/payment-filters";
 import { ReceivePaymentForm } from "./components/receive-payment-form";
+import { MakePaymentForm } from "./components/make-payment-form";
 import { TransactionList } from "./components/transaction-list";
 import { TransactionFilters, type TransactionFilters as TransactionFiltersType } from "./components/transaction-filters";
 import { ReconciliationSummary } from "./components/reconciliation-summary";
@@ -287,6 +288,18 @@ function PaymentsTab() {
             orgId={orgId}
             onSuccess={() => setShowReceiveForm(false)}
             onCancel={() => setShowReceiveForm(false)}
+          />
+        </div>
+      )}
+
+      {/* P9/B-5: the Make Payment button finally has its form (the state
+          existed but nothing rendered from it). */}
+      {showMakeForm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <MakePaymentForm
+            orgId={orgId}
+            onSuccess={() => setShowMakeForm(false)}
+            onCancel={() => setShowMakeForm(false)}
           />
         </div>
       )}

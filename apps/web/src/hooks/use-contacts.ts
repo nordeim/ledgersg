@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, endpoints } from "@/lib/api-client";
 
 // Types matching backend schema
-interface Contact {
+export interface Contact {
   id: string;
   org_id: string;
   contact_type: "CUSTOMER" | "SUPPLIER" | "BOTH";
@@ -43,19 +43,25 @@ interface ContactInput {
   currency?: string;
 }
 
-// List contacts with optional filters
+// List contacts with optional filters.
+// P9/K-5: the filter keys are the backend's actual query params
+// (invoicing ContactListView reads is_customer / is_supplier / is_active /
+// search). The old `contact_type` key was silently ignored.
 export function useContacts(
   orgId: string,
   filters?: {
-    contact_type?: string;
-    search?: string;
+    is_customer?: boolean;
+    is_supplier?: boolean;
     is_active?: boolean;
+    search?: string;
   }
 ) {
   const queryString = filters
     ? "?" +
       new URLSearchParams(
-        Object.entries(filters).filter(([, v]) => v !== undefined) as [string, string][]
+        Object.entries(filters)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)]) as [string, string][]
       ).toString()
     : "";
 
@@ -68,7 +74,7 @@ export function useContacts(
         next?: string;
         previous?: string;
       }>(endpoints.contacts(orgId).list + queryString);
-      return response;
+      return response.results;
     },
     enabled: !!orgId,
   });

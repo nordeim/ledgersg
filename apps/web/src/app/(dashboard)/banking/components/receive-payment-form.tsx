@@ -10,6 +10,7 @@ import { Loader2, AlertCircle, X } from "lucide-react";
 import { MoneyInput } from "@/components/ui/money-input";
 import { useReceivePayment } from "@/hooks/use-banking";
 import { useBankAccounts } from "@/hooks/use-banking";
+import { ContactPicker } from "./contact-picker";
 import { paymentReceiveInputSchema } from "@/shared/schemas";
 import type { PaymentReceiveInput } from "@/shared/schemas";
 import { z } from "zod";
@@ -134,12 +135,15 @@ export function ReceivePaymentForm({ orgId, onSuccess, onCancel }: ReceivePaymen
               <label className="text-sm text-text-secondary">
                 Customer <span className="text-alert">*</span>
               </label>
-              <Input
-                placeholder="Search customer..."
+              {/* P9/B-3: a real customer picker — the old raw text input was
+                  bound to contact_id (a UUID the user cannot know). */}
+              <ContactPicker
+                orgId={orgId}
+                type="customer"
                 value={formData.contact_id || ""}
-                onChange={(e) => handleChange("contact_id", e.target.value)}
-                className="rounded-sm"
+                onChange={(id) => handleChange("contact_id", id)}
                 disabled={isSubmitting}
+                invalid={!!errors.contact_id}
               />
               {errors.contact_id && (
                 <p className="text-sm text-alert">{errors.contact_id}</p>
