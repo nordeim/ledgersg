@@ -327,10 +327,17 @@ export const endpoints = {
   // Authentication
   auth: {
     login: "/api/v1/auth/login/",
+    // P10/H-2: registration is backend-real (rate-limited, returns tokens +
+    // the P4 session cookies) — the login page's dead "Create account" link
+    // now routes to the register page that consumes it.
+    register: "/api/v1/auth/register/",
     logout: "/api/v1/auth/logout/",
     refresh: "/api/v1/auth/refresh/",
     me: "/api/v1/auth/me/",
     changePassword: "/api/v1/auth/change-password/",
+    // P10/M-3: the org switcher persists the chosen org (the backend flips
+    // is_default) so the choice survives reloads and devices.
+    setDefault: "/api/v1/auth/set-default-org/",
   },
 
   // Organisations
@@ -342,7 +349,6 @@ export const endpoints = {
     detail: (id: string) => `/api/v1/${id}/`,
     settings: (id: string) => `/api/v1/${id}/settings/`,
     gst: (id: string) => `/api/v1/${id}/gst/`,
-    setDefault: "/api/v1/auth/set-default-org/",
   },
 
   // Invoices (org-scoped) - Aligned with backend: /invoicing/documents/

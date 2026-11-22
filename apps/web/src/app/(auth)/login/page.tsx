@@ -154,15 +154,13 @@ export default function LoginPage() {
               )}
             </Button>
 
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center justify-end text-sm">
+              {/* P10/H-2: "Forgot password?" removed truthfully — no reset
+                  endpoint exists in the backend yet (registered debt:
+                  needs an email-delivery design decision). "Create
+                  account" routes to the register page. */}
               <Link
-                href="#"
-                className="text-accent-primary hover:text-accent-primary-dim underline-offset-4 hover:underline"
-              >
-                Forgot password?
-              </Link>
-              <Link
-                href="#"
+                href="/register"
                 className="text-accent-primary hover:text-accent-primary-dim underline-offset-4 hover:underline"
               >
                 Create account

@@ -27,8 +27,10 @@ describe("Organisations Endpoint Architecture - Issue #3", () => {
     });
 
     it("should have non-org-scoped setDefault endpoint", () => {
-      // ✅ Non-org-scoped: doesn't require orgId
-      expect(endpoints.organisations.setDefault).toBe(
+      // ✅ Non-org-scoped: doesn't require orgId. P10/M-3: the endpoint
+      // lives under auth (it is /api/v1/auth/set-default-org/) — moved
+      // from organisations to the group that matches its URL prefix.
+      expect(endpoints.auth.setDefault).toBe(
         "/api/v1/auth/set-default-org/"
       );
     });

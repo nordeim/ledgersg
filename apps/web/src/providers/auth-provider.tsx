@@ -63,6 +63,14 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
+  /** P10/H-2: register a brand-new account. The backend returns the same
+   * {user, tokens} + P4 session cookies as login; a fresh registration
+   * has no organisation — the caller routes to the org-creation page. */
+  register: (
+    email: string,
+    password: string,
+    fullName: string
+  ) => Promise<UserOrganisation[]>;
   logout: () => Promise<void>;
   switchOrg: (orgId: string) => void;
   hasPermission: (permission: keyof UserOrganisation["role"]) => boolean;
@@ -194,6 +202,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     queryClient.invalidateQueries();
   };
 
+  const register = async (
+    email: string,
+    password: string,
+    fullName: string
+  ): Promise<UserOrganisation[]> => {
+    // Backend returns: { user, tokens: { access, refresh, access_expires } }
+    // and sets the P4 session cookies — same shape as login.
+    const response = await api.post<{
+      user: User;
+      tokens: {
+        access: string;
+        refresh: string;
+        access_expires: string;
+      };
+    }>(endpoints.auth.register, {
+      email,
+      password,
+      full_name: fullName,
+    });
+
+    setAccessToken(response.tokens.access);
+    setUser(response.user);
+
+    // A fresh registration is org-less (orgs are user-created by design);
+    // fetch whatever exists so the caller can route on the real state.
+    const orgsData = await api.get<UserOrganisation[]>(
+      endpoints.organisations.list
+    );
+    setOrganisations(orgsData);
+    setCurrentOrgId(
+      orgsData.find((uo) => uo.is_default)?.org.id ??
+        (orgsData.length > 0 ? orgsData[0].org.id : null)
+    );
+    queryClient.invalidateQueries();
+    return orgsData;
+  };
+
   const logout = async () => {
     try {
       await api.post(endpoints.auth.logout);
@@ -231,6 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     isAuthenticated,
     login,
+    register,
     logout,
     switchOrg,
     hasPermission,
