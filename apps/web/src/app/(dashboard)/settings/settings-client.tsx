@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/providers/auth-provider";
 import { FiscalCard } from "./components/fiscal-card";
+import { ChangePasswordCard } from "./components/change-password-card";
 import {
   useOrganisation,
   useUpdateOrganisation,
@@ -300,11 +301,15 @@ export function SettingsClient() {
             <Input label="Full Name" value={user?.full_name ?? ""} disabled />
             <Input label="Email" value={user?.email ?? ""} disabled />
           </div>
-          <p className="text-sm text-text-muted">
-            Profile editing is handled by your account settings.
-          </p>
+          {/* P10/M-9: the "Profile editing is handled by your account
+              settings" line was a lie — no such surface existed. The
+              real change-password affordance is the card below. */}
         </CardContent>
       </Card>
+
+      {/* P10/M-9: change password — the backend endpoint is real (revokes
+          every session); this is its first consumer. */}
+      <ChangePasswordCard />
     </div>
   );
 }
