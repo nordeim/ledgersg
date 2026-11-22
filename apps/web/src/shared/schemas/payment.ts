@@ -177,6 +177,13 @@ export const paymentVoidInputSchema = z.object({
 export type Payment = z.infer<typeof paymentSchema>;
 export type PaymentReceiveInput = z.infer<typeof paymentReceiveInputSchema>;
 export type PaymentMakeInput = z.infer<typeof paymentMakeInputSchema>;
+
+/** P9/B-3b: one allocation row — the backend's inline contract
+ * (PaymentAllocationInputSerializer: document_id + allocated_amount). */
+export interface PaymentAllocationEntry {
+  document_id: string;
+  allocated_amount: string;
+}
 export type PaymentAllocationInput = z.infer<typeof paymentAllocationInputSchema>;
 export type PaymentVoidInput = z.infer<typeof paymentVoidInputSchema>;
 

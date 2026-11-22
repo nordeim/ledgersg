@@ -111,18 +111,27 @@ class InvoiceLineCreateSerializer(serializers.Serializer):
 
 class InvoiceDocumentListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for document list views."""
-    
+
     contact_name = serializers.CharField(source="contact.name", read_only=True)
     status_display = serializers.SerializerMethodField()
-    
+    # P9/B-3b: the outstanding balance — the payment forms' allocation
+    # section (and any list UI) needs what is left to settle per row.
+    amount_due = serializers.SerializerMethodField()
+
     class Meta:
         model = InvoiceDocument
         fields = [
             "id", "document_type", "document_number",
             "contact_id", "contact_name",
             "issue_date", "due_date", "status", "status_display",
-            "total_incl", "currency"
+            "total_incl", "currency",
+            "amount_paid", "amount_due",
         ]
+
+    def get_amount_due(self, obj: InvoiceDocument) -> str:
+        """Outstanding balance — mirrors the detail serializer and the
+        DB generated column invoicing.document.amount_due."""
+        return str(obj.total_incl - obj.amount_paid)
     
     def get_status_display(self, obj: InvoiceDocument) -> str:
         return obj.get_status_display()

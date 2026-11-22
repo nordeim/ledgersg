@@ -12,6 +12,8 @@ import { useMakePayment, useBankAccounts } from "@/hooks/use-banking";
 import { paymentMakeInputSchema } from "@/shared/schemas";
 import type { PaymentMakeInput } from "@/shared/schemas";
 import { ContactPicker } from "./contact-picker";
+import { AllocationSection } from "./allocation-section";
+import type { PaymentAllocationEntry } from "@/shared/schemas/payment";
 import { z } from "zod";
 
 /**
@@ -53,6 +55,7 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
     payment_reference: "",
     notes: "",
   });
+  const [allocations, setAllocations] = useState<PaymentAllocationEntry[]>([]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,7 +97,12 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
 
     setIsSubmitting(true);
     try {
-      await makePayment.mutateAsync(formData as PaymentMakeInput);
+      await makePayment.mutateAsync({
+        ...(formData as PaymentMakeInput),
+        // P9/B-3b: settle the supplier's open bills (PAY- documents
+        // populate aged payables).
+        ...(allocations.length > 0 ? { allocations } : {}),
+      });
       onSuccess?.();
     } catch {
       setIsSubmitting(false);
@@ -259,6 +267,16 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
               disabled={isSubmitting}
             />
           </div>
+
+          {/* P9/B-3b: settle the supplier's open bills with this payment */}
+          <AllocationSection
+            orgId={orgId}
+            contactId={formData.contact_id || ""}
+            documentType="PURCHASE_INVOICE"
+            allocations={allocations}
+            onChange={setAllocations}
+            disabled={isSubmitting}
+          />
         </CardContent>
 
         <CardFooter className="flex justify-end gap-2">

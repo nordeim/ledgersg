@@ -11,6 +11,8 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { useReceivePayment } from "@/hooks/use-banking";
 import { useBankAccounts } from "@/hooks/use-banking";
 import { ContactPicker } from "./contact-picker";
+import { AllocationSection } from "./allocation-section";
+import type { PaymentAllocationEntry } from "@/shared/schemas/payment";
 import { paymentReceiveInputSchema } from "@/shared/schemas";
 import type { PaymentReceiveInput } from "@/shared/schemas";
 import { z } from "zod";
@@ -19,6 +21,10 @@ interface ReceivePaymentFormProps {
   orgId: string;
   onSuccess?: () => void;
   onCancel?: () => void;
+  /** P9/B-3b: prefilled by the invoice detail's Record Payment action
+   * (deep link into Banking). */
+  initialContactId?: string;
+  initialAllocations?: PaymentAllocationEntry[];
 }
 
 const PAYMENT_METHODS = [
@@ -31,12 +37,18 @@ const PAYMENT_METHODS = [
   { value: "OTHER", label: "Other" },
 ] as const;
 
-export function ReceivePaymentForm({ orgId, onSuccess, onCancel }: ReceivePaymentFormProps) {
+export function ReceivePaymentForm({
+  orgId,
+  onSuccess,
+  onCancel,
+  initialContactId,
+  initialAllocations,
+}: ReceivePaymentFormProps) {
   const { data: accountsData, isLoading: isLoadingAccounts } = useBankAccounts(orgId, { is_active: true });
   const receivePayment = useReceivePayment(orgId);
   
   const [formData, setFormData] = useState<Partial<PaymentReceiveInput>>({
-    contact_id: "",
+    contact_id: initialContactId ?? "",
     bank_account_id: "",
     payment_date: new Date().toISOString().split("T")[0],
     amount: "",
@@ -46,6 +58,9 @@ export function ReceivePaymentForm({ orgId, onSuccess, onCancel }: ReceivePaymen
     payment_reference: "",
     notes: "",
   });
+  const [allocations, setAllocations] = useState<PaymentAllocationEntry[]>(
+    initialAllocations ?? []
+  );
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -88,9 +103,14 @@ export function ReceivePaymentForm({ orgId, onSuccess, onCancel }: ReceivePaymen
     if (!validateForm()) return;
     
     setIsSubmitting(true);
-    
+
     try {
-      await receivePayment.mutateAsync(formData as PaymentReceiveInput);
+      await receivePayment.mutateAsync({
+        ...(formData as PaymentReceiveInput),
+        // P9/B-3b: inline allocations — the backend settles the invoices
+        // (drives PARTIALLY_PAID/PAID) when the rows are present.
+        ...(allocations.length > 0 ? { allocations } : {}),
+      });
       onSuccess?.();
     } catch (error) {
       // Error is handled by the hook's onError
@@ -160,7 +180,7 @@ export function ReceivePaymentForm({ orgId, onSuccess, onCancel }: ReceivePaymen
                 onValueChange={(value) => handleChange("bank_account_id", value)}
                 disabled={isLoadingAccounts || isSubmitting}
               >
-                <SelectTrigger className="rounded-sm">
+                <SelectTrigger className="rounded-sm" aria-label="Bank account">
                   <SelectValue placeholder="Select account" />
                 </SelectTrigger>
                 <SelectContent>
@@ -263,6 +283,16 @@ export function ReceivePaymentForm({ orgId, onSuccess, onCancel }: ReceivePaymen
               disabled={isSubmitting}
             />
           </div>
+
+          {/* P9/B-3b: settle the contact's open invoices with this payment */}
+          <AllocationSection
+            orgId={orgId}
+            contactId={formData.contact_id || ""}
+            documentType="SALES_INVOICE"
+            allocations={allocations}
+            onChange={setAllocations}
+            disabled={isSubmitting}
+          />
         </CardContent>
 
         <CardFooter className="flex justify-end gap-2">

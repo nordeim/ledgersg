@@ -36,6 +36,10 @@ export interface InvoiceListItem {
   status_display: string;
   total_incl: string;
   currency: string;
+  /** P9/B-3b: the outstanding balance — the payment forms' allocation
+   * section needs what is left to settle per row. */
+  amount_paid: string;
+  amount_due: string;
 }
 
 export interface InvoiceListResponse {
@@ -120,6 +124,9 @@ export function useInvoices(
     search?: string;
     date_from?: string;
     date_to?: string;
+    /** The backend list filters by contact — the payment forms' allocation
+     * section queries a contact's outstanding documents (P9/B-3b). */
+    contact_id?: string;
   }
 ) {
   const queryString = filters

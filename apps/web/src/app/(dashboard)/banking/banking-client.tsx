@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -259,6 +260,28 @@ function PaymentsTab() {
   const orgId = currentOrg?.id ?? null;
   const [showReceiveForm, setShowReceiveForm] = useState(false);
   const [showMakeForm, setShowMakeForm] = useState(false);
+  // P9/B-3b: the invoice detail's Record Payment action deep-links here
+  // prefilled (?receive=1&contact=…&document=…&amount=…).
+  const searchParams = useSearchParams();
+  const [prefill, setPrefill] = useState<{
+    contactId: string;
+    allocations: { document_id: string; allocated_amount: string }[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("receive") !== "1") return;
+    const contact = searchParams.get("contact") ?? "";
+    const document = searchParams.get("document") ?? "";
+    const amount = searchParams.get("amount") ?? "";
+    if (!contact) return;
+    setPrefill({
+      contactId: contact,
+      allocations: document
+        ? [{ document_id: document, allocated_amount: amount }]
+        : [],
+    });
+    setShowReceiveForm(true);
+  }, [searchParams]);
   const [paymentFilters, setPaymentFilters] = useState<{
     payment_type?: "RECEIVED" | "MADE";
     is_reconciled?: boolean | null;
@@ -286,8 +309,16 @@ function PaymentsTab() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <ReceivePaymentForm
             orgId={orgId}
-            onSuccess={() => setShowReceiveForm(false)}
-            onCancel={() => setShowReceiveForm(false)}
+            initialContactId={prefill?.contactId}
+            initialAllocations={prefill?.allocations}
+            onSuccess={() => {
+              setShowReceiveForm(false);
+              setPrefill(null);
+            }}
+            onCancel={() => {
+              setShowReceiveForm(false);
+              setPrefill(null);
+            }}
           />
         </div>
       )}

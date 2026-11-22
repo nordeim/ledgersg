@@ -13,6 +13,7 @@ import {
   Clock,
   AlertTriangle,
   Loader2,
+  Banknote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -209,6 +210,13 @@ export function InvoiceDetailClient({ id, variant = "invoice" }: InvoiceDetailCl
   // refuses anything else (P8/G-8: the old !isDraft && !isVoid gate
   // enabled SENT/PARTIALLY_PAID/PAID/OVERDUE buttons that always 400'd).
   const canSendInvoiceNow = invoice.status === "APPROVED" && !isQuote;
+  // P9/B-3b: Record Payment deep-links into Banking → Receive Payment,
+  // prefilled with this contact + invoice + outstanding amount (the
+  // allocation section settles it). Available exactly for outstanding
+  // invoice states.
+  const canRecordPayment =
+    !isQuote &&
+    ["SENT", "APPROVED", "OVERDUE", "PARTIALLY_PAID"].includes(invoice.status);
   // Void is available exactly for the statuses the engine accepts
   // (P8/G-3: PAID is remedied with a credit note; a paid invoice's Void
   // button was a guaranteed 400).
@@ -372,6 +380,18 @@ export function InvoiceDetailClient({ id, variant = "invoice" }: InvoiceDetailCl
               )}
               Send via InvoiceNow
             </Button>
+          )}
+
+          {canRecordPayment && (
+            <Link
+              href={`/banking?receive=1&contact=${invoice.contact.id}&document=${invoice.id}&amount=${invoice.amount_due}`}
+              className="inline-flex"
+            >
+              <Button className="gap-2 bg-accent-primary text-void hover:bg-accent-primary-dim">
+                <Banknote className="h-4 w-4" />
+                Record Payment
+              </Button>
+            </Link>
           )}
 
           <Button

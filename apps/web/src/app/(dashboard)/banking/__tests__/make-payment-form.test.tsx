@@ -20,6 +20,11 @@ vi.mock("@/hooks/use-contacts", () => ({
   useContacts: vi.fn(),
 }));
 
+// P9/B-3b: the allocation section's document list
+vi.mock("@/hooks/use-invoices", () => ({
+  useInvoices: vi.fn().mockReturnValue({ data: { results: [], count: 0 } }),
+}));
+
 const mockMakePayment = useMakePayment as unknown as ReturnType<typeof vi.fn>;
 const mockBankAccounts = useBankAccounts as unknown as ReturnType<typeof vi.fn>;
 const mockContacts = useContacts as unknown as ReturnType<typeof vi.fn>;

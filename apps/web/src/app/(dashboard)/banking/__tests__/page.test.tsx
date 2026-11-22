@@ -16,6 +16,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BankingClient } from "../banking-client";
 import * as bankingHooks from "@/hooks/use-banking";
 
+// P9/B-3b: PaymentsTab reads the Record Payment deep link params
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // Mock auth provider
 vi.mock("@/providers/auth-provider", () => ({
   useAuth: () => ({

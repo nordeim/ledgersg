@@ -341,6 +341,49 @@ describe("InvoiceDetailClient — void flow (P7/F-1, F-8)", () => {
     }
   });
 
+  it("offers Record Payment for outstanding invoices and deep-links prefilled (P9/B-3b)", async () => {
+    // Not offered where there is nothing to settle (or on quotes).
+    for (const notOutstanding of ["PAID", "VOID", "DRAFT"]) {
+      cleanup();
+      vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
+        data: mockDetail({ status: notOutstanding }),
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+      renderPage();
+      await screen.findAllByText("INV-000042");
+      expect(
+        screen.queryByRole("button", { name: /record payment/i })
+      ).not.toBeInTheDocument();
+    }
+
+    // Outstanding statuses: the button deep-links into Banking prefilled
+    // with the contact, the document, and the outstanding amount.
+    for (const outstanding of ["SENT", "APPROVED", "OVERDUE", "PARTIALLY_PAID"]) {
+      cleanup();
+      vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
+        data: mockDetail({ status: outstanding }),
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+      renderPage();
+      await screen.findAllByText("INV-000042");
+      const link = screen
+        .getByRole("button", { name: /record payment/i })
+        .closest("a");
+      expect(link).toHaveAttribute(
+        "href",
+        expect.stringMatching(/^\/banking\?receive=1&contact=/)
+      );
+      expect(link).toHaveAttribute(
+        "href",
+        expect.stringContaining("&document=doc-1&amount=")
+      );
+    }
+  });
+
   it("sends the email payload without the retired message field (P8/G-6)", async () => {
     vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
       data: mockDetail({ status: "APPROVED" }),
