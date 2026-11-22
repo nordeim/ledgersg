@@ -41,20 +41,20 @@ test("reports page renders the real statement tabs (never the dead Generate shel
   await expect(page.getByRole("tab", { name: /aged/i })).toBeVisible();
 
   // A truthful trial-balance state: either rows (table cells) or the
-  // explicit empty state — never the dead "Generate" buttons.
+  // explicit empty state — never the dead "Generate" buttons. Playwright's
+  // isVisible() does not wait, so race the two settled states explicitly.
   const body = page.getByRole("main");
-  const hasRows = await body
-    .locator("table tbody tr")
-    .first()
-    .isVisible({ timeout: 15000 })
-    .catch(() => false);
-  if (hasRows) {
-    await expect(body.locator("table tbody tr").first()).toBeVisible();
-  } else {
-    await expect(
-      body.getByText(/no journal activity/i)
-    ).toBeVisible();
-  }
+  await expect
+    .poll(
+      async () =>
+        (await body.locator("table tbody tr").count()) > 0 ||
+        (await body.getByText(/no journal activity/i).count()) > 0,
+      { timeout: 20000 }
+    )
+    .toBe(true);
+  await expect(
+    page.getByRole("button", { name: /^generate$/i })
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: /^generate$/i })
   ).toHaveCount(0);

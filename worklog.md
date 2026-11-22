@@ -1,5 +1,52 @@
 # LedgerSG — Worklog
 
+## 2026-11-22 — Session 16: P8 Sprint (Reporting Truth & Quote Lifecycle)
+
+**Base:** `251b3577` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-22_P8.md` · **Report:** `docs/REMEDIATION_2026-11-22_P8_REPORT.md` · **Session log:** `docs/session_17.md`
+
+### Environment (survivors reused; one incident, recovered)
+
+- PG + Redis + venv + node_modules + live-phase scripts survived the session reset; schema v1.1.0 verified; baselines reproduced EXACTLY before any change: backend **624P/0F/5S**, vitest **398/398**, typecheck **0 errors**, e2e default **9 + 12 gated**.
+- **Incident (recovered, zero loss):** a verification run without `--reuse-db` invoked pytest-django `create_test_db` against the DB named in `.env` (the working dev DB) — dropped and recreated empty. Root cause: `TEST.NAME` follows `DB_NAME` locally. Schema reloaded from `database_schema.sql`, suite re-run green before any commit. Lesson: a bare pytest run is destructive when `.env` points at the working DB — the documented invocation (`--reuse-db --no-migrations`) is the contract.
+
+### Audit (Mode C) — findings this session
+
+Scanner criticals all in the documented FP classes (spot-verified). Three parallel deep-audit agents + lead hand-verification of every Critical/High: **G-1** the P7/F-10 get_permissions() refactor applied to GSTRegistrationView (mutations are POST/DELETE, no PATCH) — any member could register/deregister GST (live, git-diff confirmed); **G-2** the P7/F-11 sweep's misses (banking UUID filters, ledger dates, unbounded ints, financial dates → 500s); **G-3/G-5/G-8** the void state machine contradicted STATUS_TRANSITIONS (OVERDUE voidable through NO endpoint; allocation rows orphaned; filler reason on the generic endpoint; InvoiceNow button enabled for statuses the backend refuses); **G-6** cc/bcc validated but never delivered, phantom message field; **G-7** blob downloads bypassed the P7 error-envelope parser with no onError; **R-1..R-4** the financial reports: garbage dates → 500, TB stub `{data:{}}`, BS never balanced (equity excludes current-period earnings), custom accounts invisible to P&L/BS (account_type_ref never set on API create); **R-5** no aged endpoint anywhere; **R-7/R-8** the reports page static + two dormant hooks pointing at 404 endpoints; **Q-1..Q-4b** quote conversion link never persisted (phantom converted_to_id), QUO/PINV prefixes vs seeded QT-/BILL-, filter-key mismatch (document_type vs type), static quotes pages, TAX INVOICE labelling on quote PDFs; **S-1/S-2/S-3** fiscal close precondition "TBD", settings round-trip truth, dead core-dashboard duplicate.
+
+### Remediation executed (TDD — 23 backend + 20 vitest + 2 e2e specs, all RED first)
+
+| Task | Change | Evidence |
+|---|---|---|
+| 1 (G-1) | GST registration: class-level CanManageOrg restored (POST/DELETE gated) | 2 RED (member 200s) → 403; +3 tests |
+| 2 (G-2) | Banking UUID filters, ledger dates via parse helpers; parse_int_param min_value; financial dates validated; route single-prefixed /reports/financial/ | 10 new RED → 400s; suite 624→637 |
+| 3 (G-3/G-5/G-8) | void_document accepts the advertised set (DRAFT journal-safe); PAID → credit-note guidance + map corrected; allocation guard; generic endpoint requires a reason; frontend Void/InvoiceNow gates truthful | 6 RED → GREEN; the old draft-void test updated; suite 643; vitest 399 |
+| 4+5 (G-6/G-7) | cc/bcc reach the task; message field dropped from the contract (both sides); blob errors via the shared resolver; useInvoicePDF onError toast | 3 backend + 1 contract + 2 blob + 1 payload RED → GREEN; suite 646; vitest 402 |
+| 6 (R-2/R-3) | TB delegates to the journal service; BS folds retained earnings + balanced flag; per-account lines | 4 RED (KeyError/500) → GREEN; suite 651 |
+| 7 (R-4) | create_account links account_type_ref via GROUP_TO_COARSE_TYPE (by group name — category too coarse) | 3 RED → GREEN incl. custom revenue VISIBLE in the P&L end-to-end; suite 654 |
+| 8 (R-5) | GET /reports/aged/ — per-contact bucket rows + totals mirroring the dashboard semantics | 5 RED (404s) → GREEN; suite 659 |
+| 9 (R-7/R-8) | Tabbed reports client (TB/P&L/BS/GST F5/aged) + reports/gst-returns api-client families + use-reports hooks; the two 404-endpoint dormant hooks deleted | 5 hook + 5 page tests; vitest 412; gated e2e |
+| 10 (Q-1..Q-3) | related_document persisted on convert; QT-/BILL- prefixes; useInvoices sends `type` | 3 RED → GREEN; suite 662 |
+| 11 (Q-4b) | quote_pdf.html for SALES_QUOTE (no TAX INVOICE labelling) | 2 RED + invoice invariant; suite 665 |
+| 12 (Q-4) | Quotes list/new/detail pages; documentType threaded through the form; useConvertQuote | 4 page + 1 payload tests; vitest 417; gated e2e |
+| 13 (S-1/S-3) | Year close requires closed periods (400 names them); dead core dashboard deleted | 2 RED + invariants; the P7 routing test strengthened; suite 647 net (+4, −22 duplicates) |
+| 14 (S-2) | Settings reset only on the user's save; AuthProvider.refreshOrganisations() → sidebar propagates | +1 propagation test; vitest 418 |
+
+### Final gate (all Verified, executed)
+
+- `pytest --reuse-db --no-migrations -q` → **0 failed, 647 passed, 5 skipped** · invariants 27P · security 53P/3S (posture unchanged)
+- `npm test` → **418/418** · typecheck 0 errors · eslint parity/new-clean · e2e default 9 + 14 gated · **e2e:full 23/23** (first run 22/23 — the reports spec's isVisible() race, fixed with expect.poll)
+- 6 real-data screenshots (`docs/screenshots/41..46_*_session16.png` — md5-unique; trial balance + quote detail **VLM-verified**: real rows, Balanced badge 2,616.00 == 2,616.00; QUOTATION framing with Convert/Void/Send/PDF/Print and 4,000 + 360 GST = 4,360)
+- `.env.example` cross-checked: complete (both flags false positives — CORS via multiline config); P8 adds no env vars
+- Docs truth pass: README (P8 milestone, 1,088 = 647 + 418 + 23, v0.1.8/v0.5.0), PAD v3.5, CLAUDE v2.12, ledgersg_SKILL v1.7→v1.8 (+lessons 26–30), AGENTS P8 patterns, DEPLOYMENT.md re-verified + P8 spot checks
+
+### Deferred (registered, not dropped)
+
+P7 register carried forward unchanged. New: InvoiceNow backend quote gate (frontend gated; backend polish), GST review transition route, aged AR/AP credit-note netting (allocation model decision), quote lifecycle vocabulary (ACCEPTED/REJECTED/EXPIRED — DB enum), reports export (PDF/CSV), TB zero-activity/fiscal-year modes, P&L/BS sub-group labels, the destructive-bare-pytest hazard (documented in report §3 + session log).
+
+### Commits
+
+14 conventional commits on `main` (12 code + 2 docs), **pushed incrementally after each task** via `docs/ssh_git_wrapper_v3.py` (paramiko shim; remote ref verified on every push; deploy key shredded after the final push). One commit-message body lost two backtick-quoted words to shell substitution (cosmetic; noted in report §5).
+
 ## 2026-11-22 — Session 14: P7 Sprint (API Truth & Permission Hardening)
 
 **Base:** `9077381b` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-22_P7.md` · **Report:** `docs/REMEDIATION_2026-11-22_P7_REPORT.md` · **Session log:** `docs/session_15.md`
