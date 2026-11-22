@@ -220,6 +220,15 @@ export function LedgerTable({ data }: LedgerTableProps) {
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
+                    scope="col"
+                    /* P7/F-16: expose the sort state to screen readers. */
+                    aria-sort={
+                      header.column.getIsSorted() === "asc"
+                        ? "ascending"
+                        : header.column.getIsSorted() === "desc"
+                          ? "descending"
+                          : "none"
+                    }
                     className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase"
                   >
                     {header.isPlaceholder

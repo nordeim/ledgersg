@@ -243,3 +243,61 @@ test.describe("Invoice detail page (P6/C-5 — real data)", () => {
     await expect(page.getByText("INV-2024-0001")).toHaveCount(0);
   });
 });
+
+test.describe("Invoice detail — void flow (P7/F-1)", () => {
+  test("the Void button opens a required-reason dialog and blocks empty submission", async ({ page }) => {
+    const token = await apiLoginToken(page);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    const orgsResponse = await page.request.get(`${apiUrl}/api/v1/auth/organisations/`, {
+      headers: auth,
+    });
+    test.expect(orgsResponse.ok()).toBeTruthy();
+    const orgs = (await orgsResponse.json()) as Array<{ org: { id: string } }>;
+    const orgId = orgs[0]?.org.id;
+    test.expect(orgId).toBeTruthy();
+
+    const listResponse = await page.request.get(
+      `${apiUrl}/api/v1/${orgId}/invoicing/documents/`,
+      { headers: auth }
+    );
+    const listBody = (await listResponse.json()) as {
+      results: Array<{ id: string; status: string }>;
+    };
+    test.skip(!listBody.results?.length, "org has no documents to void against");
+
+    const target = listBody.results.find((d) => d.status !== "VOID");
+    test.skip(!target, "only VOID documents exist");
+
+    await page.goto("/login");
+    await page.locator("input[type='email']").fill(
+      process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
+    );
+    await page.locator("input[type='password']").fill(
+      process.env.E2E_DEMO_PASSWORD ?? "demo1234"
+    );
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });
+
+    // Client-side navigation to the detail page
+    await page.getByRole("link", { name: /^Invoices$/ }).click();
+    await expect(page).toHaveURL(/\/invoices\/?$/);
+    await page.locator("table tbody tr a").first().click();
+    await expect(page).toHaveURL(/\/invoices\//, { timeout: 30000 });
+
+    // Void opens the dialog (never a bare mutation — P7/F-1)
+    await page.getByRole("button", { name: /^void$/i }).click();
+    const reasonField = page.getByLabel(/reason for voiding/i);
+    await expect(reasonField).toBeVisible({ timeout: 15000 });
+
+    // The confirm button is disabled without a reason
+    const confirm = page.getByRole("button", { name: /void invoice/i });
+    await expect(confirm).toBeDisabled();
+
+    // Typing a reason enables it; Cancel closes without any API call
+    await reasonField.fill("e2e: dialog check");
+    await expect(confirm).toBeEnabled();
+    await page.getByRole("button", { name: /cancel/i }).click();
+    await expect(reasonField).toHaveCount(0);
+  });
+});
