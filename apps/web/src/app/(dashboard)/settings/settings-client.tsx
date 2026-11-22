@@ -24,7 +24,7 @@ import {
  */
 
 export function SettingsClient() {
-  const { currentOrg, user } = useAuth();
+  const { currentOrg, user, isLoading: authLoading } = useAuth();
   const orgId = currentOrg?.id ?? null;
 
   const { data: org, isLoading, isError } = useOrganisation(orgId);
@@ -45,6 +45,33 @@ export function SettingsClient() {
     setGstNumber(org?.gst_reg_number ?? "");
     setGstDate(org?.gst_reg_date ?? "");
   }, [org?.gst_reg_number, org?.gst_reg_date]);
+
+  // P7/F-12: an authenticated user with no organisation is not a load
+  // failure — a disabled query reports isLoading=false and the old
+  // `isError || !org` branch rendered "Failed to load settings" for a
+  // legitimately org-less user.
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-24 text-text-secondary">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        <span>Loading settings…</span>
+      </div>
+    );
+  }
+
+  if (!currentOrg) {
+    return (
+      <Card className="border-border bg-carbon">
+        <CardContent className="flex flex-col items-center gap-3 py-16">
+          <Building className="h-8 w-8 text-accent-secondary" />
+          <p className="font-medium text-text-primary">No organisation selected</p>
+          <p className="text-sm text-text-secondary">
+            Create or select an organisation to manage its settings.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isLoading) {
     return (

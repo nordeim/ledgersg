@@ -119,7 +119,8 @@ export function Shell({ children }: ShellProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-1" aria-label="Main navigation">
+        {/* P7/F-16: id matches the mobile toggle's aria-controls. */}
+        <nav id="main-navigation" className="p-4 space-y-1" aria-label="Main navigation">
           {navItems.map((item) => {
             const isActive = isActiveRoute(item.href);
             return (
@@ -202,10 +203,10 @@ export function Shell({ children }: ShellProps) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-text-primary truncate">
-                {user?.full_name || "Demo User"}
+                {user?.full_name || "Member"}
               </p>
               <p className="text-xs text-text-muted font-mono truncate">
-                {user?.email || "user@example.com"}
+                {user?.email || ""}
               </p>
             </div>
             {/* Session end affordance (P4/E-1): the persisted session needs
@@ -256,14 +257,15 @@ export function Shell({ children }: ShellProps) {
 
           {/* Right Actions */}
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden sm:flex rounded-sm border-border text-text-secondary"
+            {/* P7/F-17: was a dead button with no handler — now a real
+                link to the new-invoice form. */}
+            <Link
+              href="/invoices/new"
+              className="hidden sm:inline-flex h-9 items-center rounded-sm border border-border px-3 text-sm text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
             >
               <Receipt className="h-4 w-4 mr-2" />
               New Invoice
-            </Button>
+            </Link>
           </div>
         </header>
 

@@ -132,6 +132,18 @@ describe("InvoiceDetailClient (real data)", () => {
     vi.mocked(invoiceHooks.useSendInvoice).mockReturnValue(
       mockMutation() as unknown as ReturnType<typeof invoiceHooks.useSendInvoice>
     );
+    vi.mocked(invoiceHooks.useInvoicePDF).mockReturnValue(
+      mockMutation() as unknown as ReturnType<typeof invoiceHooks.useInvoicePDF>
+    );
+    vi.mocked(invoiceHooks.useSendInvoiceNow).mockReturnValue(
+      mockMutation() as unknown as ReturnType<typeof invoiceHooks.useSendInvoiceNow>
+    );
+    vi.mocked(invoiceHooks.useInvoiceNowStatus).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof invoiceHooks.useInvoiceNowStatus>);
   });
 
   it("renders the real document number, contact and status from useInvoice", async () => {
@@ -252,5 +264,175 @@ describe("InvoiceDetailClient (real data)", () => {
     await userEvent.click(button);
 
     await waitFor(() => expect(approve.mutate).toHaveBeenCalled());
+  });
+});
+
+describe("InvoiceDetailClient — void flow (P7/F-1, F-8)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(invoiceHooks.useApproveInvoice).mockReturnValue(
+      mockMutation() as unknown as ReturnType<typeof invoiceHooks.useApproveInvoice>
+    );
+    vi.mocked(invoiceHooks.useSendInvoice).mockReturnValue(
+      mockMutation() as unknown as ReturnType<typeof invoiceHooks.useSendInvoice>
+    );
+  });
+
+  async function renderApproved() {
+    vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
+      data: mockDetail({ status: "APPROVED" }),
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+    const voidMutation = mockMutation();
+    vi.mocked(invoiceHooks.useVoidInvoice).mockReturnValue(
+      voidMutation as unknown as ReturnType<typeof invoiceHooks.useVoidInvoice>
+    );
+    renderPage();
+    await screen.findAllByText("INV-000042");
+    return voidMutation;
+  }
+
+  it("opens a reason dialog when Void is clicked (never a bare mutate)", async () => {
+    const voidMutation = await renderApproved();
+
+    await userEvent.click(screen.getByRole("button", { name: /void/i }));
+
+    // The dialog is open with a labelled reason field; the mutation has NOT
+    // fired yet (the pre-P7 page called mutate("") immediately — always a
+    // 400 because the backend requires a non-empty reason).
+    expect(await screen.findByLabelText(/reason for voiding/i)).toBeInTheDocument();
+    expect(voidMutation.mutate).not.toHaveBeenCalled();
+  });
+
+  it("blocks submission of an empty reason (client-side, native + message)", async () => {
+    const voidMutation = await renderApproved();
+
+    await userEvent.click(screen.getByRole("button", { name: /void/i }));
+    const confirm = await screen.findByRole("button", { name: /void invoice/i });
+    await userEvent.click(confirm);
+
+    // No API call without a reason.
+    expect(voidMutation.mutate).not.toHaveBeenCalled();
+  });
+
+  it("submits the typed reason to the void mutation", async () => {
+    const voidMutation = await renderApproved();
+
+    await userEvent.click(screen.getByRole("button", { name: /void/i }));
+    const reason = await screen.findByLabelText(/reason for voiding/i);
+    await userEvent.type(reason, "Wrong amount billed");
+    await userEvent.click(screen.getByRole("button", { name: /void invoice/i }));
+
+    await waitFor(() =>
+      expect(voidMutation.mutate).toHaveBeenCalledWith(
+        "Wrong amount billed",
+        expect.anything()
+      )
+    );
+    expect(voidMutation.mutate.mock.calls[0][0]).toBe("Wrong amount billed");
+  });
+
+  it("can cancel the void dialog without any API call", async () => {
+    const voidMutation = await renderApproved();
+
+    await userEvent.click(screen.getByRole("button", { name: /void/i }));
+    await userEvent.type(await screen.findByLabelText(/reason for voiding/i), "oops");
+    await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(voidMutation.mutate).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/reason for voiding/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("InvoiceDetailClient — PDF + InvoiceNow actions (P7/F-13)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(invoiceHooks.useApproveInvoice).mockReturnValue(
+      mockMutation() as unknown as ReturnType<typeof invoiceHooks.useApproveInvoice>
+    );
+    vi.mocked(invoiceHooks.useVoidInvoice).mockReturnValue(
+      mockMutation() as unknown as ReturnType<typeof invoiceHooks.useVoidInvoice>
+    );
+    vi.mocked(invoiceHooks.useSendInvoice).mockReturnValue(
+      mockMutation() as unknown as ReturnType<typeof invoiceHooks.useSendInvoice>
+    );
+    vi.mocked(invoiceHooks.useInvoiceNowStatus).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof invoiceHooks.useInvoiceNowStatus>);
+  });
+
+  it("exposes a PDF download that goes through the api-client blob path", async () => {
+    vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
+      data: mockDetail({ status: "APPROVED" }),
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+    const pdf = mockMutation();
+    vi.mocked(invoiceHooks.useInvoicePDF).mockReturnValue(
+      pdf as unknown as ReturnType<typeof invoiceHooks.useInvoicePDF>
+    );
+
+    renderPage();
+    const button = await screen.findByRole("button", { name: /^pdf$/i });
+    await userEvent.click(button);
+
+    expect(pdf.mutate).toHaveBeenCalled();
+  });
+
+  it("shows the InvoiceNow send action only for non-draft documents", async () => {
+    // DRAFT: no InvoiceNow button
+    vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
+      data: mockDetail({ status: "DRAFT", approved_at: null }),
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+    const sendNow = mockMutation();
+    vi.mocked(invoiceHooks.useSendInvoiceNow).mockReturnValue(
+      sendNow as unknown as ReturnType<typeof invoiceHooks.useSendInvoiceNow>
+    );
+
+    renderPage();
+    await screen.findAllByText("INV-000042");
+    expect(
+      screen.queryByRole("button", { name: /send via invoicenow/i })
+    ).not.toBeInTheDocument();
+
+    // APPROVED: the button fires the real transmission mutation
+    vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
+      data: mockDetail({ status: "APPROVED" }),
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+
+    renderPage();
+    const button = await screen.findByRole("button", { name: /send via invoicenow/i });
+    await userEvent.click(button);
+    expect(sendNow.mutate).toHaveBeenCalled();
+  });
+
+  it("surfaces a non-NOT_SENT InvoiceNow transmission status badge", async () => {
+    vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
+      data: mockDetail({ status: "APPROVED" }),
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+    vi.mocked(invoiceHooks.useInvoiceNowStatus).mockReturnValue({
+      data: { status: "DELIVERED", logs: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof invoiceHooks.useInvoiceNowStatus>);
+
+    renderPage();
+    expect(await screen.findByText(/invoicenow: delivered/i)).toBeInTheDocument();
   });
 });

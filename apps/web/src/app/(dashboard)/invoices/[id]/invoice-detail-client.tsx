@@ -16,12 +16,24 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/providers/auth-provider";
 import {
   useInvoice,
   useApproveInvoice,
   useVoidInvoice,
   useSendInvoice,
+  useInvoicePDF,
+  useSendInvoiceNow,
+  useInvoiceNowStatus,
 } from "@/hooks/use-invoices";
 
 /**
@@ -81,14 +93,62 @@ interface InvoiceDetailClientProps {
 }
 
 export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
-  const { currentOrg } = useAuth();
+  const { currentOrg, isLoading: authLoading } = useAuth();
   const orgId = currentOrg?.id ?? null;
 
   const { data: invoice, isLoading, isError } = useInvoice(orgId as string, id);
   const approveInvoice = useApproveInvoice(orgId as string, id);
   const voidInvoice = useVoidInvoice(orgId as string, id);
   const sendInvoice = useSendInvoice(orgId as string, id);
+  // P7/F-13: previously dead hooks — the backends are real (P3/D-2 PDF
+  // auth path; P5/C-2 InvoiceNow transmission), so the detail page now
+  // actually exposes them.
+  const downloadPdf = useInvoicePDF(orgId as string, id);
+  const sendInvoiceNow = useSendInvoiceNow(orgId as string, id);
+  const { data: invoiceNowStatus } = useInvoiceNowStatus(orgId as string, id);
   const [sending, setSending] = useState(false);
+
+  // P7/F-1: the void flow needs a REASON (the backend rejects an empty
+  // one — the pre-P7 page sent reason: "" and every void 400'd).
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidReasonTouched, setVoidReasonTouched] = useState(false);
+
+  // P7/F-12: an authenticated user with no organisation is not an error —
+  // disabled queries report isLoading=false, so guard explicitly before
+  // the query states (mirrors the P5 invoices list client).
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-24 text-text-secondary">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        <span>Loading…</span>
+      </div>
+    );
+  }
+
+  if (!currentOrg) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/invoices"
+            className="inline-flex h-10 w-10 items-center justify-center border border-border text-text-secondary hover:bg-surface"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </div>
+        <Card className="border-border bg-carbon">
+          <CardContent className="flex flex-col items-center gap-3 py-16">
+            <AlertTriangle className="h-8 w-8 text-accent-secondary" />
+            <p className="font-medium text-text-primary">No organisation selected</p>
+            <p className="text-sm text-text-secondary">
+              Select an organisation to view its invoices.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -136,6 +196,9 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
 
   const isDraft = invoice.status === "DRAFT";
   const isVoid = invoice.status === "VOID";
+  // InvoiceNow needs an approved (ledger-posted) document (P5/C-2: the
+  // transmission posts against the real document).
+  const canSendInvoiceNow = !isDraft && !isVoid;
   const canSend =
     !isDraft &&
     !isVoid &&
@@ -151,13 +214,34 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
     if (!invoice.contact.email) return;
     setSending(true);
     try {
+      // P7/F-6: the backend expects a LIST of recipient addresses — a bare
+      // string passes the truthiness check but crashes the email task
+      // (silent failure while the UI toasts success).
       await sendInvoice.mutateAsync({
-        to: invoice.contact.email,
+        to: [invoice.contact.email],
         message: invoice.notes || undefined,
       });
+    } catch {
+      // onError already surfaces the toast (P7/F-18: no unhandled
+      // rejection — mutateAsync rethrows).
     } finally {
       setSending(false);
     }
+  };
+
+  const openVoidDialog = () => {
+    setVoidReason("");
+    setVoidReasonTouched(false);
+    setVoidDialogOpen(true);
+  };
+
+  const confirmVoid = () => {
+    setVoidReasonTouched(true);
+    const reason = voidReason.trim();
+    if (!reason) return; // client-side gate; the backend enforces it too
+    voidInvoice.mutate(reason, {
+      onSuccess: () => setVoidDialogOpen(false),
+    });
   };
 
   return (
@@ -182,6 +266,11 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
               >
                 {formatStatus(invoice.status)}
               </Badge>
+              {invoiceNowStatus?.status && invoiceNowStatus.status !== "NOT_SENT" && (
+                <Badge variant="outline" className="bg-surface text-text-secondary">
+                  InvoiceNow: {formatStatus(invoiceNowStatus.status)}
+                </Badge>
+              )}
               <span className="text-sm text-text-secondary flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 Due {formatDate(invoice.due_date)}
@@ -209,7 +298,7 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
           {!isVoid && (
             <Button
               variant="outline"
-              onClick={() => voidInvoice.mutate("")}
+              onClick={openVoidDialog}
               disabled={voidInvoice.isPending}
               className="gap-2 text-alert hover:text-alert hover:bg-alert/10"
             >
@@ -234,6 +323,36 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
               <Send className="h-4 w-4" />
             )}
             Send
+          </Button>
+
+          {canSendInvoiceNow && (
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => sendInvoiceNow.mutate()}
+              disabled={sendInvoiceNow.isPending}
+            >
+              {sendInvoiceNow.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              Send via InvoiceNow
+            </Button>
+          )}
+
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => downloadPdf.mutate()}
+            disabled={downloadPdf.isPending}
+          >
+            {downloadPdf.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4" />
+            )}
+            PDF
           </Button>
 
           <Button
@@ -405,6 +524,67 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Void reason dialog (P7/F-1) — the backend requires a non-empty
+          reason; the pre-P7 page sent an empty one and every void 400'd. */}
+      <Dialog open={voidDialogOpen} onOpenChange={setVoidDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Void invoice {invoice.document_number}?</DialogTitle>
+            <DialogDescription>
+              Voiding posts a reversing journal entry and releases any
+              payment allocations. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label
+              htmlFor="void-reason"
+              className="text-sm font-medium text-text-primary"
+            >
+              Reason for voiding
+            </label>
+            <Textarea
+              id="void-reason"
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="e.g. Wrong amount billed"
+              required
+              aria-required="true"
+              aria-invalid={voidReasonTouched && !voidReason.trim()}
+              aria-describedby={
+                voidReasonTouched && !voidReason.trim()
+                  ? "void-reason-error"
+                  : undefined
+              }
+            />
+            {voidReasonTouched && !voidReason.trim() && (
+              <p id="void-reason-error" className="text-sm text-alert" role="alert">
+                A reason is required to void this invoice.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setVoidDialogOpen(false)}
+              disabled={voidInvoice.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={confirmVoid}
+              disabled={voidInvoice.isPending || !voidReason.trim()}
+              className="gap-2 text-alert hover:text-alert hover:bg-alert/10"
+            >
+              {voidInvoice.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
+              Void invoice
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

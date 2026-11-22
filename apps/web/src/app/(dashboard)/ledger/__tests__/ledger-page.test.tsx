@@ -6,17 +6,22 @@
  * error / empty / data states.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LedgerClient } from "../ledger-client";
 import * as ledgerHooks from "@/hooks/use-ledger";
 
-vi.mock("@/providers/auth-provider", () => ({
-  useAuth: () => ({
-    currentOrg: { id: "org-123", name: "Test Org" },
+// P7/F-12: hoisted mutable auth state so the no-org case is testable.
+const { __testAuth } = vi.hoisted(() => ({
+  __testAuth: {
+    currentOrg: { id: "org-123", name: "Test Org" } as { id: string; name: string } | null,
     isLoading: false,
-  }),
+  },
+}));
+
+vi.mock("@/providers/auth-provider", () => ({
+  useAuth: () => __testAuth,
 }));
 
 vi.mock("@/hooks/use-ledger");
@@ -125,5 +130,33 @@ describe("LedgerClient (real data)", () => {
     renderPage();
 
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
+  });
+});
+
+describe("LedgerClient — no-organisation state (P7/F-12)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    __testAuth.currentOrg = null;
+    __testAuth.isLoading = false;
+  });
+
+  afterEach(() => {
+    __testAuth.currentOrg = { id: "org-123", name: "Test Org" };
+  });
+
+  it("renders the no-org state for an org-less user (never a fake empty ledger)", () => {
+    // Disabled query: isLoading=false, isError=false, data=undefined — the
+    // pre-P7 client fell through to "No journal entries yet".
+    vi.mocked(ledgerHooks.useLedger).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof ledgerHooks.useLedger>);
+
+    renderPage();
+
+    expect(screen.getByText(/no organisation selected/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no journal entries yet/i)).not.toBeInTheDocument();
   });
 });

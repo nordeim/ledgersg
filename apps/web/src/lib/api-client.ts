@@ -141,10 +141,28 @@ async function request<T>(
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+
+    // P7/F-7: surface the backend's real error messages. The backend
+    // envelope (wrap_response / custom_exception_handler) is
+    // {"error": {"code", "message", "details"}}; DRF serializer errors are
+    // {"field": ["msg"]}. The old reader (message/detail at the top level)
+    // matched neither shape, so every business-rule failure surfaced as the
+    // generic "Request failed: Bad Request" — hiding messages like
+    // "Void reason is required." from users.
+    const envelope = (errorData as { error?: { message?: string; details?: Record<string, string[]> } })
+      .error;
+    const drfFieldErrors = extractDrfFieldErrors(errorData);
+    const message =
+      envelope?.message ||
+      (errorData as { message?: string }).message ||
+      (errorData as { detail?: string }).detail ||
+      drfFieldErrors ||
+      `Request failed: ${response.statusText}`;
+
     throw new ApiError(
       response.status,
-      errorData.message || errorData.detail || `Request failed: ${response.statusText}`,
-      errorData.errors
+      message,
+      envelope?.details ?? (errorData as { errors?: Record<string, string[]> }).errors
     );
   }
 
@@ -154,6 +172,21 @@ async function handleResponse<T>(response: Response): Promise<T> {
   }
 
   return response.json();
+}
+
+/**
+ * Extract the first field error from a DRF serializer error body
+ * ({"field": ["msg"], ...}) as "field: msg"; returns "" when the body is
+ * not a field-error shape.
+ */
+function extractDrfFieldErrors(errorData: unknown): string {
+  if (typeof errorData !== "object" || errorData === null) return "";
+  for (const [key, value] of Object.entries(errorData as Record<string, unknown>)) {
+    if (Array.isArray(value) && typeof value[0] === "string") {
+      return `${key}: ${value[0]}`;
+    }
+  }
+  return "";
 }
 
 /**

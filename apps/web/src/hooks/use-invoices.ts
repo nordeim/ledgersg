@@ -15,7 +15,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, endpoints } from "@/lib/api-client";
 import { toast } from "@/hooks/use-toast";
-import type { Invoice, InvoiceInput } from "@/shared/schemas/invoice";
+import type { Invoice } from "@/shared/schemas/invoice";
 import type { DocumentPayload } from "@/lib/invoice-submit";
 
 /**
@@ -183,36 +183,10 @@ export function useCreateInvoice(orgId: string) {
   });
 }
 
-// Update invoice (only for DRAFT status)
-export function useUpdateInvoice(orgId: string, invoiceId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: Partial<InvoiceInput>) => {
-      const response = await api.patch<Invoice>(
-        endpoints.invoices(orgId).detail(invoiceId),
-        data
-      );
-      return response;
-    },
-    onSuccess: () => {
-      toast({
-        title: "Invoice updated",
-        description: "Your invoice has been updated successfully.",
-        variant: "success",
-      });
-      queryClient.invalidateQueries({ queryKey: [orgId, "invoices", invoiceId] });
-      queryClient.invalidateQueries({ queryKey: [orgId, "invoices"] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to update invoice",
-        description: error.message || "An error occurred while updating the invoice.",
-        variant: "error",
-      });
-    },
-  });
-}
+// Update-invoice hook removed (P7/F-13): it was dead code wired to the
+// orphaned mock-era edit route; the backend update contract only accepts
+// due_date/reference/notes (no line editing). The real edit flow is
+// registered deferred debt — do not re-add a hook that pretends to edit.
 
 // Approve invoice (DRAFT -> APPROVED)
 export function useApproveInvoice(orgId: string, invoiceId: string) {
@@ -268,6 +242,9 @@ export function useVoidInvoice(orgId: string, invoiceId: string) {
       queryClient.invalidateQueries({ queryKey: [orgId, "invoices", invoiceId] });
       queryClient.invalidateQueries({ queryKey: [orgId, "invoices"] });
       queryClient.invalidateQueries({ queryKey: [orgId, "dashboard"] });
+      // P7/F-8: voiding posts the reversal journal entry — the ledger page
+      // must refresh too (approve already invalidated it; void did not).
+      queryClient.invalidateQueries({ queryKey: [orgId, "ledger"] });
     },
     onError: (error: Error) => {
       toast({
@@ -284,7 +261,13 @@ export function useSendInvoice(orgId: string, invoiceId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (emailData: { to: string; cc?: string; message?: string }) => {
+    mutationFn: async (emailData: {
+      /** Recipient addresses — a LIST (P7/F-6): the backend passes them
+       * straight to the email task; a bare string crashes it silently. */
+      to: string[];
+      cc?: string[];
+      message?: string;
+    }) => {
       const response = await api.post<Invoice>(
         endpoints.invoices(orgId).send(invoiceId),
         emailData

@@ -6,23 +6,30 @@
  * through the update mutation, and drives the GST registration state.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SettingsClient } from "../settings-client";
 import * as orgHooks from "@/hooks/use-organisation";
 
-vi.mock("@/providers/auth-provider", () => ({
-  useAuth: () => ({
-    currentOrg: { id: "org-123", name: "Ledger Demo Pte Ltd" },
+// P7/F-12: hoisted mutable auth state so the no-org case is testable.
+const { __testAuth } = vi.hoisted(() => ({
+  __testAuth: {
+    currentOrg: { id: "org-123", name: "Ledger Demo Pte Ltd" } as
+      | { id: string; name: string }
+      | null,
     user: {
       id: "user-1",
       email: "demo@ledgersg.sg",
       full_name: "Demo User",
     },
     isLoading: false,
-  }),
+  },
+}));
+
+vi.mock("@/providers/auth-provider", () => ({
+  useAuth: () => __testAuth,
 }));
 
 vi.mock("@/hooks/use-organisation");
@@ -195,5 +202,49 @@ describe("SettingsClient (real data)", () => {
     renderPage();
 
     expect(await screen.findByText(/failed to load/i)).toBeInTheDocument();
+  });
+});
+
+describe("SettingsClient — no-organisation state (P7/F-12)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    __testAuth.currentOrg = null;
+    __testAuth.isLoading = false;
+  });
+
+  afterEach(() => {
+    __testAuth.currentOrg = { id: "org-123", name: "Ledger Demo Pte Ltd" };
+  });
+
+  it("renders the no-org state for an org-less user (never 'Failed to load settings')", () => {
+    // Disabled query: isLoading=false, isError=false — the pre-P7
+    // `isError || !org` branch rendered a load FAILURE for an org-less user.
+    vi.mocked(orgHooks.useOrganisation).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof orgHooks.useOrganisation>);
+    vi.mocked(orgHooks.useUpdateOrganisation).mockReturnValue(
+      mockMutation() as unknown as ReturnType<typeof orgHooks.useUpdateOrganisation>
+    );
+    vi.mocked(orgHooks.useGstRegistration).mockReturnValue(
+      mockMutation() as unknown as ReturnType<typeof orgHooks.useGstRegistration>
+    );
+    vi.mocked(orgHooks.useGstDeregistration).mockReturnValue(
+      mockMutation() as unknown as ReturnType<typeof orgHooks.useGstDeregistration>
+    );
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsClient />
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByText(/no organisation selected/i)).toBeInTheDocument();
+    expect(screen.queryByText(/failed to load settings/i)).not.toBeInTheDocument();
   });
 });

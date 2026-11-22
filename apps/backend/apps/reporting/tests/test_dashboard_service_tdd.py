@@ -1461,3 +1461,36 @@ class TestEdgeCases:
         # Assert - Revenue should not include closed period invoice
         # (Depends on implementation respecting is_open=False)
         assert isinstance(result["revenue_ytd"], str)
+
+    @pytest.mark.django_db
+    def test_outstanding_payables_includes_partially_paid_bills(
+        self,
+        test_org,
+        test_supplier,
+    ):
+        """
+        P7/F-9: a PARTIALLY_PAID purchase bill is still outstanding for its
+        remainder — the pre-P7 status filter (APPROVED/OVERDUE only) made it
+        vanish from outstanding payables entirely, understating liabilities
+        (receivables correctly included PARTIALLY_PAID; P6/F-4 made the
+        state reachable via second allocations).
+        """
+        InvoiceDocument.objects.create(
+            id=uuid4(),
+            org=test_org,
+            document_type="PURCHASE_INVOICE",
+            document_number="PO-P7-001",
+            contact=test_supplier,
+            issue_date=date(2024, 1, 5),
+            due_date=date(2024, 2, 5),
+            status="PARTIALLY_PAID",
+            total_excl=Decimal("4587.1559"),
+            gst_total=Decimal("412.8441"),
+            total_incl=Decimal("5000.0000"),
+            amount_paid=Decimal("2000.0000"),
+        )
+
+        service = DashboardService()
+        result = service.query_outstanding_payables(str(test_org.id))
+
+        assert result == Decimal("3000.0000")  # 5000 - 2000 paid

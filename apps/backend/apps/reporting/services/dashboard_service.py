@@ -252,14 +252,20 @@ class DashboardService:
         return money(max(result.get("total") or Decimal("0.0000"), Decimal("0.0000")))
 
     def query_outstanding_payables(self, org_id: str) -> Decimal:
-        """Query outstanding payables from unpaid purchase invoices."""
+        """Query outstanding payables from unpaid purchase invoices.
+
+        P7/F-9: PARTIALLY_PAID bills are included — a partially-paid bill
+        still owes its remainder, and the amount_paid__lt filter handles
+        the arithmetic (mirrors receivables; the pre-P7 status filter made
+        partially-paid bills vanish from payables entirely).
+        """
         org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
 
         result = (
             InvoiceDocument.objects.filter(
                 org_id=org_uuid,
                 document_type__in=["PURCHASE_INVOICE", "PURCHASE_DEBIT_NOTE"],
-                status__in=["APPROVED", "OVERDUE"],
+                status__in=["APPROVED", "PARTIALLY_PAID", "OVERDUE"],
             )
             .filter(amount_paid__lt=F("total_incl"))
             .aggregate(total=Sum(F("total_incl") - Coalesce(F("amount_paid"), Decimal("0.0000"))))

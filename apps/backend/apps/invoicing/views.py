@@ -577,20 +577,23 @@ class InvoiceSendView(APIView):
 
     @wrap_response
     def post(self, request, org_id: str, document_id: str) -> Response:
-        """Send invoice email."""
+        """Send invoice email.
+
+        P7/F-6: recipients are validated and NORMALIZED here — a single
+        string `to` becomes a one-element list (the pre-P7 path passed the
+        string through, the truthiness check kept it a string, and the
+        Celery task crashed building EmailMultiAlternatives(to=<string>) —
+        a silent permanent failure after the API had returned success).
+        """
         from uuid import UUID
         from apps.invoicing.services import DocumentService
+        from apps.invoicing.serializers import InvoiceSendSerializer
 
-        # Validate email data
-        email_data = {
-            "to": request.data.get("to", []),
-            "cc": request.data.get("cc", []),
-            "bcc": request.data.get("bcc", []),
-            "message": request.data.get("message", ""),
-        }
+        serializer = InvoiceSendSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         result = DocumentService.send_email(
-            org_id=UUID(str(org_id)), document_id=UUID(str(document_id)), email_data=email_data
+            org_id=UUID(str(org_id)), document_id=UUID(str(document_id)), email_data=serializer.validated_data
         )
 
         return Response(result, status=status.HTTP_200_OK)

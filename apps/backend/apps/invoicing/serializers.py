@@ -219,3 +219,45 @@ class DocumentSummarySerializer(serializers.Serializer):
     by_type = serializers.DictField(child=serializers.IntegerField())
     total_outstanding = serializers.DecimalField(max_digits=15, decimal_places=2)
     overdue_count = serializers.IntegerField()
+
+
+class RecipientListField(serializers.ListField):
+    """Email list that also accepts a single bare string (normalized to a
+    one-element list — P7/F-6: the email task requires a list; a string
+    crashed it silently)."""
+
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            data = [data]
+        return super().to_internal_value(data)
+
+
+class InvoiceSendSerializer(serializers.Serializer):
+    """Serializer for the send-invoice-email payload (P7/F-6).
+
+    Recipients are email-validated and NORMALIZED: a single string is
+    accepted and becomes a one-element list (the email task requires a
+    list — a bare string crashed it silently while the API had already
+    returned success).
+    """
+
+    to = RecipientListField(
+        child=serializers.EmailField(), required=False, allow_empty=True
+    )
+    cc = RecipientListField(
+        child=serializers.EmailField(), required=False, allow_empty=True
+    )
+    bcc = RecipientListField(
+        child=serializers.EmailField(), required=False, allow_empty=True
+    )
+    message = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        # `to` may be omitted entirely — the service falls back to the
+        # contact's email — but an explicitly EMPTY list must not silently
+        # drop every recipient.
+        if "to" in data and not data["to"]:
+            raise serializers.ValidationError(
+                {"to": "Provide at least one recipient, or omit 'to' to use the contact's email."}
+            )
+        return data

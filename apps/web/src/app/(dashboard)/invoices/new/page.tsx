@@ -4,9 +4,14 @@ import { useRouter } from "next/navigation";
 import { InvoiceFormWrapper } from "@/components/invoice/invoice-form-wrapper";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/providers/auth-provider";
 
 export default function NewInvoicePage() {
   const router = useRouter();
+  // P7/F-14: the GST columns/tax breakdown must reflect the organisation's
+  // real registration state — a hardcoded true billed non-GST orgs as if
+  // registered.
+  const { currentOrg } = useAuth();
 
   const handleSuccess = (invoiceId: string) => {
     router.push(`/invoices/${invoiceId}`);
@@ -28,7 +33,7 @@ export default function NewInvoicePage() {
         </div>
       </div>
       <InvoiceFormWrapper
-        isGSTRegistered={true}
+        isGSTRegistered={!!currentOrg?.gst_registered}
         onSuccess={handleSuccess}
       />
     </div>
