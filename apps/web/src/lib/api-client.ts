@@ -383,9 +383,21 @@ export const endpoints = {
 
   // GST (org-scoped) — tax codes support ?effective_on=YYYY-MM-DD (P2) to
   // return the rate rows in force on a document date (P3/D-3 wiring).
+  // P8/R-7: the full F5 return lifecycle (list / detail / generate /
+  // file) joins the client.
   gst: (orgId: string) => ({
     taxCodes: `/api/v1/${orgId}/gst/tax-codes/`,
     calculate: `/api/v1/${orgId}/gst/calculate/`,
+    returns: `/api/v1/${orgId}/gst/returns/`,
+    returnDetail: (id: string) => `/api/v1/${orgId}/gst/returns/${id}/`,
+    returnFile: (id: string) => `/api/v1/${orgId}/gst/returns/${id}/file/`,
+  }),
+
+  // Reports (org-scoped) — P8: financial statements (P&L / balance sheet /
+  // trial balance) and aged receivables/payables.
+  reports: (orgId: string) => ({
+    financial: `/api/v1/${orgId}/reports/financial/`,
+    aged: `/api/v1/${orgId}/reports/aged/`,
   }),
 
   // Fiscal (org-scoped)
