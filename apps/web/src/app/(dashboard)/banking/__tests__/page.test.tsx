@@ -36,6 +36,9 @@ vi.mock("@/hooks/use-banking", () => ({
   // P9/B-4: the accounts tab renders the BankAccountDialog — its hooks
   // need stubs even in page-level tests that never open the dialog.
   useCreateBankAccount: vi.fn().mockReturnValue({ mutate: vi.fn(), isPending: false }),
+  // P10/M-6: the dialog's edit mode + the deactivate confirm.
+  useUpdateBankAccount: vi.fn().mockReturnValue({ mutate: vi.fn(), isPending: false }),
+  useDeactivateBankAccount: vi.fn().mockReturnValue({ mutateAsync: vi.fn(), isPending: false }),
   useBankAccounts: vi.fn(),
   usePayments: vi.fn(),
   useBankTransactions: vi.fn(),

@@ -7,10 +7,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Landmark, CreditCard, ArrowLeftRight, Loader2, AlertTriangle, Building2, X, Upload } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Plus, Landmark, CreditCard, ArrowLeftRight, Loader2, AlertTriangle, Building2, X, Upload, Pencil, UserX } from "lucide-react";
 import { useAuth } from "@/providers/auth-provider";
-import { useBankAccounts } from "@/hooks/use-banking";
-import { formatOpeningBalance } from "@/shared/schemas/bank-account";
+import { toast } from "@/hooks/use-toast";
+import { useBankAccounts, useDeactivateBankAccount } from "@/hooks/use-banking";
+import { formatOpeningBalance, type BankAccount } from "@/shared/schemas/bank-account";
 import { PaymentList } from "./components/payment-list";
 import { PaymentFilters, type PaymentFilters as PaymentFiltersType } from "./components/payment-filters";
 import { ReceivePaymentForm } from "./components/receive-payment-form";
@@ -130,6 +139,10 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
   const { currentOrg } = useAuth();
   const orgId = currentOrg?.id ?? null;
   const [showAccountDialog, setShowAccountDialog] = useState(false);
+  // P10/M-6: row-level corrections — Edit opens the dialog prefilled;
+  // Deactivate is confirm-gated (the contacts pattern).
+  const [editing, setEditing] = useState<BankAccount | null>(null);
+  const [deactivating, setDeactivating] = useState<BankAccount | null>(null);
 
   let content: React.ReactNode;
   if (isLoading) {
@@ -201,9 +214,9 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
           {accountsData.results.map((account) => (
             <div
               key={account.id}
-              className="flex items-center justify-between p-4 rounded-sm border border-border bg-surface hover:border-accent-primary/50 transition-colors"
+              className="flex items-center justify-between gap-4 p-4 rounded-sm border border-border bg-surface hover:border-accent-primary/50 transition-colors"
             >
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-medium text-text-primary">
                     {account.account_name}
@@ -234,6 +247,30 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
                 </div>
                 <div className="text-xs text-text-muted">{account.currency}</div>
               </div>
+              <div className="flex flex-col sm:flex-row gap-1 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-sm border-border h-8"
+                  aria-label={`Edit ${account.account_name}`}
+                  onClick={() => setEditing(account)}
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden />
+                  Edit
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-sm border-border h-8 text-alert hover:text-alert"
+                  aria-label={`Deactivate ${account.account_name}`}
+                  onClick={() => setDeactivating(account)}
+                >
+                  <UserX className="h-3.5 w-3.5" aria-hidden />
+                  Deactivate
+                </Button>
+              </div>
             </div>
           ))}
         </div>
@@ -243,17 +280,94 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
   }
 
   // The dialog is reachable from every branch (the empty state's CTA too).
+  // The key forces a remount when switching edit targets so the prefill
+  // initializer reruns with the right account.
   return (
     <>
       {content}
       {orgId && (
         <BankAccountDialog
-          open={showAccountDialog}
-          onOpenChange={setShowAccountDialog}
+          key={editing?.id ?? "new"}
+          open={showAccountDialog || !!editing}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowAccountDialog(false);
+              setEditing(null);
+            }
+          }}
           orgId={orgId}
+          account={editing}
         />
       )}
+
+      {/* P10/M-6: deactivate confirm (the contacts pattern) */}
+      <Dialog
+        open={!!deactivating}
+        onOpenChange={(open) => !open && setDeactivating(null)}
+      >
+        <DialogContent className="border-border bg-carbon rounded-sm max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl text-text-primary">
+              Deactivate bank account
+            </DialogTitle>
+            <DialogDescription>
+              Deactivate this account? {deactivating?.account_name} will be
+              hidden from the accounts list and payment forms; existing
+              transactions and reconciliations keep their history.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-sm border-border"
+              onClick={() => setDeactivating(null)}
+            >
+              Cancel
+            </Button>
+            <DeactivateAccountButton
+              orgId={orgId ?? ""}
+              accountId={deactivating?.id ?? ""}
+              onDone={() => setDeactivating(null)}
+            />
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+  );
+}
+
+function DeactivateAccountButton({
+  orgId,
+  accountId,
+  onDone,
+}: {
+  orgId: string;
+  accountId: string;
+  onDone: () => void;
+}) {
+  const deactivate = useDeactivateBankAccount(orgId, accountId);
+  return (
+    <Button
+      type="button"
+      className="rounded-sm bg-alert text-white hover:bg-alert/90"
+      disabled={deactivate.isPending}
+      onClick={() => {
+        deactivate.mutateAsync().then(onDone).catch((err) => {
+          toast({
+            title: "Deactivate failed",
+            description: err instanceof Error ? err.message : "Please try again.",
+            variant: "error",
+          });
+        });
+      }}
+    >
+      {deactivate.isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+      ) : (
+        "Deactivate"
+      )}
+    </Button>
   );
 }
 
