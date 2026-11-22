@@ -1,15 +1,20 @@
 import { describe, test, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { PaymentList } from "../components/payment-list";
-import { usePayments } from "@/hooks/use-banking";
+import { usePayments, useVoidPayment } from "@/hooks/use-banking";
 import type { Payment } from "@/shared/schemas";
 
 // Mock the hooks
 vi.mock("@/hooks/use-banking", () => ({
   usePayments: vi.fn(),
+  useVoidPayment: vi.fn(),
 }));
 
 const mockUsePayments = usePayments as Mock;
+const mockUseVoidPayment = useVoidPayment as Mock;
+
+const mockVoidMutate = vi.fn();
 
 const createMockPayment = (id: string, overrides: Partial<Payment> = {}): Payment => ({
   id,
@@ -42,6 +47,8 @@ describe("PaymentList", () => {
   const orgId = "550e8400-e29b-41d4-a716-446655440001";
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseVoidPayment.mockReturnValue({ mutate: mockVoidMutate, isPending: false });
     vi.clearAllMocks();
   });
 
@@ -176,4 +183,42 @@ describe("PaymentList", () => {
 
     expect(screen.getByText("No made payments match your filters.")).toBeInTheDocument();
   });
+  test("P9/B-6: voiding a payment asks for a reason and submits through useVoidPayment", async () => {
+    mockUsePayments.mockReturnValue({
+      data: { results: [createMockPayment("pay-1")], count: 1 },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(<PaymentList orgId="org-1" />);
+
+    // The Void action appears on a live payment
+    fireEvent.click(screen.getByRole("button", { name: /^void$/i }));
+
+    // Empty reason: the confirm stays disabled (the backend requires it)
+    const confirm = screen.getByRole("button", { name: /void payment/i });
+    expect(confirm).toBeDisabled();
+
+    const reasonInput = screen.getByLabelText(/void pay-2024/i);
+    await userEvent.type(reasonInput, "duplicated entry");
+    expect(confirm).toBeEnabled();
+
+    fireEvent.click(confirm);
+    expect(mockVoidMutate).toHaveBeenCalledWith({ reason: "duplicated entry" });
+  });
+
+  test("P9/B-6: no Void action on an already-voided payment", () => {
+    mockUsePayments.mockReturnValue({
+      data: { results: [createMockPayment("pay-2", { is_voided: true })], count: 1 },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(<PaymentList orgId="org-1" />);
+
+    expect(screen.queryByRole("button", { name: /^void$/i })).not.toBeInTheDocument();
+  });
+
 });

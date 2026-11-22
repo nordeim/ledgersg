@@ -14,6 +14,8 @@ import type { BankTransaction } from "@/shared/schemas";
 // Mock the hook
 vi.mock("@/hooks/use-banking", () => ({
   useBankTransactions: vi.fn(),
+  // P9/B-6: the per-row unreconcile wrapper
+  useUnreconcileTransaction: vi.fn().mockReturnValue({ mutate: vi.fn(), isPending: false }),
 }));
 
 const mockUseBankTransactions = useBankTransactions as Mock;

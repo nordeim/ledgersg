@@ -34,6 +34,11 @@ vi.mock("@/hooks/use-banking", () => ({
     mutate: vi.fn(),
     isPending: false,
   }),
+  // P9/B-6: the transaction list's per-row unreconcile wrapper
+  useUnreconcileTransaction: vi.fn().mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
 }));
 vi.mock("@/hooks/use-accounts", () => ({
   useAccounts: vi.fn().mockReturnValue({ data: [], isLoading: false }),

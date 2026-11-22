@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, Upload, RefreshCw } from "lucide-react";
 import { useBankTransactions } from "@/hooks/use-banking";
 import { TransactionRow } from "./transaction-row";
+import { useUnreconcileTransaction } from "@/hooks/use-banking";
 import type { BankTransaction } from "@/shared/schemas";
 
 interface TransactionListProps {
@@ -111,13 +112,35 @@ export function TransactionList({
       
       <div className="space-y-3">
         {data.results.map((transaction) => (
-          <TransactionRow
+          <TransactionRowWrapper
             key={transaction.id}
+            orgId={orgId}
             transaction={transaction}
             onReconcile={onTransactionClick}
           />
         ))}
       </div>
     </div>
+  );
+}
+
+/** P9/B-6: the per-row unreconcile action (hooks cannot live in a map
+ * callback — the wrapper owns the mutation). */
+function TransactionRowWrapper({
+  orgId,
+  transaction,
+  onReconcile,
+}: {
+  orgId: string;
+  transaction: BankTransaction;
+  onReconcile?: (transaction: BankTransaction) => void;
+}) {
+  const unreconcile = useUnreconcileTransaction(orgId, transaction.id);
+  return (
+    <TransactionRow
+      transaction={transaction}
+      onReconcile={onReconcile}
+      onUnreconcile={() => unreconcile.mutate()}
+    />
   );
 }

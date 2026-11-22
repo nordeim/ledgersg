@@ -12,9 +12,12 @@ interface TransactionRowProps {
   transaction: BankTransaction;
   onToggle?: () => void;
   onReconcile?: (transaction: BankTransaction) => void;
+  /** P9/B-6: undo a wrong reconciliation (the backend unreconcile
+   * writes an audit event and releases the link). */
+  onUnreconcile?: (transaction: BankTransaction) => void;
 }
 
-export function TransactionRow({ transaction, onToggle, onReconcile }: TransactionRowProps) {
+export function TransactionRow({ transaction, onToggle, onReconcile, onUnreconcile }: TransactionRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const isCredit = parseFloat(transaction.amount) >= 0;
@@ -167,7 +170,7 @@ export function TransactionRow({ transaction, onToggle, onReconcile }: Transacti
               </div>
             )}
 
-            {/* Action Button */}
+            {/* Action Buttons */}
             {!transaction.is_reconciled && onReconcile && (
               <div className="pt-3 border-t border-border flex justify-end">
                 <Button
@@ -179,6 +182,21 @@ export function TransactionRow({ transaction, onToggle, onReconcile }: Transacti
                   className="rounded-sm bg-accent-primary text-void hover:bg-accent-primary-dim"
                 >
                   Reconcile
+                </Button>
+              </div>
+            )}
+            {transaction.is_reconciled && onUnreconcile && (
+              <div className="pt-3 border-t border-border flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUnreconcile(transaction);
+                  }}
+                  className="rounded-sm"
+                >
+                  Unreconcile
                 </Button>
               </div>
             )}

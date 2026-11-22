@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, CreditCard, RefreshCw } from "lucide-react";
-import { usePayments } from "@/hooks/use-banking";
+import { usePayments, useVoidPayment } from "@/hooks/use-banking";
 import { PaymentCard } from "./payment-card";
+import { Input } from "@/components/ui/input";
 import type { Payment } from "@/shared/schemas";
 
 interface PaymentListProps {
@@ -102,16 +103,89 @@ export function PaymentList({ orgId, filters = {}, onPaymentClick }: PaymentList
       </div>
       
       {data.results.map((payment) => (
-        <PaymentCard
+        <PaymentRow
           key={payment.id}
+          orgId={orgId}
           payment={payment}
-          onClick={(p) => {
+          onSelect={(p) => {
             setSelectedPaymentId(p.id);
             onPaymentClick?.(p);
           }}
-          showActions={true}
         />
       ))}
+    </div>
+  );
+}
+
+/**
+ * P9/B-6: the per-row correction path — a Void action with the reason the
+ * backend requires (the P5/P6 void-with-reversal engine had no UI; a
+ * mis-keyed payment could never be corrected).
+ */
+function PaymentRow({
+  orgId,
+  payment,
+  onSelect,
+}: {
+  orgId: string;
+  payment: Payment;
+  onSelect: (payment: Payment) => void;
+}) {
+  const voidPayment = useVoidPayment(orgId, payment.id);
+  const [voiding, setVoiding] = useState(false);
+  const [reason, setReason] = useState("");
+
+  const submitVoid = () => {
+    if (!reason.trim()) return;
+    voidPayment.mutate({ reason: reason.trim() });
+  };
+
+  return (
+    <div>
+      <PaymentCard
+        payment={payment}
+        onClick={onSelect}
+        showActions={true}
+        onVoid={() => setVoiding(true)}
+      />
+      {voiding && !payment.is_voided && (
+        <div className="mt-2 rounded-sm border border-border bg-surface p-3 space-y-2">
+          <label htmlFor={`void-reason-${payment.id}`} className="text-sm text-text-secondary">
+            Void {payment.payment_number} — reason{" "}
+            <span className="text-alert">*</span>{" "}
+            <span className="text-text-muted">
+              (a reversing journal entry is posted and allocations released)
+            </span>
+          </label>
+          <div className="flex items-center gap-2">
+            <Input
+              id={`void-reason-${payment.id}`}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g., duplicated entry"
+              className="rounded-sm"
+              disabled={voidPayment.isPending}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-sm"
+              onClick={() => setVoiding(false)}
+              disabled={voidPayment.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="rounded-sm bg-alert text-void"
+              onClick={submitVoid}
+              disabled={voidPayment.isPending || !reason.trim()}
+            >
+              {voidPayment.isPending ? "Voiding…" : "Void payment"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

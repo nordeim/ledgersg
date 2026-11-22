@@ -158,4 +158,39 @@ describe("TransactionRow", () => {
     expect(screen.getByText("Reconciled")).toBeInTheDocument();
     expect(screen.getByTestId("check-icon")).toBeInTheDocument();
   });
+
+  test("9. P9/B-6: offers Unreconcile on a reconciled row and reports the transaction", () => {
+    const onUnreconcile = vi.fn();
+    const reconciled = createMockTransaction({
+      is_reconciled: true,
+      reconciled_at: "2024-03-15T14:30:00Z",
+      matched_payment: "pay-550e8400-e29b-41d4-a716-446655440099",
+    });
+
+    render(
+      <TransactionRow transaction={reconciled} onUnreconcile={onUnreconcile} />
+    );
+
+    // The actions live in the expanded section — the toggle handler sits
+    // on the inner clickable header, not the outer card.
+    fireEvent.click(
+      screen.getByTestId("transaction-row").querySelector("div")!
+    );
+    const button = screen.getByRole("button", { name: /unreconcile/i });
+    fireEvent.click(button);
+    expect(onUnreconcile).toHaveBeenCalledWith(reconciled);
+  });
+
+  test("10. P9/B-6: no Unreconcile action on an unreconciled row", () => {
+    const onUnreconcile = vi.fn();
+    const unreconciled = createMockTransaction({ is_reconciled: false });
+
+    render(
+      <TransactionRow transaction={unreconciled} onUnreconcile={onUnreconcile} />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /unreconcile/i })
+    ).not.toBeInTheDocument();
+  });
 });

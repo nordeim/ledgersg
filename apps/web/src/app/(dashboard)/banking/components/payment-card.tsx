@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/shared/format";
 import type { Payment } from "@/shared/schemas";
 import { ArrowDownLeft, ArrowUpRight, CheckCircle2, AlertCircle } from "lucide-react";
@@ -10,9 +11,11 @@ interface PaymentCardProps {
   payment: Payment;
   onClick?: (payment: Payment) => void;
   showActions?: boolean;
+  /** P9/B-6: the void correction path (the P5 engine finally gets a UI). */
+  onVoid?: (payment: Payment) => void;
 }
 
-export function PaymentCard({ payment, onClick, showActions = true }: PaymentCardProps) {
+export function PaymentCard({ payment, onClick, showActions = true, onVoid }: PaymentCardProps) {
   const isReceived = payment.payment_type === "RECEIVED";
   const amountPrefix = isReceived ? "+" : "-";
   const amountColor = isReceived ? "text-success" : "text-text-primary";
@@ -57,20 +60,35 @@ export function PaymentCard({ payment, onClick, showActions = true }: PaymentCar
             </div>
           </div>
 
-          {/* Right: Amount */}
-          <div className="text-right ml-4">
-            <div className={`font-mono text-lg font-medium tabular-nums flex items-center justify-end gap-1 ${amountColor}`}>
-              <Icon className="h-4 w-4" />
-              <span>
-                {amountPrefix}
-                {payment.currency} {formatMoney(payment.amount)}
-              </span>
-            </div>
-            {payment.fx_gain_loss && parseFloat(payment.fx_gain_loss) !== 0 && (
-              <div className="text-xs text-text-muted">
-                FX: {parseFloat(payment.fx_gain_loss) > 0 ? "+" : ""}
-                {formatMoney(payment.fx_gain_loss)}
+          {/* Right: Amount + the correction path */}
+          <div className="text-right ml-4 flex flex-col items-end gap-2">
+            <div>
+              <div className={`font-mono text-lg font-medium tabular-nums flex items-center justify-end gap-1 ${amountColor}`}>
+                <Icon className="h-4 w-4" />
+                <span>
+                  {amountPrefix}
+                  {payment.currency} {formatMoney(payment.amount)}
+                </span>
               </div>
+              {payment.fx_gain_loss && parseFloat(payment.fx_gain_loss) !== 0 && (
+                <div className="text-xs text-text-muted">
+                  FX: {parseFloat(payment.fx_gain_loss) > 0 ? "+" : ""}
+                  {formatMoney(payment.fx_gain_loss)}
+                </div>
+              )}
+            </div>
+            {onVoid && !payment.is_voided && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs text-text-secondary hover:text-alert"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onVoid(payment);
+                }}
+              >
+                Void
+              </Button>
             )}
           </div>
         </div>
