@@ -96,6 +96,11 @@ describe("BankAccountDialog (P9/B-4)", () => {
           account_number: "1234567890",
           currency: "SGD",
           gl_account: "11111111-1111-4111-8111-111111111111",
+          // The wire contract the live e2e caught: no PayNow selected →
+          // null on the wire (the DB CHECK rejects ""; the serializer
+          // accepts null since P9/B-4).
+          paynow_type: null,
+          paynow_id: null,
         })
       );
     });

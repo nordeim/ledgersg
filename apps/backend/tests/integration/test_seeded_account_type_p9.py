@@ -89,3 +89,16 @@ class TestSeededAccountTypeP9:
             "the seeded bank accounts (children of the 1000 header) must "
             f"appear in the ASSET-filtered list; got {codes[:15]}…"
         )
+
+    def test_is_bank_filter_returns_bank_accounts(self, test_user):
+        """P9/B-4 (second follow-up): the dialog queries the plain list and
+        filters is_bank client-side — but the top-level-only default hid
+        the bank children. The explicit is_bank filter must return them."""
+        from apps.coa.services import AccountService
+
+        org = self._seeded_org(test_user)
+
+        rows = AccountService.list_accounts(org_id=org.id, is_bank=True)
+        codes = [r.code for r in rows]
+        assert codes, "the seeded bank accounts must be reachable via is_bank=True"
+        assert all(c.startswith("11") for c in codes), codes

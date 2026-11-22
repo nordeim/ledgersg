@@ -61,6 +61,7 @@ class AccountService:
         account_type: str | None = None,
         is_active: bool | None = None,
         is_system: bool | None = None,
+        is_bank: bool | None = None,
         parent_id: UUID | None = None,
         code: str | None = None,
         search: str | None = None,
@@ -87,16 +88,21 @@ class AccountService:
         if is_system is not None:
             queryset = queryset.filter(is_system=is_system)
 
+        # P9/B-4: bank-type accounts are CHILDREN in the seeded chart —
+        # the bank-account dialog's GL picker queries them directly.
+        if is_bank is not None:
+            queryset = queryset.filter(is_bank=is_bank)
+
         if code:
             queryset = queryset.filter(code=code)
 
         if parent_id:
             queryset = queryset.filter(parent_id=parent_id)
-        elif not code and not search and not account_type:
+        elif not code and not search and not account_type and is_bank is None:
             # Default: only top-level accounts if no specific filter provided.
-            # A type filter lifts the restriction (P9/B-4): the seeded bank
-            # accounts are CHILDREN of the 1000 header — hiding them left the
-            # bank-account dialog's GL picker empty.
+            # A type or bank filter lifts the restriction (P9/B-4): the
+            # seeded bank accounts are CHILDREN of the 1000 header — hiding
+            # them left the bank-account dialog's GL picker empty.
             queryset = queryset.filter(parent__isnull=True)
 
         if search:

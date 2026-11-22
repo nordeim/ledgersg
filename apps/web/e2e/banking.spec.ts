@@ -18,6 +18,11 @@ test.skip(
   "requires E2E_API_URL (live backend) — run via npm run test:e2e:full"
 );
 
+// The three tests are a WORKFLOW CHAIN sharing live data (test 2 needs
+// test 1's bank account; test 3 needs test 2's payment) — the config's
+// fullyParallel would race them against each other.
+test.describe.configure({ mode: "serial" });
+
 async function loginViaUi(page: import("@playwright/test").Page) {
   await page.goto("/login");
   await page.locator("input[type='email']").fill(
@@ -43,16 +48,19 @@ test("bank account dialog creates a real account (P9/B-4)", async ({ page }) => 
     .first()
     .click();
 
+  // Unique per run — the workflow is re-runnable against a live DB (the
+  // duplicate account_number would 400 on a second pass).
+  const runId = Date.now().toString(36);
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel(/account name/i).fill("E2E Operating Account");
+  await dialog.getByLabel(/account name/i).fill(`E2E Operating ${runId}`);
   await dialog.getByLabel(/bank name/i).fill("Development Bank");
-  await dialog.getByLabel(/account number/i).fill("8888-7777-6666");
+  await dialog.getByLabel(/account number/i).fill(`8888-${runId}`);
   // GL account: the seeded 1100 bank-type series (filterable since P9/C-4)
   await dialog.getByLabel(/gl account/i).selectOption({ index: 1 });
   await dialog.getByRole("button", { name: /add account/i }).click();
 
   // The account appears in the list and the dialog closed.
-  await expect(page.getByText("E2E Operating Account")).toBeVisible({
+  await expect(page.getByText(`E2E Operating ${runId}`)).toBeVisible({
     timeout: 15000,
   });
   await expect(page.getByRole("dialog")).toBeHidden();
@@ -74,7 +82,7 @@ test("record payment settles an invoice end to end (P9/B-3, B-3b)", async ({ pag
   // The P9/B-3b action: Record Payment deep-links into Banking prefilled
   // (?receive=1&contact=…&document=…&amount=…).
   await page.getByRole("button", { name: /record payment/i }).click();
-  await expect(page).toHaveURL(/\/banking\?receive=1/, { timeout: 20000 });
+  await expect(page).toHaveURL(/\/banking\/?\?receive=1/, { timeout: 20000 });
 
   await expect(
     page.getByRole("heading", { name: /receive payment/i })
@@ -89,15 +97,18 @@ test("record payment settles an invoice end to end (P9/B-3, B-3b)", async ({ pag
 
   // Bank account: the one the previous test created.
   await page.getByRole("combobox", { name: /bank account/i }).click();
-  await page.getByRole("option", { name: /e2e operating/i }).click();
+  await page.getByRole("option", { name: /e2e operating/i }).first().click();
 
   await page.getByLabel("Payment amount").fill(due);
-  await page.getByRole("button", { name: /receive payment/i }).click();
+  // Scoped to the overlay — the payments tab behind it carries a
+  // "Receive Payment" button of its own (strict mode).
+  const receiveOverlay = page.locator("div.fixed.inset-0");
+  await receiveOverlay
+    .getByRole("button", { name: /receive payment/i })
+    .click();
 
   // The form closes; the invoice settles (full allocation → Paid).
-  await expect(
-    page.getByRole("heading", { name: /receive payment/i })
-  ).toBeHidden({ timeout: 20000 });
+  await expect(receiveOverlay).toBeHidden({ timeout: 20000 });
 
   await page.getByRole("link", { name: /^Invoices$/ }).click();
   const settledRow = page.locator("tr", { hasText: "INV-" }).filter({
@@ -134,7 +145,7 @@ test("statement import sends real multipart and matches reconcile (P9/B-1, B-2, 
     .locator("div.fixed.inset-0")
     .filter({ hasText: "Import Bank Statement" });
   await overlay.getByRole("combobox", { name: /bank account/i }).click();
-  await page.getByRole("option", { name: /e2e operating/i }).click();
+  await page.getByRole("option", { name: /e2e operating/i }).first().click();
 
   // Real file upload — the multipart path (pre-P9 the import could never
   // succeed: JSON.stringify(FormData) sent "{}" with a JSON content-type).
@@ -164,9 +175,11 @@ test("statement import sends real multipart and matches reconcile (P9/B-1, B-2, 
     .getByRole("button", { name: /reconcile/i })
     .click();
 
+  // The payment number is sequence-prefixed (RCP-00001) — the match row
+  // is the only overlay button carrying it.
   const matchRow = page
     .locator("div.fixed.inset-0")
-    .getByRole("button", { name: /rec-/i })
+    .getByRole("button", { name: /rcp-\d|rec-\d/i })
     .first();
   await expect(matchRow).toBeVisible({ timeout: 15000 });
   await matchRow.click();
@@ -176,7 +189,9 @@ test("statement import sends real multipart and matches reconcile (P9/B-1, B-2, 
     .getByRole("button", { name: /^reconcile$/i })
     .click();
 
-  // The overlay closes and the transaction shows reconciled.
+  // The overlay closes and the transaction shows reconciled (the badge
+  // AND the "Reconciled: <timestamp>" line both carry the word — .first()
+  // is the badge).
   await expect(
     page.locator("div.fixed.inset-0").filter({ hasText: "Suggested Matches" })
   ).toBeHidden({ timeout: 20000 });
@@ -184,6 +199,6 @@ test("statement import sends real multipart and matches reconcile (P9/B-1, B-2, 
     transactionRow.first().getByText("Unreconciled")
   ).toBeHidden({ timeout: 20000 });
   await expect(
-    transactionRow.first().getByText("Reconciled")
+    transactionRow.first().getByText("Reconciled").first()
   ).toBeVisible({ timeout: 20000 });
 });

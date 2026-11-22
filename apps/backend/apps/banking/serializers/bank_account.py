@@ -49,6 +49,17 @@ class BankAccountCreateSerializer(serializers.ModelSerializer):
     - No duplicate account_number per org
     """
 
+    # P9/B-4: "no PayNow" is null on the wire — the DB columns are
+    # nullable (the CHECK allows NULL or UEN/MOBILE/NRIC; "" violates it).
+    # The ModelSerializer default rejected null, so the UI dialog (which
+    # sends null when nothing is selected) could never create an account.
+    paynow_type = serializers.ChoiceField(
+        choices=["UEN", "MOBILE", "NRIC"], required=False, allow_null=True
+    )
+    paynow_id = serializers.CharField(
+        max_length=20, required=False, allow_blank=True, allow_null=True
+    )
+
     class Meta:
         model = BankAccount
         fields = [
@@ -128,6 +139,10 @@ class BankAccountCreateSerializer(serializers.ModelSerializer):
         paynow_type = data.get("paynow_type")
         paynow_id = data.get("paynow_id")
 
+        # "" and null both mean "unset"; the DB stores NULL (P9/B-4)
+        if paynow_id == "":
+            data["paynow_id"] = None
+
         if paynow_type and not paynow_id:
             raise serializers.ValidationError(
                 {"paynow_id": _("PayNow ID is required when PayNow type is specified.")}
@@ -192,6 +207,10 @@ class BankAccountUpdateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         paynow_type = data.get("paynow_type")
         paynow_id = data.get("paynow_id")
+
+        # "" and null both mean "unset"; the DB stores NULL (P9/B-4)
+        if paynow_id == "":
+            data["paynow_id"] = None
 
         if paynow_type and not paynow_id:
             raise serializers.ValidationError(

@@ -35,8 +35,12 @@ interface Props {
 
 export function BankAccountDialog({ open, onOpenChange, orgId }: Props) {
   const createAccount = useCreateBankAccount(orgId);
+  // P9/B-4: query the bank-type accounts directly (server-side; the
+  // seeded 1100 series are CHILDREN of the 1000 header, so the plain
+  // list's top-level default hid them from the client-side filter).
   const { data: accountsData, isLoading: accountsLoading } = useAccounts(orgId, {
     is_active: true,
+    is_bank: true,
   });
 
   const bankAccounts = useMemo(

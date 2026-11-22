@@ -25,7 +25,13 @@ export interface AccountOption {
 
 export function useAccounts(
   orgId: string | null,
-  filters?: { account_type?: string; is_active?: boolean }
+  filters?: {
+    account_type?: string;
+    is_active?: boolean;
+    /** Bank-type accounts (the seeded 1100 series) — the bank-account
+     * dialog's GL picker (P9/B-4). Server-side filter; children included. */
+    is_bank?: boolean;
+  }
 ) {
   const queryString = filters
     ? "?" +

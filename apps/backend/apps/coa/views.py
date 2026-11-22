@@ -45,6 +45,7 @@ class AccountListCreateView(APIView):
         account_type = request.query_params.get("account_type")
         is_active = request.query_params.get("is_active")
         is_system = request.query_params.get("is_system")
+        is_bank = request.query_params.get("is_bank")
         parent_id = request.query_params.get("parent_id")
         code = request.query_params.get("code")
         search = request.query_params.get("search")
@@ -56,6 +57,8 @@ class AccountListCreateView(APIView):
             is_active = is_active.lower() == "true"
         if is_system is not None:
             is_system = is_system.lower() == "true"
+        if is_bank is not None:
+            is_bank = is_bank.lower() == "true"
         if parent_id:
             from uuid import UUID
 
@@ -70,6 +73,7 @@ class AccountListCreateView(APIView):
             account_type=account_type,
             is_active=is_active,
             is_system=is_system,
+            is_bank=is_bank,
             parent_id=parent_id,
             code=code,
             search=search,
