@@ -27,7 +27,10 @@ class DashboardMetricsView(APIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsOrgMember]
+    # P7/F-15: financial metrics/alerts are reports — gated like the core
+    # dashboard and the financial-report endpoints (any member saw them
+    # pre-P7).
+    permission_classes = [IsAuthenticated, IsOrgMember, CanViewReports]
 
     @wrap_response
     def get(self, request, org_id: str) -> Response:
@@ -47,7 +50,10 @@ class DashboardAlertsView(APIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsOrgMember]
+    # P7/F-15: financial metrics/alerts are reports — gated like the core
+    # dashboard and the financial-report endpoints (any member saw them
+    # pre-P7).
+    permission_classes = [IsAuthenticated, IsOrgMember, CanViewReports]
 
     @wrap_response
     def get(self, request, org_id: str) -> Response:
