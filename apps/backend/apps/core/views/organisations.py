@@ -161,7 +161,15 @@ class GSTRegistrationView(APIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsOrgMember, CanManageOrg]
+    permission_classes = [IsAuthenticated, IsOrgMember]
+
+    def get_permissions(self):
+        """PATCH changes core organisation configuration (base currency,
+        GST, fiscal year) — manager-only (P7/F-10); GET stays
+        member-readable."""
+        if self.request.method == "PATCH":
+            return [IsAuthenticated(), IsOrgMember(), CanManageOrg()]
+        return super().get_permissions()
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
@@ -262,10 +270,22 @@ class OrganisationSettingsView(APIView):
     GET / PATCH: Organisation settings.
 
     Returns or updates organisation configuration settings.
+    P7/F-10: PATCH is typed (entity_type from the model vocabulary,
+    fy_start_month 1-12, 3-char currency) and gated on can_manage_org —
+    the pre-P7 raw setattr crashed on invalid values (DB CHECK
+    IntegrityError -> 500) and any member could change the base currency.
     """
 
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsOrgMember]
+
+    def get_permissions(self):
+        """PATCH changes core organisation configuration (base currency,
+        GST, fiscal year) — manager-only (P7/F-10); GET stays
+        member-readable."""
+        if self.request.method == "PATCH":
+            return [IsAuthenticated(), IsOrgMember(), CanManageOrg()]
+        return super().get_permissions()
 
     @wrap_response
     def get(self, request, org_id: str) -> Response:
@@ -298,44 +318,32 @@ class OrganisationSettingsView(APIView):
 
     @wrap_response
     def patch(self, request, org_id: str) -> Response:
-        """Update organisation settings."""
+        """Update organisation settings (typed + allowlisted, P7/F-10)."""
+        from apps.core.serializers.organisation import OrganisationSettingsSerializer
+
+        serializer = OrganisationSettingsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+
         try:
             org = Organisation.objects.get(id=org_id)
-
-            # Update allowed fields
-            allowed_fields = [
-                "name",
-                "legal_name",
-                "uen",
-                "entity_type",
-                "base_currency",
-                "timezone",
-                "fy_start_month",
-                "gst_registered",
-                "gst_reg_number",
-                "gst_scheme",
-                "gst_filing_frequency",
-                "peppol_participant_id",
-                "invoicenow_enabled",
-            ]
-
-            updated_fields = []
-            for field in allowed_fields:
-                if field in request.data:
-                    setattr(org, field, request.data[field])
-                    updated_fields.append(field)
-
-            org.save()
-
-            return Response(
-                {
-                    "message": "Settings updated successfully",
-                    "id": str(org.id),
-                    "updated_fields": updated_fields,
-                }
-            )
         except Organisation.DoesNotExist:
             return Response(
                 {"error": {"code": "not_found", "message": "Organisation not found"}},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        updated_fields = []
+        for field, value in validated.items():
+            setattr(org, field, value)
+            updated_fields.append(field)
+
+        org.save()
+
+        return Response(
+            {
+                "message": "Settings updated successfully",
+                "id": str(org.id),
+                "updated_fields": updated_fields,
+            }
+        )

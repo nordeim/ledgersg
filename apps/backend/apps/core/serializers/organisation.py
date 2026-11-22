@@ -156,3 +156,23 @@ class OrganisationMemberSerializer(serializers.ModelSerializer):
             "id", "user_email", "user_full_name", "role",
             "is_default", "accepted_at", "created_at"
         ]
+
+
+class OrganisationSettingsSerializer(serializers.Serializer):
+    """Typed, allowlisted payload for the organisation settings PATCH
+    (P7/F-10 — the pre-P7 raw setattr crashed on invalid values and let
+    any member change core configuration)."""
+
+    name = serializers.CharField(max_length=255, required=False)
+    legal_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    uen = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    entity_type = serializers.ChoiceField(choices=Organisation.ENTITY_TYPES, required=False)
+    base_currency = serializers.CharField(min_length=3, max_length=3, required=False)
+    timezone = serializers.CharField(max_length=63, required=False, allow_blank=True)
+    fy_start_month = serializers.IntegerField(min_value=1, max_value=12, required=False)
+    gst_registered = serializers.BooleanField(required=False)
+    gst_reg_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    gst_scheme = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    gst_filing_frequency = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    peppol_participant_id = serializers.CharField(max_length=64, required=False, allow_blank=True)
+    invoicenow_enabled = serializers.BooleanField(required=False)

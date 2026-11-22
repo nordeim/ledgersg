@@ -4,14 +4,13 @@ Peppol/InvoiceNow integration views for LedgerSG.
 Provides endpoints for Peppol transmission management and settings.
 """
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from apps.core.permissions import IsOrgMember
-from common.exceptions import ValidationError
+from apps.core.permissions import CanManageOrg, IsOrgMember
 from common.views import wrap_response
 
 
@@ -68,10 +67,21 @@ class PeppolSettingsView(APIView):
     GET / PATCH: Peppol settings.
 
     Manage Peppol/InvoiceNow configuration for the organisation.
+    P7/F-10: PATCH is typed (IntegerField retry_attempts, booleans) and
+    gated on can_manage_org — the pre-P7 raw setattr crashed on a
+    non-numeric retry_attempts (500) and any member could flip the
+    InvoiceNow enablement or the access-point provider.
     """
 
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsOrgMember]
+
+    def get_permissions(self):
+        """PATCH mutates InvoiceNow configuration (enablement, access
+        point) — manager-only (P7/F-10); GET stays member-readable."""
+        if self.request.method == "PATCH":
+            return [IsAuthenticated(), IsOrgMember(), CanManageOrg()]
+        return super().get_permissions()
 
     @wrap_response
     def get(self, request, org_id: str) -> Response:
@@ -104,9 +114,14 @@ class PeppolSettingsView(APIView):
 
     @wrap_response
     def patch(self, request, org_id: str) -> Response:
-        """Update Peppol settings."""
+        """Update Peppol settings (typed + validated, P7/F-10)."""
         from apps.core.models import Organisation
         from apps.peppol.models import OrganisationPeppolSettings
+        from apps.peppol.serializers import PeppolSettingsSerializer
+
+        serializer = PeppolSettingsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
 
         try:
             org = Organisation.objects.get(id=org_id)
@@ -122,27 +137,26 @@ class PeppolSettingsView(APIView):
                 },
             )
 
-            # Update allowed fields
             updated_fields = []
 
-            if "enabled" in request.data:
-                org.invoicenow_enabled = request.data["enabled"]
+            if "enabled" in data:
+                org.invoicenow_enabled = data["enabled"]
                 updated_fields.append("enabled")
 
-            if "participant_id" in request.data:
-                org.peppol_participant_id = request.data["participant_id"]
+            if "participant_id" in data:
+                org.peppol_participant_id = data["participant_id"]
                 updated_fields.append("participant_id")
 
-            if "auto_transmit" in request.data:
-                settings.auto_transmit = request.data["auto_transmit"]
+            if "auto_transmit" in data:
+                settings.auto_transmit = data["auto_transmit"]
                 updated_fields.append("auto_transmit")
 
-            if "access_point_provider" in request.data:
-                settings.access_point_provider = request.data["access_point_provider"]
+            if "access_point_provider" in data:
+                settings.access_point_provider = data["access_point_provider"]
                 updated_fields.append("access_point_provider")
 
-            if "retry_attempts" in request.data:
-                settings.transmission_retry_attempts = request.data["retry_attempts"]
+            if "retry_attempts" in data:
+                settings.transmission_retry_attempts = data["retry_attempts"]
                 updated_fields.append("retry_attempts")
 
             org.save()

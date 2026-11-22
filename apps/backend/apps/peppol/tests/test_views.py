@@ -517,10 +517,11 @@ class TestPeppolPermissions:
 
         assert response.status_code == status.HTTP_200_OK
 
-    def test_regular_user_can_patch_settings(self, perm_auth_client, perm_test_org):
-        """Test regular org member can update Peppol settings."""
+    def test_regular_user_cannot_patch_settings(self, perm_auth_client, perm_test_org):
+        """P7/F-10: mutating InvoiceNow configuration requires
+        can_manage_org — a regular member gets 403 (the pre-P7 endpoint
+        let any member flip the enablement and the access point)."""
         url = f"/api/v1/{perm_test_org.id}/peppol/settings/"
         response = perm_auth_client.patch(url, {"enabled": True}, format="json")
 
-        # Current implementation allows any org member to update
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_403_FORBIDDEN
