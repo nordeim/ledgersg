@@ -226,7 +226,8 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
       // (silent failure while the UI toasts success).
       await sendInvoice.mutateAsync({
         to: [invoice.contact.email],
-        message: invoice.notes || undefined,
+        // P8/G-6: no `message` key — the backend dropped the field it
+        // never delivered (the notes travel in the attached PDF).
       });
     } catch {
       // onError already surfaces the toast (P7/F-18: no unhandled

@@ -250,7 +250,10 @@ class InvoiceSendSerializer(serializers.Serializer):
     bcc = RecipientListField(
         child=serializers.EmailField(), required=False, allow_empty=True
     )
-    message = serializers.CharField(required=False, allow_blank=True)
+    # P8/G-6: the `message` field is gone — it was validated but never
+    # delivered (the task has no body-message parameter; the document
+    # notes already travel in the attached PDF). A field that promises
+    # behavior must deliver it or disappear.
 
     def validate(self, data):
         # `to` may be omitted entirely — the service falls back to the

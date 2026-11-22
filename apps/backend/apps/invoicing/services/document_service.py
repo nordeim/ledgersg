@@ -814,8 +814,14 @@ class DocumentService:
             else:
                 raise ValidationError("At least one recipient email is required.")
 
-        # Trigger background task
-        send_invoice_email_task.delay(str(org_id), str(document_id), to_emails)
+        # Trigger background task (P8/G-6: cc/bcc travel with the send —
+        # they were validated by the serializer since P7 but never reached
+        # the task).
+        send_invoice_email_task.delay(
+            str(org_id), str(document_id), to_emails,
+            cc=email_data.get("cc") or [],
+            bcc=email_data.get("bcc") or [],
+        )
 
         return {
             "document_id": str(document_id),

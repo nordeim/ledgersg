@@ -562,6 +562,45 @@ describe("api.blob — authorized binary downloads (P3/D-2)", () => {
     });
   });
 
+  it("surfaces the backend error envelope on a failed download (P8/G-7)", async () => {
+    // A 404 from the backend arrives in the wrap_response envelope — the
+    // pre-P8 blob path read only top-level message/detail and fell back to
+    // the generic "Download failed: Not Found".
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      json: vi.fn().mockResolvedValue({
+        error: { code: "not_found", message: "Document not found." },
+      }),
+    });
+
+    await expect(
+      api.blob("/api/v1/org/documents/doc-1/pdf/")
+    ).rejects.toMatchObject({
+      name: "ApiError",
+      status: 404,
+      message: "Document not found.",
+    });
+  });
+
+  it("falls back to the download-specific message when the body is not JSON (P8/G-7)", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      statusText: "Bad Gateway",
+      json: vi.fn().mockRejectedValue(new Error("not json")),
+    });
+
+    await expect(
+      api.blob("/api/v1/org/documents/doc-1/pdf/")
+    ).rejects.toMatchObject({
+      name: "ApiError",
+      status: 502,
+      message: "Download failed: Bad Gateway",
+    });
+  });
+
   it("refreshes and retries once on 401 (same auth path as JSON requests)", async () => {
     const blob = new Blob(["%PDF retry"], { type: "application/pdf" });
     const responses = [

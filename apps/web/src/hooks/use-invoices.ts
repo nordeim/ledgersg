@@ -380,5 +380,15 @@ export function useInvoicePDF(orgId: string, invoiceId: string) {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(downloadUrl);
     },
+    // P8/G-7: a failed download now tells the user why (the envelope
+    // parser in api.blob supplies the backend's message; pre-P8 a 404 was
+    // a silent no-op — the button did nothing).
+    onError: (error: Error) => {
+      toast({
+        title: "Download failed",
+        description: error.message || "The PDF could not be downloaded.",
+        variant: "error",
+      });
+    },
   });
 }

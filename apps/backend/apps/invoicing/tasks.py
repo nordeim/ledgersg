@@ -17,9 +17,14 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, max_retries=3)
-def send_invoice_email_task(self, org_id: str, document_id: str, recipients: list):
+def send_invoice_email_task(
+    self, org_id: str, document_id: str, recipients: list, cc: list | None = None, bcc: list | None = None
+):
     """
     Background task to generate PDF and send invoice via email.
+
+    P8/G-6: cc/bcc travel with the send contract — they were validated by
+    the API since P7 but silently dropped here.
     """
     try:
         org = Organisation.objects.get(id=org_id)
@@ -44,6 +49,8 @@ def send_invoice_email_task(self, org_id: str, document_id: str, recipients: lis
             body=text_content,
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=recipients,
+            cc=cc or [],
+            bcc=bcc or [],
         )
         email.attach_alternative(html_content, "text/html")
         

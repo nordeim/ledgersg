@@ -341,6 +341,28 @@ describe("InvoiceDetailClient — void flow (P7/F-1, F-8)", () => {
     }
   });
 
+  it("sends the email payload without the retired message field (P8/G-6)", async () => {
+    vi.mocked(invoiceHooks.useInvoice).mockReturnValue({
+      data: mockDetail({ status: "APPROVED" }),
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof invoiceHooks.useInvoice>);
+    const sendMutation = { mutateAsync: vi.fn().mockResolvedValue({}) };
+    vi.mocked(invoiceHooks.useSendInvoice).mockReturnValue(
+      sendMutation as unknown as ReturnType<typeof invoiceHooks.useSendInvoice>
+    );
+
+    renderPage();
+    const sendButton = await screen.findByRole("button", { name: /^send$/i });
+    await userEvent.click(sendButton);
+
+    await waitFor(() => expect(sendMutation.mutateAsync).toHaveBeenCalled());
+    const payload = sendMutation.mutateAsync.mock.calls[0][0];
+    expect(payload.to).toEqual(["accounts@marina.example"]);
+    expect("message" in payload).toBe(false);
+  });
+
   it("blocks submission of an empty reason (client-side, native + message)", async () => {
     const voidMutation = await renderApproved();
 

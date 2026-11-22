@@ -89,3 +89,53 @@ class TestInvoiceSendRecipients:
             )
         assert response.status_code == status.HTTP_400_BAD_REQUEST, response.data
         task.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestInvoiceSendCarbonCopies:
+    """P8/G-6: the serializer advertises cc/bcc — the email task must
+    actually receive them (pre-P8 both were validated then silently
+    dropped), and the phantom `message` field is gone from the contract
+    (the notes already travel in the PDF)."""
+
+    def url(self, org, doc):
+        return f"/api/v1/{org.id}/invoicing/documents/{doc.id}/send/"
+
+    def test_cc_bcc_reach_the_task(self, auth_client, test_organisation):
+        doc = _make_approved_invoice(test_organisation)
+        with patch("apps.invoicing.tasks.send_invoice_email_task.delay") as task:
+            response = auth_client.post(
+                self.url(test_organisation, doc),
+                {
+                    "to": ["a@example.com"],
+                    "cc": ["boss@example.com"],
+                    "bcc": ["audit@example.com"],
+                },
+                format="json",
+            )
+        assert response.status_code == status.HTTP_200_OK, response.data
+        task.assert_called_once()
+        kwargs = task.call_args.kwargs
+        assert kwargs.get("cc") == ["boss@example.com"], task.call_args
+        assert kwargs.get("bcc") == ["audit@example.com"], task.call_args
+
+    def test_cc_reach_the_task_as_string_normalized(self, auth_client, test_organisation):
+        doc = _make_approved_invoice(test_organisation)
+        with patch("apps.invoicing.tasks.send_invoice_email_task.delay") as task:
+            response = auth_client.post(
+                self.url(test_organisation, doc),
+                {"to": ["a@example.com"], "cc": "boss@example.com"},
+                format="json",
+            )
+        assert response.status_code == status.HTTP_200_OK, response.data
+        kwargs = task.call_args.kwargs
+        assert kwargs.get("cc") == ["boss@example.com"], task.call_args
+
+    def test_message_field_is_gone_from_the_contract(self):
+        """The serializer no longer advertises a `message` field it never
+        delivered (the frontend was actively sending one)."""
+        from apps.invoicing.serializers import InvoiceSendSerializer
+
+        fields = InvoiceSendSerializer().fields
+        assert "message" not in fields, list(fields)
+        assert "to" in fields and "cc" in fields and "bcc" in fields

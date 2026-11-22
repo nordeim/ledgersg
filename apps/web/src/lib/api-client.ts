@@ -151,13 +151,11 @@ async function handleResponse<T>(response: Response): Promise<T> {
     // "Void reason is required." from users.
     const envelope = (errorData as { error?: { message?: string; details?: Record<string, string[]> } })
       .error;
-    const drfFieldErrors = extractDrfFieldErrors(errorData);
-    const message =
-      envelope?.message ||
-      (errorData as { message?: string }).message ||
-      (errorData as { detail?: string }).detail ||
-      drfFieldErrors ||
-      `Request failed: ${response.statusText}`;
+    const message = resolveErrorMessage(
+      errorData,
+      envelope?.message,
+      `Request failed: ${response.statusText}`
+    );
 
     throw new ApiError(
       response.status,
@@ -187,6 +185,26 @@ function extractDrfFieldErrors(errorData: unknown): string {
     }
   }
   return "";
+}
+
+/**
+ * Shared error-message resolution (P8/G-7): the backend envelope, then the
+ * legacy top-level keys, then the first DRF field error, then the
+ * caller-specific fallback. Extracted so the JSON path AND the blob
+ * download path surface identical messages.
+ */
+function resolveErrorMessage(
+  errorData: unknown,
+  envelopeMessage: string | undefined,
+  fallback: string
+): string {
+  return (
+    envelopeMessage ||
+    (errorData as { message?: string }).message ||
+    (errorData as { detail?: string }).detail ||
+    extractDrfFieldErrors(errorData) ||
+    fallback
+  );
 }
 
 /**
@@ -268,12 +286,18 @@ export const api = {
   blob: async (endpoint: string): Promise<Blob> => {
     const response = await fetchWithAuth(endpoint, { method: "GET" });
     if (!response.ok) {
+      // P8/G-7: downloads surface the same envelope messages as JSON
+      // requests (the pre-P8 reader only looked at top-level keys, so a
+      // 404 envelope became "Download failed: Not Found").
       const errorData = await response.json().catch(() => ({}));
+      const envelope = (errorData as { error?: { message?: string } }).error;
       throw new ApiError(
         response.status,
-        (errorData as { message?: string; detail?: string }).message ||
-          (errorData as { detail?: string }).detail ||
+        resolveErrorMessage(
+          errorData,
+          envelope?.message,
           `Download failed: ${response.statusText}`
+        )
       );
     }
     return response.blob();
