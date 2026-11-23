@@ -26,6 +26,19 @@ __pycache__/
 *.pyc
 dist/
 
+# Test/tooling output directories (P11/M-10 — emitted by the current
+# configs; `git add -A` history repeatedly swept them in)
+coverage/
+test-results/
+playwright-report/
+
+# Local lockfiles & key material (P11/M-10 + the DEPLOYMENT.md claim):
+# the backend venv is built via `uv sync` — the generated lock is a
+# local artifact (never committed by repo convention); *.key finally
+# honors the claim DEPLOYMENT.md already made.
+apps/backend/uv.lock
+*.key
+
 # Editor/backup files
 *.bak
 *.bak2

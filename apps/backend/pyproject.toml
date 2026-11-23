@@ -107,17 +107,6 @@ show_error_codes = true
 [tool.django-stubs]
 django_settings_module = "config.settings.development"
 
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings.testing"
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = "--strict-markers --tb=short -q"
-markers = [
-    "slow: marks tests as slow",
-    "integration: marks integration tests",
-]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

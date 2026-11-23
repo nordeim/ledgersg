@@ -12,17 +12,17 @@
 
 name: LedgerSG Enterprise CI
 
-# P10/M-11 (corrected): the P10 audit read the trigger as corrupted YAML
-# ("branches: ain, develop]") — that was a DISPLAY artifact of the agent
-# tooling layer (a two-character sequence, open-bracket followed by
-# "m", is eaten from displayed tool output), not file corruption; a
-# byte-level check of the pre-change commit shows the trigger always
-# read "branches: [main, develop]" and CI always fired on main. What
-# this change actually does: narrows the branch list to main only (the
-# repo's single-branch convention; develop does not exist) and moves
-# the npm cache key to the lockfile. Recorded for the P10 report: the
-# audit tooling's display layer can silently alter bracket sequences —
-# verify surprising file contents byte-level before remediating.
+# P10/M-11 (corrected, P11/L-7 comment rewritten cleanly): the P10 audit
+# READ the trigger as corrupted YAML — the displayed form
+# "branches: ain, develop]" was the agent tooling layer's display
+# artifact (a two-character sequence, open-bracket followed by "m", is
+# eaten from displayed tool output), not file corruption. Byte-level
+# verification of the pre-change commit confirmed the on-disk trigger
+# always read "branches: [main, develop]" and CI always fired on main.
+# What the P10 change actually did: narrowed the branch list to main
+# only (the repo's single-branch convention; develop does not exist) and
+# moved the npm cache key to the lockfile. Lesson recorded: verify
+# surprising file contents byte-level before remediating.
 on:
   push:
     branches: [main]
@@ -149,13 +149,6 @@ jobs:
           
           echo "✅ Backend tests completed"
 
-      - name: 📊 Generate Test Report
-        if: always()
-        working-directory: ./apps/backend
-        run: |
-          echo "📈 Generating test report..."
-          pytest --reuse-db --no-migrations --tb=no -q || true
-
   # ============================================================================
   # FRONTEND TESTS: Next.js 16 / TypeScript / Vitest
   # ============================================================================
@@ -191,12 +184,14 @@ jobs:
           npx tsc --noEmit
           echo "✅ TypeScript check passed"
 
-      - name: 🧪 Run Frontend Tests
+      - name: 🧪 Run Frontend Tests (coverage ratchet)
         working-directory: ./apps/web
         run: |
-          echo "🧪 Running frontend tests..."
-          npm test -- --reporter=verbose
-          echo "✅ Frontend tests completed"
+          echo "🧪 Running frontend tests with the coverage ratchet..."
+          # P11/M-9: npm test could never fail on coverage — the P10/M-13
+          # ratchet (npm run test:coverage) is the REAL gate; CI runs it.
+          npm run test:coverage
+          echo "✅ Frontend tests completed at the ratchet"
 
       - name: 🏗️ Build Verification
         working-directory: ./apps/web
@@ -217,16 +212,38 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
+      - name: 📦 Install Project (scan the real dependency tree)
+        working-directory: ./apps/backend
+        run: |
+          # P11/M-9: the old job installed ONLY safety+bandit and scanned
+          # its own two packages — the project's dependency tree was never
+          # in scope, and `|| true` made failure impossible by design.
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" safety bandit
+
       - name: 🔍 Backend Security Check
         working-directory: ./apps/backend
         run: |
-          pip install safety bandit
-          safety check || true
-          bandit -r . -f json -o bandit-report.json || true
+          # Safety scans the INSTALLED project tree (pyproject/lock) and
+          # FAILS the job on a known-vulnerable dependency.
+          safety check
+          # Bandit findings upload as an artifact (advisory — the repo's
+          # registered backend ruff/bandit debt is tracked in the
+          # deferred register, not gate-failed here).
+          bandit -r apps -f json -o bandit-report.json || true
+
+      - name: 📤 Upload Bandit Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: apps/backend/bandit-report.json
 
       - name: 🔍 Frontend Security Check
         working-directory: ./apps/web
         run: |
+          # Advisory only (P11/M-9): audit failures gate nothing — next
+          # transitive bumps are tracked in the deferred register.
           npm audit --audit-level=moderate || true
 
   # ============================================================================

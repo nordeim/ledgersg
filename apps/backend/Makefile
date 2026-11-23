@@ -51,11 +51,18 @@ typecheck:
 	mypy apps common config
 
 # Database
+# P11/M-13: the SQL-First architecture forbids migrations — the schema is
+# database_schema.sql (loaded by docs/setup_pg_z.sh / DEPLOYMENT.md).
+# These targets previously shipped the exact commands DEPLOYMENT.md
+# warns against; they now refuse truthfully instead of silently
+# contradicting the architecture.
 migrate:
-	python manage.py migrate --run-syncdb
+	@echo "ERROR: this architecture is SQL-First — the schema is loaded from database_schema.sql (see docs/DEPLOYMENT.md). Migrations are permanently disabled (managed=False mirrors)."
+	@exit 1
 
 migrations:
-	python manage.py makemigrations
+	@echo "ERROR: makemigrations is forbidden in this architecture — the schema is database_schema.sql (see docs/DEPLOYMENT.md)."
+	@exit 1
 
 shell:
 	python manage.py shell_plus
