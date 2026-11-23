@@ -127,7 +127,12 @@ class BankAccountDetailView(APIView):
         # P10/M-1: the instance must be bound so partial-PATCH semantics
         # hold — the PayNow pair validation reads the persisted values for
         # the fields the request omitted (an unbound serializer saw None).
-        account = BankAccount.objects.get(id=account_id, org_id=org_id)
+        # P11/M-2: routed through the service — the raw .get() raised
+        # DoesNotExist → 500 on a missing/deactivated account where the
+        # GET/DELETE siblings correctly 404 (ResourceNotFound).
+        account = BankAccountService.get(
+            org_id=org_id, account_id=UUID(account_id)
+        )
 
         serializer = BankAccountUpdateSerializer(
             account,
