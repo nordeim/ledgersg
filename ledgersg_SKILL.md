@@ -1,9 +1,9 @@
 ---
 name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 1.9.0
+version: 2.0.0
 last_updated: 2026-11-23
-project_state: "P10 remediated; all gates green — 687 backend tests (0 failed, 5 skipped), frontend 505 vitest + 31 e2e (11 default / 20 backend-gated; the live suite 30/30 green twice consecutively), typecheck 0 errors, coverage green at the measured-floor ratchet, standalone the only build (export retired); schema v1.1.0 NUMERIC(19,4) money; P10: the self-serve loop closes (registration page + org creation, the anonymous-401 bounce fixed), the invoice form picks real contacts (no duplicate rows; the wire contract e2e-asserted), the GST F5 tab ships the full lifecycle (create periods, compute, review, file, amend, deadlines), contacts management (search/edit/deactivate), bank-account edit + deactivate, payment allocations visible, fiscal-period open, change password, InvoiceNow settings card; the live gate's own fixes: rate-limited requests return the 429 contract (never a raw 403), organisation UEN collisions are clean 400s, development settings copy-on-write"
+project_state: "P11 remediated; all gates green — 735 backend tests (0 failed, 5 skipped), frontend 511 vitest + 34 e2e (11 default / 23 backend-gated; the live suite 33P/1S/0F), typecheck 0 errors, coverage green at the measured-floor ratchet, standalone the only build (export retired); schema v1.1.0 NUMERIC(19,4) money; P11: credit notes post REVERSED GL entries and NET in the F5 computation (quotes excluded — pre-P11 a credit note debited the customer's AR), production settings boot (builtin Redis cache, LOG_DIR env knob, debug_toolbar one gate), the contacts edit dialog prefills from the DETAIL endpoint and a save persists uen/gst_reg_number/peppol_id (previously erased), the F5 boxes panel renders computed values (real box keys), the dashboard GST payable equals the F5 net GST (raw chart inputs, single prefixes), typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission, CI runs coverage, the Docker path boots, CSP unsafe-* dev-only"
 ---
 
 # LedgerSG — Engineering Skill
@@ -528,6 +528,67 @@ write inside `transaction.atomic()`; new tests RED before the fix.
    duplicating each page's h1 belongs demoted to aria-hidden (strict mode
    + one-h1-per-page).
 
+42. (P11) A document-type branch in the posting engine must be verified
+   PER TYPE: `post_invoice` served SALES_INVOICE and SALES_CREDIT_NOTE
+   identically — a credit note DEBITED the customer's AR (books
+   overstated receivables on every credit note since the engine shipped).
+   Direction assertions belong in the TDD suite per document type, and
+   the F5 computation must net the contra documents (and exclude
+   quotes — an APPROVED quote is a quotation, not a supply).
+
+43. (P11) An edit dialog must prefill from the SAME payload its save
+   writes: the contacts dialog prefilled from the LIST row serializer —
+   uen/peppol_id/gst_reg_number rendered blank, and an unconditional
+   eight-field save ERASED the stored values with a success toast
+   (Peppol ID loss breaks InvoiceNow). Prefill source = write source;
+   undeclared serializer fields are silently dropped by DRF (declare
+   gst_reg_number or the save reports success and persists nothing);
+   round-trip e2e re-reads after the save.
+
+44. (P11) Panel keys must match the backend contract byte-for-byte: the
+   F5 boxes panel read idealized `box1` keys while the serializer sends
+   `box1_std_rated_supplies` — every box rendered "—". Write key lists
+   FROM a real response (paste from the API), never from memory; gate
+   with a live e2e asserting a monetary value renders.
+
+45. (P11) One knob per behavior: INSTALLED_APPS gated debug_toolbar on
+   DEBUG_TOOLBAR while config/urls.py gated it on DEBUG — the "off"
+   combination DEBUG=true + DEBUG_TOOLBAR=false raised ImportError at
+   boot. When two gates guard one behavior, the unreachable quadrant is
+   a crash; pick the single authoritative knob.
+
+46. (P11) Production settings must only import what production
+   installs: production's CACHES declared `django_redis` (a dev extra —
+   never in the production dependency set), so the first cache touch
+   crashed the boot. Verify production imports against the production
+   install (a settings-gate test that boots the module and round-trips
+   the cache catches the whole class).
+
+47. (P11) "No rows" assertions must be scoped to the actor in a shared
+   dev DB: the failed-login audit test asserted NO LOGIN rows anywhere —
+   the live gate's legitimate demo-user logins broke it. Scope silence
+   assertions to the test's own actor, matching the positive test's
+   scoping; the pytest suite and the dev server share `ledgersg_dev`.
+
+48. (P11) Every hardcoded rate-limit literal becomes a knob the day
+   the suite re-runs: register's `5/hour` decorator literal blocked
+   the self-serve e2e spec on the 6th `test:e2e:full` run against the
+   same dev server. The P4/P6 pattern (settings knob + dev budget +
+   posture gate test) is the house style for every new throttle.
+
+49. (P11) e2e specs that CONSUME their fixture must create their own:
+   the banking payment spec depended on "the bootstrap-approved"
+   invoice — settled by its own previous run, so re-runs starved. An
+   idempotent ensure* helper (unique reference per run, reuse
+   APPROVED-or-PAID documents) beats fixture archaeology across
+   re-runs.
+
+50. (P11) Compute from the raw value, never the display string: the
+   dashboard chart fed `parseFloat("SGD 315.00")` → NaN → 0. When the
+   API ships both a raw value and a `*_display` string, anything that
+   COMPUTES reads the raw one; only the DOM renders the display one
+   (with a single currency prefix — never "S$" + "SGD x.xx" doubling).
+
 ## 12. Quick Reference Card
 
 | Thing | Where |
@@ -558,3 +619,6 @@ write inside `transaction.atomic()`; new tests RED before the fix.
 | Authed e2e pattern | UI login → sidebar Links (client-side only); `E2E_API_URL` gating — `apps/web/e2e/invoices.spec.ts`; session persistence (reload survival) — `apps/web/e2e/session.spec.ts` |
 | Deployment guide | `docs/DEPLOYMENT.md` (fresh-host, rootless PG + §16 migration + Redis + gates) |
 | P4 plan/report | `docs/REMEDIATION_PLAN_2026-11-21_P4.md` / `docs/REMEDIATION_2026-11-21_P4_REPORT.md` |
+| P10 plan/report | `docs/REMEDIATION_PLAN_2026-11-22_P10.md` / `docs/REMEDIATION_2026-11-22_P10_REPORT.md` |
+| P11 plan/report | `docs/REMEDIATION_PLAN_2026-11-23_P11.md` / `docs/REMEDIATION_2026-11-23_P11_REPORT.md` |
+| P11 live-gate bootstrap | `apps/web/e2e/p11.spec.ts` ensureDemoActivity (idempotent contact/invoice/CN/F5) — mirrors `scripts/p11_bootstrap.py` |

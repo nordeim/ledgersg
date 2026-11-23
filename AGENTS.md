@@ -1182,3 +1182,61 @@ persistent dev DB must generate run-unique data (timestamps in
 descriptions/references) and assert on values read from the system, and
 duplicate-looking headings (a shell breadcrumb h2 next to each page's h1)
 belong to ONE heading per page — demote the decorative one to aria-hidden.
+
+## 2026-11-23 P11 Sprint — New Patterns & Lessons (session 23)
+
+### A Document-Type Branch In The Posting Engine Must Be Verified PER TYPE (C-1)
+`post_invoice` served SALES_INVOICE and SALES_CREDIT_NOTE identically — a
+credit note DEBITED the customer's AR instead of crediting it, and the F5
+computation counted quotes as supplies while ignoring credit notes. The
+books overstated receivables and GST on every credit note since the posting
+engine shipped. TDD direction assertions belong PER document type (every
+journal line's debit/credit side), and statutory computation must net the
+contra documents. The live gate proved it at the ledger level: invoice
+AR-debit 2725.00 vs credit note AR-CREDIT 817.50, F5 Box 1 = 3500.00 with
+credit notes netting.
+
+### An Edit Dialog Prefills From The Payload Its Save Writes (H-1 + M-3/M-4)
+The contacts dialog prefilled from the LIST row's serializer — uen,
+peppol_id, gst_reg_number and address rendered BLANK, and an unconditional
+eight-field save erased the stored values with a success toast (Peppol ID
+loss breaks InvoiceNow). The dialog now prefills from the DETAIL endpoint
+(the payload the PATCH actually accepts), `gst_reg_number` is a DECLARED
+serializer field (undeclared fields are silently dropped by DRF — the save
+reported success and persisted nothing), and the search debounces. The
+regression test round-trips: open → prefill assertions → save → API re-read.
+
+### Panel Keys Must Match The Backend Contract Byte-For-Before (H-2 + M-1)
+The F5 boxes panel read idealized `box1` keys while the serializer sends
+`box1_std_rated_supplies` — every box rendered "—" because the lookup
+matched nothing. Key lists get PASTED from a real API response, never
+written from memory, and the live e2e asserts a monetary value renders
+(catches the whole class). Same class: the deadlines endpoint's envelope
+and the REVIEWED deadline filter — contract tests on BOTH sides of a wire.
+
+### One Knob Per Behavior; Production Imports Only What Production Installs (C-2 + H-5)
+Two crashes from the same disease: production's CACHES declared
+`django_redis` (a dev extra never in the production dependency set — the
+first cache touch crashed the boot) while debug_toolbar had TWO gates
+(INSTALLED_APPS keyed on DEBUG_TOOLBAR, urls.py on DEBUG — the unreachable
+quadrant DEBUG=true+DEBUG_TOOLBAR=false raised ImportError). Production
+settings are now booted by a settings-gate test that imports the module
+and round-trips the cache; every behavior has exactly one gate.
+
+### Silence Assertions Scope To The Actor; e2e Fixtures Self-Create (live gate)
+The failed-login audit test asserted NO LOGIN rows anywhere — the live
+gate's legitimate demo-user logins into the SHARED dev DB broke it (scope
+to the test's user, matching the positive test). The register throttle's
+hardcoded 5/hour literal 429'd the self-serve e2e spec on the 6th full-suite
+re-run — the P4/P6 knob pattern (settings knob + dev budget + posture gate)
+applies to EVERY throttle. The banking payment spec consumed its own
+fixture (the previous run settled the invoice) — specs that consume their
+fixture create their own via idempotent ensure* helpers.
+
+### Compute From The Raw Value, Never The Display String (H-4 + M-7 + L-2)
+The dashboard chart fed `parseFloat("SGD 315.00")` → NaN → 0 while the GST
+payable card was hardcoded to 0.00 — and six sites rendered "S$ SGD x.xx"
+double prefixes. The API ships both the raw value and a `*_display`
+string; anything that COMPUTES reads the raw one (the GST payable is
+re-sourced from the F5 computation — single statutory truth), and the DOM
+renders single-prefix display strings.

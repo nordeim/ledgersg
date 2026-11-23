@@ -101,19 +101,33 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.2.0 | ✅ Production Ready | 16 pages, **505 unit tests + 31 e2e** (11 always + 20 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9), registration + contacts management + the invoice-form contact picker + the full GST F5 lifecycle + bank-account edit/deactivate + fiscal open + change password + InvoiceNow settings (P10) |
-| **Backend** | v0.5.2 | ✅ Suite Fully Green | 90+ endpoints, **687 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8), InvoiceNow invoice-only gate, nullable-PayNow bank-account contract, as-at-bounded aged reports, seeded account_type backfill + is_bank filter (P9), GST F5 review/amend + fiscal-period open + UEN uniqueness + rate-limit 429 truth + org-create duplicate-UEN 400s (P10) |
+| **Frontend** | v0.3.0 | ✅ Production Ready | 16 pages, **511 unit tests + 34 e2e** (11 always + 23 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9), registration + contacts management + the invoice-form contact picker + the full GST F5 lifecycle + bank-account edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11) |
+| **Backend** | v0.6.0 | ✅ Suite Fully Green | 90+ endpoints, **735 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8), InvoiceNow invoice-only gate, nullable-PayNow bank-account contract, as-at-bounded aged reports, seeded account_type backfill + is_bank filter (P9), GST F5 review/amend + fiscal-period open + UEN uniqueness + rate-limit 429 truth + org-create duplicate-UEN 400s (P10), credit notes posting reversed GL entries + netting in F5, production settings that boot (builtin Redis cache, LOG_DIR knob), typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission (P11) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables, **NUMERIC(19,4) money** |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching; payables include PARTIALLY_PAID bills (P7/F-9) |
 | **InvoiceNow** | v0.6.0 | ✅ Real transmission path (P5/C-2) | send-invoicenow creates a real transmission log + queues the Celery task; status reports real log rows; retention-safe cleanup (never deletes DELIVERED/REJECTED); the detail page exposes Send-via-InvoiceNow + status badge (P7) |
 | **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on, HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes, typed query params (400 not 500) |
-| **Overall** | — | 🟢 **P0–P10 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P9_REPORT.md`, `docs/REMEDIATION_2026-11-22_P10_REPORT.md` and `docs/ledgersg-audit-report.md` |
+| **Overall** | — | 🟢 **P0–P11 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P9_REPORT.md`, `docs/REMEDIATION_2026-11-22_P10_REPORT.md`, `docs/REMEDIATION_2026-11-23_P11_REPORT.md` and `docs/ledgersg-audit-report.md` |
 
 ### Latest Milestone
 
-#### 🎉 P10 Sprint: Self-Serve Loop & Compliance Truth — 2026-11-23 (session 20)
+#### 🎉 P11 Sprint: Accounting Truth & Config Honesty — 2026-11-23 (session 23)
+
+Source: the post-P10 audit re-verified in source (`docs/REMEDIATION_PLAN_2026-11-23_P11.md`); every Critical/High hand-verified with line numbers and two runtime reproductions before planning; the live API gate then exercised the full accounting path end to end.
+
+- ✅ **Credit notes post REVERSED GL entries** (C-1 — the Critical): `post_invoice` posted credit notes with invoice-direction entries — a credit note DEBITED the customer's AR instead of crediting it (the books overstated receivables on every credit note since the posting engine shipped). Direction now flips by document type; the F5 computation also nets credit-note boxes and stops counting quotes (H-3). Live-gate proof: invoice AR-debit 2725.00 vs credit note AR-CREDIT 817.50; F5 Box 1 = 3500.00 with 750.00 credit notes netting
+- ✅ **Production settings boot** (C-2 — the Critical): production declared `django_redis` (a dependency production never installs) — every cache touch crashed the boot; plus `DEBUG=true, DEBUG_TOOLBAR=false` crashed dev startup (two gates disagreed on the knob). Production uses the builtin Redis backend; `LOG_DIR` is a settings/env knob with the file-handler path derived from it; debug_toolbar has ONE gate (`INSTALLED_APPS` — H-5)
+- ✅ **The contacts edit dialog tells the truth** (H-1 + M-3/M-4): the dialog prefilled from the LIST row's serializer — uen/peppol_id/address/gst_reg_number rendered blank and an unconditional save ERASED the stored values with a success toast (Peppol ID loss breaks InvoiceNow). The dialog now prefills from the DETAIL endpoint, `gst_reg_number` is a declared PATCH field (previously silently dropped by DRF), and the search debounces (M-4)
+- ✅ **The F5 boxes panel and dashboard GST tell the truth** (H-2/H-4 + M-1/M-7/M-11/L-2): the panel read box keys the backend never sent — every box rendered "—"; the dashboard's GST payable was hardcoded to 0.00 and the revenue chart NaN'd to 0 on "SGD x.xx" strings; six "S$ SGD" double prefixes fell. Box keys, the deadlines envelope, the REVIEWED deadline filter, raw-value chart inputs and single prefixes are all truthful now
+- ✅ **Contract truths** (M-2/M-5/M-6): bank-account PATCH without an id is a 404 (was 500); the org-settings PATCH accepts choice fields and 400s garbage (entity_type/base_currency — was 500 on any PATCH because the serializer didn't exist); garbage path UUIDs 404 at the ROUTING layer (uuid converters — was ValueError 500)
+- ✅ **The audit trail carries its context** (M-8): the trigger's INSERT never read the middleware's `app.client_ip/user_agent/request_path` — the columns stayed NULL on every row; LOGIN/LOGOUT existed in the CHECK vocabulary but no code ever emitted them. Both fixed
+- ✅ **Config honesty** (M-9..M-14 + H-6/H-7 + M-15/M-16 + L-batch): coverage runs in CI (it never had — the "tests pass" step was misleading), dead CI steps removed, devDependencies split out of the production dependency list, `.gitignore` covers `uv.lock`, the Makefile tells the truth, the Docker path boots (pinned installs, gunicorn CMD, compose credentials, no-at-boot migrate), CSP unsafe-* directives are dev-only with `connect-src` from env, root debris (tracked logs, a broken symlink, stale scripts) removed, `date.today()` → `timezone.localdate()`, ledger reversals visible, the dead ValidationError branch removed, UEN TOCTOU hardening
+- ✅ **The live gate**: the full accounting loop verified against the running servers — contact PATCH (gst_reg_number persists), invoice DRAFT→APPROVED (journal posted), credit note APPROVED (reversed journal), F5 computed (boxes net credit notes), dashboard GST payable = 315.00 matching F5 Box 8 — plus 7 content-verified screenshots (`docs/screenshots/59-65_*_session23.png`)
+- ✅ **The gate**: backend 735/0, frontend 511/511, typecheck clean, coverage green at the ratchet, build:server green, default e2e 11 green + 23 gated, live e2e 33P/1S/0F
+
+#### P10 Sprint: Self-Serve Loop & Compliance Truth — 2026-11-23 (session 20)
 
 Source: the post-P9 audit re-verified in source (`docs/REMEDIATION_PLAN_2026-11-22_P10.md`); the live e2e gate then surfaced five more defects the mocked gates could not see (all fixed with regression tests).
 
@@ -284,17 +298,17 @@ Source: the independent audit (`docs/ledgersg-audit-report.md`, every Critical/H
 
 ## 🧪 Test Suites & Execution
 
-LedgerSG employs comprehensive testing across multiple layers with **1,223 tests passing** (687 backend + 505 frontend unit + 31 e2e: 11 always + 20 backend-gated).
+LedgerSG employs comprehensive testing across multiple layers with **1,280 tests passing** (735 backend + 511 frontend unit + 34 e2e: 11 always + 23 backend-gated).
 
 ### Test Suite Breakdown
 
 | Suite | Count | Framework | Coverage | Status |
 |-------|-------|-----------|----------|--------|
-| **Backend Suite** | 692 collected — 687 passing, 5 skipped | pytest-django | Core, domain, integration, invariants, security | ✅ 100% pass (5 intentional skips) |
-| **Frontend Unit Tests** | 505 passing | Vitest + RTL | Components, hooks, pages, providers | ✅ 100% pass |
+| **Backend Suite** | 740 collected — 735 passing, 5 skipped | pytest-django | Core, domain, integration, invariants, security | ✅ 100% pass (5 intentional skips) |
+| **Frontend Unit Tests** | 511 passing | Vitest + RTL | Components, hooks, pages, providers | ✅ 100% pass |
 | **Frontend Typecheck** | 0 errors | tsc --noEmit | All src + e2e + configs | ✅ Green |
 | **Frontend Coverage Gate** | thresholds at the measured floor | vitest --coverage | The honest ratchet (P10/M-13: the old 85% thresholds had never passed) | ✅ Green |
-| **E2E Specs** | 31 specs (11 always + 20 backend-gated) | Playwright | Auth, navigation, register self-serve loop, contacts, invoice picker, banking workflow, ledger, quotes, reports, session, settings, invoices | ✅ 30/30 live-green (1 data-conditional skip) |
+| **E2E Specs** | 34 specs (11 always + 23 backend-gated) | Playwright | Auth, navigation, register self-serve loop, contacts, invoice picker, banking workflow, ledger, quotes, reports, session, settings, invoices, P11 accounting truth (F5 boxes, contacts round-trip, dashboard GST) | ✅ 33/34 live-green (1 data-conditional skip) |
 
 ### Backend Test Execution
 
@@ -314,7 +328,7 @@ source /opt/venv/bin/activate
 cd apps/backend
 pytest --reuse-db --no-migrations -v
 
-# Expected output (post 2026-11-23 P10 remediation): 687 passed, 0 failed, 5 skipped
+# Expected output (post 2026-11-23 P11 remediation): 735 passed, 0 failed, 5 skipped
 ```
 
 **Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). The P2 sprint (`docs/REMEDIATION_2026-11-21_P2_REPORT.md`) added rate-effectiveness regression tests and the custom tax-code create fix. The P3 sprint (`docs/REMEDIATION_2026-11-21_P3_REPORT.md`) widened all monetary columns to NUMERIC(19,4) (schema v1.1.0, §16 in-place migration) and made `add_line` apply `discount_pct` server-side. The P4 sprint (`docs/REMEDIATION_2026-11-21_P4_REPORT.md`) shipped the HttpOnly refresh-cookie session flow with the `session_hint` evidence gate (14 cookie-contract tests). Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance **incl. numeric precision**, balance queries, **monetary capacity**) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).

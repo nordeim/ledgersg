@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.14.0
+> **Version**: 2.15.0
 > **Last Updated**: 2026-11-23
-> **Status**: P10 Remediated 🟢 — all gates green (backend 687P/0F/5S, frontend vitest 505/505, typecheck 0 errors, e2e 31 specs / 11+20skip default, the live suite 30/30 green twice consecutively); self-serve loop & compliance truth: the registration page ships and org-less accounts route to org creation (the anonymous-401 bounce on public pages fixed), the invoice form picks real contacts (no duplicate rows; the wire contract e2e-asserted), the GST F5 tab ships the full lifecycle (create periods, compute, review, file, amend, deadlines), contacts management (search/edit/deactivate), bank-account edit + deactivate, payment allocations visible, fiscal-period open, change password, InvoiceNow settings; the export build retired (standalone only), the coverage gate at the honest measured floor; rate-limited requests return the 429 contract (never a raw 403), organisation UEN collisions are clean 400s, development settings copy-on-write (see `docs/REMEDIATION_2026-11-22_P10_REPORT.md`, plus the P0–P9 reports)
+> **Status**: P11 Remediated 🟢 — all gates green (backend 735P/0F/5S, frontend vitest 511/511, typecheck 0 errors, e2e 34 specs / 11+23skip default, the live suite 33P/1S/0F); accounting & config truth: credit notes post REVERSED GL entries and NET in the F5 computation (quotes excluded — pre-P11 a credit note debited the customer's AR), production settings boot (builtin Redis cache + the LOG_DIR knob; debug_toolbar has ONE gate), the contacts edit dialog prefills from the DETAIL endpoint and a save persists uen/gst_reg_number/peppol_id (previously an unconditional save ERASED them), the F5 boxes panel renders computed values (real box keys) and the dashboard GST payable equals the F5 net GST (raw chart inputs, single currency prefixes), typed org-settings PATCH (choice fields, 400s), routing-layer UUID 404s, the audit trail carries request context + LOGIN/LOGOUT emission, CI runs coverage, the Docker path boots, CSP unsafe-* dev-only (see `docs/REMEDIATION_2026-11-23_P11_REPORT.md`, plus the P0–P10 reports)
 
 ---
 
@@ -30,14 +30,26 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.2.0 | ✅ Ready | 16 pages, 505 unit + 31 e2e tests (11 always + 20 backend-gated; the live suite 30/30 twice), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages, working void dialog + real error messages + PDF/InvoiceNow actions, real reports + quotes pages, organisation creation + full payment workflow + truthful dashboard (P5–P9), registration + contacts + the contact-picker invoice form + the GST F5 lifecycle + bank edit/deactivate + fiscal open + change password + InvoiceNow settings (P10) |
-| **Backend** | v0.5.2 | ✅ Suite Fully Green | 90+ endpoints, **687 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth, per-status transition permissions + active custom exception handler, real financial reports + aged AR/AP + quote lifecycle + the P9 banking/onboarding contracts (P5–P9), GST F5 review/amend + fiscal-period open + UEN 400s + the 429 rate-limit contract (P10) |
+| **Frontend** | v0.3.0 | ✅ Ready | 16 pages, 511 unit + 34 e2e tests (11 always + 23 backend-gated; the live suite 33P/1S), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages, working void dialog + real error messages + PDF/InvoiceNow actions, real reports + quotes pages, organisation creation + full payment workflow + truthful dashboard (P5–P9), registration + contacts + the contact-picker invoice form + the GST F5 lifecycle + bank edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit-dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11) |
+| **Backend** | v0.6.0 | ✅ Suite Fully Green | 90+ endpoints, **735 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth (credit notes post reversed entries and net in F5 — P11/C-1), per-status transition permissions + active custom exception handler, real financial reports + aged AR/AP + quote lifecycle + the P9 banking/onboarding contracts (P5–P9), GST F5 review/amend + fiscal-period open + UEN 400s + the 429 rate-limit contract (P10), production settings that boot (builtin cache + LOG_DIR) + typed org-settings PATCH + UUID routing 404s + audit-trail context (P11) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables, NUMERIC(19,4) money |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
 | **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on (settings-driven login knobs), HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes |
 | **API Contracts** | v1.2.0 | ✅ Standardized | {results, count} lists; auth contract aligned to tests 2026-11-21; error envelope {error:{code,message,details}} active in DRF (P7/F-19) |
 
-### Latest Milestone: P9 Sprint — Onboarding & Banking Truth ✅ — 2026-11-22 (session 18)
+### Latest Milestone: P11 Sprint — Accounting Truth & Config Honesty ✅ — 2026-11-23 (session 23)
+
+| Fix | Impact |
+|-----|--------|
+| **C-1** | Credit notes post REVERSED GL entries (previously invoice-direction — AR debited instead of credited) and NET in the F5 computation; quotes no longer count as supplies (H-3) |
+| **C-2** | Production settings boot: the builtin Redis cache replaces the never-installed `django_redis`; `LOG_DIR` is an env knob; `DEBUG=true, DEBUG_TOOLBAR=false` no longer crashes dev (one gate — H-5) |
+| **H-1 + M-3/M-4** | The contacts edit dialog prefills from the DETAIL endpoint — uen/peppol_id/address/gst_reg_number arrive with their stored values and a save persists them (previously an unconditional save ERASED them with a success toast); the search debounces |
+| **H-2/H-4 + M-1/M-7/M-11/L-2** | The F5 boxes panel reads the real box keys (every box previously rendered "—"), the deadlines envelope and REVIEWED filter are truthful, the dashboard GST payable equals the F5 net GST (was hardcoded 0), the revenue chart takes raw values (was NaN on "SGD x.xx"), single currency prefixes |
+| **M-2/M-5/M-6** | Bank-account PATCH without id → 404; the org-settings PATCH is typed (choice fields, clean 400s on garbage); garbage path UUIDs 404 at the routing layer (uuid converters) |
+| **M-8** | The audit trigger reads the middleware's request context (ip/user-agent/path were NULL on every row); LOGIN/LOGOUT emission (in the CHECK vocabulary, never emitted) |
+| **M-9..M-16 + H-6/H-7 + L-batch** | CI runs coverage + dead steps removed; devDependencies split; `.gitignore` covers `uv.lock`; the Docker path boots (pinned installs, gunicorn CMD, compose credentials, no at-boot migrate); CSP unsafe-* dev-only; root debris removed; `timezone.localdate()`; ledger reversals visible; UEN TOCTOU hardening; permission-gated row actions |
+
+### Previous Milestone: P9 Sprint — Onboarding & Banking Truth ✅ — 2026-11-22 (session 18)
 
 | Fix | Impact |
 |-----|--------|

@@ -6,9 +6,10 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-23, session 20 / P10) re-verified every command against the current
-codebase (backend 687P/0F/5S, vitest 505/505, live e2e 30/30 — two
-consecutive runs).
+(2026-11-23, session 23 / P11) re-verified every command against the current
+codebase (backend 735P/0F/5S, vitest 511/511, typecheck 0 errors,
+build:server green, live e2e 33P/1S/0F — including the P11 accounting-truth
+specs).
 
 Verified truths this guide is built on: the schema file
 `apps/backend/database_schema.sql` (v1.1.0) CREATEs ROLEs inside DO blocks
@@ -195,9 +196,9 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-23 P10): 687 passed, 0 failed, 5 skipped
+# expected (post-2026-11-23 P11): 735 passed, 0 failed, 5 skipped
 pytest tests/invariants -q    # 27 passed (schema conformance + capacity + balance)
-pytest tests/security -q      # 55 passed, 3 skipped (RLS, tokens, cookies, posture gates)
+pytest tests/security -q      # 66 passed, 3 skipped (RLS, tokens, cookies, posture gates)
 ```
 
 ## 8. Run the backend
@@ -210,9 +211,14 @@ curl http://127.0.0.1:8000/api/v1/health/
 # {"status": "healthy", "database": "connected", "version": "1.0.0"}
 ```
 
-Production serves with Gunicorn (the `service` settings module):
+Production serves with Gunicorn (the `production` settings module). Two
+P11/C-2 requirements: the **`LOG_DIR` directory must exist and be writable by
+the service user** before the boot (the file handler logs there — see
+`apps/backend/.env.example`), and `SECRET_KEY` must be real (§12):
 
 ```bash
+sudo mkdir -p /var/log/ledgersg && sudo chown $SERVICE_USER /var/log/ledgersg
+# or set LOG_DIR in .env to a directory you own
 DJANGO_SETTINGS_MODULE=config.settings.production \
 gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3
 ```
@@ -244,18 +250,19 @@ Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 505 vitest tests
+npm test                    # 511 vitest tests
 npm run test:coverage       # green at the honest measured-floor ratchet
 npm run build:server        # the only build mode
 npm run test:e2e            # green without a backend (gated specs skip)
 ```
 
 The full live gate (`npm run test:e2e:full`) additionally needs the dev DB
-bootstrapped with a demo user, organisation, and one approved invoice
-(the banking spec's dependency). The e2e specs read `E2E_DEMO_EMAIL` /
-`E2E_DEMO_PASSWORD` (defaults `demo@ledgersg.sg` / `demo1234` — override
-with a 12+ char password to satisfy the register floor). Bootstrap through
-the public API (idempotent), then run the suite serially:
+bootstrapped with a demo user, organisation, contact and posted accounting
+activity (the banking + P11 specs' dependency). The e2e specs read
+`E2E_DEMO_EMAIL` / `E2E_DEMO_PASSWORD` (defaults `demo@ledgersg.sg` /
+`demo1234` — override with a 12+ char password to satisfy the register floor).
+Bootstrap through the public API (idempotent — reuse what exists), then run
+the suite serially:
 
 ```bash
 export E2E_API_URL=http://127.0.0.1:8000 E2E_DEMO_EMAIL=demo@ledgersg.sg \
@@ -267,12 +274,25 @@ export E2E_API_URL=http://127.0.0.1:8000 E2E_DEMO_EMAIL=demo@ledgersg.sg \
 #    {"name":"Ledger Demo Pte Ltd","uen":"202612345D","entity_type":"PRIVATE_LIMITED",
 #     "gst_registered":true,"gst_reg_number":"M90345678","gst_reg_date":"2026-01-01",
 #     "fy_start_month":1,"base_currency":"SGD"}   (seeds CoA + fiscal year + tax codes)
-# 3) create + approve one invoice:  POST /api/v1/{org}/invoicing/documents/
-#    (line: a REVENUE account id, optionally the SR tax code) then
-#    POST …/documents/{id}/approve/
-npm run test:e2e:full       # 31 specs: 11 always + 20 backend-gated (30/30 live-green,
-                           # 1 data-conditional skip)
+# 3) create a contact (the P11 contacts specs' prefill substrate):
+#    POST /api/v1/{org}/invoicing/contacts/  {"name":"Demo Trading Pte Ltd", ...}
+#    then PATCH the detail with a truthful profile
+#    (uen, gst_reg_number, peppol_id — the edit dialog prefills from DETAIL)
+# 4) post one invoice and one credit note (the C-1/F5 truth substrate):
+#    POST /api/v1/{org}/invoicing/documents/  with  document_type SALES_INVOICE
+#    and SALES_CREDIT_NOTE (issue_date inside an open fiscal period; lines
+#    reference a REVENUE account id and optionally the SR tax code), then
+#    POST …/documents/{id}/approve/  for each (posts the journal entries —
+#    the credit note's are direction-reversed, P11/C-1)
+# 5) compute an F5 return:  POST /api/v1/{org}/gst/returns/
+#    {"filing_frequency":"MONTHLY","start_date":"<month>-01","periods":1}
+#    then POST /api/v1/{org}/gst/returns/{id}/?force=true
+npm run test:e2e:full       # 34 specs: 11 always + 23 backend-gated
+                           # (33/34 live-green, 1 data-conditional skip)
 ```
+
+(The p11 spec's `ensureDemoActivity` performs steps 3–5 idempotently itself
+— a fresh DB self-bootstraps on the first run.)
 
 ## 10. (Optional) Celery worker — async tasks
 
@@ -365,13 +385,40 @@ curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
 #      the next-filing deadline banner; /settings — change password + the
 #      InvoiceNow card + fiscal open/close; /banking Accounts — per-row Edit
 #      + deactivate; Payments — per-payment allocation rows with a toggle.
+
+# 10. P11 accounting-truth spot checks
+#    - a credit note posts REVERSED journal lines (P11/C-1): after approving
+#      one SALES_INVOICE and one SALES_CREDIT_NOTE, the ledger shows the
+#      invoice's AR-debit/revenue-credit/gst-credit and the credit note's
+#      AR-CREDIT/revenue-debit/gst-debit — mirror images:
+#      GET /api/v1/$ORG_ID/journal-entries/entries/  (or /ledger in the UI)
+#    - the F5 boxes net credit notes (P11/H-3): with a 2500.00 SR-9% invoice
+#      and a 750.00 SR-9% credit note in the period, Box 1 = 1750.00 and
+#      Box 6 output tax = 157.50 — the credit note NETS, never adds.
+#    - the F5 boxes panel renders REAL values (P11/H-2): /reports → GST F5
+#      tab → View boxes — monetary values, never the pre-P11 "—" row
+#    - the dashboard GST payable is REAL (P11/H-4): equals the F5 net GST
+#      (e.g. "SGD 315.00"), never the pre-P11 hardcoded 0.00; single
+#      currency prefixes (no "S$ SGD …" doubling)
+#    - the contacts edit round-trip tells the truth (P11/H-1 + M-4):
+#      /contacts → Edit — the dialog PREFILLS uen / GST Registration No /
+#      Peppol ID from the detail endpoint, and a save PERSISTS them (a
+#      saved dialog never silently wipes those fields)
+#    - garbage path UUIDs 404 at the routing layer (P11/M-6):
+#      GET /api/v1/$ORG_ID/invoicing/documents/not-a-uuid/ -> 404 (not 500)
+#    - the org settings PATCH accepts choice fields and 400s garbage
+#      (P11/M-5): PATCH base_currency="garbage" -> 400; timezone="Asia/Singapore" -> 200
+#    - garbage env combinations boot cleanly (P11/H-5):
+#      DEBUG=true + DEBUG_TOOLBAR=false starts and serves (no ImportError)
 ```
 
 The full e2e run performs ~30 logins/refreshes. The dev settings budgets
 (`LOGIN_RATELIMIT_IP` 60/min, `LOGIN_RATELIMIT_USER` 120/min,
 `REFRESH_RATELIMIT_IP` 240/min — the P10 pass raised the per-user login
-budget after the suite's tail tripped the base 30/min) cover it; production
-keeps 10/min IP + 30/min user + 20/min refresh. A rate-limited request now
+budget after the suite's tail tripped the base 30/min; P11 added
+`REGISTER_RATELIMIT_IP` 120/hour after re-runs of the suite exhausted the
+hardcoded 5/hour register literal) cover it; production keeps 10/min IP +
+30/min user + 20/min refresh + 5/hour register. A rate-limited request now
 returns the documented 429 `rate_limit_exceeded` contract (P10 — previously
 a raw 403 "You do not have permission…", indistinguishable from an authz
 failure). If a dev run fails only on login/refresh 429s, flush the dev cache
@@ -382,6 +429,15 @@ failure). If a dev run fails only on login/refresh 429s, flush the dev cache
 - **SECRET_KEY**: `config.settings.production` refuses the placeholder
   (H-06). Generate one:
   `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`.
+- **LOG_DIR (P11/C-2)**: the production settings build the file-handler log
+  path from `LOG_DIR` (default `/var/log/ledgersg`) with copy-on-write
+  LOGGING — create the directory before boot (§8). A missing directory is
+  the one documented production-boot crash of the P11 audit.
+- **Cache backend**: production uses the **builtin
+  `django.core.cache.backends.redis.RedisCache`** (P11/C-2 — production
+  previously declared `django_redis`, a dependency production never
+  installs, so every cache touch crashed the boot). The builtin backend is
+  served by the same `REDIS_URL`.
 - **CORS**: `CORS_ALLOWED_ORIGINS` must list the exact web origin(s)
   (scheme + host + port). The preflight path skips JWT (OPTIONS) via
   `CORSJWTAuthentication`.
@@ -409,6 +465,24 @@ failure). If a dev run fails only on login/refresh 429s, flush the dev cache
   grants to the application role (IRAS 5-year retention).
 - **Backups**: standard `pg_dump` of the database is sufficient (schema +
   data + RLS policies all live in SQL).
+
+### Optional: the Docker route
+
+`apps/backend/Dockerfile` (backend) and the root `docker-compose.yml`
+(backend + PostgreSQL + Redis) ship a container path fixed in P11 (H-6/H-7:
+pinned installs, the gunicorn CMD so the container serves instead of
+sleeping, compose credentials wired, and the removed-at-boot migrate step —
+migrations are permanently disabled in this codebase, the schema loads via
+`database_schema.sql`).
+
+```bash
+docker compose up -d          # backend on :8000 + postgres + redis
+```
+
+**Validated statically, not built in this environment** — the Dockerfile
+and compose YAML were linted against the repo's own contracts (entrypoint,
+env wiring, service dependencies) but no image was built or booted here.
+The §1–§9 native path above is the fully verified one.
 
 ## 13. Updating an existing deployment
 
@@ -441,6 +515,7 @@ and code still agree.
 | Login silently does nothing | Password shorter than 12 chars — the native `minLength` on the register/change-password forms blocks the submit (the backend floor since the P10 audit: `AUTH_PASSWORD_VALIDATORS` `min_length: 12`) | Use a 12+ character password |
 | e2e `Executable doesn't exist` | Declared browsers not installed | `npx playwright install chromium` |
 | e2e full-run login/refresh 429s | Dev rate window spent | Dev budgets 60/120/240 per min (login IP / login user / refresh); flush the dev Redis cache or wait |
+| e2e full-run register 429 (spec stuck on /register) | Repeated full-suite runs exhausted the 5/hour register budget (P11 turned it into the `REGISTER_RATELIMIT_IP` knob) | Development raises it to 120/hour — restart the backend after a settings change; or flush the dev cache |
 | Second organisation without a UEN → 500 | `core.organisation.uen` is VARCHAR UNIQUE — two blank (`''`) UENs collide at the DB (multiple NULLs would not); the P10 serializer guard skips blanks, so the DB constraint itself fires | Known deferred debt (needs the null-vs-blank schema decision); give the org a UEN for now |
 | GST computed at the wrong rate | Document date outside the code's effective window | Pass `document_date` inside the row's window (P2 contract) |
 | `psql ... liblzf.so.1: cannot open shared object file` | Redis extraction missing liblzf | `apt-get download liblzf1` + extract (§5) |
