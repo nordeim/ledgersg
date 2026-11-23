@@ -1,5 +1,66 @@
 # LedgerSG — Worklog
 
+## 2026-11-23 — Session 23: P11 Sprint (Accounting Truth & Config Honesty)
+
+**Base:** `1b3e267d` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-23_P11.md` · **Report:** `docs/REMEDIATION_2026-11-23_P11_REPORT.md` · **Session log:** `docs/session_23.md` (the first half's raw log: `docs/session_22.md`)
+
+### Continuation across a context outage (zero loss)
+
+The sprint was cut mid-Task-1 by a context-window outage; the workspace,
+PG data, Redis, dev servers and the saved plan all persisted. The in-flight
+test-fixture patch was completed on resume; all 17 commits were made after
+the resume and gated before the push. Baselines reproduced exactly before
+any change (backend 687P/5S, vitest 505/505, typecheck 0, e2e 11+20 gated).
+
+### Audit (Mode C) — findings this session
+
+Scanner pass clean (documented FP classes only). Three parallel deep-audit
+agents + lead hand-verification of every Critical/High, including two
+runtime reproductions (the production `django_redis` cache crash; the
+`DEBUG=true, DEBUG_TOOLBAR=false` boot ImportError). Register: **C-1**
+credit notes posted invoice-direction GL entries (AR debited instead of
+credited — books overstated receivables since the engine shipped);
+**C-2** production settings crashed at first cache touch; 7 Highs (the
+contacts edit dialog's data-wipe, the F5 box-keys mismatch, the F5
+computation pollution, the dashboard GST payable hardcode, the
+debug_toolbar double gate, the Docker boot failures); 16 Mediums; 9 Lows.
+
+### Remediation executed (TDD — 48 backend + 6 vitest + 3 e2e specs, all RED first)
+
+Tasks 1–15 per the plan (the report's §2 table carries the
+finding/fix/evidence of each). The headline accounting truth: credit notes
+now post REVERSED journal lines and NET in the F5 computation (quotes
+excluded); the dashboard GST payable is re-sourced from the F5 computation
+(single statutory truth); the F5 boxes panel reads the real serializer
+keys; the contacts edit dialog prefills from the DETAIL payload and a save
+persists what it shows.
+
+### The live gate
+
+The full accounting loop verified against the running servers — ledger-level
+proof of C-1 (the credit note's AR-CREDIT 817.50 mirror-imaging the
+invoice's AR-debit 2725.00), F5 Box 1 = 3500.00 with credit notes netting,
+dashboard gst_payable = 315.0000 matching F5 Box 8. Seven screenshots
+(59–65_session23), pixel- and DOM-verified. The gate's own findings, all
+fixed with regression tests: the register throttle's hardcoded 5/hour
+literal (knob pattern — dev 120/h, production posture asserted unchanged),
+the banking spec's consumed fixture (self-creating), the p10 contacts row
+regex (generalized), the unscoped failed-login audit assertion (scoped to
+the failing user), the sandbox process-cleanup behavior (backend + suite
+in one call).
+
+### Final state (all Verified)
+
+Backend **735P/0F/5S**; invariants 27P; security 66P/3S; vitest **511/511**;
+typecheck **0**; coverage green at the honest ratchet; `build:server` green;
+default e2e **11 + 23 gated**; live e2e **33P/1S/0F**; screenshots 7;
+docs truth-passed (README v0.3.0/v0.6.0 counts 1,280; CLAUDE v2.15; PAD
+v3.8; SKILL v2.0.0 lessons 42–50; AGENTS P11 patterns; DEPLOYMENT.md P11
+revision — fresh-host guide with the P11 spot checks, the register budget
+and the Docker path marked statically-validated); `.env.example` re-audited
+1:1 (backend gains `LOG_DIR`). All commits on `main`, pushed via the SSH
+wrapper with remote-ref verification.
+
 ## 2026-11-23 — Session 20: P10 Sprint (Self-Serve Loop & Compliance Truth)
 
 **Base:** `e37f12f0` (main) · **Plan:** `docs/REMEDIATION_PLAN_2026-11-22_P10.md` · **Report:** `docs/REMEDIATION_2026-11-22_P10_REPORT.md` · **Session log:** `docs/session_21.md`
