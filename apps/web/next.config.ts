@@ -28,6 +28,11 @@ const isServerMode = outputMode === "standalone" || !isStaticExport;
 // Backend API URL for CSP and rewrites
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// P11/M-15: the dev-only CSP exemptions key off the build mode, not
+// isServerMode (both dev server and production standalone are server
+// mode — what differs is NODE_ENV).
+const isDev = process.env.NODE_ENV === "development";
+
 const nextConfig: NextConfig = {
   // Output mode: 'standalone' (default) or 'export' (experimental — see header)
   output: isServerMode ? "standalone" : "export",
@@ -60,12 +65,21 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              // P11/M-15: the unsafe-eval/unsafe-inline exemptions apply
+              // in DEVELOPMENT only (dev overlays/HMR need them; Next 16's
+              // standalone production build does not). The server
+              // headers() path runs in production builds — shipping them
+              // there weakened every production response's CSP.
+              isDev
+                ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
+                : "script-src 'self'",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob:",
-              // Allow connections to backend API and external services
-              `connect-src 'self' ${apiUrl} http://localhost:8000 https://api.peppol.sg https://api.iras.gov.sg`,
+              // P11/M-15: connect-src derives from NEXT_PUBLIC_API_URL
+              // (the same env the client reads) instead of hardcoding
+              // localhost:8000 twice plus placeholder external APIs.
+              `connect-src 'self' ${apiUrl} https://api.peppol.sg https://api.iras.gov.sg`,
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
