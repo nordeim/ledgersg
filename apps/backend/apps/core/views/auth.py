@@ -66,6 +66,45 @@ def register_view(request: Request) -> Response:
         )
 
 
+def _emit_auth_audit(user, action: str, request: Request) -> None:
+    """P11/M-8: emit the curated LOGIN/LOGOUT audit row.
+
+    LOGIN/LOGOUT have been in the event_log CHECK vocabulary since the
+    schema shipped but no code ever emitted them. The row carries the
+    request context (ip / user agent / path) directly — these are
+    org-independent auth events (org_id is the user's default org when
+    one exists, NULL for pre-org logins).
+    """
+    from apps.core.models import AuditEventLog, UserOrganisation
+
+    membership = UserOrganisation.objects.filter(
+        user=user, is_default=True
+    ).select_related("org").first()
+
+    try:
+        AuditEventLog.objects.create(
+            org=membership.org if membership else None,
+            user=user,
+            action=action,
+            entity_schema="core",
+            entity_table="app_user",
+            entity_id=user.id,
+            new_data={"email": user.email},
+            ip_address=request.META.get("REMOTE_ADDR") or None,
+            user_agent=(request.META.get("HTTP_USER_AGENT") or "")[:500],
+            request_path=request.path[:500],
+        )
+    except Exception:
+        # Audit emission must not break the auth flow — but losing the row
+        # is a real defect, so log it (the L-04 discipline).
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "audit emission failed for %s user=%s", action, user.id,
+            exc_info=True,
+        )
+
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @ratelimit(key="ip", rate="config.ratelimits.login_ip", block=True)
@@ -88,6 +127,9 @@ def login_view(request: Request) -> Response:
             email=serializer.validated_data["email"],
             password=serializer.validated_data["password"],
         )
+
+        # P11/M-8: the login event lands in the immutable audit trail.
+        _emit_auth_audit(user, "LOGIN", request)
 
         response = Response(
             {
@@ -170,6 +212,9 @@ def logout_view(request: Request) -> Response:
 
     if refresh_token:
         auth_service.logout_user(refresh_token)
+
+    # P11/M-8: the logout event lands in the immutable audit trail.
+    _emit_auth_audit(request.user, "LOGOUT", request)
 
     response = Response({"message": "Logged out successfully"})
     delete_session_cookies(response)

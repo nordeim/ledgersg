@@ -1435,7 +1435,10 @@ CREATE TRIGGER trg_bank_transaction_updated_at
 
 CREATE TABLE audit.event_log (
     id                  BIGSERIAL PRIMARY KEY,
-    org_id              UUID NOT NULL,
+    -- P11/M-8: nullable — LOGIN/LOGOUT rows for users with no organisation
+    -- yet (pre-org logins) legitimately have no org context. Every
+    -- table-triggered row always carries the row's org_id.
+    org_id              UUID,
     user_id             UUID,                              -- NULL for system-generated events
     session_id          VARCHAR(64),                       -- Django session or JWT jti
 
@@ -2196,10 +2199,17 @@ BEGIN
     END IF;
 
     -- Insert audit record
+    -- P11/M-8: the INSERT reads the AuditContextMiddleware's per-request
+    -- variables (app.client_ip / app.user_agent / app.request_path) into
+    -- the context columns — the columns existed but were never populated,
+    -- so every row carried NULL ip/user-agent/path. current_setting(..., true)
+    -- is NULL when unset (management commands, background jobs) and NULLIF
+    -- guards the empty-string edge ('' cannot cast to INET).
     INSERT INTO audit.event_log (
         org_id, user_id, action,
         entity_schema, entity_table, entity_id,
         old_data, new_data, changed_fields,
+        ip_address, user_agent, request_path,
         created_at
     ) VALUES (
         v_org_id,
@@ -2211,6 +2221,9 @@ BEGIN
         v_old_data,
         v_new_data,
         v_changed,
+        NULLIF(current_setting('app.client_ip', true), '')::INET,
+        NULLIF(current_setting('app.user_agent', true), ''),
+        NULLIF(current_setting('app.request_path', true), ''),
         NOW()
     );
 

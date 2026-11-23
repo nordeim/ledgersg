@@ -29,7 +29,12 @@ class AuditEventLog(models.Model):
     ]
 
     id = models.BigAutoField(primary_key=True, db_column="id")
-    org = models.ForeignKey("Organisation", on_delete=models.CASCADE, db_column="org_id")
+    # P11/M-8: nullable — LOGIN/LOGOUT rows for users with no organisation
+    # yet (pre-org logins) have no org context.
+    org = models.ForeignKey(
+        "Organisation", null=True, blank=True, on_delete=models.CASCADE,
+        db_column="org_id",
+    )
     user = models.ForeignKey(
         "AppUser", null=True, blank=True, on_delete=models.SET_NULL, db_column="user_id"
     )
