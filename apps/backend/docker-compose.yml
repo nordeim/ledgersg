@@ -11,6 +11,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # SQL-First: the schema loads through postgres' first-boot initdb
+      # hook (database_schema.sql is the source of truth; migrations are
+      # permanently disabled in this architecture — never run
+      # manage.py migrate). NOTE: initdb scripts run only when the data
+      # volume is EMPTY — re-initialising the schema after a schema-file
+      # change requires removing the postgres_data volume.
       - ./database_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ledgersg -d ledgersg_dev"]
@@ -43,7 +49,7 @@ services:
       SECRET_KEY: "django-insecure-development-key-change-in-production"
       DB_NAME: ledgersg_dev
       DB_USER: ledgersg
-      DB_PASSWORD: ledgersg
+      DB_PASSWORD: ledgersg_secret_to_change
       DB_HOST: db
       DB_PORT: "5432"
       REDIS_URL: "redis://redis:6379/0"
@@ -57,8 +63,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # P11/H-7: check-then-runserver — the old command ran
+    # `migrate --run-syncdb`, permanently disabled in this architecture
+    # (the schema loads via the db service's initdb volume above).
     command: >
-      sh -c "python manage.py migrate --run-syncdb &&
+      sh -c "python manage.py check &&
              python manage.py runserver 0.0.0.0:8000"
 
   # Celery Worker
@@ -72,7 +81,7 @@ services:
       SECRET_KEY: "django-insecure-development-key-change-in-production"
       DB_NAME: ledgersg_dev
       DB_USER: ledgersg
-      DB_PASSWORD: ledgersg
+      DB_PASSWORD: ledgersg_secret_to_change
       DB_HOST: db
       DB_PORT: "5432"
       REDIS_URL: "redis://redis:6379/0"
@@ -98,7 +107,7 @@ services:
       SECRET_KEY: "django-insecure-development-key-change-in-production"
       DB_NAME: ledgersg_dev
       DB_USER: ledgersg
-      DB_PASSWORD: ledgersg
+      DB_PASSWORD: ledgersg_secret_to_change
       DB_HOST: db
       DB_PORT: "5432"
       REDIS_URL: "redis://redis:6379/0"

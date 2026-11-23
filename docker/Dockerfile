@@ -81,11 +81,12 @@ RUN cd /usr/bin && \
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip
 
-# Install Python dependencies (includes gunicorn)
-RUN /opt/venv/bin/pip install django-celery-beat && \
-    /opt/venv/bin/pip install -U django djangorestframework djangorestframework-simplejwt django-cors-headers django-filter django-csp && \
-    /opt/venv/bin/pip install psycopg[binary] celery[redis] redis py-moneyed pydantic weasyprint lxml python-decouple whitenoise gunicorn structlog sentry-sdk[django] argon2-cffi pytest pytest-django pytest-cov pytest-xdist model-bakery factory-boy faker httpx ruff mypy django-stubs djangorestframework-stubs pre-commit ipython django-debug-toolbar django-extensions && \
-    /opt/venv/bin/pip install fastapi uvicorn httpx pydantic python-multipart sqlalchemy alembic aiofiles jinja2
+# P11/M-12: the dependency install moved to AFTER the repository clone —
+# the pinned set now comes from the cloned pyproject.toml
+# (`pip install -e /app/apps/backend`). The old hand-listed unpinned
+# installs (-U drift away from the Django 6.0.2 pin) MISSED django-ratelimit
+# (INSTALLED_APPS — the image could not boot Django) and requests
+# (the Storecove AP adapter's HTTP client).
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 5. Node.js Installation (LTS 24.x)
@@ -123,6 +124,11 @@ RUN cd /app && \
     mv ledgersg_src/.* . 2>/dev/null || true && \
     rm -rf ledgersg_src && \
     chown -R user:user /app
+
+# P11/M-12: the pinned dependency set from the cloned manifest — every
+# INSTALLED_APPS/MIDDLEWARE dependency (django-csp, django-ratelimit,
+# requests included) present by construction, same pins as venv/CI.
+RUN /opt/venv/bin/pip install -e /app/apps/backend
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 9. Frontend Build (AT BUILD TIME - Standalone Mode)
