@@ -35,6 +35,88 @@ async function loginViaUi(page: import("@playwright/test").Page) {
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });
 }
 
+/**
+ * P11 re-run truth: this spec settles its invoice, so the fixture it relied
+ * on ("the bootstrap-approved one") is consumed by the previous run. It now
+ * creates its own outstanding invoice via the API — unique reference per
+ * run, DRAFT → APPROVED (journal posted), so every re-run has a row to
+ * settle regardless of what earlier runs consumed.
+ */
+async function ensureOutstandingInvoice(page: import("@playwright/test").Page) {
+  const login = await page.request.post(`${apiUrl}/api/v1/auth/login/`, {
+    data: {
+      email: process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg",
+      password: process.env.E2E_DEMO_PASSWORD ?? "demo1234",
+    },
+  });
+  test.expect(login.ok()).toBeTruthy();
+  const token = ((await login.json()) as { tokens: { access: string } }).tokens
+    .access;
+  const auth = { Authorization: `Bearer ${token}` };
+
+  const orgs = (await (
+    await page.request.get(`${apiUrl}/api/v1/auth/organisations/`, {
+      headers: auth,
+    })
+  ).json()) as Array<{ org: { id: string } }>;
+  const orgId = orgs[0].org.id;
+
+  const contacts = (await (
+    await page.request.get(`${apiUrl}/api/v1/${orgId}/invoicing/contacts/`, {
+      headers: auth,
+    })
+  ).json()) as { results: Array<{ id: string }> };
+  const contactId = contacts.results[0]?.id;
+  test.expect(contactId).toBeTruthy();
+
+  const accounts = (await (
+    await page.request.get(`${apiUrl}/api/v1/${orgId}/accounts/?is_active=true`, {
+      headers: auth,
+    })
+  ).json()) as { results: Array<{ id: string; code: string; account_type: string }> };
+  const revenue = accounts.results.find(
+    (a) => a.code === "4100" && a.account_type === "REVENUE"
+  );
+  const codes = (await (
+    await page.request.get(`${apiUrl}/api/v1/${orgId}/gst/tax-codes/?is_active=true`, {
+      headers: auth,
+    })
+  ).json()) as { results: Array<{ id: string; code: string; rate: string }> };
+  const sr = codes.results.find((c) => c.code === "SR" && c.rate === "0.0900");
+  if (!revenue || !sr) {
+    throw new Error("revenue account 4100 or SR tax code missing — run the seed");
+  }
+
+  const created = await page.request.post(
+    `${apiUrl}/api/v1/${orgId}/invoicing/documents/`,
+    {
+      headers: auth,
+      data: {
+        document_type: "SALES_INVOICE",
+        contact_id: contactId,
+        issue_date: new Date().toISOString().slice(0, 10),
+        reference: `E2E-PAY-${Date.now()}`,
+        lines: [
+          {
+            account_id: revenue.id,
+            description: "E2E payment-settlement invoice",
+            quantity: "1.0000",
+            unit_price: "80.0000",
+            tax_code_id: sr.id,
+          },
+        ],
+      },
+    }
+  );
+  test.expect(created.ok()).toBeTruthy();
+  const doc = (await created.json()) as { id: string };
+  const approved = await page.request.post(
+    `${apiUrl}/api/v1/${orgId}/invoicing/documents/${doc.id}/approve/`,
+    { headers: auth, data: {} }
+  );
+  test.expect(approved.ok()).toBeTruthy();
+}
+
 test("bank account dialog creates a real account (P9/B-4)", async ({ page }) => {
   await loginViaUi(page);
 
@@ -67,9 +149,10 @@ test("bank account dialog creates a real account (P9/B-4)", async ({ page }) => 
 });
 
 test("record payment settles an invoice end to end (P9/B-3, B-3b)", async ({ page }) => {
+  await ensureOutstandingInvoice(page);
   await loginViaUi(page);
 
-  // Find an outstanding invoice (the bootstrap-approved one).
+  // Find an outstanding invoice (this run's own — see the helper above).
   await page.getByRole("link", { name: /^Invoices$/ }).click();
   await expect(page).toHaveURL(/\/invoices\/?$/, { timeout: 20000 });
 

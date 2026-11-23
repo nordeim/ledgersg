@@ -146,12 +146,15 @@ test.describe("Contacts page (P10/M-5, live)", () => {
       page.getByRole("main").getByRole("heading", { name: /^contacts$/i })
     ).toBeVisible();
 
-    // The bootstrap seeds "Bootstrap Customer"; a re-run DB may also carry
-    // the picker spec's customer. Either way: real rows, never a mock.
-    const row = page.getByText(/Bootstrap Customer|E2E Picked Customer/);
+    // Real rows, never a mock. The DB cycles seed different contacts
+    // (P11's demo activity seeds "Demo Trading Pte Ltd"; earlier cycles
+    // seeded "Bootstrap Customer" / the picker spec's customer) — any row
+    // carrying an Edit action proves the page renders live data; a DB
+    // without contacts shows the truthful empty state.
+    const rows = page.getByTestId("contacts-list");
     const emptyState = page.getByText(/no contacts yet/i);
     await expect
-      .poll(async () => (await row.first().isVisible()) || (await emptyState.isVisible()), {
+      .poll(async () => (await rows.locator("button").count()) > 0 || (await emptyState.isVisible()), {
         timeout: 20_000,
       })
       .toBeTruthy();

@@ -129,6 +129,56 @@ def test_base_throttle_posture_unchanged():
     assert base.REFRESH_RATELIMIT_IP == "20/minute"
 
 
+# =============================================================================
+# P11 live gate — the register throttle gets the same settings-knob treatment
+# =============================================================================
+
+def test_register_throttle_is_a_settings_knob():
+    """RED for the P11 live gate: the register endpoint's throttle must be
+    a settings knob (base default 5/hour), not a decorator literal — the
+    P10 spec's self-serve loop registers one user per `test:e2e:full` run,
+    and re-running the suite against the local dev server 429'd the
+    register step with no way to raise the budget without editing code
+    (same class as the P6/E-1 refresh knob)."""
+    from config.settings import base
+
+    assert getattr(base, "REGISTER_RATELIMIT_IP", None) == "5/hour", (
+        "base must define the register throttle knob with the documented "
+        "SEC-002 posture (5/hour) — production is never weakened"
+    )
+
+    from config import ratelimits
+
+    assert callable(getattr(ratelimits, "register_ip", None)), (
+        "config.ratelimits must expose the dotted-path callable the "
+        "register decorator references"
+    )
+
+
+def test_register_view_uses_the_settings_knob():
+    """The register_view decorator must resolve its rate through
+    config.ratelimits (lazily, per request) — not the hardcoded literal."""
+    import inspect
+
+    import apps.core.views.auth as auth_module
+
+    source = inspect.getsource(auth_module)
+    assert 'rate="config.ratelimits.register_ip"' in source, (
+        "register_view must use the settings-driven dotted-path rate"
+    )
+    assert 'rate="5/hour"' not in source, (
+        "the hardcoded register literal must be gone"
+    )
+
+
+def test_development_raises_register_budget():
+    """Development raises the register budget so repeated local e2e runs
+    are not throttled; testing keeps rate limiting off entirely."""
+    from config.settings import development
+
+    assert development.REGISTER_RATELIMIT_IP == "120/hour"
+
+
 def test_custom_exception_handler_is_active():
     """P7/F-19 posture gate: DRF must resolve the custom exception handler.
 

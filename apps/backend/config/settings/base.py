@@ -299,6 +299,13 @@ LOGIN_RATELIMIT_USER = "30/minute"
 # budget. Production keeps 20/minute.
 REFRESH_RATELIMIT_IP = "20/minute"
 
+# Register endpoint throttle (P11 live gate) — same knob pattern. The e2e
+# self-serve spec registers one user per `test:e2e:full` run; re-running
+# the suite against the local dev server exhausted the hardcoded 5/hour
+# literal with no settings-driven way to raise the development budget.
+# Production keeps 5/hour.
+REGISTER_RATELIMIT_IP = "5/hour"
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",

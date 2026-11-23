@@ -42,3 +42,15 @@ def refresh_ip(group, request) -> str:
     with no way to raise the budget without editing code.
     """
     return settings.REFRESH_RATELIMIT_IP
+
+
+def register_ip(group, request) -> str:
+    """Per-IP register rate (P11 live-gate settings knob; default 5/hour).
+
+    Same class as the refresh knob: the register decorator carried a
+    hardcoded "5/hour" literal, so re-running the e2e suite against the
+    local dev server (one self-serve registration per run) 429'd the
+    register step with no settings-driven way to raise the development
+    budget. Production posture (5/hour) is unchanged.
+    """
+    return settings.REGISTER_RATELIMIT_IP

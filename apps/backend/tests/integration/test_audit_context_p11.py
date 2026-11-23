@@ -59,7 +59,14 @@ class TestLoginLogoutAuditEmission:
         assert str(row.ip_address) == "127.0.0.1"
 
     def test_failed_login_writes_no_row(self, api_client, test_user):
-        """A failed login emits nothing (audit trails record successes)."""
+        """A failed login emits nothing (audit trails record successes).
+
+        Scoped to THIS user: the suite shares the dev database with the
+        live gate (e2e:full logins against the local dev server write
+        legitimate LOGIN rows for the demo user), so the assertion must
+        only demand silence for the user whose login failed — matching
+        the user-scoped contract of test_login_writes_audit_row above.
+        """
         response = api_client.post(
             "/api/v1/auth/login/",
             {"email": test_user.email, "password": "wrongpassword"},
@@ -67,7 +74,9 @@ class TestLoginLogoutAuditEmission:
         )
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-        assert not AuditEventLog.objects.filter(action="LOGIN").exists()
+        assert not AuditEventLog.objects.filter(
+            action="LOGIN", user_id=test_user.id
+        ).exists()
 
 
 class TestTriggerRowsCarryRequestContext:

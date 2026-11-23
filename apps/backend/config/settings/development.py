@@ -124,6 +124,12 @@ LOGIN_RATELIMIT_USER = "120/minute"
 # (20/min anon, 100/min user, 20/min refresh).
 REFRESH_RATELIMIT_IP = "240/minute"
 
+# P11 live gate: raise the register budget for the local e2e suite — the
+# self-serve spec registers one user per run and repeated runs against the
+# same dev server exhausted base's 5/hour literal (the 429 bounced the
+# spec off /register). Production posture in base is unchanged (5/hour).
+REGISTER_RATELIMIT_IP = "120/hour"
+
 REST_FRAMEWORK = {
     **REST_FRAMEWORK,
     "DEFAULT_THROTTLE_RATES": {

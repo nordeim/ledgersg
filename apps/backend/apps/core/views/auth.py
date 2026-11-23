@@ -27,13 +27,15 @@ from common.exceptions import ValidationError
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
-@ratelimit(key="ip", rate="5/hour", block=True)
+@ratelimit(key="ip", rate="config.ratelimits.register_ip", block=True)
 def register_view(request: Request) -> Response:
     """
     Register a new user.
 
     POST /api/v1/auth/register/
-    Rate limit: 5 registrations per hour per IP.
+    Rate limit: 5 registrations per hour per IP (settings knob —
+    config.ratelimits.register_ip / REGISTER_RATELIMIT_IP; development
+    raises the budget for the local e2e suite).
     """
     serializer = RegisterSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
