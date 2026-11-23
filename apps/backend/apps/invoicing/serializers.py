@@ -17,7 +17,12 @@ class ContactListSerializer(serializers.ModelSerializer):
         model = Contact
         fields = [
             "id", "name", "contact_type", "is_customer", "is_supplier",
-            "email", "phone", "is_active", "city", "country"
+            "email", "phone", "is_active", "city", "country",
+            # P11/H-1: the edit dialog prefills from the list row — without
+            # uen/peppol_id here those fields always prefilled blank and an
+            # unconditional save erased the stored values. The row badges
+            # also claim them.
+            "uen", "peppol_id",
         ]
         read_only_fields = ["id"]
 
@@ -78,6 +83,12 @@ class ContactUpdateSerializer(serializers.Serializer):
     is_supplier = serializers.BooleanField(required=False)
     is_active = serializers.BooleanField(required=False)
     payment_terms_days = serializers.IntegerField(required=False)
+    # P11/M-4: the edit dialog renders an editable "GST Registration No"
+    # field — without this declaration DRF silently dropped it and the
+    # save reported success while nothing persisted.
+    gst_reg_number = serializers.CharField(
+        max_length=20, required=False, allow_blank=True
+    )
 
 
 class InvoiceLineSerializer(serializers.ModelSerializer):

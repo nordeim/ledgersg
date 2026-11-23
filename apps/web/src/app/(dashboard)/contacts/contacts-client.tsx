@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import { Loader2, Pencil, Search, UserX, Users } from "lucide-react";
 import { useAuth } from "@/providers/auth-provider";
 import { toast } from "@/hooks/use-toast";
 import {
+  useContact,
   useContacts,
   useUpdateContact,
   useDeactivateContact,
@@ -45,8 +46,11 @@ export default function ContactsClient() {
   const [editing, setEditing] = useState<Contact | null>(null);
   const [deactivating, setDeactivating] = useState<Contact | null>(null);
 
-  // Debounce the search so typing doesn't hammer the endpoint per keystroke.
-  useMemo(() => {
+  // P11/M-3: debounce via useEffect with the cleanup — the old useMemo
+  // "debounce" returned a cleanup that was never invoked (it is the memo
+  // VALUE), so every keystroke fired a request, stale intermediate values
+  // landed, and timers survived unmount. The ContactPicker pattern.
+  useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(timer);
   }, [search]);
@@ -135,11 +139,17 @@ export default function ContactsClient() {
         </div>
       )}
 
-      {/* Edit dialog */}
+      {/* P11/H-1: the edit dialog prefills from the DETAIL payload — the
+      list row never carried uen/peppol_id/address/gst_reg_number, so the
+      dialog used to prefill those blank and an unconditional save erased
+      them. key={editing.id} resets dialog state per row (the P10 banking
+      pattern). */}
       {editing && (
         <EditContactDialog
+          key={editing.id}
           orgId={orgId}
-          contact={editing}
+          contactId={editing.id}
+          contactName={editing.name}
           open={!!editing}
           onOpenChange={(open) => !open && setEditing(null)}
         />
@@ -206,7 +216,7 @@ function ContactRow({
               Inactive
             </Badge>
           )}
-          {contact.is_peppol_enabled && (
+          {contact.peppol_id && (
             <Badge variant="outline" className="rounded-sm text-xs text-accent-primary">
               Peppol
             </Badge>
@@ -295,33 +305,23 @@ const EDIT_FIELDS = [
 
 function EditContactDialog({
   orgId,
-  contact,
+  contactId,
+  contactName,
   open,
   onOpenChange,
 }: {
   orgId: string;
-  contact: Contact;
+  contactId: string;
+  contactName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const update = useUpdateContact(orgId, contact.id);
-  const [form, setForm] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      EDIT_FIELDS.map(({ key }) => [key, (contact as unknown as Record<string, string>)[key] ?? ""])
-    )
-  );
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSave = async () => {
-    setError(null);
-    try {
-      await update.mutateAsync(form as Parameters<typeof update.mutateAsync>[0]);
-      toast({ title: "Contact updated", description: contact.name });
-      onOpenChange(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save. Please try again.");
-    }
-  };
+  // P11/H-1: prefill from the DETAIL endpoint — the list row's serializer
+  // never carried uen/peppol_id/address_line_1/postal_code/gst_reg_number,
+  // so those inputs prefilled blank and an unconditional eight-field save
+  // erased the stored values with a success toast (Peppol ID loss breaks
+  // InvoiceNow). The banking-dialog remount pattern above resets state.
+  const { data: detail, isLoading } = useContact(orgId, contactId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -335,47 +335,104 @@ function EditContactDialog({
             address.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {EDIT_FIELDS.map(({ key, label, type }) => (
-            <Input
-              key={key}
-              label={label}
-              type={type}
-              value={form[key]}
-              onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-              disabled={update.isPending}
-            />
-          ))}
-        </div>
-        {error && (
-          <p className="text-sm text-alert" role="alert">
-            {error}
-          </p>
+        {isLoading || !detail ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-secondary">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            Loading contact…
+          </div>
+        ) : (
+          <EditContactForm
+            orgId={orgId}
+            contactId={contactId}
+            contactName={contactName}
+            detail={detail}
+            onOpenChange={onOpenChange}
+          />
         )}
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-sm border-border"
-            onClick={() => onOpenChange(false)}
-            disabled={update.isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            className="rounded-sm bg-accent-primary text-void hover:bg-accent-primary-dim"
-            onClick={handleSave}
-            disabled={update.isPending}
-          >
-            {update.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              "Save Changes"
-            )}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function EditContactForm({
+  orgId,
+  contactId,
+  contactName,
+  detail,
+  onOpenChange,
+}: {
+  orgId: string;
+  contactId: string;
+  contactName: string;
+  detail: Contact;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const update = useUpdateContact(orgId, contactId);
+  const [form, setForm] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      EDIT_FIELDS.map(({ key }) => [
+        key,
+        (detail as unknown as Record<string, string>)[key] ?? "",
+      ])
+    )
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    setError(null);
+    try {
+      // The fields ride along with their TRUE prefilled values — a blank
+      // only ever means the user cleared it.
+      await update.mutateAsync(form as Parameters<typeof update.mutateAsync>[0]);
+      toast({ title: "Contact updated", description: contactName });
+      onOpenChange(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save. Please try again.");
+    }
+  };
+
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {EDIT_FIELDS.map(({ key, label, type }) => (
+          <Input
+            key={key}
+            label={label}
+            type={type}
+            value={form[key]}
+            onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+            disabled={update.isPending}
+          />
+        ))}
+      </div>
+      {error && (
+        <p className="text-sm text-alert" role="alert">
+          {error}
+        </p>
+      )}
+      <DialogFooter>
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-sm border-border"
+          onClick={() => onOpenChange(false)}
+          disabled={update.isPending}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          className="rounded-sm bg-accent-primary text-void hover:bg-accent-primary-dim"
+          onClick={handleSave}
+          disabled={update.isPending}
+        >
+          {update.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : (
+            "Save Changes"
+          )}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

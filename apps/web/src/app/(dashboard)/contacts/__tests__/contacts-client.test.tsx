@@ -8,21 +8,40 @@ import { useContacts } from "@/hooks/use-contacts";
 // were complete but ZERO UI existed: a wrong Peppol ID or email (required
 // for InvoiceNow sends) could never be corrected in-app.
 
+// P11: the fixture rebuilt from the REAL serializer shapes — the list row
+// (ContactListSerializer: uen/peppol_id joined in P11/H-1) and the detail
+// payload the edit dialog now prefills from.
 const contactFixture = {
   id: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   org_id: "org-1",
   contact_type: "CUSTOMER" as const,
   name: "Marina Consulting Group Pte Ltd",
+  is_customer: true,
+  is_supplier: false,
   email: "billing@marina.example.sg",
   phone: "+65 6123 4567",
-  uen: "201912345A",
-  gst_reg_number: "M90345678X",
-  peppol_id: "0209-201912345A-1234",
-  is_peppol_enabled: true,
-  payment_terms_days: 30,
-  currency: "SGD",
   is_active: true,
+  city: "Singapore",
   country: "SG",
+  uen: "201912345A",
+  peppol_id: "0209-201912345A-1234",
+};
+
+const contactDetailFixture = {
+  ...contactFixture,
+  company_name: "Marina Consulting Group",
+  legal_name: "Marina Consulting Group Pte Ltd",
+  gst_reg_number: "M90345678X",
+  is_gst_registered: true,
+  address_line_1: "12 Marina Boulevard #05-01",
+  address_line_2: "",
+  state_province: "",
+  postal_code: "018982",
+  default_currency: "SGD",
+  payment_terms_days: 30,
+  credit_limit: null,
+  peppol_scheme_id: "0209",
+  notes: "",
   created_at: "2026-11-01T00:00:00Z",
   updated_at: "2026-11-01T00:00:00Z",
 };
@@ -35,6 +54,10 @@ vi.mock("@/hooks/use-contacts", () => ({
     data: [contactFixture],
     isLoading: false,
     isError: false,
+  })),
+  useContact: vi.fn(() => ({
+    data: contactDetailFixture,
+    isLoading: false,
   })),
   useUpdateContact: () => ({
     mutateAsync: updateMock,
