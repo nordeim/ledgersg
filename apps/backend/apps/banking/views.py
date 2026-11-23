@@ -109,7 +109,7 @@ class BankAccountDetailView(APIView):
         """Get a single bank account."""
         account = BankAccountService.get(
             org_id=org_id,
-            account_id=UUID(account_id),
+            account_id=UUID(str(account_id)),
         )
 
         serializer = BankAccountSerializer(account)
@@ -131,7 +131,7 @@ class BankAccountDetailView(APIView):
         # DoesNotExist → 500 on a missing/deactivated account where the
         # GET/DELETE siblings correctly 404 (ResourceNotFound).
         account = BankAccountService.get(
-            org_id=org_id, account_id=UUID(account_id)
+            org_id=org_id, account_id=UUID(str(account_id))
         )
 
         serializer = BankAccountUpdateSerializer(
@@ -144,7 +144,7 @@ class BankAccountDetailView(APIView):
 
         account = BankAccountService.update(
             org_id=org_id,
-            account_id=UUID(account_id),
+            account_id=UUID(str(account_id)),
             data=serializer.validated_data,
             user_id=request.user.id if request.user else None,
         )
@@ -163,7 +163,7 @@ class BankAccountDetailView(APIView):
 
         account = BankAccountService.deactivate(
             org_id=org_id,
-            account_id=UUID(account_id),
+            account_id=UUID(str(account_id)),
             user_id=request.user.id if request.user else None,
         )
 
@@ -354,7 +354,7 @@ class PaymentDetailView(APIView):
         """Get a single payment with allocations."""
         payment = PaymentService.get(
             org_id=org_id,
-            payment_id=UUID(payment_id),
+            payment_id=UUID(str(payment_id)),
         )
 
         allocations = PaymentService.get_allocations(payment_id=payment.id)
@@ -395,7 +395,7 @@ class PaymentAllocateView(APIView):
 
         payment = PaymentService.allocate(
             org_id=org_id,
-            payment_id=UUID(payment_id),
+            payment_id=UUID(str(payment_id)),
             allocations=serializer.validated_data["allocations"],
             user_id=request.user.id if request.user else None,
         )
@@ -428,7 +428,7 @@ class PaymentVoidView(APIView):
 
         payment = PaymentService.void(
             org_id=org_id,
-            payment_id=UUID(payment_id),
+            payment_id=UUID(str(payment_id)),
             reason=serializer.validated_data["reason"],
             user_id=request.user.id if request.user else None,
         )

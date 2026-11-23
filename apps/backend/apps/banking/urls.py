@@ -29,7 +29,7 @@ urlpatterns = [
     # Bank accounts
     path("bank-accounts/", BankAccountListView.as_view(), name="bank-account-list"),
     path(
-        "bank-accounts/<str:account_id>/",
+        "bank-accounts/<uuid:account_id>/",
         BankAccountDetailView.as_view(),
         name="bank-account-detail",
     ),
@@ -38,17 +38,17 @@ urlpatterns = [
     path("payments/receive/", ReceivePaymentView.as_view(), name="payment-receive"),
     path("payments/make/", MakePaymentView.as_view(), name="payment-make"),
     path(
-        "payments/<str:payment_id>/",
+        "payments/<uuid:payment_id>/",
         PaymentDetailView.as_view(),
         name="payment-detail",
     ),
     path(
-        "payments/<str:payment_id>/allocate/",
+        "payments/<uuid:payment_id>/allocate/",
         PaymentAllocateView.as_view(),
         name="payment-allocate",
     ),
     path(
-        "payments/<str:payment_id>/void/",
+        "payments/<uuid:payment_id>/void/",
         PaymentVoidView.as_view(),
         name="payment-void",
     ),

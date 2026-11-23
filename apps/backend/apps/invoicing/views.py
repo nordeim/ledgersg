@@ -398,7 +398,7 @@ class InvoiceLineRemoveView(APIView):
         """Remove line from document."""
         from uuid import UUID
 
-        DocumentService.remove_line(UUID(str(org_id)), UUID(str(document_id)), UUID(line_id))
+        DocumentService.remove_line(UUID(str(org_id)), UUID(str(document_id)), UUID(str(line_id)))
 
         return Response({"message": "Line removed"})
 

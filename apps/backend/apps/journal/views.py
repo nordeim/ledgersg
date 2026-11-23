@@ -134,7 +134,7 @@ class JournalEntryDetailView(APIView):
         """Get journal entry details."""
         from uuid import UUID
 
-        entry = JournalService.get_entry(org_id, UUID(entry_id))
+        entry = JournalService.get_entry(org_id, UUID(str(entry_id)))
         return Response(JournalEntryDetailSerializer(entry).data)
 
 class JournalEntryReversalView(APIView):
@@ -157,7 +157,7 @@ class JournalEntryReversalView(APIView):
 
         reversal = JournalService.create_reversal(
             org_id=org_id,
-            original_entry_id=UUID(entry_id),
+            original_entry_id=UUID(str(entry_id)),
             reversal_date=data["reversal_date"],
             reason=data["reason"],
             user_id=request.user.id,
@@ -230,7 +230,7 @@ class AccountBalanceView(APIView):
             date_to = parse_date_param(date_to, "date_to").date()
 
         balance = JournalService.get_account_balance(
-            org_id=org_id, account_id=UUID(account_id), date_to=date_to
+            org_id=org_id, account_id=UUID(str(account_id)), date_to=date_to
         )
 
         from apps.core.models import Account
