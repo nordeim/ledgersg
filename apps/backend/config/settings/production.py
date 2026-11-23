@@ -71,16 +71,13 @@ DATABASES["default"]["CONN_MAX_AGE"] = 60  # Persistent connections
 # =============================================================================
 # CACHING (Production)
 # =============================================================================
-
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": config("REDIS_URL"),
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-    }
-}
+# P11/C-2: no override — inherit base's builtin Redis backend. The old
+# django_redis.cache.RedisCache override pointed at a dependency that is
+# in neither pyproject nor uv.lock, so every org-scoped request (tenant
+# membership cache + django-ratelimit) crashed with ModuleNotFoundError.
+# The builtin django.core.cache.backends.redis.RedisCache is the repo's
+# own convention (base + testing use the same stack) and needs no extra
+# dependency; production points it at REDIS_URL via base.
 
 # =============================================================================
 # CELERY (Production)
@@ -92,16 +89,39 @@ CELERY_TASK_ALWAYS_EAGER = False
 # LOGGING (Production)
 # =============================================================================
 
-LOGGING["handlers"]["file"] = {
-    "class": "logging.handlers.RotatingFileHandler",
-    "filename": "/var/log/ledgersg/django.log",
-    "maxBytes": 10485760,  # 10 MB
-    "backupCount": 10,
-    "formatter": "verbose",
-}
+# P11/C-2: LOG_DIR is the deployer's knob (default /var/log/ledgersg —
+# DEPLOYMENT.md ships the mkdir step). The file handler path derives
+# from it instead of a hardcoded path that crashes django.setup() when
+# the directory does not exist on a fresh host.
+LOG_DIR = config("LOG_DIR", default="/var/log/ledgersg")
 
-LOGGING["loggers"]["django"]["handlers"] = ["console", "file"]
-LOGGING["loggers"]["ledgersg"]["handlers"] = ["console", "file"]
+# P11/C-2: copy-on-write — the dict is SHARED with base via
+# `from .base import *`; assigning into LOGGING["handlers"] mutated
+# base's (and every other settings module's) LOGGING in place.
+LOGGING = {
+    **LOGGING,
+    "handlers": {
+        **LOGGING["handlers"],
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": f"{LOG_DIR}/django.log",
+            "maxBytes": 10485760,  # 10 MB
+            "backupCount": 10,
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        **LOGGING["loggers"],
+        "django": {
+            **LOGGING["loggers"]["django"],
+            "handlers": ["console", "file"],
+        },
+        "ledgersg": {
+            **LOGGING["loggers"]["ledgersg"],
+            "handlers": ["console", "file"],
+        },
+    },
+}
 
 # =============================================================================
 # STATIC FILES (Production)
