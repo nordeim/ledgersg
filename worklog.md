@@ -527,3 +527,57 @@ P0 register (H-02/03/04/08/09r/10/11/13, M-02…M-16, L-*, I-*) unchanged; plus 
 ### Commits
 
 Conventional commits on `main` per plan §5; pushed via `docs/ssh_git_wrapper_v3.py` (paramiko shim; key shredded after push).
+
+---
+
+## 2026-11-23 — Session 25 (P12: Mobile-Nav Truth & A11y Floor)
+
+**Base:** `ba4357d4` (post-P11 + the user's session_24 log). PG/Redis
+survived the recycle (verified: schema-qualified DBs, audit triggers);
+venv/node_modules/chromium persisted; all baselines reproduced first
+(backend 735P/0F/5S, vitest 511/511, tsc 0, coverage + build green, e2e
+11 + 23 gated).
+
+**Sprint focus (per instructions):** the mobile navigation menu + a
+possible TailwindCSS v4 bug — audited LIVE with agent-browser at
+375×812/800×1024/1280×800 and the repo skills' taxonomies
+(`nextjs16-tailwind4` §9/§9.4/§10, `tailwind-patterns`, `astro-7-patterns`
+§7). **Verdict: the nav works; no v4 bug exists** — the `display:flex`
+reading was correct flex-item blockification (matched-rule trace proved
+only `.inline-flex` + media-gated `.md:hidden` apply; the setup has no
+legacy config). Plan: `docs/REMEDIATION_PLAN_2026-11-23_P12.md`
+(2 Mediums + 4 Lows + 2 Infos, 9 tasks).
+
+### Remediation executed (TDD)
+
+| Task | Change | Evidence |
+|---|---|---|
+| 1 (A-1) | The mobile-nav overlay a11y floor in `shell.tsx`: Escape close, Tab-cycle trap, body scroll lock, focus-in on open, focus-return on close | 7 vitest (RED 6/7 → GREEN 7/7) + live browser re-verification |
+| 2 (A-2) | `e2e/mobile-nav.spec.ts` — 3 gated authenticated specs (open+Escape; navigate+auto-close; desktop band) | 3/3 green in the live full run; gated skip with reason otherwise |
+| 3 (A-3) | Lint-debt truth pass: 30 unused-vars, prefer-const, no-unescaped-entities, CustomTooltip hoist, dead mounted gate, unused catch binding, type-only const, middleware param | eslint whole-tree **79 → 45**; vitest 518/518; all gates green |
+| 4 (A-4) | `data-scroll-behavior="smooth"` on `<html>` | The Next.js route-transition warning verified gone live |
+| 5 (A-8) | `API_CLI_Usage_Guide.md` v2.5.0 — live re-verification block (9/9 envelopes, journal mount, login contract, credit-note reversal, dashboard endpoint), current metrics, session-persistence truth | Every claim executed live this session |
+| 6 (A-9) | DEPLOYMENT.md counts; env examples no-drift | grep-level re-audit |
+| 7 | Screenshots 66–71_session25 (desktop dashboard/invoices/reports; mobile nav-open/closed/ledger) | pixel-verified + md5-unique |
+| 8 | Docs truth pass: README (P12 milestone + 1,290 counts), CLAUDE v2.16.0, AGENTS P12 patterns, PAD v3.8.0, SKILL v2.1.0 + lessons 51–54 | claims match executed output |
+
+### Final gate (all Verified, executed)
+
+backend **735P/0F/5S** (unchanged) · vitest **518/518** · typecheck 0 ·
+coverage green · build:server green · eslint **45** (truthful register) ·
+e2e default 11 + 26 gated · **live e2e:full 36P/1S/0F (37 specs)** · the
+a11y behaviors re-verified live · API contracts re-verified live · 6
+screenshots verified.
+
+### Deferred (registered, not dropped)
+
+The 36 `no-explicit-any` findings (unchanged policy); the mounted-gate
+`set-state-in-effect` pair (registered — behavior-sensitive to replace);
+3 `exhaustive-deps`; the `incompatible-library` + 2 `immutability`
+informationals; the recharts mount-noise class (chart verified correct);
+everything carried forward from P11's register.
+
+### Commits
+
+Conventional commits on `main` per plan §5; pushed via
+`docs/ssh_git_wrapper_v3.py` (paramiko shim; key shredded after push).

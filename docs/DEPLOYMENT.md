@@ -7,9 +7,9 @@ a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
 (2026-11-23, session 23 / P11) re-verified every command against the current
-codebase (backend 735P/0F/5S, vitest 511/511, typecheck 0 errors,
-build:server green, live e2e 33P/1S/0F — including the P11 accounting-truth
-specs).
+codebase (backend 735P/0F/5S, vitest 518/518, typecheck 0 errors,
+build:server green, live e2e 36P/1S/0F — including the P11 accounting-truth
+specs and the P12 mobile-nav a11y specs; re-verified in session 25 / P12).
 
 Verified truths this guide is built on: the schema file
 `apps/backend/database_schema.sql` (v1.1.0) CREATEs ROLEs inside DO blocks
@@ -250,7 +250,7 @@ Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 511 vitest tests
+npm test                    # 518 vitest tests
 npm run test:coverage       # green at the honest measured-floor ratchet
 npm run build:server        # the only build mode
 npm run test:e2e            # green without a backend (gated specs skip)
@@ -287,8 +287,8 @@ export E2E_API_URL=http://127.0.0.1:8000 E2E_DEMO_EMAIL=demo@ledgersg.sg \
 # 5) compute an F5 return:  POST /api/v1/{org}/gst/returns/
 #    {"filing_frequency":"MONTHLY","start_date":"<month>-01","periods":1}
 #    then POST /api/v1/{org}/gst/returns/{id}/?force=true
-npm run test:e2e:full       # 34 specs: 11 always + 23 backend-gated
-                           # (33/34 live-green, 1 data-conditional skip)
+npm run test:e2e:full       # 37 specs: 11 always + 26 backend-gated
+                           # (36/37 live-green, 1 data-conditional skip)
 ```
 
 (The p11 spec's `ensureDemoActivity` performs steps 3–5 idempotently itself

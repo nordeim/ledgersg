@@ -101,7 +101,7 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.3.0 | ✅ Production Ready | 16 pages, **511 unit tests + 34 e2e** (11 always + 23 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9), registration + contacts management + the invoice-form contact picker + the full GST F5 lifecycle + bank-account edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11) |
+| **Frontend** | v0.3.1 | ✅ Production Ready | 16 pages, **518 unit tests + 37 e2e** (11 always + 26 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9), registration + contacts management + the invoice-form contact picker + the full GST F5 lifecycle + bank-account edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11), the mobile-nav overlay a11y floor (Escape / focus trap / scroll lock / focus return) + the lint-debt truth pass (79→45) + data-scroll-behavior (P12) |
 | **Backend** | v0.6.0 | ✅ Suite Fully Green | 90+ endpoints, **735 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8), InvoiceNow invoice-only gate, nullable-PayNow bank-account contract, as-at-bounded aged reports, seeded account_type backfill + is_bank filter (P9), GST F5 review/amend + fiscal-period open + UEN uniqueness + rate-limit 429 truth + org-create duplicate-UEN 400s (P10), credit notes posting reversed GL entries + netting in F5, production settings that boot (builtin Redis cache, LOG_DIR knob), typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission (P11) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables, **NUMERIC(19,4) money** |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
@@ -109,9 +109,20 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching; payables include PARTIALLY_PAID bills (P7/F-9) |
 | **InvoiceNow** | v0.6.0 | ✅ Real transmission path (P5/C-2) | send-invoicenow creates a real transmission log + queues the Celery task; status reports real log rows; retention-safe cleanup (never deletes DELIVERED/REJECTED); the detail page exposes Send-via-InvoiceNow + status badge (P7) |
 | **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on, HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes, typed query params (400 not 500) |
-| **Overall** | — | 🟢 **P0–P11 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P9_REPORT.md`, `docs/REMEDIATION_2026-11-22_P10_REPORT.md`, `docs/REMEDIATION_2026-11-23_P11_REPORT.md` and `docs/ledgersg-audit-report.md` |
+| **Overall** | — | 🟢 **P0–P12 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P9_REPORT.md`, `docs/REMEDIATION_2026-11-22_P10_REPORT.md`, `docs/REMEDIATION_2026-11-23_P11_REPORT.md`, `docs/REMEDIATION_2026-11-23_P12_REPORT.md` and `docs/ledgersg-audit-report.md` |
 
 ### Latest Milestone
+
+#### 🎉 P12 Sprint: Mobile-Nav Truth & A11y Floor — 2026-11-23 (session 25)
+
+Source: the post-P11 audit executed live (`docs/REMEDIATION_PLAN_2026-11-23_P12.md`) — agent-browser at 375×812 / 800×1024 / 1280×800 against the running dev stack, computed-style rule traces on the nav DOM, the repo skills' failure taxonomies (`skills/nextjs16-tailwind4`, `skills/tailwind-patterns`, `skills/astro-7-patterns`).
+
+- ✅ **The mobile navigation menu verified working end-to-end** (the sprint's focus): toggle/overlay/open/close/navigate/auto-close/desktop-sticky all pass live at every viewport; the CSS cascade traced rule-by-rule (only `.inline-flex` + the media-gated `.md:hidden` match — the suspicious `display:flex` reading was correct CSS flex-item blockification, not a Tailwind v4 bug; the v4 setup itself is clean: `@import "tailwindcss"` + `@theme`, no legacy config)
+- ✅ **The overlay a11y floor** (A-1): Escape closes the open menu (live-verified: previously it stayed open), body scroll locks while open, focus moves into the sidebar on open and returns to the toggle on close, and Tab cycles within the sidebar while open — 7 vitest (RED: 6 failed for exactly these gaps) + 3 gated e2e specs
+- ✅ **The lint-debt truth pass** (A-3): the full-repo register had drifted to 79 findings while parity was only checked on touched files; every mechanical class cleared (30 unused-vars, prefer-const, no-unescaped-entities, the CustomTooltip-in-render anti-pattern, the dead shell mounted gate) — **79 → 45**, remaining are the registered any-debt + mounted-gates + compiler-informationals
+- ✅ **`data-scroll-behavior="smooth"`** on `<html>` (A-4): kills the Next.js 16 route-transition warning (verified gone live)
+- ✅ **`API_CLI_Usage_Guide.md` re-verified live** (A-8): all 9 documented list envelopes + the journal mount + the login contract re-exercised against the running stack; credit-note reversal + current metrics documented; the session-persistence limitation rewritten to the Playwright storageState truth
+- ✅ **The gate**: backend 735/0 (unchanged), frontend 518/518, typecheck clean, coverage green at the ratchet, build:server green, default e2e 11 green + 26 gated, live e2e **36P/1S/0F** (37 specs incl. the 3 new mobile-nav specs), eslint 79→45 with no new findings
 
 #### 🎉 P11 Sprint: Accounting Truth & Config Honesty — 2026-11-23 (session 23)
 
@@ -126,6 +137,7 @@ Source: the post-P10 audit re-verified in source (`docs/REMEDIATION_PLAN_2026-11
 - ✅ **Config honesty** (M-9..M-14 + H-6/H-7 + M-15/M-16 + L-batch): coverage runs in CI (it never had — the "tests pass" step was misleading), dead CI steps removed, devDependencies split out of the production dependency list, `.gitignore` covers `uv.lock`, the Makefile tells the truth, the Docker path boots (pinned installs, gunicorn CMD, compose credentials, no-at-boot migrate), CSP unsafe-* directives are dev-only with `connect-src` from env, root debris (tracked logs, a broken symlink, stale scripts) removed, `date.today()` → `timezone.localdate()`, ledger reversals visible, the dead ValidationError branch removed, UEN TOCTOU hardening
 - ✅ **The live gate**: the full accounting loop verified against the running servers — contact PATCH (gst_reg_number persists), invoice DRAFT→APPROVED (journal posted), credit note APPROVED (reversed journal), F5 computed (boxes net credit notes), dashboard GST payable = 315.00 matching F5 Box 8 — plus 7 content-verified screenshots (`docs/screenshots/59-65_*_session23.png`)
 - ✅ **The gate**: backend 735/0, frontend 511/511, typecheck clean, coverage green at the ratchet, build:server green, default e2e 11 green + 23 gated, live e2e 33P/1S/0F
+
 
 #### P10 Sprint: Self-Serve Loop & Compliance Truth — 2026-11-23 (session 20)
 
@@ -298,17 +310,17 @@ Source: the independent audit (`docs/ledgersg-audit-report.md`, every Critical/H
 
 ## 🧪 Test Suites & Execution
 
-LedgerSG employs comprehensive testing across multiple layers with **1,280 tests passing** (735 backend + 511 frontend unit + 34 e2e: 11 always + 23 backend-gated).
+LedgerSG employs comprehensive testing across multiple layers with **1,290 tests passing** (735 backend + 518 frontend unit + 37 e2e: 11 always + 26 backend-gated).
 
 ### Test Suite Breakdown
 
 | Suite | Count | Framework | Coverage | Status |
 |-------|-------|-----------|----------|--------|
 | **Backend Suite** | 740 collected — 735 passing, 5 skipped | pytest-django | Core, domain, integration, invariants, security | ✅ 100% pass (5 intentional skips) |
-| **Frontend Unit Tests** | 511 passing | Vitest + RTL | Components, hooks, pages, providers | ✅ 100% pass |
+| **Frontend Unit Tests** | 518 passing | Vitest + RTL | Components, hooks, pages, providers | ✅ 100% pass |
 | **Frontend Typecheck** | 0 errors | tsc --noEmit | All src + e2e + configs | ✅ Green |
 | **Frontend Coverage Gate** | thresholds at the measured floor | vitest --coverage | The honest ratchet (P10/M-13: the old 85% thresholds had never passed) | ✅ Green |
-| **E2E Specs** | 34 specs (11 always + 23 backend-gated) | Playwright | Auth, navigation, register self-serve loop, contacts, invoice picker, banking workflow, ledger, quotes, reports, session, settings, invoices, P11 accounting truth (F5 boxes, contacts round-trip, dashboard GST) | ✅ 33/34 live-green (1 data-conditional skip) |
+| **E2E Specs** | 37 specs (11 always + 26 backend-gated) | Playwright | Auth, navigation, register self-serve loop, contacts, invoice picker, banking workflow, ledger, quotes, reports, session, settings, invoices, P11 accounting truth (F5 boxes, contacts round-trip, dashboard GST), P12 mobile-nav overlay contract (Escape/auto-close/desktop) | ✅ 36/37 live-green (1 data-conditional skip) |
 
 ### Backend Test Execution
 

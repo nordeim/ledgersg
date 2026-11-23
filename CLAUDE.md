@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.15.0
+> **Version**: 2.16.0
 > **Last Updated**: 2026-11-23
-> **Status**: P11 Remediated 🟢 — all gates green (backend 735P/0F/5S, frontend vitest 511/511, typecheck 0 errors, e2e 34 specs / 11+23skip default, the live suite 33P/1S/0F); accounting & config truth: credit notes post REVERSED GL entries and NET in the F5 computation (quotes excluded — pre-P11 a credit note debited the customer's AR), production settings boot (builtin Redis cache + the LOG_DIR knob; debug_toolbar has ONE gate), the contacts edit dialog prefills from the DETAIL endpoint and a save persists uen/gst_reg_number/peppol_id (previously an unconditional save ERASED them), the F5 boxes panel renders computed values (real box keys) and the dashboard GST payable equals the F5 net GST (raw chart inputs, single currency prefixes), typed org-settings PATCH (choice fields, 400s), routing-layer UUID 404s, the audit trail carries request context + LOGIN/LOGOUT emission, CI runs coverage, the Docker path boots, CSP unsafe-* dev-only (see `docs/REMEDIATION_2026-11-23_P11_REPORT.md`, plus the P0–P10 reports)
+> **Status**: P12 Remediated 🟢 — all gates green (backend 735P/0F/5S unchanged, frontend vitest 518/518, typecheck 0 errors, e2e 37 specs / 11+26skip default, the live suite 36P/1S/0F incl. the mobile-nav overlay contract specs; eslint 79→45 with every mechanical class cleared and the register truthful). Mobile-nav truth: the navigation verified working live at 375/800/1280 with rule-by-rule cascade traces (the `display:flex` reading is correct flex-item blockification, NOT a Tailwind v4 bug — the v4 setup is clean, no legacy config); the open menu now behaves as a modal overlay (Escape closes, body scroll locks, focus moves in on open and returns to the trigger on close, Tab cycles within — the P12/A-1 floor with 7 vitest + 3 gated e2e); `data-scroll-behavior=smooth` on <html> kills the Next.js 16 route-transition warning; the API_CLI guide re-verified live (see `docs/REMEDIATION_2026-11-23_P12_REPORT.md`, plus the P0–P11 reports)
 
 ---
 

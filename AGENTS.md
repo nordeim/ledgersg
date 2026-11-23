@@ -1183,6 +1183,46 @@ descriptions/references) and assert on values read from the system, and
 duplicate-looking headings (a shell breadcrumb h2 next to each page's h1)
 belong to ONE heading per page — demote the decorative one to aria-hidden.
 
+## 2026-11-23 P12 Sprint — New Patterns & Lessons (session 25)
+
+### A "Suspicious" Computed Style Gets A Rule Trace Before A Bug Claim
+The mobile-nav toggle read `display:flex` while wearing `md:hidden` +
+`inline-flex` — looks like a Tailwind v4 cascade defect. The matched-rule
+trace (walk `document.styleSheets`, keep rules whose selector the element
+matches and that set `display`) showed only `.inline-flex` and the
+media-gated `.md\:hidden` — and `display:flex` is the CORRECT CSS
+blockification of an inline-level child of a flex container (the header).
+Trace the cascade before claiming a framework bug; also verify the setup
+class first (this repo: `@import "tailwindcss"` + `@theme`, no legacy
+config — the #1 v4 failure mode).
+
+### An Open Mobile Menu Owes The Overlay Contract (A-1)
+The §9.4 mandatory set (skills/nextjs16-tailwind4): Escape closes, focus
+traps inside, body scroll locks, focus returns to the trigger. The shipped
+floor: a document keydown listener mounted while open (Escape + Tab wrap
+handling), a `useEffect` on the open flag locking `body.style.overflow`
+with cleanup, a prev-state ref returning focus to the toggle, and focus
+moved into the sidebar on open. Every behavior shipped with its failing
+test first (6 RED → 7 GREEN) plus gated e2e specs — the live re-verification
+confirmed all four behaviors in the real browser.
+
+### Lint Parity On Touched Files Silently Drifts The Whole Tree (A-3)
+The documented register said "47 no-explicit-any findings"; the truthful
+whole-tree state was 79 (36 any + 30 unused-vars + 13 react-hooks-v7
+classes). Parity checks on touched files catch NEW debt but hide ACCUMULATED
+debt — measure the full count every sprint, clear the mechanical classes
+(30 unused imports/vars, a dead `mounted` gate, a `catch (error)` with an
+unused binding, an in-render tooltip component definition, a type-only
+const object), and re-register the honest remainder (45 post-P12).
+
+### Playwright Accessible-Name Matching Is Substring (A-2 spec lesson)
+`getByRole('link', { name: 'Ledger' })` resolved to TWO elements — the
+Ledger nav link AND the logo ("L LEDGERSG" contains "LEDGER") — and the
+strict-mode violation read exactly like an app bug (click "did nothing").
+Scope to the landmark and use `exact: true` when a nav item's name is a
+substring of another element's accessible name; the error context yaml
+names both matches — read it before diagnosing the app.
+
 ## 2026-11-23 P11 Sprint — New Patterns & Lessons (session 23)
 
 ### A Document-Type Branch In The Posting Engine Must Be Verified PER TYPE (C-1)

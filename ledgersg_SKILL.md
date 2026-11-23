@@ -1,9 +1,9 @@
 ---
 name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 2.0.0
+version: 2.1.0
 last_updated: 2026-11-23
-project_state: "P11 remediated; all gates green — 735 backend tests (0 failed, 5 skipped), frontend 511 vitest + 34 e2e (11 default / 23 backend-gated; the live suite 33P/1S/0F), typecheck 0 errors, coverage green at the measured-floor ratchet, standalone the only build (export retired); schema v1.1.0 NUMERIC(19,4) money; P11: credit notes post REVERSED GL entries and NET in the F5 computation (quotes excluded — pre-P11 a credit note debited the customer's AR), production settings boot (builtin Redis cache, LOG_DIR env knob, debug_toolbar one gate), the contacts edit dialog prefills from the DETAIL endpoint and a save persists uen/gst_reg_number/peppol_id (previously erased), the F5 boxes panel renders computed values (real box keys), the dashboard GST payable equals the F5 net GST (raw chart inputs, single prefixes), typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission, CI runs coverage, the Docker path boots, CSP unsafe-* dev-only"
+project_state: "P12 remediated; all gates green — 735 backend tests (0 failed, 5 skipped), frontend 518 vitest + 37 e2e (11 default / 26 backend-gated; the live suite 36P/1S/0F), typecheck 0 errors, coverage green at the measured-floor ratchet, standalone the only build (export retired); eslint whole-tree 45 findings (the truthful register — 36 any-debt + mounted-gates + exhaustive-deps + compiler-informationals; P12 cleared every mechanical class, 79→45); schema v1.1.0 NUMERIC(19,4) money; P12: the mobile nav verified working live at 375/800/1280 (rule-by-rule cascade trace — the display:flex reading was flex-item blockification, NOT a Tailwind v4 bug; the v4 setup is clean), the open menu is a modal overlay (Escape close, focus trap, body scroll lock, focus return — 7 vitest + 3 gated e2e), data-scroll-behavior=smooth on <html>, API_CLI guide re-verified live; P11: credit notes post REVERSED GL entries and NET in the F5 computation (quotes excluded), production settings boot (builtin Redis cache, LOG_DIR env knob, debug_toolbar one gate), the contacts edit dialog prefills from the DETAIL endpoint and a save persists uen/gst_reg_number/peppol_id, the F5 boxes panel renders computed values (real box keys), the dashboard GST payable equals the F5 net GST, typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission, CI runs coverage, the Docker path boots, CSP unsafe-* dev-only"
 ---
 
 # LedgerSG — Engineering Skill
@@ -588,6 +588,33 @@ write inside `transaction.atomic()`; new tests RED before the fix.
    API ships both a raw value and a `*_display` string, anything that
    COMPUTES reads the raw one; only the DOM renders the display one
    (with a single currency prefix — never "S$" + "SGD x.xx" doubling).
+
+51. (P12) `display:flex` on a `md:hidden` toggle inside a flex header is
+   CORRECT CSS, not a Tailwind v4 bug: an inline-level flex item
+   blockifies its outer display. Before diagnosing a "v4 utility not
+   winning", trace the matched rules (document.styleSheets walk) — only
+   then claim a cascade defect. In this repo the v4 setup is clean:
+   `@import "tailwindcss"` + `@theme`, no legacy config file.
+
+52. (P12) An open mobile menu is a modal overlay — it owes the four
+   §9.4 behaviors (Escape close, focus trap, body scroll lock, focus
+   return to the trigger). The shipped floor: a keydown listener while
+   open, a `useEffect` on `sidebarOpen` locking `body.style.overflow`, a
+   prev-state ref returning focus, and a Tab-cycle trap within the
+   sidebar's focusables. 7 vitest + 3 gated e2e specs pin the contract.
+
+53. (P12) Lint parity on touched files drifts the FULL register silently
+   (47 documented → 79 real). Measure the whole-tree count every sprint,
+   clear the mechanical classes (unused imports, dead state, in-render
+   component definitions), and re-register the truthful remainder
+   (post-P12: 45 — 36 any-debt + mounted-gates + exhaustive-deps +
+   compiler-informationals).
+
+54. (P12) Playwright `getByRole` name matching is SUBSTRING by default:
+   `getByRole('link', { name: 'Ledger' })` also matched the logo link
+   ("L LEDGERSG" contains "LEDGER") → strict-mode violation that reads
+   like an app bug. Scope to the landmark + `exact: true` when a nav
+   item's name is a substring of another element's accessible name.
 
 ## 12. Quick Reference Card
 

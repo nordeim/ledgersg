@@ -2,9 +2,34 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 2.4.0
-> **Last Updated**: 2026-03-15
+> **Version**: 2.5.0
+> **Last Updated**: 2026-11-23 (P12 re-verification — all documented contracts exercised live)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
+
+---
+
+## 2026-11-23 Live Re-Verification (P12)
+
+Every documented contract below was re-exercised against the running stack
+(post-P11 remediation) before this update:
+
+| Contract | Result |
+|:---|:---|
+| `POST /api/v1/auth/login/` → `{tokens: {access, refresh}}` | ✅ Verified (live curl) |
+| All 9 documented list endpoints → `{results, count}` envelope | ✅ Verified — 9/9 return HTTP 200 with the paginated object (banking×3, contacts, documents, tax-codes, returns, accounts, journal entries) |
+| Journal mount: `/journal/entries/` 404 vs `/journal-entries/entries/` 200 | ✅ Verified (both directions) |
+| `POST /documents/{id}/approve/` → posts the GL journal | ✅ Verified (P11 live gate); **credit notes post REVERSED entries** — AR credit, revenue/GST debit (P11/C-1 fix) |
+| F5 computation | ✅ Net of credit notes, posted-types only (P11/H-3) — quotes no longer pollute Box 1 |
+| Dashboard metrics | ✅ `GET /api/v1/{orgId}/reports/dashboard/metrics/` (the H-4 surface; `gst_payable` non-zero on real data) |
+| Org context for CLI flows | ✅ `GET /api/v1/auth/organisations/` returns the membership list — take `[i].org.id`; note it is a bare array at the top level (no `{results, count}` envelope on this auth route) |
+
+### Current Test Metrics (post-P11/P12)
+
+| Suite | Count | Status |
+|:---|:---|:---|
+| Backend Tests | 735 passed, 5 skipped, 0 failed | ✅ 100% of registered |
+| Frontend vitest | 518 passed (511 P11 + 7 P12 mobile-nav a11y) | ✅ |
+| Frontend e2e | 11 always-green + 24 backend-gated; 33+ live under `test:e2e:full` | ✅ |
 
 ---
 
@@ -24,12 +49,12 @@
 | **Test Fixture Issue** | 67 tests fail with "User not authorized" | pytest isolation issue, not production bug |
 | **Session Persistence** | HttpOnly cookies break automation tools. | **SOLUTION**: Hybrid API + UI approach. |
 
-### Test Metrics (Verified)
+### Test Metrics (as of 2026-03-15 — superseded by the 2026-11-23 block above)
 
 | Suite | Count | Status |
 |:---|:---|:---|
-| Backend Tests | 468 collected, 393 passing | ✅ 84% |
-| Frontend Tests | 321 passing | ✅ 100% |
+| Backend Tests | 468 collected, 393 passing | ✅ 84% (historical) |
+| Frontend Tests | 321 passing | ✅ 100% (historical) |
 | API Contract Tests | 8 passing | ✅ 100% |
 
 ### Previous Milestone: SMB Workflow Hardening ✅ COMPLETE (2026-03-10)
@@ -82,15 +107,19 @@ Successfully completed full E2E validation for **Lakshmi's Kitchen** (12-month C
 ```
 
 ### Session Not Persisting in E2E Tests
-**Status**: ⚠️ **KNOWN LIMITATION** (2026-03-14)
-**Cause**: HttpOnly cookies not sent by automation tools (agent-browser, Playwright). Access tokens in memory lost on navigation.
-**Impact**: Redirects to login after every page navigation in E2E tests.
-**Solution**: Use **Hybrid API + UI approach**:
+**Status**: ✅ **RESOLVED FOR PLAYWRIGHT** (2026-11-23)
+**Cause**: HttpOnly refresh cookies are invisible to JS-based automation drivers.
+**Resolution**: the Playwright e2e suite authenticates through the UI and the
+browser context carries the HttpOnly cookie session across reloads and
+client-side navigation (P4/E-1 — the `session.spec.ts` specs assert the
+reload-persistence contract and run green under `test:e2e:full`). For
+pure-CLI drivers without a cookie jar, the hybrid API approach below still
+applies:
 ```bash
 # 1. Authenticate via API
 curl -X POST http://localhost:8000/api/v1/auth/login/ \
   -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "password"}'
+  -d '{"email": "user@example.sg", "password": "password"}'
 # Returns: {"tokens": {"access": "...", "refresh": "..."}}
 
 # 2. Use access token for all API calls
@@ -129,11 +158,22 @@ curl -X POST "http://localhost:8000/api/v1/{orgId}/invoicing/documents/{id}/appr
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
+**P11/C-1 direction truth**: approving a **credit note** posts the journal
+REVERSED — the AR line is a CREDIT (customer receivable shrinks), the revenue
+and GST lines are DEBITS. Approving an invoice posts the normal direction.
+
 ### 2. Verify Ledger Posting
 ```bash
 # Check if journal entries were created
 curl -X GET "http://localhost:8000/api/v1/{orgId}/journal-entries/entries/" \
   -H "Authorization: Bearer $ACCESS_TOKEN" | jq '.results'
+```
+
+### 3. Dashboard Metrics (the H-4 surface)
+```bash
+curl "http://localhost:8000/api/v1/{orgId}/reports/dashboard/metrics/" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+# gst_payable is computed from document lines (non-zero on real data)
 ```
 
 ---
