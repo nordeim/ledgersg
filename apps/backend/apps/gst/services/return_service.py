@@ -450,7 +450,7 @@ class GSTReturnService:
         Returns:
             List of GSTReturn instances with upcoming deadlines
         """
-        today = date.today()
+        today = timezone.localdate()
         deadline = today + timedelta(days=days)
 
         # P11/M-11: REVIEWED is the state between compute and file — a

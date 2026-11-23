@@ -9,6 +9,7 @@ Manages GST tax codes including:
 """
 
 from datetime import date
+from django.utils import timezone
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -194,7 +195,7 @@ class TaxCodeService:
         """
         from django.db.models import F, Q
 
-        as_of = as_of or date.today()
+        as_of = as_of or timezone.localdate()
         try:
             return (
                 TaxCode.objects.filter(
@@ -267,7 +268,7 @@ class TaxCodeService:
             is_input=is_input,
             is_output=is_output,
             is_active=True,
-            effective_from=date.today(),
+            effective_from=timezone.localdate(),
             **kwargs
         )
 

@@ -21,6 +21,7 @@ vi.mock("@/providers/auth-provider", () => ({
   useAuth: () => ({
     currentOrg: { id: "org-123", name: "Test Org" },
     isLoading: false,
+    hasPermission: (permission: string) => permission === "can_manage_banking",
   }),
 }));
 

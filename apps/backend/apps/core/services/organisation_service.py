@@ -12,7 +12,7 @@ import uuid
 from typing import Optional
 from datetime import date, timedelta
 
-from django.db import connection, transaction
+from django.db import IntegrityError, connection, transaction
 
 from apps.core.models import (
     Organisation, 
@@ -47,10 +47,11 @@ def create_organisation(
     
     with transaction.atomic():
         # Create organisation
-        org = Organisation.objects.create(
-            name=name,
-            legal_name=legal_name or name,
-            uen=uen,
+        try:
+            org = Organisation.objects.create(
+                name=name,
+                legal_name=legal_name or name,
+                uen=uen,
             entity_type=entity_type,
             gst_registered=gst_registered,
             gst_reg_number=gst_reg_number,
@@ -59,6 +60,12 @@ def create_organisation(
             base_currency=base_currency,
             **kwargs
         )
+        except IntegrityError:
+            from rest_framework import serializers
+
+            raise serializers.ValidationError(
+                {"uen": "An organisation with this UEN already exists."}
+            )
         
         # Seed Chart of Accounts via PostgreSQL function
         _seed_chart_of_accounts(org.id, gst_registered)
@@ -315,7 +322,14 @@ def update_organisation(org: Organisation, **kwargs) -> Organisation:
             )
 
     if applied:
-        org.save()
+        try:
+            org.save()
+        except IntegrityError:
+            from rest_framework import serializers
+
+            raise serializers.ValidationError(
+                {"uen": "An organisation with this UEN already exists."}
+            )
     return org
 
 

@@ -459,7 +459,7 @@ class JournalService:
         # period is closed (e.g. year-end) fall back to the original entry's
         # date — void_document() has already verified that period is open.
         original_entry = JournalService.get_entry(org_id, invoice.journal_entry_id)
-        reversal_date = date.today()
+        reversal_date = timezone.localdate()
         if not JournalService._get_fiscal_period(org_id, reversal_date):
             reversal_date = original_entry.entry_date
 

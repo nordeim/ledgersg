@@ -86,6 +86,8 @@ vi.mock("@/providers/auth-provider", () => ({
     currentOrg: { id: "org-1", name: "Test Org" },
     isAuthenticated: true,
     isLoading: false,
+    // P11/L-1: the row actions gate on can_manage_org — the manager view.
+    hasPermission: (permission: string) => permission === "can_manage_org",
   }),
 }));
 

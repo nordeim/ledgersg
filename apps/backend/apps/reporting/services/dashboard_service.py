@@ -7,6 +7,7 @@ Phase 4: Redis Caching (TDD)
 """
 
 from datetime import date, datetime, timedelta
+from django.utils import timezone
 from decimal import Decimal
 from uuid import UUID
 import logging
@@ -89,7 +90,7 @@ class DashboardService:
             logger.error(f"Invalid org_id: {org_id}")
             return self._get_empty_dashboard()
 
-        today = date.today()
+        today = timezone.localdate()
 
         current_quarter = (today.month - 1) // 3 + 1
         period_start = date(today.year, (current_quarter - 1) * 3 + 1, 1)
@@ -185,9 +186,9 @@ class DashboardService:
             "invoices_overdue": 0,
             "invoices_peppol_pending": 0,
             "current_gst_period": {
-                "start_date": date.today().isoformat(),
-                "end_date": date.today().isoformat(),
-                "filing_due_date": date.today().isoformat(),
+                "start_date": timezone.localdate().isoformat(),
+                "end_date": timezone.localdate().isoformat(),
+                "filing_due_date": timezone.localdate().isoformat(),
                 "days_remaining": 0,
             },
             "last_updated": datetime.now().isoformat(),
@@ -346,7 +347,7 @@ class DashboardService:
     def query_gst_threshold_status(self, org_id: str) -> dict:
         """Check GST registration threshold status (12-month rolling revenue)."""
         org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
-        today = date.today()
+        today = timezone.localdate()
         twelve_months_ago = today - timedelta(days=365)
 
         result = InvoiceDocument.objects.filter(
@@ -379,7 +380,7 @@ class DashboardService:
         alerts = []
 
         # Check for overdue invoices
-        today = date.today()
+        today = timezone.localdate()
         overdue_invoices = (
             InvoiceDocument.objects.filter(
                 org_id=org_uuid,
@@ -444,7 +445,7 @@ class DashboardService:
                 org_id=org_uuid,
                 document_type__in=["SALES_INVOICE", "PURCHASE_INVOICE"],
                 status__in=["APPROVED", "PARTIALLY_PAID", "OVERDUE"],
-                due_date__lt=date.today(),
+                due_date__lt=timezone.localdate(),
             )
             .filter(amount_paid__lt=F("total_incl"))
             .count()

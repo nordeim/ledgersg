@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from django.db import connection
+from django.db import IntegrityError, connection
 
 from apps.core.serializers import (
     OrganisationSerializer,
@@ -341,7 +341,16 @@ class OrganisationSettingsView(APIView):
             setattr(org, field, value)
             updated_fields.append(field)
 
-        org.save()
+        # P11/L-9: the UEN check-then-write is racy — the concurrent loser
+        # hits the DB UNIQUE constraint; surface the same 400 field error.
+        try:
+            org.save()
+        except IntegrityError:
+            from rest_framework import serializers
+
+            raise serializers.ValidationError(
+                {"uen": "An organisation with this UEN already exists."}
+            )
         return Response(
             {
                 "message": "Settings updated successfully",

@@ -197,6 +197,11 @@ function ContactRow({
   onEdit: () => void;
   onDeactivate: () => void;
 }) {
+  // P11/L-1: corrections (edit/deactivate) are manager acts — members
+  // saw the buttons and got 403 error toasts (the backend gates them).
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission("can_manage_org");
+
   return (
     <div className="flex items-center justify-between gap-3 rounded-sm border border-border bg-carbon p-4">
       <div className="min-w-0 flex-1">
@@ -229,18 +234,20 @@ function ContactRow({
         </div>
       </div>
       <div className="flex gap-1 shrink-0">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="rounded-sm border-border h-8"
-          aria-label={`Edit ${contact.name}`}
-          onClick={onEdit}
-        >
-          <Pencil className="h-3.5 w-3.5" aria-hidden />
-          Edit
-        </Button>
-        {contact.is_active && (
+        {canManage && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-sm border-border h-8"
+            aria-label={`Edit ${contact.name}`}
+            onClick={onEdit}
+          >
+            <Pencil className="h-3.5 w-3.5" aria-hidden />
+            Edit
+          </Button>
+        )}
+        {contact.is_active && canManage && (
           <Button
             type="button"
             variant="outline"

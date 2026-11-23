@@ -357,8 +357,13 @@ class LedgerView(APIView):
 
         from apps.core.models import JournalLine
 
+        # P11/L-4: no is_reversed filter — both sides of a reversal pair
+        # are visible, consistent with the trial balance (which includes
+        # both). The old filter hid every original entry's lines the
+        # moment it was reversed, so the ledger stopped reconciling to the
+        # TB by construction.
         queryset = JournalLine.objects.filter(
-            org_id=org_id, entry__is_reversed=False
+            org_id=org_id
         ).select_related("entry", "account").order_by(
             "-entry__entry_date", "-entry__entry_number", "line_number"
         )

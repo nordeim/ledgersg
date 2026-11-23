@@ -102,7 +102,7 @@ function ReportRows({ lines, amountLabel }: { lines: FinancialReportLine[]; amou
 }
 
 export function ReportsClient() {
-  const { currentOrg, isLoading: authLoading } = useAuth();
+  const { currentOrg, isLoading: authLoading, hasPermission } = useAuth();
   const orgId = currentOrg?.id ?? null;
 
   const [startDate, setStartDate] = React.useState(firstOfYearISO());
@@ -155,6 +155,10 @@ export function ReportsClient() {
       </Card>
     );
   }
+  // P11/L-1: Review/File/Amend are the GST-filer's acts — members saw the
+  // buttons and got 403 error toasts (the backend gates can_file_gst).
+  // Computed after the no-org guard: permission checks need the org context.
+  const canFileGst = hasPermission("can_file_gst");
 
   const reportsPermissionError = [pl, bs, tb, agedAr, agedAp].some(
     (q) => q.error instanceof ApiError && (q.error as ApiError).status === 403
@@ -531,7 +535,7 @@ export function ReportsClient() {
                                 )}
                                 Compute
                               </Button>
-                              {row.status === "COMPUTED" && (
+                              {canFileGst && row.status === "COMPUTED" && (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -542,16 +546,18 @@ export function ReportsClient() {
                                   Review
                                 </Button>
                               )}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 rounded-sm border-border"
-                                disabled={fileReturn.isPending || row.status === "FILED"}
-                                onClick={() => fileReturn.mutate({ returnId: row.id })}
-                              >
-                                File
-                              </Button>
-                              {row.status === "FILED" && (
+                              {canFileGst && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 rounded-sm border-border"
+                                  disabled={fileReturn.isPending || row.status === "FILED"}
+                                  onClick={() => fileReturn.mutate({ returnId: row.id })}
+                                >
+                                  File
+                                </Button>
+                              )}
+                              {canFileGst && row.status === "FILED" && (
                                 <Button
                                   variant="outline"
                                   size="sm"

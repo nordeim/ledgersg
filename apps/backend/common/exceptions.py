@@ -161,16 +161,10 @@ def custom_exception_handler(exc, context):
         }
         return Response(data, status=exc.status_code)
 
-    # Handle Django validation errors
-    if isinstance(exc, ValidationError):
-        data = {
-            "error": {
-                "code": exc.code,
-                "message": exc.message,
-                "details": exc.details,
-            }
-        }
-        return Response(data, status=exc.status_code)
+    # P11/L-6: the dead ValidationError branch is removed — the only
+    # ValidationError imported here IS the LedgerSG subclass of
+    # LedgerSGException, so the branch above already handled it; the
+    # Django/DRF shapes were never imported and could never reach it.
 
     # django-ratelimit's blocked requests (block=True decorators) raise
     # Ratelimited — a bare PermissionDenied subclass with no payload. On a

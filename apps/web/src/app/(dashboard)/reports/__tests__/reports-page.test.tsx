@@ -69,6 +69,8 @@ describe("ReportsClient (P8/R-7 — real data)", () => {
     vi.mocked(authModule.useAuth).mockReturnValue({
       currentOrg: ORG,
       isLoading: false,
+      // P11/L-1: the F5 actions gate on can_file_gst — the filer view.
+      hasPermission: (permission: string) => permission === "can_file_gst",
     } as unknown as ReturnType<typeof authModule.useAuth>);
   });
 

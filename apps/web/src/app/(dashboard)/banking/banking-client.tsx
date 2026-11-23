@@ -136,6 +136,10 @@ interface BankAccountsTabProps {
 }
 
 function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProps) {
+  // P11/L-1: Edit/Deactivate are banking-manager acts — members saw the
+  // buttons and got 403 error toasts (the backend gates can_manage_banking).
+  const { hasPermission } = useAuth();
+  const canManageBanking = hasPermission("can_manage_banking");
   const { currentOrg } = useAuth();
   const orgId = currentOrg?.id ?? null;
   const [showAccountDialog, setShowAccountDialog] = useState(false);
@@ -248,28 +252,32 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
                 <div className="text-xs text-text-muted">{account.currency}</div>
               </div>
               <div className="flex flex-col sm:flex-row gap-1 shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-sm border-border h-8"
-                  aria-label={`Edit ${account.account_name}`}
-                  onClick={() => setEditing(account)}
-                >
-                  <Pencil className="h-3.5 w-3.5" aria-hidden />
-                  Edit
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-sm border-border h-8 text-alert hover:text-alert"
-                  aria-label={`Deactivate ${account.account_name}`}
-                  onClick={() => setDeactivating(account)}
-                >
-                  <UserX className="h-3.5 w-3.5" aria-hidden />
-                  Deactivate
-                </Button>
+                {canManageBanking && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-sm border-border h-8"
+                    aria-label={`Edit ${account.account_name}`}
+                    onClick={() => setEditing(account)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" aria-hidden />
+                    Edit
+                  </Button>
+                )}
+                {canManageBanking && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-sm border-border h-8 text-alert hover:text-alert"
+                    aria-label={`Deactivate ${account.account_name}`}
+                    onClick={() => setDeactivating(account)}
+                  >
+                    <UserX className="h-3.5 w-3.5" aria-hidden />
+                    Deactivate
+                  </Button>
+                )}
               </div>
             </div>
           ))}
