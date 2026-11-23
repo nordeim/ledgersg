@@ -15,13 +15,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Landmark, CreditCard, ArrowLeftRight, Loader2, AlertTriangle, Building2, X, Upload, Pencil, UserX } from "lucide-react";
+import { Plus, Landmark, CreditCard, ArrowLeftRight, Loader2, AlertTriangle, Building2, Upload, Pencil, UserX } from "lucide-react";
 import { useAuth } from "@/providers/auth-provider";
 import { toast } from "@/hooks/use-toast";
 import { useBankAccounts, useDeactivateBankAccount } from "@/hooks/use-banking";
 import { formatOpeningBalance, type BankAccount } from "@/shared/schemas/bank-account";
 import { PaymentList } from "./components/payment-list";
-import { PaymentFilters, type PaymentFilters as PaymentFiltersType } from "./components/payment-filters";
+import { PaymentFilters } from "./components/payment-filters";
 import { ReceivePaymentForm } from "./components/receive-payment-form";
 import { MakePaymentForm } from "./components/make-payment-form";
 import { TransactionList } from "./components/transaction-list";
@@ -30,7 +30,6 @@ import { ReconciliationSummary } from "./components/reconciliation-summary";
 import { ImportTransactionsForm } from "./components/import-transactions-form";
 import { ReconcileForm } from "./components/reconcile-form";
 import { BankAccountDialog } from "./components/bank-account-dialog";
-import type { Payment } from "@/shared/schemas";
 import type { BankTransaction } from "@/shared/schemas";
 
 export function BankingClient() {

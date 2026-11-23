@@ -13,7 +13,7 @@ import {
   Search,
 } from "lucide-react";
 import { useAuth } from "@/providers/auth-provider";
-import { useInvoices, type InvoiceListItem } from "@/hooks/use-invoices";
+import { useInvoices } from "@/hooks/use-invoices";
 
 /**
  * Real invoices list (P5/C-5 part 1 — replaced the hardcoded mockInvoices

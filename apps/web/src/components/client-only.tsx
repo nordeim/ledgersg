@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { SkeletonCard } from "@/components/ui/skeleton";
 
 /**
  * CLIENT ONLY WRAPPER

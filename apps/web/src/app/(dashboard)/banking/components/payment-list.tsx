@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,7 +25,7 @@ interface PaymentListProps {
 
 export function PaymentList({ orgId, filters = {}, onPaymentClick }: PaymentListProps) {
   const { data, isLoading, error, refetch } = usePayments(orgId, filters);
-  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+  const [, setSelectedPaymentId] = useState<string | null>(null);
 
   if (isLoading) {
     return (

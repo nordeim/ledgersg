@@ -112,7 +112,7 @@ export function ReceivePaymentForm({
         ...(allocations.length > 0 ? { allocations } : {}),
       });
       onSuccess?.();
-    } catch (error) {
+    } catch {
       // Error is handled by the hook's onError
       setIsSubmitting(false);
     }

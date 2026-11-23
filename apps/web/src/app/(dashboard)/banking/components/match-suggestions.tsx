@@ -1,8 +1,7 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Loader2, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { formatMoney } from "@/shared/format";
 
 interface PaymentMatch {

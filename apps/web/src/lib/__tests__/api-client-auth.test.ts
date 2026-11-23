@@ -185,7 +185,7 @@ describe("Token Refresh - Issue #1", () => {
 
       setAccessToken("old-token");
 
-      const result = await api.get("/test-endpoint/");
+      await api.get("/test-endpoint/");
 
       // Should have made 3 calls
       expect(fetchCalls.length).toBe(3);
@@ -495,7 +495,6 @@ describe("Token Refresh - Issue #1", () => {
       // Test that both flat and nested structures work after fix
 
       // Test 1: Nested structure
-      let responseIndex = 0;
       global.fetch = vi
         .fn()
         .mockImplementationOnce(() =>

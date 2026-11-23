@@ -45,7 +45,7 @@ vi.mock("@/hooks/use-fiscal", () => ({
   }),
 }));
 
-const { open: openMock, close: closeMock, closeYear: closeYearMock } = __mocks;
+const { open: openMock, close: closeMock } = __mocks;
 
 const YEAR = {
   id: "11111111-1111-4111-8111-111111111111",

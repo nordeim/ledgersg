@@ -14,7 +14,6 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import * as apiClient from "@/lib/api-client";
-import { useAuth } from "@/providers/auth-provider";
 import { toast } from "@/hooks/use-toast";
 
 function withProviders(ui: ReactNode) {

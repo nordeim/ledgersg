@@ -10,7 +10,6 @@
  */
 
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
 // Content Security Policy directives
 const cspDirectives = {
@@ -51,13 +50,13 @@ function buildCSP(): string {
     .join("; ");
 }
 
-export function middleware(request: NextRequest) {
-	const response = NextResponse.next();
+export function middleware() {
+        const response = NextResponse.next();
 
-	// Security Headers
-	const securityHeaders = {
-		// Content Security Policy (without nonce - Next.js requires 'unsafe-inline')
-		"Content-Security-Policy": buildCSP(),
+        // Security Headers
+        const securityHeaders = {
+                // Content Security Policy (without nonce - Next.js requires 'unsafe-inline')
+                "Content-Security-Policy": buildCSP(),
 
     // Strict Transport Security (HSTS)
     "Strict-Transport-Security":
@@ -85,12 +84,12 @@ export function middleware(request: NextRequest) {
     "Cross-Origin-Embedder-Policy": "require-corp",
   };
 
-	// Apply all security headers
-	Object.entries(securityHeaders).forEach(([key, value]) => {
-		response.headers.set(key, value);
-	});
+        // Apply all security headers
+        Object.entries(securityHeaders).forEach(([key, value]) => {
+                response.headers.set(key, value);
+        });
 
-	return response;
+        return response;
 }
 
 // Matcher configuration

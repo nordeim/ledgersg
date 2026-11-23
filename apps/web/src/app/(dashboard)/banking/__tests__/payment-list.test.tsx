@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, type Mock } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PaymentList } from "../components/payment-list";
 import { usePayments, useVoidPayment } from "@/hooks/use-banking";

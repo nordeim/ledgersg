@@ -80,8 +80,6 @@ describe("Organisations Endpoint Architecture - Issue #3", () => {
     });
 
     it("[FUTURE] should use consistent pattern across all modules", () => {
-      const orgId = "550e8400-e29b-41d4-a716-446655440000";
-
       // Current: organisations is an object with some function properties
       expect(typeof endpoints.organisations).toBe("object");
       expect(typeof endpoints.organisations.detail).toBe("function");

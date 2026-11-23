@@ -35,6 +35,29 @@ interface GSTF5ChartProps {
   gstPayable: string;
 }
 
+// P12/A-6: hoisted out of the component — a component defined during render
+// remounts its subtree on every parent render (react-hooks/static-components).
+const CustomTooltip = ({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: F5BoxData }>;
+}) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <Card className="border-border bg-carbon p-3 rounded-sm shadow-none border">
+        <p className="font-mono text-xs text-text-secondary">{data.label}</p>
+        <p className="font-mono text-lg text-accent-primary">
+          S$ {data.value.toLocaleString()}
+        </p>
+      </Card>
+    );
+  }
+  return null;
+};
+
 export function GSTF5Chart({ gstPayable }: GSTF5ChartProps) {
   const [showTable, setShowTable] = React.useState(false);
 
@@ -52,22 +75,6 @@ export function GSTF5Chart({ gstPayable }: GSTF5ChartProps) {
       color: net < 0 ? CHART_COLORS.primary : CHART_COLORS.alert,
     },
   ];
-
-  // Custom tooltip for brutalist aesthetic
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: F5BoxData }> }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <Card className="border-border bg-carbon p-3 rounded-sm shadow-none border">
-          <p className="font-mono text-xs text-text-secondary">{data.label}</p>
-          <p className="font-mono text-lg text-accent-primary">
-            S$ {data.value.toLocaleString()}
-          </p>
-        </Card>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="space-y-4">

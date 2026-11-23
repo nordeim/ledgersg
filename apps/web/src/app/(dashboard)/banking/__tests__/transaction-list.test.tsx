@@ -6,7 +6,7 @@
  */
 
 import { describe, test, expect, vi, beforeEach, type Mock } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { TransactionList } from "../components/transaction-list";
 import { useBankTransactions } from "@/hooks/use-banking";
 import type { BankTransaction } from "@/shared/schemas";

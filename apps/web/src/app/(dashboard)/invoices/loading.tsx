@@ -1,4 +1,4 @@
-import { Skeleton, SkeletonTable, SkeletonCard } from "@/components/ui/skeleton";
+import { Skeleton, SkeletonTable } from "@/components/ui/skeleton";
 
 /**
  * Invoices Loading State

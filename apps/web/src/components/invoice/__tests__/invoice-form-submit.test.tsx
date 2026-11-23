@@ -10,7 +10,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
-import { screen, waitFor, render, fireEvent } from "@/__tests__/utils";
+import { screen, waitFor, render } from "@/__tests__/utils";
 import userEvent from "@testing-library/user-event";
 import { InvoiceForm } from "../invoice-form";
 import { createEmptyInvoice, type InvoiceInput } from "@/shared/schemas/invoice";

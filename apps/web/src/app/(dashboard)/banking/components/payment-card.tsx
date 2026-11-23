@@ -15,7 +15,7 @@ interface PaymentCardProps {
   onVoid?: (payment: Payment) => void;
 }
 
-export function PaymentCard({ payment, onClick, showActions = true, onVoid }: PaymentCardProps) {
+export function PaymentCard({ payment, onClick, onVoid }: PaymentCardProps) {
   const isReceived = payment.payment_type === "RECEIVED";
   const amountPrefix = isReceived ? "+" : "-";
   const amountColor = isReceived ? "text-success" : "text-text-primary";

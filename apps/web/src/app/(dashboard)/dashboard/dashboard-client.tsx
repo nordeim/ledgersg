@@ -83,7 +83,7 @@ export function DashboardClient() {
             No Organisation Selected
           </h2>
           <p className="text-text-secondary mb-6">
-            You don't have any organisations yet. Create one to get started.
+            You don&apos;t have any organisations yet. Create one to get started.
           </p>
           <Link
             href="/settings/organisations/new"
