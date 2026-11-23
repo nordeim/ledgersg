@@ -62,7 +62,12 @@ test.describe("Mobile navigation (P12/A-1 + A-2)", () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
 
-    await page.getByRole("link", { name: "Ledger" }).click();
+    // exact+scoped: the logo link ("L LEDGERSG") substring-matches 'Ledger'
+    // otherwise — strict mode resolves to 2 elements.
+    await page
+      .getByRole("navigation", { name: /main navigation/i })
+      .getByRole("link", { name: "Ledger", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/ledger\/?$/, { timeout: 20000 });
 
     // the sidebar closed itself on navigation
