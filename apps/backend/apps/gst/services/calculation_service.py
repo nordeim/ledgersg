@@ -234,7 +234,20 @@ class GSTCalculationService:
         # codes. Sales documents feed the supply/output side; purchase
         # documents feed the purchase/input side. VOID and DRAFT documents
         # are excluded; BCRS deposit lines are out of scope for GST.
-        query = """
+        #
+        # P11/H-3: only POSTING document types count — quotes and purchase
+        # orders never post GL entries, so they must not feed statutory
+        # boxes (a converted quote reaches APPROVED with the same lines as
+        # its converted invoice — without this filter, F5 double-counts).
+        # Credit notes net their boxes (IRAS: the return reports supplies
+        # NET of credit notes issued in the period) — computed below via
+        # the sign column.
+        POSTING_TYPES = (
+            "SALES_INVOICE", "SALES_CREDIT_NOTE", "SALES_DEBIT_NOTE",
+            "PURCHASE_INVOICE", "PURCHASE_CREDIT_NOTE", "PURCHASE_DEBIT_NOTE",
+        )
+        placeholders = ", ".join(["%s"] * len(POSTING_TYPES))
+        query = f"""
             SELECT
                 tc.f5_supply_box,
                 tc.f5_purchase_box,
@@ -242,6 +255,7 @@ class GSTCalculationService:
                 tc.is_claimable,
                 tc.is_reverse_charge,
                 CASE WHEN d.document_type::text LIKE 'PURCHASE%%' THEN 'PURCHASE' ELSE 'SALES' END AS side,
+                CASE WHEN d.document_type::text LIKE '%%CREDIT_NOTE' THEN -1 ELSE 1 END AS sign,
                 SUM(dl.line_amount) AS total_amount,
                 SUM(dl.gst_amount) AS total_gst
             FROM invoicing.document_line dl
@@ -250,12 +264,15 @@ class GSTCalculationService:
             WHERE d.org_id = %s
                 AND d.document_date BETWEEN %s AND %s
                 AND d.status IN ('APPROVED', 'SENT', 'PARTIALLY_PAID', 'PAID', 'OVERDUE')
+                AND d.document_type IN ({placeholders})
                 AND COALESCE(dl.is_bcrs_deposit, FALSE) = FALSE
-            GROUP BY 1, 2, 3, 4, 5, 6
+            GROUP BY 1, 2, 3, 4, 5, 6, 7
         """
 
         with connection.cursor() as cursor:
-            cursor.execute(query, [str(org_id), period_start, period_end])
+            cursor.execute(
+                query, [str(org_id), period_start, period_end, *POSTING_TYPES]
+            )
             rows = cursor.fetchall()
 
         boxes = {
@@ -278,11 +295,12 @@ class GSTCalculationService:
             is_claimable,
             is_reverse_charge,
             side,
+            sign,
             amount,
             gst_amount,
         ) in rows:
-            amount = Decimal(str(amount or 0))
-            gst_amount = Decimal(str(gst_amount or 0))
+            amount = Decimal(str(amount or 0)) * sign
+            gst_amount = Decimal(str(gst_amount or 0)) * sign
 
             if side == "SALES":
                 # Supplies feed Boxes 1/2/3 (net amounts, excluding GST)

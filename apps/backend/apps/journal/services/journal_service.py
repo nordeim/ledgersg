@@ -272,6 +272,15 @@ class JournalService:
         """
         is_purchase = invoice.document_type in ("PURCHASE_INVOICE", "PURCHASE_CREDIT_NOTE", "PURCHASE_DEBIT_NOTE")
 
+        # P11/C-1: credit notes post REVERSED entries — a sales credit note
+        # reduces what the customer owes (Cr AR, Dr revenue, Dr GST-output);
+        # a purchase credit note reduces what we owe (Dr AP, Cr expense,
+        # Cr GST-input). Debit notes keep invoice direction (they increase
+        # the claim). Before this, every credit note posted an
+        # invoice-shaped entry that INCREASED AR/revenue/GST — a balanced
+        # entry, so nothing caught it.
+        is_credit_note = invoice.document_type in ("SALES_CREDIT_NOTE", "PURCHASE_CREDIT_NOTE")
+
         if is_purchase:
             main_account = JournalService._get_ap_account(org_id)
         else:
@@ -295,59 +304,65 @@ class JournalService:
 
         # Main AR/AP line
         if is_purchase:
-            # Liability increases (Credit)
+            # Liability increases (Credit) — unless it is a purchase
+            # credit note, which reduces the liability (Debit)
             lines.append({
                 "account_id": main_account.id,
-                "debit": Decimal("0.00"),
-                "credit": total_with_gst,
+                "debit": total_with_gst if is_credit_note else Decimal("0.00"),
+                "credit": Decimal("0.00") if is_credit_note else total_with_gst,
                 "description": f"AP for {invoice.document_number}",
             })
         else:
-            # Asset increases (Debit)
+            # Asset increases (Debit) — unless it is a sales credit
+            # note, which reduces the receivable (Credit)
             lines.append({
                 "account_id": main_account.id,
-                "debit": total_with_gst,
-                "credit": Decimal("0.00"),
+                "debit": Decimal("0.00") if is_credit_note else total_with_gst,
+                "credit": total_with_gst if is_credit_note else Decimal("0.00"),
                 "description": f"AR for {invoice.document_number}",
             })
 
         # Expense/Revenue lines
         for account_id, amount in expense_revenue_accounts.items():
             if is_purchase:
-                # Expense increases (Debit)
+                # Expense increases (Debit) — a purchase credit note
+                # reverses it (Credit)
                 lines.append({
                     "account_id": account_id,
-                    "debit": amount,
-                    "credit": Decimal("0.00"),
+                    "debit": Decimal("0.00") if is_credit_note else amount,
+                    "credit": amount if is_credit_note else Decimal("0.00"),
                     "description": f"Expense for {invoice.document_number}",
                 })
             else:
-                # Revenue increases (Credit)
+                # Revenue increases (Credit) — a sales credit note
+                # reverses it (Debit)
                 lines.append({
                     "account_id": account_id,
-                    "debit": Decimal("0.00"),
-                    "credit": amount,
+                    "debit": amount if is_credit_note else Decimal("0.00"),
+                    "credit": Decimal("0.00") if is_credit_note else amount,
                     "description": f"Revenue for {invoice.document_number}",
                 })
 
         # Tax lines
         if gst_amount > 0:
             if is_purchase:
-                # Input tax (Asset increases - Debit)
+                # Input tax (Asset increases - Debit); a purchase credit
+                # note reverses it (Credit)
                 gst_account = JournalService._get_gst_input_account(org_id)
                 lines.append({
                     "account_id": gst_account.id,
-                    "debit": gst_amount,
-                    "credit": Decimal("0.00"),
+                    "debit": Decimal("0.00") if is_credit_note else gst_amount,
+                    "credit": gst_amount if is_credit_note else Decimal("0.00"),
                     "description": f"GST Input for {invoice.document_number}",
                 })
             else:
-                # Output tax (Liability increases - Credit)
+                # Output tax (Liability increases - Credit); a sales credit
+                # note reverses it (Debit)
                 gst_account = JournalService._get_gst_output_account(org_id)
                 lines.append({
                     "account_id": gst_account.id,
-                    "debit": Decimal("0.00"),
-                    "credit": gst_amount,
+                    "debit": gst_amount if is_credit_note else Decimal("0.00"),
+                    "credit": Decimal("0.00") if is_credit_note else gst_amount,
                     "description": f"GST Output for {invoice.document_number}",
                 })
 
