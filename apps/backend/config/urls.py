@@ -16,8 +16,13 @@ from rest_framework.permissions import AllowAny
 # CSP violation reporting endpoint (SEC-003)
 from apps.core.views.security import csp_report_view
 
-# Debug toolbar URLs (only in debug mode)
-if settings.DEBUG:
+# Debug toolbar URLs — P11/H-5: gated on INSTALLED_APPS membership, the
+# SAME knob development.py uses (the DEBUG_TOOLBAR env). The old
+# settings.DEBUG gate crashed the documented DEBUG=true +
+# DEBUG_TOOLBAR=false combination: the toolbar URLconf imported while
+# the app was absent from INSTALLED_APPS ("Model class ... isn't in an
+# application in INSTALLED_APPS" on every manage.py command).
+if "debug_toolbar" in settings.INSTALLED_APPS:
     import debug_toolbar
 
     debug_urlpatterns = [path("__debug__/", include(debug_toolbar.urls))]
