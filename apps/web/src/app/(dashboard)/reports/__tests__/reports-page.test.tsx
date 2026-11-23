@@ -297,7 +297,26 @@ describe("ReportsClient GST F5 — the whole truth (P10/H-3)", () => {
           filing_due_date: "2024-02-29",
           status: "COMPUTED",
           notes: "",
-          boxes: { box1: "1000.0000", box6: "90.0000", box8: "90.0000" },
+          // P11/H-2: the REAL GSTReturnDetailSerializer boxes shape —
+          // box1_std_rated_supplies etc. (the old box1… keys never matched
+          // the payload, so every box rendered "—").
+          boxes: {
+            box1_std_rated_supplies: "1000.0000",
+            box2_zero_rated_supplies: "0.0000",
+            box3_exempt_supplies: "0.0000",
+            box4_total_supplies: "1000.0000",
+            box5_total_taxable_purchases: "0.0000",
+            box6_output_tax: "90.0000",
+            box7_input_tax_claimable: "0.0000",
+            box8_net_gst: "90.0000",
+            box9_imports_under_schemes: "0.0000",
+            box10_tourist_refund: "0.0000",
+            box11_bad_debt_relief: "0.0000",
+            box12_pre_reg_input_tax: "0.0000",
+            box13_total_revenue: "1000.0000",
+            box14_reverse_charge_supplies: "0.0000",
+            box15_electronic_marketplace: "0.0000",
+          },
           computed_at: "2026-11-22T00:00:00Z",
           filed_at: null,
         },
@@ -311,8 +330,10 @@ describe("ReportsClient GST F5 — the whole truth (P10/H-3)", () => {
     );
 
     // The IRAS box values render — the user can inspect before filing.
+    // (P11: with the REAL serializer keys, Box 4 (1+2+3) and Box 13 carry
+    // the same 1000.0000 — multiple matches are the truthful render.)
     expect(await screen.findByText(/^Box 1 —/)).toBeInTheDocument();
-    expect(screen.getByText("1000.0000")).toBeInTheDocument();
+    expect(screen.getAllByText("1000.0000").length).toBeGreaterThanOrEqual(3);
     expect(screen.getAllByText("90.0000").length).toBeGreaterThanOrEqual(2);
   });
 

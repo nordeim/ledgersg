@@ -524,5 +524,8 @@ class GSTReturnDeadlinesView(APIView):
         deadlines = GSTReturnService.get_upcoming_deadlines(org_id=org_id, days=days)
 
         return Response(
-            {"data": GSTReturnListSerializer(deadlines, many=True).data, "count": len(deadlines)}
+            # P11/M-1: the repo's list envelope ({results, count}) — the
+            # hook reads results, so the old "data" key left the deadlines
+            # banner permanently blank.
+            {"results": GSTReturnListSerializer(deadlines, many=True).data, "count": len(deadlines)}
         )

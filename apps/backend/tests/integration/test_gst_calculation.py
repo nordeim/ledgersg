@@ -220,4 +220,6 @@ def test_gst_deadlines(auth_client, test_organisation, test_fiscal_period):
     response = auth_client.get(url)
 
     assert response.status_code == status.HTTP_200_OK
-    assert "data" in response.data
+    # P11/M-1: the repo's list envelope ({results, count}) — the old "data"
+    # key left the frontend banner permanently blank (the hook reads results).
+    assert "results" in response.data

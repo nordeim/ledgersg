@@ -453,9 +453,12 @@ class GSTReturnService:
         today = date.today()
         deadline = today + timedelta(days=days)
 
+        # P11/M-11: REVIEWED is the state between compute and file — a
+        # return reviewed but not yet filed was invisible to the deadline
+        # banner exactly one step before the statutory deadline.
         return list(GSTReturn.objects.filter(
             org_id=org_id,
-            status__in=["DRAFT", "COMPUTED"],
+            status__in=["DRAFT", "COMPUTED", "REVIEWED"],
             filing_due_date__lte=deadline,
             filing_due_date__gte=today
         ).order_by("filing_due_date"))

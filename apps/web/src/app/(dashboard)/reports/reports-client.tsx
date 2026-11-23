@@ -684,17 +684,21 @@ export function ReportsClient() {
 // ---------------------------------------------------------------------------
 
 /** IRAS box labels (the schema's own convention, gst.return CHECKs). */
+// P11/H-2: the keys are the DETAIL serializer's real keys
+// (box1_std_rated_supplies…) — the old box1…box14 keys never matched the
+// payload, so every box rendered "—" and the P10 "boxes visible before
+// File" deliverable was non-functional.
 const F5_BOX_LABELS: [string, string][] = [
-  ["box1", "Box 1 — Standard-rated supplies"],
-  ["box2", "Box 2 — Zero-rated supplies"],
-  ["box3", "Box 3 — Exempt supplies"],
-  ["box4", "Box 4 — Total supplies (1+2+3)"],
-  ["box5", "Box 5 — Total taxable purchases"],
-  ["box6", "Box 6 — Output tax due"],
-  ["box7", "Box 7 — Input tax claimed"],
-  ["box8", "Box 8 — Net GST (6−7)"],
-  ["box13", "Box 13 — Total value of supplies"],
-  ["box14", "Box 14 — Reverse charge supplies"],
+  ["box1_std_rated_supplies", "Box 1 — Standard-rated supplies"],
+  ["box2_zero_rated_supplies", "Box 2 — Zero-rated supplies"],
+  ["box3_exempt_supplies", "Box 3 — Exempt supplies"],
+  ["box4_total_supplies", "Box 4 — Total supplies (1+2+3)"],
+  ["box5_total_taxable_purchases", "Box 5 — Total taxable purchases"],
+  ["box6_output_tax", "Box 6 — Output tax due"],
+  ["box7_input_tax_claimable", "Box 7 — Input tax claimed"],
+  ["box8_net_gst", "Box 8 — Net GST (6−7)"],
+  ["box13_total_revenue", "Box 13 — Total value of supplies"],
+  ["box14_reverse_charge_supplies", "Box 14 — Reverse charge supplies"],
 ];
 
 function F5BoxesPanel({ orgId, returnId }: { orgId: string; returnId: string }) {
