@@ -29,6 +29,7 @@ from apps.core.models import (
     JournalEntry,
     JournalLine,
 )
+from apps.invoicing.services import DocumentService
 from apps.reporting.services.dashboard_service import DashboardService
 
 
@@ -181,6 +182,10 @@ def test_std_rated_tax_code(test_org):
         is_claimable=True,
         is_active=True,
         effective_from=date(2024, 1, 1),
+        # P11/H-4: true to the seeded mapping — the F5 box columns are what
+        # the statutory computation (and now the dashboard KPI) reads.
+        f5_supply_box=1,
+        f5_tax_box=6,
     )
     return tax
 
@@ -246,58 +251,53 @@ class TestGSTCalculations:
         - Create sales invoice: $10,000 + $900 GST (9%)
         - GST payable should be $900
 
-        Expected:
-        - GST payable = Output tax collected on standard-rated supplies
-        - Uses money() utility for Decimal precision
+        P11/H-4: rebased on the REAL data source — document lines through
+        the document service. The old version hand-built JournalLines with
+        tax_code/tax_amount set, data the posting engine never produces,
+        which is exactly why real orgs reported GST Payable = 0.00.
         """
-        # Create journal entry for sales with GST
-        entry = JournalEntry.objects.create(
-            id=uuid4(),
-            org=test_org,
-            entry_number=1,
-            entry_date=date(2024, 1, 15),
-            source_type="SALES_INVOICE",
-            fiscal_year_id=test_fiscal_period.fiscal_year_id,
-            fiscal_period=test_fiscal_period,
-            narration="Sales invoice with GST",
-            posted_at=datetime.now(),
-            posted_by=test_user,
+        from apps.core.models import Contact, DocumentSequence, Account
+
+        for doc_type, prefix in [
+            ("SALES_INVOICE", "INV-"),
+            ("JOURNAL_ENTRY", "JE-"),
+        ]:
+            DocumentSequence.objects.get_or_create(
+                org=test_org, document_type=doc_type,
+                defaults={"prefix": prefix, "next_number": 1, "padding": 5},
+            )
+        Account.objects.get_or_create(
+            org=test_org, code="2600",
+            defaults={"name": "GST Output Tax", "account_type": "LIABILITY"},
+        )
+        contact = Contact.objects.create(
+            org=test_org, contact_type="CUSTOMER",
+            name="TDD Sales Customer", is_customer=True,
         )
 
-        # Debit AR
-        JournalLine.objects.create(
-            id=uuid4(),
-            entry=entry,
-            org=test_org,
-            line_number=1,
-            account=test_ar_account,
-            debit=Decimal("10900.0000"),
-            credit=Decimal("0.0000"),
-            tax_code=test_std_rated_tax_code,
-            tax_amount=Decimal("900.0000"),
+        invoice = DocumentService.create_document(
+            org_id=test_org.id,
+            document_type="SALES_INVOICE",
+            contact_id=contact.id,
+            issue_date=date(2024, 1, 15),
+            lines=[
+                {
+                    "account_id": test_revenue_account.id,
+                    "description": "Consulting services",
+                    "quantity": 1,
+                    "unit_price": Decimal("10000.00"),
+                    "tax_code_id": test_std_rated_tax_code.id,
+                }
+            ],
+            user_id=test_user.id,
         )
-
-        # Credit Revenue
-        JournalLine.objects.create(
-            id=uuid4(),
-            entry=entry,
-            org=test_org,
-            line_number=2,
-            account=test_revenue_account,
-            debit=Decimal("0.0000"),
-            credit=Decimal("10000.0000"),
+        DocumentService.transition_status(
+            org_id=test_org.id, document_id=invoice.id,
+            new_status="SENT", user_id=test_user.id,
         )
-
-        # Credit GST Output Tax (no tax_code - this is the GST control account)
-        JournalLine.objects.create(
-            id=uuid4(),
-            entry=entry,
-            org=test_org,
-            line_number=3,
-            account=test_revenue_account,  # Should be GST control account
-            debit=Decimal("0.0000"),
-            credit=Decimal("900.0000"),
-            # No tax_code - GST control account is not taxable
+        DocumentService.transition_status(
+            org_id=test_org.id, document_id=invoice.id,
+            new_status="APPROVED", user_id=test_user.id,
         )
 
         # Execute
@@ -311,6 +311,90 @@ class TestGSTCalculations:
         # Assert
         assert result["output_tax"] == Decimal("900.0000")
         assert result["net_gst"] == Decimal("900.0000")  # No input tax
+
+    @pytest.mark.django_db
+    def test_calculate_gst_payable_with_credit_notes(
+        self,
+        test_org,
+        test_fiscal_period,
+        test_ar_account,
+        test_revenue_account,
+        test_std_rated_tax_code,
+        test_user,
+    ):
+        """
+        Test: Credit notes reduce GST payable.
+
+        Scenario:
+        - Sales invoice: $10,000 + $900 GST
+        - Credit note: -$2,000 -$180 GST
+        - Net GST payable should be $720
+
+        P11/H-4: rebased on the real document path (see the sibling test) —
+        credit notes net their statutory boxes, so the dashboard KPI nets
+        them too.
+        """
+        from apps.core.models import Contact, DocumentSequence, Account
+
+        for doc_type, prefix in [
+            ("SALES_INVOICE", "INV-"),
+            ("SALES_CREDIT_NOTE", "CN-"),
+            ("JOURNAL_ENTRY", "JE-"),
+        ]:
+            DocumentSequence.objects.get_or_create(
+                org=test_org, document_type=doc_type,
+                defaults={"prefix": prefix, "next_number": 1, "padding": 5},
+            )
+        Account.objects.get_or_create(
+            org=test_org, code="2600",
+            defaults={"name": "GST Output Tax", "account_type": "LIABILITY"},
+        )
+        contact = Contact.objects.create(
+            org=test_org, contact_type="CUSTOMER",
+            name="TDD Credit Note Customer", is_customer=True,
+        )
+
+        def _make(document_type, unit_price, issue_date):
+            doc = DocumentService.create_document(
+                org_id=test_org.id,
+                document_type=document_type,
+                contact_id=contact.id,
+                issue_date=issue_date,
+                lines=[
+                    {
+                        "account_id": test_revenue_account.id,
+                        "description": "Consulting services",
+                        "quantity": 1,
+                        "unit_price": unit_price,
+                        "tax_code_id": test_std_rated_tax_code.id,
+                    }
+                ],
+                user_id=test_user.id,
+            )
+            DocumentService.transition_status(
+                org_id=test_org.id, document_id=doc.id,
+                new_status="SENT", user_id=test_user.id,
+            )
+            DocumentService.transition_status(
+                org_id=test_org.id, document_id=doc.id,
+                new_status="APPROVED", user_id=test_user.id,
+            )
+            return doc
+
+        _make("SALES_INVOICE", Decimal("10000.00"), date(2024, 1, 17))
+        _make("SALES_CREDIT_NOTE", Decimal("2000.00"), date(2024, 1, 18))
+
+        # Execute
+        service = DashboardService()
+        result = service.calculate_gst_liability(
+            str(test_org.id),
+            test_fiscal_period.start_date,
+            test_fiscal_period.end_date,
+        )
+
+        # Assert
+        assert result["output_tax"] == Decimal("720.0000")  # 900 - 180
+        assert result["net_gst"] == Decimal("720.0000")
 
     @pytest.mark.django_db
     def test_calculate_gst_payable_with_zero_rated_sales(
@@ -382,90 +466,6 @@ class TestGSTCalculations:
         # Assert
         assert result["output_tax"] == Decimal("0.0000")
 
-    @pytest.mark.django_db
-    def test_calculate_gst_payable_with_credit_notes(
-        self,
-        test_org,
-        test_fiscal_period,
-        test_ar_account,
-        test_revenue_account,
-        test_std_rated_tax_code,
-        test_user,
-    ):
-        """
-        Test: Credit notes reduce GST payable.
-
-        Scenario:
-        - Sales invoice: $10,000 + $900 GST
-        - Credit note: -$2,000 -$180 GST
-        - Net GST payable should be $720
-
-        Expected:
-        - Credit notes are negative adjustments
-        - GST payable = Output tax - Credit note tax
-        """
-        # Create sales invoice entry
-        entry1 = JournalEntry.objects.create(
-            id=uuid4(),
-            org=test_org,
-            entry_number=3,
-            entry_date=date(2024, 1, 17),
-            source_type="SALES_INVOICE",
-            fiscal_year_id=test_fiscal_period.fiscal_year_id,
-            fiscal_period=test_fiscal_period,
-            narration="Sales invoice",
-            posted_at=datetime.now(),
-            posted_by=test_user,
-        )
-
-        JournalLine.objects.create(
-            id=uuid4(),
-            entry=entry1,
-            org=test_org,
-            line_number=1,
-            account=test_ar_account,
-            debit=Decimal("10900.0000"),
-            credit=Decimal("0.0000"),
-            tax_code=test_std_rated_tax_code,
-            tax_amount=Decimal("900.0000"),
-        )
-
-        # Create credit note entry (reversing entry)
-        entry2 = JournalEntry.objects.create(
-            id=uuid4(),
-            org=test_org,
-            entry_number=4,
-            entry_date=date(2024, 1, 18),
-            source_type="SALES_CREDIT_NOTE",
-            fiscal_year_id=test_fiscal_period.fiscal_year_id,
-            fiscal_period=test_fiscal_period,
-            narration="Credit note",
-            posted_at=datetime.now(),
-            posted_by=test_user,
-        )
-
-        JournalLine.objects.create(
-            id=uuid4(),
-            entry=entry2,
-            org=test_org,
-            line_number=1,
-            account=test_ar_account,
-            debit=Decimal("0.0000"),
-            credit=Decimal("2180.0000"),
-            tax_code=test_std_rated_tax_code,
-            tax_amount=Decimal("-180.0000"),
-        )
-
-        # Execute
-        service = DashboardService()
-        result = service.calculate_gst_liability(
-            str(test_org.id),
-            test_fiscal_period.start_date,
-            test_fiscal_period.end_date,
-        )
-
-        # Assert
-        assert result["output_tax"] == Decimal("720.0000")  # 900 - 180
 
     @pytest.mark.django_db
     def test_calculate_gst_payable_excludes_draft_invoices(

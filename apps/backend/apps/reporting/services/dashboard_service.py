@@ -274,32 +274,28 @@ class DashboardService:
         return money(max(result.get("total") or Decimal("0.0000"), Decimal("0.0000")))
 
     def calculate_gst_liability(self, org_id: str, period_start: date, period_end: date) -> dict:
-        """Calculate GST liability (output tax - input tax) for a period."""
-        org_uuid = UUID(org_id) if isinstance(org_id, str) else org_id
+        """Calculate GST liability (output tax - input tax) for a period.
 
-        # Output tax from sales (posted entries only)
-        output_result = JournalLine.objects.filter(
-            org_id=org_uuid,
-            entry__posted_at__isnull=False,  # Posted entries only
-            entry__entry_date__gte=period_start,
-            entry__entry_date__lte=period_end,
-            tax_code__is_output=True,
-        ).aggregate(total=Sum("tax_amount"))
+        P11/H-4: re-sourced from DOCUMENT LINES with the F5 computation's
+        exact semantics. The old query read JournalLine.tax_code /
+        tax_amount — but the posting engine never sets them, so every real
+        organisation reported GST Payable = SGD 0.00 on the dashboard
+        forever. Delegating to get_f5_box_amounts keeps ONE statutory
+        computation (posting document types only — quotes/POs excluded;
+        credit notes netted; claimable input tax only) and derives the
+        dashboard KPI from it (output = Box 6, input = Box 7, net = Box 8).
+        """
+        from apps.gst.services.calculation_service import GSTCalculationService
 
-        output_tax = money(output_result.get("total") or Decimal("0.0000"))
+        boxes = GSTCalculationService.get_f5_box_amounts(
+            org_id=UUID(org_id) if isinstance(org_id, str) else org_id,
+            period_start=period_start,
+            period_end=period_end,
+        )
 
-        # Input tax from purchases (posted entries only)
-        input_result = JournalLine.objects.filter(
-            org_id=org_uuid,
-            entry__posted_at__isnull=False,  # Posted entries only
-            entry__entry_date__gte=period_start,
-            entry__entry_date__lte=period_end,
-            tax_code__is_input=True,
-        ).aggregate(total=Sum("tax_amount"))
-
-        input_tax = money(input_result.get("total") or Decimal("0.0000"))
-
-        net_gst = output_tax - input_tax
+        output_tax = money(Decimal(boxes["box6"]))
+        input_tax = money(Decimal(boxes["box7"]))
+        net_gst = money(Decimal(boxes["box8"]))
 
         return {
             "output_tax": output_tax,

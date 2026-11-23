@@ -10,6 +10,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DashboardClient } from "../dashboard-client";
 import * as apiClient from "@/lib/api-client";
@@ -131,5 +132,35 @@ describe("DashboardClient truth (P9/D-2, D-3, D-4)", () => {
 
     const alertAction = screen.getByRole("link", { name: /file return/i });
     expect(alertAction).toHaveAttribute("href", "/reports");
+  });
+});
+
+
+describe("DashboardClient GST truth (P11/H-4, M-7, L-2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(apiClient.api.get).mockResolvedValue(METRICS);
+  });
+
+  it("renders no double currency prefix (S$ SGD) on the money cards (L-2)", async () => {
+    renderDashboard();
+    await screen.findByText(/GST Payable/i);
+
+    // The backend's display strings already carry "SGD x.xx" — the S$
+    // prefixes produced "S$ SGD 318.00" on every money card.
+    expect(document.body.textContent ?? "").not.toMatch(/S\$ SGD/);
+    // The truthful display string itself still renders.
+    expect(await screen.findByText(/SGD 318\.00/)).toBeInTheDocument();
+  });
+
+  it("the F5 chart renders a non-zero Net GST bar from the raw gst_payable (M-7)", async () => {
+    renderDashboard();
+    await screen.findByText(/GST Payable/i);
+
+    // Toggle the accessible data table — the chart's parsed value shows up
+    // as a row amount. parseFloat("SGD 318.00") was NaN, so every real
+    // value rendered as 0.
+    await userEvent.click(screen.getByRole("button", { name: /show data table/i }));
+    expect(await screen.findByText(/S\$ 318/)).toBeInTheDocument();
   });
 });

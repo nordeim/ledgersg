@@ -200,7 +200,7 @@ export function DashboardClient() {
           <CardContent>
             <div className="flex items-baseline gap-2">
               <span className="text-5xl font-mono font-bold text-accent-primary tabular-nums slashed-zero">
-                S$ {data.gst_payable_display}
+                {data.gst_payable_display}
               </span>
               <span className="text-sm text-text-secondary">SGD</span>
             </div>
@@ -218,7 +218,10 @@ export function DashboardClient() {
                   File F5
                 </Link>
               </div>
-              <GSTChartWrapper gstPayable={data.gst_payable_display} />
+              {/* P11/M-7: the RAW numeric value — the chart's parseFloat on
+              the display string ("SGD 318.00") was NaN, so every real Net
+              GST rendered as 0. */}
+              <GSTChartWrapper gstPayable={data.gst_payable} />
             </div>
           </CardContent>
         </Card>
@@ -232,7 +235,7 @@ export function DashboardClient() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-mono font-bold text-text-primary tabular-nums slashed-zero">
-              S$ {data.outstanding_receivables}
+              {data.outstanding_receivables}
             </div>
             <div className="mt-2 flex items-center gap-2 text-sm">
               <FileText className="h-4 w-4 text-accent-secondary" />
@@ -257,7 +260,7 @@ export function DashboardClient() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-mono font-bold text-text-primary tabular-nums slashed-zero">
-              S$ {data.cash_on_hand}
+              {data.cash_on_hand}
             </div>
           </CardContent>
         </Card>
@@ -271,7 +274,7 @@ export function DashboardClient() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-mono font-bold text-text-primary tabular-nums slashed-zero">
-              S$ {data.revenue_mtd}
+              {data.revenue_mtd}
             </div>
           </CardContent>
         </Card>
@@ -316,7 +319,7 @@ export function DashboardClient() {
                 />
               </div>
               <p className="text-xs text-text-muted mt-2">
-                S$ {data.gst_threshold_amount} / S$ {data.gst_threshold_limit}
+                {data.gst_threshold_amount} / {data.gst_threshold_limit}
               </p>
             </div>
           </CardContent>
@@ -331,7 +334,7 @@ export function DashboardClient() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-mono font-bold text-text-primary tabular-nums slashed-zero">
-              S$ {data.revenue_ytd}
+              {data.revenue_ytd}
             </div>
           </CardContent>
         </Card>
