@@ -194,11 +194,92 @@ class OrganisationSettingsSerializer(serializers.Serializer):
     uen = serializers.CharField(max_length=20, required=False, allow_blank=True)
     entity_type = serializers.ChoiceField(choices=Organisation.ENTITY_TYPES, required=False)
     base_currency = serializers.CharField(min_length=3, max_length=3, required=False)
-    timezone = serializers.CharField(max_length=63, required=False, allow_blank=True)
     fy_start_month = serializers.IntegerField(min_value=1, max_value=12, required=False)
     gst_registered = serializers.BooleanField(required=False)
     gst_reg_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
-    gst_scheme = serializers.CharField(max_length=20, required=False, allow_blank=True)
-    gst_filing_frequency = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    peppol_participant_id = serializers.CharField(max_length=64, required=False, allow_blank=True)
+    invoicenow_enabled = serializers.BooleanField(required=False)
+
+    # P11/M-5: vocabulary fields become ChoiceFields (free text violated
+    # the DB CHECKs with IntegrityError 500s), timezone matches the DB's
+    # VARCHAR(50) (the old 63 produced DataError 500s), and GST
+    # registration is consistency-checked against the instance-merged
+    # effective values (chk_gst_consistency 500s otherwise).
+    GST_SCHEME_CHOICES = (
+        "standard", "cash", "margin", "STANDARD", "CASH", "MARGIN",
+    )
+    GST_FILING_FREQUENCY_CHOICES = (
+        "monthly", "quarterly", "semi_annual",
+        "MONTHLY", "QUARTERLY", "SEMI_ANNUAL",
+    )
+
+    gst_scheme = serializers.ChoiceField(
+        choices=GST_SCHEME_CHOICES, required=False
+    )
+    gst_filing_frequency = serializers.ChoiceField(
+        choices=GST_FILING_FREQUENCY_CHOICES, required=False
+    )
+    # Was max_length=63 — the schema column is VARCHAR(50).
+    timezone = serializers.CharField(
+        max_length=50, required=False, allow_blank=True
+    )
+    gst_reg_date = serializers.DateField(required=False, allow_null=True)
+
+    def validate(self, data):
+        """Re-run the GST-consistency pair on instance-merged values.
+
+        chk_gst_consistency: gst_registered requires gst_reg_number AND
+        gst_reg_date. A PATCH flipping gst_registered on must carry (or
+        the instance must already hold) both.
+        """
+        instance = self.instance
+        if instance is not None:
+            effective = {
+                "gst_registered": instance.gst_registered,
+                "gst_reg_number": instance.gst_reg_number,
+                "gst_reg_date": instance.gst_reg_date,
+                "gst_scheme": instance.gst_scheme,
+                "gst_filing_frequency": instance.gst_filing_frequency,
+            }
+            effective.update(
+                {k: v for k, v in data.items() if k in effective}
+            )
+        else:
+            effective = data
+
+        if effective.get("gst_registered"):
+            if not effective.get("gst_reg_number"):
+                raise serializers.ValidationError(
+                    {"gst_reg_number": "GST registration number is required when GST is registered."}
+                )
+            if not effective.get("gst_reg_date"):
+                raise serializers.ValidationError(
+                    {"gst_reg_date": "GST registration date is required when GST is registered."}
+                )
+        return data
+
+
+class OrganisationUpdateSerializer(serializers.Serializer):
+    """Typed allowlist for the organisation DETAIL PATCH (P11/M-5).
+
+    The raw allowlist let entity_type='PTE_LTD' (DB CHECK), 
+    base_currency='SGDD' (CHAR(3)) and country='SGP' (CHAR(2)) reach the
+    database as IntegrityError/DataError 500s.
+    """
+
+    name = serializers.CharField(max_length=255, required=False)
+    legal_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    uen = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    entity_type = serializers.ChoiceField(
+        choices=Organisation.ENTITY_TYPES, required=False
+    )
+    address_line_1 = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    address_line_2 = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    city = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    postal_code = serializers.CharField(max_length=10, required=False, allow_blank=True)
+    country = serializers.CharField(min_length=2, max_length=2, required=False)
+    contact_email = serializers.EmailField(required=False, allow_blank=True)
+    contact_phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    base_currency = serializers.CharField(min_length=3, max_length=3, required=False)
     peppol_participant_id = serializers.CharField(max_length=64, required=False, allow_blank=True)
     invoicenow_enabled = serializers.BooleanField(required=False)

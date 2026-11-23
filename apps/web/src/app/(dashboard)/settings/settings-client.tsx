@@ -149,10 +149,14 @@ export function SettingsClient() {
               value={value("uen")}
               onChange={(e) => setValue("uen", e.target.value)}
             />
+            {/* P11/M-5: the DB column is CHAR(3) — free text sent 4+
+            chars into a DataError 500; the backend now 400s, and the input
+            tells the truth up front. */}
             <Input
               label="Base Currency"
+              maxLength={3}
               value={value("base_currency")}
-              onChange={(e) => setValue("base_currency", e.target.value)}
+              onChange={(e) => setValue("base_currency", e.target.value.toUpperCase())}
             />
             <Input
               label="Address Line 1"

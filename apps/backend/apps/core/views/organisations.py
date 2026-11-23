@@ -100,28 +100,17 @@ class OrganisationDetailView(APIView):
         # Check permission
         self._check_permission(request, "can_manage_org")
 
-        # Update allowed fields
-        allowed_fields = [
-            "name",
-            "legal_name",
-            "uen",
-            "entity_type",
-            "address_line_1",
-            "address_line_2",
-            "city",
-            "postal_code",
-            "country",
-            "contact_email",
-            "contact_phone",
-            "base_currency",
-            "peppol_participant_id",
-            "invoicenow_enabled",
-        ]
+        # P11/M-5: typed allowlist — the raw filter let entity_type /
+        # base_currency / country values that violate the schema's CHECKs
+        # and column sizes through to IntegrityError/DataError 500s.
+        from apps.core.serializers.organisation import OrganisationUpdateSerializer
 
-        updates = {k: v for k, v in request.data.items() if k in allowed_fields}
+        serializer = OrganisationUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        updates = serializer.validated_data
 
         # P10: DB-level uen UNIQUE must surface as a 400 field error here
-        # too (this PATCH path is a raw allowlist — no serializer guards it).
+        # too.
         if "uen" in updates:
             from apps.core.serializers.organisation import ensure_uen_available
 
@@ -325,10 +314,6 @@ class OrganisationSettingsView(APIView):
         """Update organisation settings (typed + allowlisted, P7/F-10)."""
         from apps.core.serializers.organisation import OrganisationSettingsSerializer
 
-        serializer = OrganisationSettingsSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        validated = serializer.validated_data
-
         try:
             org = Organisation.objects.get(id=org_id)
         except Organisation.DoesNotExist:
@@ -336,6 +321,13 @@ class OrganisationSettingsView(APIView):
                 {"error": {"code": "not_found", "message": "Organisation not found"}},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        # P11/M-5: the instance is bound BEFORE validation so the
+        # GST-consistency pair (and any instance-aware check) reads the
+        # instance-merged effective values instead of the payload alone.
+        serializer = OrganisationSettingsSerializer(org, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
 
         # P10: DB-level uen UNIQUE must surface as a 400 field error here
         # too (the serializer has no instance context to exclude self).
