@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Menu,
@@ -55,14 +55,67 @@ const navItems: NavItem[] = [
 
 export function Shell({ children }: ShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [orgSelectorOpen, setOrgSelectorOpen] = useState(false);
   const pathname = usePathname();
   const { user, organisations, currentOrg, switchOrg, logout } = useAuth();
 
+  // P12/A-1 overlay contract: the open mobile menu is a modal overlay —
+  // body scroll locks and focus moves into the sidebar until it closes.
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
+  const prevSidebarOpen = useRef(false);
+
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (!sidebarOpen) return;
+    document.body.style.overflow = "hidden";
+    const firstFocus =
+      sidebarRef.current?.querySelector<HTMLElement>("#main-navigation a") ??
+      sidebarRef.current;
+    firstFocus?.focus();
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [sidebarOpen]);
+
+  // Escape closes the overlay; Tab cycles within it (focus trap).
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSidebarOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const aside = sidebarRef.current;
+      if (!aside) return;
+      const focusables = aside.querySelectorAll<HTMLElement>(
+        "a[href], button:not([disabled])"
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      const inSidebar = active !== null && aside.contains(active);
+      if (!e.shiftKey && (!inSidebar || active === last)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && (!inSidebar || active === first)) {
+        e.preventDefault();
+        last.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [sidebarOpen]);
+
+  // Focus returns to the trigger when the overlay closes (P12/A-1).
+  useEffect(() => {
+    if (prevSidebarOpen.current && !sidebarOpen) {
+      toggleRef.current?.focus();
+    }
+    prevSidebarOpen.current = sidebarOpen;
+  }, [sidebarOpen]);
 
   const isActiveRoute = (href: string) => {
     if (href === "/dashboard") {
@@ -99,6 +152,8 @@ export function Shell({ children }: ShellProps) {
 
       {/* Sidebar */}
       <aside
+        ref={sidebarRef}
+        tabIndex={-1}
         className={cn(
           "fixed md:sticky top-0 h-screen w-64 bg-carbon border-r border-border z-50",
           "transition-transform duration-300 ease-in-out",
@@ -234,6 +289,7 @@ export function Shell({ children }: ShellProps) {
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-void/90 backdrop-blur supports-[backdrop-filter]:bg-void/80 px-4 md:px-6">
           {/* Mobile Menu Toggle */}
           <Button
+            ref={toggleRef}
             variant="ghost"
             size="icon"
             className="md:hidden h-9 w-9"
