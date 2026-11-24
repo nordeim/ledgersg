@@ -196,7 +196,22 @@ def custom_exception_handler(exc, context):
     if response is not None:
         return response
 
-    # Unhandled exception - return generic 500
+    # Unhandled exception - return generic 500.
+    #
+    # P13/B-1: DRF's dispatch accepts a Response from this handler, so a
+    # plain 500 envelope makes the request look "successful" to Django's
+    # ATOMIC_REQUESTS wrapper (and the tenant middleware's request
+    # transaction) — partial writes would COMMIT. Marking the transaction
+    # for rollback restores the C-04 guarantee one layer up from
+    # wrap_response: unexpected exceptions must never leave partial state.
+    try:
+        from django.db import transaction
+
+        if transaction.get_connection().in_atomic_block:
+            transaction.set_rollback(True)
+    except Exception:  # pragma: no cover — no DB connection (e.g. pure unit use)
+        pass
+
     return Response(
         {
             "error": {
