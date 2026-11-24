@@ -13,7 +13,7 @@ from .base import *
 # Explicit re-bindings of the star-imported structures this module overrides
 # below (copy-on-write): explicit imports keep the override lines F405-clean
 # (import-star-usage) instead of deepening that debt class.
-from .base import INSTALLED_APPS, LOGGING, MIDDLEWARE
+from .base import DATABASES, INSTALLED_APPS, LOGGING, MIDDLEWARE, SIMPLE_JWT
 
 # =============================================================================
 # DEBUG SETTINGS
@@ -45,10 +45,18 @@ CORS_ALLOW_CREDENTIALS = True
 # =============================================================================
 
 # Use local PostgreSQL or Docker
-DATABASES["default"]["NAME"] = config("DB_NAME", default="ledgersg_dev")
-DATABASES["default"]["USER"] = config("DB_USER", default="ledgersg")
-DATABASES["default"]["PASSWORD"] = config("DB_PASSWORD", default="ledgersg")
-DATABASES["default"]["HOST"] = config("DB_HOST", default="localhost")
+# P13/B-7 copy-on-write: rebind a fresh DATABASES structure instead of
+# mutating base's dicts in place (the P10 crash class).
+DATABASES = {
+    **DATABASES,
+    "default": {
+        **DATABASES["default"],
+        "NAME": config("DB_NAME", default="ledgersg_dev"),
+        "USER": config("DB_USER", default="ledgersg"),
+        "PASSWORD": config("DB_PASSWORD", default="ledgersg"),
+        "HOST": config("DB_HOST", default="localhost"),
+    },
+}
 
 # =============================================================================
 # LOGGING (Development - Debug Level)
@@ -93,8 +101,13 @@ CELERY_TASK_ALWAYS_EAGER = config("CELERY_ALWAYS_EAGER", default=True, cast=bool
 # JWT (Development - Longer Lifetimes)
 # =============================================================================
 
-SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"] = timedelta(hours=1)
-SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"] = timedelta(days=30)
+# P13/B-7 copy-on-write: rebind a fresh SIMPLE_JWT dict instead of
+# mutating base's (the P10 crash class).
+SIMPLE_JWT = {
+    **SIMPLE_JWT,
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+}
 
 # =============================================================================
 # LOGIN RATE LIMIT (Development — e2e budget)

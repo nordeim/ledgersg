@@ -13,6 +13,10 @@ from django.core.exceptions import ImproperlyConfigured
 
 from .base import *
 
+# Explicit re-binding of the star-imported structure overridden below
+# (copy-on-write, P13/B-7).
+from .base import DATABASES
+
 # =============================================================================
 # SECURITY SETTINGS
 # =============================================================================
@@ -66,7 +70,15 @@ CORS_ALLOWED_ORIGINS = config(
 # DATABASE (Production)
 # =============================================================================
 
-DATABASES["default"]["CONN_MAX_AGE"] = 60  # Persistent connections
+# P13/B-7 copy-on-write: rebind a fresh DATABASES structure instead of
+# mutating base's dicts in place (the P10 crash class).
+DATABASES = {
+    **DATABASES,
+    "default": {
+        **DATABASES["default"],
+        "CONN_MAX_AGE": 60,  # Persistent connections
+    },
+}
 
 # =============================================================================
 # CACHING (Production)
