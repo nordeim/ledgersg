@@ -73,7 +73,7 @@ describe("BankTransactionsTab Integration", () => {
     vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
       data: { results: [], count: 0 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
     render(<BankingClient />, { wrapper: createWrapper() });
     expect(screen.getByRole("tab", { name: /transactions/i })).toBeInTheDocument();
@@ -85,12 +85,12 @@ describe("BankTransactionsTab Integration", () => {
     vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
       data: { results: [{ id: "acc-1", account_name: "DBS Current" }], count: 1 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
     vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
       data: { results: [], count: 0 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankTransactions>);
 
     render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -106,12 +106,12 @@ describe("BankTransactionsTab Integration", () => {
     vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
       data: { results: [{ id: "acc-1", account_name: "DBS Current" }], count: 1 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
     vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
       data: { results: [], count: 0 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankTransactions>);
 
     render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -127,7 +127,7 @@ describe("BankTransactionsTab Integration", () => {
     vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
       data: { results: [{ id: "acc-1", account_name: "DBS Current" }], count: 1 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
     vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
       data: {
@@ -143,7 +143,7 @@ describe("BankTransactionsTab Integration", () => {
         count: 1,
       },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankTransactions>);
 
     render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -160,12 +160,12 @@ describe("BankTransactionsTab Integration", () => {
     vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
       data: { results: [{ id: "acc-1", account_name: "DBS Current" }], count: 1 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
     vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
       data: { results: [], count: 0 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankTransactions>);
 
     render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -183,17 +183,17 @@ describe("BankTransactionsTab Integration", () => {
     vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
       data: { results: [{ id: "acc-1", account_name: "DBS Current" }], count: 1 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
     vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
       data: { results: [], count: 0 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankTransactions>);
 
     vi.mocked(bankingHooks.useImportBankTransactions).mockReturnValue({
       mutateAsync: vi.fn(),
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useImportBankTransactions>);
 
     render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -213,12 +213,12 @@ describe("BankTransactionsTab Integration", () => {
     vi.mocked(bankingHooks.useBankAccounts).mockReturnValue({
       data: { results: [{ id: "acc-1", account_name: "DBS Current" }], count: 1 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
     vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
       data: { results: [], count: 0 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankTransactions>);
 
     render(<BankingClient />, { wrapper: createWrapper() });
 

@@ -34,11 +34,26 @@ export default defineConfig({
       // in the P10 plan; the ratchet is the mechanism that raises the
       // floor over time — bump these numbers as coverage improves,
       // never lower them.
+      //
+      // P13/M-4: per-glob thresholds (Vitest 4) lock the src/lib floor —
+      // the header's "lib/gst-engine.ts: 100% (critical for IRAS
+      // compliance)" claim is now an enforced surface instead of a
+      // comment. gst-engine itself sits at 100/96.77/100/100; the glob
+      // ratchet is set at the directory's measured floor so the whole
+      // lib tier cannot regress below today's level.
       thresholds: {
+        // whole-suite floor (the P10 ratchet, unchanged)
         lines: 63,
         functions: 51,
         branches: 52,
         statements: 62,
+        // the lib tier floor (measured 71.23 / 74.8 / 52.32 / 73.2)
+        "src/lib/**": {
+          lines: 73,
+          functions: 52,
+          branches: 74,
+          statements: 71,
+        },
       },
       include: ["src/**/*.{ts,tsx}"],
       exclude: [

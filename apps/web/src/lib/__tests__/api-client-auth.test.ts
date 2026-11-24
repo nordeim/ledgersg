@@ -178,10 +178,13 @@ describe("Token Refresh - Issue #1", () => {
       let responseIndex = 0;
       const fetchCalls: string[][] = [];
 
-      global.fetch = vi.fn().mockImplementation((url: string, options: any) => {
-        fetchCalls.push([url, options?.headers?.Authorization || "no-auth"]);
-        return Promise.resolve(responses[responseIndex++]);
-      });
+      global.fetch = vi.fn().mockImplementation(
+        (url: string | URL | RequestInfo, options?: RequestInit) => {
+          const headers = options?.headers as Record<string, string> | undefined;
+          fetchCalls.push([String(url), headers?.Authorization || "no-auth"]);
+          return Promise.resolve(responses[responseIndex++]);
+        }
+      );
 
       setAccessToken("old-token");
 

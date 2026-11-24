@@ -71,6 +71,10 @@ export default defineConfig({
     navigationTimeout: 15000,
   },
 
+  /* P13: expect-level timeout for web-first assertions (the default 5s
+     is tight for dev-mode on-demand route compilation). */
+  expect: { timeout: 10_000 },
+
   /* Configure projects — chromium by default, full matrix via PLAYWRIGHT_PROJECTS=all */
   projects: [
     {

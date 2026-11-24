@@ -129,7 +129,7 @@ export function BankingClient() {
 // ============================================
 
 interface BankAccountsTabProps {
-  accountsData: { results: any[]; count: number } | undefined;
+  accountsData: { results: BankAccount[]; count: number } | undefined;
   isLoading: boolean;
   error: Error | null;
 }

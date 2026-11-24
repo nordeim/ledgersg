@@ -126,7 +126,7 @@ describe("BankingPage", () => {
         data: mockBankAccounts,
         isLoading: false,
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -139,7 +139,7 @@ describe("BankingPage", () => {
         data: mockBankAccounts,
         isLoading: false,
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -153,7 +153,7 @@ describe("BankingPage", () => {
         data: mockBankAccounts,
         isLoading: false,
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -198,7 +198,7 @@ describe("BankingPage", () => {
         data: undefined,
         isLoading: true,
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -210,7 +210,7 @@ describe("BankingPage", () => {
         data: mockBankAccounts,
         isLoading: false,
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -225,7 +225,7 @@ describe("BankingPage", () => {
         data: mockBankAccounts,
         isLoading: false,
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -238,7 +238,7 @@ describe("BankingPage", () => {
         data: mockBankAccounts,
         isLoading: false,
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -251,7 +251,7 @@ describe("BankingPage", () => {
         data: { results: [], count: 0 },
         isLoading: false,
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -264,7 +264,7 @@ describe("BankingPage", () => {
         data: undefined,
         isLoading: false,
         error: new Error("Failed to fetch"),
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -276,7 +276,7 @@ describe("BankingPage", () => {
         data: mockBankAccounts,
         isLoading: false,
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -291,14 +291,14 @@ describe("BankingPage", () => {
       data: mockBankAccounts,
       isLoading: false,
       error: null,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
     
     // Mock usePayments hook
     vi.mocked(bankingHooks.usePayments).mockReturnValue({
       data: { results: [], count: 0, next: null, previous: null },
       isLoading: false,
       error: null,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.usePayments>);
 
     render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -314,13 +314,13 @@ describe("BankingPage", () => {
       data: mockBankAccounts,
       isLoading: false,
       error: null,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
     // Mock useBankTransactions for ReconciliationSummary and TransactionList
     vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
       data: { results: [], count: 0 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankTransactions>);
 
     render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -336,14 +336,14 @@ describe("BankingPage", () => {
       data: mockBankAccounts,
       isLoading: false,
       error: null,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
     
     // Mock usePayments hook
     vi.mocked(bankingHooks.usePayments).mockReturnValue({
       data: { results: [], count: 0, next: null, previous: null },
       isLoading: false,
       error: null,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.usePayments>);
 
     render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -360,14 +360,14 @@ describe("BankingPage", () => {
       data: mockBankAccounts,
       isLoading: false,
       error: null,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
     // Mock useBankTransactions for ReconciliationSummary and TransactionList
     // TransactionList shows transactions-empty when count is 0
     vi.mocked(bankingHooks.useBankTransactions).mockReturnValue({
       data: { results: [], count: 0 },
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof bankingHooks.useBankTransactions>);
 
     render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -389,7 +389,7 @@ describe("BankingPage", () => {
         data: mockBankAccounts,
         isLoading: false,
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
@@ -405,7 +405,7 @@ describe("BankingPage", () => {
         data: mockBankAccounts,
         isLoading: false,
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof bankingHooks.useBankAccounts>);
 
       render(<BankingClient />, { wrapper: createWrapper() });
 
