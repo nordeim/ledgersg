@@ -200,7 +200,12 @@ class JournalService:
         total_debits = sum_money(line.get("debit", 0) for line in lines)
         total_credits = sum_money(line.get("credit", 0) for line in lines)
 
-        if abs(total_debits - total_credits) > Decimal("0.001"):
+        # P13/B-13: the service tolerance must match the DB trigger's
+        # 0.0001 (database_schema.sql journal trg_journal_line_balance).
+        # The old 0.001 let a 0.0002..0.001 imbalance pass here and fail
+        # at COMMIT with an unhandled database error (500) instead of this
+        # typed 400.
+        if abs(total_debits - total_credits) > Decimal("0.0001"):
             raise ValidationError(f"Debits ({total_debits}) must equal credits ({total_credits}).")
 
         if not fiscal_period_id:
@@ -418,21 +423,27 @@ class JournalService:
                 }
             )
 
-        reversal = JournalService.create_entry(
-            org_id=org_id,
-            entry_date=reversal_date,
-            source_type="REVERSAL",
-            narration=f"Reversal of {original.entry_number}: {reason}",
-            lines=reversal_lines,
-            user_id=user_id,
-        )
+        # P13/B-11: both phases must be atomic together. create_entry owns
+        # its block, but without an outer wrapper a failure in the marking
+        # phase below would leave an orphan reversal next to an unmarked
+        # original — permitting a SECOND reversal (double-count) from
+        # Celery/shell callers outside a request transaction.
+        with transaction.atomic():
+            reversal = JournalService.create_entry(
+                org_id=org_id,
+                entry_date=reversal_date,
+                source_type="REVERSAL",
+                narration=f"Reversal of {original.entry_number}: {reason}",
+                lines=reversal_lines,
+                user_id=user_id,
+            )
 
-        # chk_reversal_consistency requires is_reversed and reversed_by_id to
-        # flip together: (is_reversed = FALSE AND reversed_by_id IS NULL) OR
-        # (is_reversed = TRUE AND reversed_by_id IS NOT NULL)
-        original.is_reversed = True
-        original.reversed_by = reversal
-        original.save()
+            # chk_reversal_consistency requires is_reversed and reversed_by_id to
+            # flip together: (is_reversed = FALSE AND reversed_by_id IS NULL) OR
+            # (is_reversed = TRUE AND reversed_by_id IS NOT NULL)
+            original.is_reversed = True
+            original.reversed_by = reversal
+            original.save()
 
         return reversal
 
