@@ -6,7 +6,7 @@ Phase 3: Production Ready (TDD)
 Phase 4: Redis Caching (TDD)
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from django.utils import timezone
 from decimal import Decimal
 from uuid import UUID
@@ -160,7 +160,7 @@ class DashboardService:
                     "filing_due_date": filing_due_date.isoformat(),
                     "days_remaining": max(days_remaining, 0),
                 },
-                "last_updated": datetime.now().isoformat(),
+                "last_updated": timezone.now().isoformat(),
             }
 
         except Exception as e:
@@ -191,7 +191,7 @@ class DashboardService:
                 "filing_due_date": timezone.localdate().isoformat(),
                 "days_remaining": 0,
             },
-            "last_updated": datetime.now().isoformat(),
+            "last_updated": timezone.now().isoformat(),
         }
 
     def _format_display(self, amount: Decimal) -> str:

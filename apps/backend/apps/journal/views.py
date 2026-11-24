@@ -5,6 +5,7 @@ Journal entry management and trial balance reporting.
 """
 
 from datetime import date
+from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -205,7 +206,7 @@ class TrialBalanceView(APIView):
                     "total_credits": str(total_credits),
                     "balanced": abs(total_debits - total_credits) < Decimal("0.001"),
                 },
-                "as_of_date": date_to.isoformat() if date_to else date.today().isoformat(),
+                "as_of_date": date_to.isoformat() if date_to else timezone.localdate().isoformat(),
             }
         )
 
@@ -243,7 +244,7 @@ class AccountBalanceView(APIView):
                 "account_name": account.name,
                 "account_type": account.account_type,
                 "balance": str(balance),
-                "as_of_date": date_to.isoformat() if date_to else date.today().isoformat(),
+                "as_of_date": date_to.isoformat() if date_to else timezone.localdate().isoformat(),
             }
         except Account.DoesNotExist:
             raise ResourceNotFound(f"Account {account_id} not found")

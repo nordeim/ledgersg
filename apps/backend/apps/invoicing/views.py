@@ -8,6 +8,7 @@ from typing import Optional
 from datetime import date
 
 from django.http import FileResponse
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -476,7 +477,7 @@ class DocumentSummaryView(APIView):
         overdue_count = InvoiceDocument.objects.filter(
             org_id=org_id,
             status__in=outstanding_statuses,
-            due_date__lt=date.today(),
+            due_date__lt=timezone.localdate(),
         ).count()
 
         return Response(

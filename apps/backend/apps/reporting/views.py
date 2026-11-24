@@ -10,9 +10,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 from django.db.models import Sum, F
+from django.utils import timezone
 from decimal import Decimal
 from uuid import UUID
-from datetime import date, datetime
+from datetime import date
 
 from apps.core.permissions import IsOrgMember, CanViewReports
 from apps.core.models import Account, JournalLine
@@ -315,7 +316,7 @@ class AgedReportView(APIView):
         from common.query_params import parse_date_param
 
         as_at = parse_date_param(
-            request.query_params.get("as_at", date.today().isoformat()), "as_at"
+            request.query_params.get("as_at", timezone.localdate().isoformat()), "as_at"
         ).date()
 
         from apps.reporting.services.aged_service import get_aged_report

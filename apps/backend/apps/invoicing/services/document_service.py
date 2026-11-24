@@ -503,8 +503,8 @@ class DocumentService:
                 org_id=org_id,
                 document_type="SALES_INVOICE",
                 contact_id=quote.contact_id,
-                issue_date=date.today(),
-                due_date=date.today() + timedelta(days=quote.contact.payment_terms_days),
+                issue_date=timezone.localdate(),
+                due_date=timezone.localdate() + timedelta(days=quote.contact.payment_terms_days),
                 reference=f"Quote {quote.document_number}",
                 notes=quote.notes,
                 lines=lines,
@@ -902,7 +902,9 @@ class DocumentService:
         )
         from apps.peppol.tasks import transmit_peppol_invoice_task
 
-        document = InvoiceDocument.objects.get(id=document_id, org_id=org_id)
+        # P13/B-10: typed 404 contract — a missing document must surface
+        # ResourceNotFound (404 envelope), not a raw DoesNotExist 500.
+        document = DocumentService.get_document(org_id, document_id)
 
         # P9/C-3: InvoiceNow is an invoice transmission channel. The mapping
         # layer renders anything non-credit-note as a UBL Invoice, so a quote
@@ -978,7 +980,8 @@ class DocumentService:
             PeppolTransmissionLog,
         )
 
-        document = InvoiceDocument.objects.get(id=document_id, org_id=org_id)
+        # P13/B-10: typed 404 contract — same as send_invoicenow.
+        document = DocumentService.get_document(org_id, document_id)
 
         logs = (
             PeppolTransmissionLog.objects.filter(

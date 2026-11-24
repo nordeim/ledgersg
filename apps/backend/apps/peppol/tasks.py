@@ -6,7 +6,7 @@ enabling non-blocking approval workflows and retry logic.
 """
 
 import logging
-from datetime import datetime
+from django.utils import timezone
 from celery import shared_task
 from typing import Optional
 
@@ -227,7 +227,7 @@ def check_transmission_status_task(message_id: str) -> Optional[dict]:
         log.status = result.status.value
         log.error_code = result.error_code or ""
         log.error_message = result.error_message or ""
-    log.response_at = datetime.now()
+    log.response_at = timezone.now()
     log.save()
 
     return {
@@ -264,7 +264,7 @@ def cleanup_old_transmission_logs_task(days: int = 90) -> int:
     from datetime import datetime, timedelta
     from apps.peppol.models import PeppolTransmissionLog
 
-    cutoff_date = datetime.now() - timedelta(days=days)
+    cutoff_date = timezone.now() - timedelta(days=days)
 
     stale_logs = PeppolTransmissionLog.objects.filter(
         transmitted_at__lt=cutoff_date,

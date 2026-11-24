@@ -171,7 +171,7 @@ def _create_first_fiscal_year(org: Organisation, start_month: int) -> None:
     """
     Create the first fiscal year with periods.
     """
-    current_year = date.today().year
+    current_year = timezone.localdate().year
     
     # Calculate fiscal year dates
     if start_month == 1:

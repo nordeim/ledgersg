@@ -11,7 +11,7 @@ Orchestrates the complete transmission workflow:
 """
 
 from typing import Optional, Dict, Any
-from datetime import datetime
+from django.utils import timezone
 from uuid import UUID
 
 from apps.peppol.services.ap_adapter_base import APAdapterBase, TransmissionResult
@@ -96,7 +96,7 @@ class TransmissionService:
             log.error_message = (
                 "Organisation is not configured for Peppol transmission"
             )
-            log.response_at = datetime.now()
+            log.response_at = timezone.now()
             log.save()
             raise ValueError(
                 f"Organization {log.org_id} is not configured for Peppol "
@@ -116,7 +116,7 @@ class TransmissionService:
             log.status = "FAILED"
             log.error_code = "INTERNAL_ERROR"
             log.error_message = str(e)
-            log.response_at = datetime.now()
+            log.response_at = timezone.now()
             log.save()
             raise
 
@@ -194,7 +194,7 @@ class TransmissionService:
             log.status = "FAILED"
             log.error_code = "INTERNAL_ERROR"
             log.error_message = str(e)
-            log.response_at = datetime.now()
+            log.response_at = timezone.now()
             log.save()
             raise
 
@@ -290,7 +290,7 @@ class TransmissionService:
             log.error_message = result.error_message
             log.response_code = self._get_http_code_for_error(result.error_code)
 
-        log.response_at = datetime.now()
+        log.response_at = timezone.now()
         log.save()
 
     def get_adapter_for_org(
@@ -401,7 +401,7 @@ class TransmissionService:
             log.status = "FAILED"
             log.error_code = "INTERNAL_ERROR"
             log.error_message = str(e)
-            log.response_at = datetime.now()
+            log.response_at = timezone.now()
             log.save()
             raise
 
