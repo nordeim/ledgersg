@@ -476,7 +476,12 @@ export const queryClient = new QueryClient({
       refetchOnReconnect: true,
     },
     mutations: {
-      retry: 1,
+      // P13/M-3: NO retries on mutations — a re-fired non-idempotent POST
+      // (payment receive/make/allocate) after a network timeout would
+      // double-submit money. React Query's mutation default (0) is the
+      // correct policy for a financial client; idempotency keys belong
+      // on the backend if retry-on-mutation is ever needed.
+      retry: 0,
       onError: (error: unknown) => {
         // Global error handling
         if (error instanceof ApiError) {
