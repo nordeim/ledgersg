@@ -5,6 +5,8 @@ Root URL configuration. Mounts API version namespace /api/v1/,
 health check endpoint, admin (development only).
 """
 
+import logging
+
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
@@ -12,6 +14,8 @@ from django.db import connection
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+
+logger = logging.getLogger("ledgersg")
 
 # CSP violation reporting endpoint (SEC-003)
 from apps.core.views.security import csp_report_view
@@ -55,11 +59,14 @@ def health_check(request):
             status=200,
         )
     except Exception as e:
+        # P13/B-14: the operational detail goes to the log; the
+        # unauthenticated 503 body carries only the generic status.
+        logger.exception("Health check failed")
         return JsonResponse(
             {
                 "status": "unhealthy",
                 "database": "disconnected",
-                "error": str(e),
+                "error": "A database error occurred. Check server logs for details.",
             },
             status=503,
         )
