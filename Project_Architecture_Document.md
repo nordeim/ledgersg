@@ -36,22 +36,22 @@
 
 **LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs. It eliminates the complexity of IRAS compliance through a "SQL-First" design philosophy and a distinctive "Illuminated Carbon" neo-brutalist UI.
 
-### Key Metrics
+### Key Metrics (P13, 2026-11-24)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,088 Tests Passing** | 647 Backend + 418 Frontend unit + 23 e2e (9 always + 14 backend-gated) |
-| **API Surface** | **95 Endpoints** | RESTful, JSON-API compliant |
-| **Security** | **100% Score** | CSP, Rate Limiting, RLS, 4-Layer Auth |
-| **Database** | **7 Schemas** | 30 Tables, Row-Level Security Enforced |
-| **Performance** | **<100ms** | P95 Response Time (Redis Caching Active) |
+| **Test Coverage** | **1,320 Tests Passing** | 750 Backend + 530 Frontend unit + 40 e2e (11 always + 29 backend-gated; 40/40 live-green) |
+| **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+") |
+| **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
+| **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
+| **Lint Register** | **ESLint 9 / ruff ~305** | The P13 register — any-casts cleared; deferred classes documented |
 
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 398 | 100% | Vitest + RTL | ✅ Passing |
-| **Backend (pytest)** | 624 passed / 5 skipped | 100% of run | pytest | ✅ Passing |
-| **E2E (Playwright)** | 21 (9 always + 12 backend-gated) | 100% | Playwright | ✅ Passing |
-| **Total Passing** | **1,043** | — | Mixed | ✅ Verified |
+| **Frontend Unit** | 530 | 100% | Vitest + RTL | ✅ Passing |
+| **Backend (pytest)** | 750 passed / 5 skipped (755 collected) | 100% of run | pytest | ✅ Passing |
+| **E2E (Playwright)** | 40 (11 always + 29 backend-gated) | 100% live | Playwright | ✅ Passing |
+| **Total Passing** | **1,320** | — | Mixed | ✅ Verified |
 
 ---
 

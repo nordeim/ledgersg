@@ -3,7 +3,7 @@
 > **Single Source of Truth** for coding agents and human developers
 > **Version**: 2.16.0
 > **Last Updated**: 2026-11-23
-> **Status**: P12 Remediated 🟢 — all gates green (backend 735P/0F/5S unchanged, frontend vitest 518/518, typecheck 0 errors, e2e 37 specs / 11+26skip default, the live suite 36P/1S/0F incl. the mobile-nav overlay contract specs; eslint 79→45 with every mechanical class cleared and the register truthful). Mobile-nav truth: the navigation verified working live at 375/800/1280 with rule-by-rule cascade traces (the `display:flex` reading is correct flex-item blockification, NOT a Tailwind v4 bug — the v4 setup is clean, no legacy config); the open menu now behaves as a modal overlay (Escape closes, body scroll locks, focus moves in on open and returns to the trigger on close, Tab cycles within — the P12/A-1 floor with 7 vitest + 3 gated e2e); `data-scroll-behavior=smooth` on <html> kills the Next.js 16 route-transition warning; the API_CLI guide re-verified live (see `docs/REMEDIATION_2026-11-23_P12_REPORT.md`, plus the P0–P11 reports)
+> **Status**: P13 Remediated 🟢 — all gates green (backend 750P/0F/5S, frontend vitest 530/530, typecheck 0 errors, e2e 40 specs / 11+29skip default, the live suite 40P/0F/0S; eslint 45→9 with the 36 any-casts cleared and the register truthful). Mobile-nav truth: the navigation verified working live at 375/800/1280 with rule-by-rule cascade traces (the `display:flex` reading is correct flex-item blockification, NOT a Tailwind v4 bug — the v4 setup is clean, no legacy config); the open menu now behaves as a modal overlay (Escape closes, body scroll locks, focus moves in on open and returns to the trigger on close, Tab cycles within — the P12/A-1 floor with 7 vitest + 3 gated e2e); `data-scroll-behavior=smooth` on <html> kills the Next.js 16 route-transition warning; the API_CLI guide re-verified live (see `docs/REMEDIATION_2026-11-23_P12_REPORT.md`, plus the P0–P11 reports)
 
 ---
 
@@ -30,8 +30,8 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.3.0 | ✅ Ready | 16 pages, 511 unit + 34 e2e tests (11 always + 23 backend-gated; the live suite 33P/1S), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages, working void dialog + real error messages + PDF/InvoiceNow actions, real reports + quotes pages, organisation creation + full payment workflow + truthful dashboard (P5–P9), registration + contacts + the contact-picker invoice form + the GST F5 lifecycle + bank edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit-dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11) |
-| **Backend** | v0.6.0 | ✅ Suite Fully Green | 90+ endpoints, **735 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth (credit notes post reversed entries and net in F5 — P11/C-1), per-status transition permissions + active custom exception handler, real financial reports + aged AR/AP + quote lifecycle + the P9 banking/onboarding contracts (P5–P9), GST F5 review/amend + fiscal-period open + UEN 400s + the 429 rate-limit contract (P10), production settings that boot (builtin cache + LOG_DIR) + typed org-settings PATCH + UUID routing 404s + audit-trail context (P11) |
+| **Frontend** | v0.3.2 | ✅ Ready | 16 pages, 530 unit + 40 e2e tests (11 always + 29 backend-gated; the live suite 40P/0F), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages, working void dialog + real error messages + PDF/InvoiceNow actions, real reports + quotes pages, organisation creation + full payment workflow + truthful dashboard (P5–P9), registration + contacts + the contact-picker invoice form + the GST F5 lifecycle + bank edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit-dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11) |
+| **Backend** | v0.6.1 | ✅ Suite Fully Green | 90+ endpoints, **750 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth (credit notes post reversed entries and net in F5 — P11/C-1), per-status transition permissions + active custom exception handler, real financial reports + aged AR/AP + quote lifecycle + the P9 banking/onboarding contracts (P5–P9), GST F5 review/amend + fiscal-period open + UEN 400s + the 429 rate-limit contract (P10), production settings that boot (builtin cache + LOG_DIR) + typed org-settings PATCH + UUID routing 404s + audit-trail context (P11); the exception-handler rollback + IRAS 2dp GST quantum + typed ImmutabilityError + InvoiceNow 404s + reversal atomicity + timezone-aware dates + copy-on-write settings (P13) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables, NUMERIC(19,4) money |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
 | **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on (settings-driven login knobs), HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes |
@@ -169,9 +169,14 @@ All four Critical findings from the independent code audit were fixed test-first
 
 ### E2E Workflow Validation (Recommended Approach)
 
-**⚠️ CRITICAL DISCOVERY**: HttpOnly cookies break browser automation tool session persistence.
+**Session persistence note (P4/E-1 + P13 correction)**: real-browser
+automation (Playwright, full browser contexts) DOES carry the HttpOnly
+refresh cookie across navigations and reloads — the green session-persistence
+e2e specs prove it. The hybrid API approach below remains the right tool
+for cookie-less CLI drivers (curl, agent-browser's request mode) and for
+efficient bulk data setup.
 
-**Recommended Hybrid Approach:**
+**Hybrid Approach (cookie-less CLI drivers):**
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  AUTHENTICATION (API)                                       │
@@ -191,10 +196,10 @@ All four Critical findings from the independent code audit were fixed test-first
 └─────────────────────────┘         └─────────────────────────┘
 ```
 
-**Why Pure UI Automation Fails:**
-- Access token stored in JavaScript memory (lost on navigation)
-- Refresh token in HttpOnly cookie (not sent by agent-browser/Playwright)
-- Result: Redirect to login on every page navigation
+**Why cookie-less drivers need the hybrid approach:**
+- Access token stored in JavaScript memory (not accessible to CLI drivers)
+- Refresh token in HttpOnly cookie (not attachable by curl-style clients)
+- Result: those drivers must re-login via the API and carry the bearer token
 
 **Standardized Validation Workflow:**
 1. **API Login**: Get tokens via `POST /api/v1/auth/login/`
@@ -204,7 +209,7 @@ All four Critical findings from the independent code audit were fixed test-first
 
 **Tools by Use Case:**
 - **Quick checks**: agent-browser (single page only)
-- **Full E2E**: Hybrid script (`e2e_test_phases_7_15_simplified.py`)
+- **Full E2E**: the Playwright live suite (`npm run test:e2e:full`)
 - **Visual regression**: Playwright with hybrid approach
 - **CI/CD**: Hybrid approach with headless Playwright
 

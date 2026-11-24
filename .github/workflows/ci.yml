@@ -5,7 +5,7 @@
 # This pipeline institutionalizes the "SQL-First" mandate by:
 # 1. Manually initializing PostgreSQL with database_schema.sql (not migrations)
 # 2. Running pytest with --no-migrations and --reuse-db flags
-# 3. Validating 340+ backend tests against the true production schema
+# 3. Validating the backend suite (750+ tests, P13) against the true production schema
 #
 # Version: 1.1.0
 # Last Updated: 2026-11-22

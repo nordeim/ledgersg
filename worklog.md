@@ -581,3 +581,70 @@ everything carried forward from P11's register.
 
 Conventional commits on `main` per plan §5; pushed via
 `docs/ssh_git_wrapper_v3.py` (paramiko shim; key shredded after push).
+
+## 2026-11-24 — Session 27 (P13: Transactional Truth, Header Consolidation & the Typed Suite)
+
+**Base:** `69f13325` (post-P12). The sandbox recycle wiped PG's
+usr/share tree + empty cluster subdirs (pg_logical/snapshots was
+checkpoint-fatal) and Redis's binaries — both recovered per
+`skills/rootless-postgresql` (debs re-extracted, subdirs restored,
+liblzf added); the DBs, demo substrate, venv rebuild (uv), npm ci and
+chromium-1208 all re-established; baselines reproduced exactly
+(735P/5S, 518 vitest, tsc 0, eslint 45, live e2e 37P/0F — the P12
+data-conditional skip now passes). A double-fork daemonizer now keeps
+the dev stack alive across tool calls (the one-call constraint is
+lifted). Plan: `docs/REMEDIATION_PLAN_2026-11-24_P13.md` (1 Critical +
+3 High + 10 Medium + the docs register, 20 tasks).
+
+**Sprint focus (live):** the mobile nav re-verified working at
+375/800/1280; **no Tailwind v4 bug** — re-settled with an
+@layer-recursing rule trace (only `.inline-flex` + the media-gated
+`.md\:hidden` match; the trap log swept clean). Two REAL nav edge-state
+defects found and fixed: the closed drawer was keyboard-focusable
+(H-2) and the overlay covered the X toggle (M-1).
+
+### Remediation executed (TDD — 15 backend + 12 vitest + 3 e2e specs, all RED first)
+
+| Task | Change | Evidence |
+|---|---|---|
+| 1 (B-1 Critical) | The DRF exception handler's 500 fallback now calls `transaction.set_rollback(True)` — unhandled exceptions can no longer COMMIT partial financial state | 2 gates: handler-level + full dispatch (a register-halfway user committed behind the 500 pre-fix; rolled back post-fix) |
+| 2 (B-2) | GST quantum `Decimal(1).scaleb(-rounding)` — the IRAS 2dp unit (was 0.001) | Sub-cent tests: 100.05×0.09 → 9.00 (was 9.005); live curl proof |
+| 3 (H-1+L-1) | middleware.ts deleted; ALL headers consolidated into next.config.ts (COOP/CORP/COEP, prod upgrade-insecure-requests, the full Permissions-Policy; X-XSS-Protection dropped) — production no longer ships unsafe-eval/inline | 8-test header-config gate (RED 5 → GREEN 8) + live served-header verification + the deprecation warning gone |
+| 4 (H-2) | Closed drawer `invisible md:visible` + `transition-[transform,visibility]` | vitest (RED→GREEN 9/9) + e2e visibility assertions (a role locator CANNOT resolve the hidden link — the a11y exclusion IS the fix) |
+| 5 (M-1) | Header z-50 — the X toggle is the real hit target while open | e2e elementFromPoint probe + click-closes |
+| 6 (M-3) | mutations `retry: 0` (double-submission hazard removed) | config gate |
+| 7 (B-5) | ImmutableModel raises the TYPED ImmutabilityError (409, not 500) | 2 gates incl. the handler envelope |
+| 8 (B-6) | 17 naive date.today()/datetime.now() sites → timezone.localdate()/now() | the new source-scan gate (17 offenders → 0) |
+| 9 (B-7) | SIMPLE_JWT + DATABASES copy-on-write in all settings modules | 3 identity gates (value comparisons are .env-maskable — the lesson) |
+| 10 (B-10) | InvoiceNow endpoints → typed 404s (was raw DoesNotExist 500s) | 2 gates |
+| 11 (B-11) | create_reversal atomic (both phases) — no orphan reversals | the marking-failure gate |
+| 12 (B-13) | Service balance tolerance aligned to the DB trigger's 0.0001 | the 0.0005 boundary gate |
+| 13 (B-14) | Health 503 body generic (detail to the logger) | the marker-string gate |
+| 14 (W-3+M-4) | The 36 any-casts cleared (35 via the in-file typed-cast pattern; banking-client got the real BankAccount type) + per-glob coverage thresholds for src/lib | eslint **45 → 9**; coverage green at both ratchets |
+| 15 (L-8+D-9) | .env.example: LOG_DIR in the root index + the documented E2E section in web | grep cross-checks |
+| 16 | Playwright expect.timeout + the axe-scan/visibility/hit-target mobile-nav specs | 40 specs live-green |
+| 17 | Screenshots 72–79_session27 (8, pixel+DOM verified, md5-unique) | the capture driver's DOM truths |
+| 18–19 | Docs truth pass (AGENTS header + P13 patterns, PAD metrics, SKILL §4 + v2.2.0 lessons 55–58, README badge/blocks/quickstart + the P13 milestone, CLAUDE rows + the cookie-claim correction, DEPLOYMENT §12.1–12.4 production ops + the path/venv/Redis fixes, API guide v2.6.0 + the P13 addendum, ci.yml) | every count vs executed output |
+
+### Final gate (all Verified, executed)
+
+backend **750P/0F/5S** (invariants 34P; security 69P/3S; production
+boots behind its gates) · vitest **530/530** · typecheck 0 · coverage
+green (63/51/52/62 + src/lib 73/52/74/71) · build:server green ·
+eslint **9** (the deferred register only) · e2e default 11 + 29 gated ·
+**live e2e:full 40P/0F/0S (40 specs)** · the served headers + the boot
+log verified live · the GST live proof (9.00) · 8 screenshots verified.
+
+### Deferred (registered, not dropped)
+
+B-3 (TenantModel auto-org), B-4 (is_superadmin policy), B-8 (stale
+service.py+scripts), B-9 (membership-cache invalidation), B-12
+(on_commit for Peppol), B-15..B-19, M-2 (scroll-lock hardening), L-2..L-7,
+L-9, L-10, the 9 remaining eslint findings (unchanged policies), the
+ruff register, D-24 — plus everything carried forward from P11/P12.
+
+### Commits
+
+Conventional commits on `main` per plan §5; pushed via
+`docs/ssh_git_wrapper_v3.py --remote git@github.com:nordeim/ledgersg.git`
+(paramiko shim; key shredded after push).

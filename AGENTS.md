@@ -2,16 +2,19 @@ LedgerSG Project Status — Comprehensive Summary
 Executive Overview
 LedgerSG is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs with IRAS 2026 compliance. The platform has undergone significant development across multiple phases, achieving enterprise-grade security, comprehensive test coverage, and a complete banking UI.
 ---
-Current Status (2026-03-08)
-Production Metrics
-Component
-Frontend
-Backend
-Database
-Dashboard
-Banking UI
-Security
-Testing
+Current Status (2026-11-24 — P13 remediated; see the sprint-patterns sections
+at the bottom of this file for P0–P13 and the README status table for the
+live numbers. The detailed sections between this header and the P0-patterns
+appendix are HISTORICAL — written 2026-03-08; treat their counts as
+superseded.)
+
+Current truth (all gates executed and green, session 27):
+- Backend: pytest 750 passed / 0 failed / 5 skipped (755 collected)
+- Frontend: vitest 530/530, tsc --noEmit 0 errors
+- E2E: 40 specs (11 always-green + 29 backend-gated); live run 40P/0F/0S
+- ESLint whole-tree: 9 findings (P13 cleared the 36 any-casts)
+- Coverage: green at the ratchet (whole-suite 63/51/52/62 + src/lib
+  per-glob 73/52/74/71); build:server green; schema v1.1.0
 ---
 Major Completed Work
 1. Authentication Flow Remediation (Defense-in-Depth) ✅ COMPLETE
@@ -250,8 +253,8 @@ The project utilizes a decoupled, service-oriented architecture designed for sec
 - **State Management:** Zustand (UI State) + TanStack Query (Server State).
 - **Rendering Strategy:** Hybrid. Critical data paths use **Server Components** to ensure zero JWT exposure to client-side JavaScript. Interactive elements (charts, forms) are isolated Client Components.
 - **Build Modes:**
-  - `standalone`: For production API integration (`npm run build:server`).
-  - `export`: For static CDN deployment (`npm run build`).
+  - `standalone`: the ONLY supported mode (`npm run build:server` + `npm start`) — P10/M-12 retired the static export (it cannot support API-driven detail routes).
+  - `export`: experiments only; NO build script ships for it.
 - **Design Philosophy:** "Illuminated Carbon" Neo-Brutalist. Reject generic templates. Use whitespace as a structural element. Ensure WCAG AAA compliance.
 
 ### 2.2 Backend Architecture
@@ -1280,3 +1283,98 @@ double prefixes. The API ships both the raw value and a `*_display`
 string; anything that COMPUTES reads the raw one (the GST payable is
 re-sourced from the F5 computation — single statutory truth), and the DOM
 renders single-prefix display strings.
+
+## 2026-11-24 P13 Sprint — New Patterns & Lessons (session 27)
+
+### The DRF Exception Handler Is Inside The Transaction (B-1 — the C-04 closure)
+`wrap_response`'s careful re-raise was nullified ONE LAYER UP: the custom
+DRF exception handler's 500 fallback returned a normal `Response`, DRF's
+dispatch accepted it, and Django's ATOMIC_REQUESTS wrapper saw a
+"successful" request → partial writes COMMITTED. Fix: `transaction.set_rollback(True)`
+before returning the 500 envelope (guarded by `in_atomic_block`). Lesson:
+a typed-exception contract must be audited at EVERY layer the exception
+can be caught — the handler is the last catch before the transaction
+boundary, and it is inside the request transaction.
+
+### Rounding Quantum Bugs Hide Behind Round Fixtures (B-2)
+`Decimal(f"0.{('0' * rounding)}1")` built `0.001` for rounding=2 — one
+decimal place too fine — yet every existing GST test passed because the
+fixtures used round amounts (100.00 × 0.09 = 9.000 at BOTH quanta).
+`Decimal(1).scaleb(-rounding)` is the correct unit. Lesson: statutory
+rounding gates need SUB-UNIT fixtures (100.05, 100.06) or they verify
+nothing; the same applies to tolerance gates (see B-13: the service
+tolerance 0.001 vs the DB trigger's 0.0001 — test at the boundary).
+
+### Value-Masked Mutation: Settings Copy-On-Write Gates Must Assert Identity (B-7)
+The first B-7 test compared VALUES (base's DB name before/after importing
+development) and PASSED — a `.env` file resolved both sides to the same
+string, masking the shared-dict mutation. Assert OBJECT IDENTITY
+(`dev.DATABASES is not base.DATABASES` and the inner dicts too): value
+comparisons can be masked by config resolution; identity cannot.
+
+### Middleware Headers Override next.config Headers (H-1 — the silent CSP defeat)
+Next.js applies `next.config.ts headers()` and then the middleware sets
+its own on the response — for the same header key, MIDDLEWARE WINS. The
+repo shipped two definitions; the looser one (unconditional
+`'unsafe-eval' 'unsafe-inline'`, Vercel origins) silently defeated the
+P11/M-15 env-aware hardening in production while every unit test passed
+(the table was correct — the SERVED header wasn't). Fix: ONE source of
+truth (delete the middleware; port its unique headers into
+`next.config.ts`); gate the header table with a unit test that stubs
+NODE_ENV, and verify the SERVED headers live. Deleting the middleware
+also retired the Next 16 middleware→proxy deprecation warning.
+
+### Off-Canvas ≠ Unfocusable (H-2 — the inverse P12 lesson)
+P12 hardened the OPEN menu; the audit then found the CLOSED drawer
+still keyboard-focusable — `transform` moves an element off-screen but
+NOT out of the tab order or the a11y tree (~10 invisible focusables
+before the header at 375px; WCAG 2.4.3/2.4.7). Fix:
+`invisible md:visible` on the closed state plus
+`transition-[transform,visibility]` (visibility is discretely-animatable:
+closing stays visible through the slide-out, opening flips visible
+immediately). Lesson: test BOTH states of every overlay; and a nice
+proof artifact — a role locator CANNOT resolve the hidden link (a11y
+tree exclusion), so the e2e spec switched to a CSS locator for the
+closed-state assertion.
+
+### Z-Index Stacking Is A Layout Fact jsdom Cannot See (M-1)
+The overlay (z-40) painted ABOVE the header (z-30): the X toggle was
+blurred and unclickable while the menu was open, and NO unit test could
+catch it (jsdom has no layout/hit-testing) — only the overlay's own
+onClick-close masked it. Fix: header z-50 (DOM order after the aside
+paints it above z-40) + an e2e hit-target assertion
+(`document.elementFromPoint` at the toggle's center resolves to the
+toggle's button). Lesson: pointer-target bugs need real-browser
+elementFromPoint probes; add one for every z-index fix.
+
+### Mutation Retries Are Double-Submission Hazards (M-3)
+`mutations: { retry: 1 }` re-fires failed POSTs — including 4xx on
+non-idempotent payment endpoints. A network timeout after the server
+processed a payment re-sends it. Fix: `retry: 0` for mutations (React
+Query's default); idempotency keys belong on the backend if retry-on-
+mutation is ever needed.
+
+### Per-Glob Coverage Thresholds Make Tier Claims Enforceable (M-4)
+The vitest header claimed "lib/gst-engine.ts: 100%" but nothing enforced
+it, and the whole-suite ratchet averaged over 57 excluded files. Vitest 4
+glob-keyed thresholds (`"src/lib/**": {…}` at the measured floor) turn
+the tier claim into a gate. Lesson: set the glob ratchet at the MEASURED
+floor (never aspirational), then bump.
+
+### The Lint Debt Parity Lesson, Applied To A Debt Class (W-3)
+P12 measured whole-tree drift (79 vs the documented 47); P13 cleared the
+remaining 36 `no-explicit-any` — 35 were copy-paste test-cast debt
+fixable with the `as unknown as ReturnType<typeof hook>` pattern already
+proven in-file, and exactly ONE was production code needing the real
+type. Lesson: classify a debt class before fixing it — most of a debt
+class is usually mechanical, and the mechanical fix pattern often already
+exists in the same file.
+
+### Environment Lesson: Daemonized Dev Stack Survives Tool-Call Boundaries
+The sandbox kills descendant processes at tool-call end, but TRUE daemons
+(pg_ctl, redis --daemonize) survive. A ~60-line double-fork daemonizer
+(os.fork + setsid + fork + exec with stdio to a log) gives `runserver`
+and `next dev` the same survival — the one-call constraint of earlier
+sessions no longer forces servers+audit into a single call. Next dev
+needs a manual restart for next.config.ts changes (HMR covers source
+only).

@@ -1,6 +1,6 @@
 # LedgerSG — Enterprise Accounting Platform for Singapore SMBs
 
-[![Tests](https://img.shields.io/badge/tests-932%20passing-success)]()
+[![Tests](https://img.shields.io/badge/tests-1320%20passing-success)]()
 [![Security](https://img.shields.io/badge/security-100%25-brightgreen)]()
 [![IRAS](https://img.shields.io/badge/IRAS-2026%20Compliant-red)]()
 [![WCAG](https://img.shields.io/badge/WCAG-AAA-success)]()
@@ -101,19 +101,32 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.3.1 | ✅ Production Ready | 16 pages, **518 unit tests + 37 e2e** (11 always + 26 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9), registration + contacts management + the invoice-form contact picker + the full GST F5 lifecycle + bank-account edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11), the mobile-nav overlay a11y floor (Escape / focus trap / scroll lock / focus return) + the lint-debt truth pass (79→45) + data-scroll-behavior (P12) |
-| **Backend** | v0.6.0 | ✅ Suite Fully Green | 90+ endpoints, **735 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8), InvoiceNow invoice-only gate, nullable-PayNow bank-account contract, as-at-bounded aged reports, seeded account_type backfill + is_bank filter (P9), GST F5 review/amend + fiscal-period open + UEN uniqueness + rate-limit 429 truth + org-create duplicate-UEN 400s (P10), credit notes posting reversed GL entries + netting in F5, production settings that boot (builtin Redis cache, LOG_DIR knob), typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission (P11) |
+| **Frontend** | v0.3.1 | ✅ Production Ready | 16 pages, **530 unit tests + 40 e2e** (11 always + 29 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9), registration + contacts management + the invoice-form contact picker + the full GST F5 lifecycle + bank-account edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11), the mobile-nav overlay a11y floor (Escape / focus trap / scroll lock / focus return) + the lint-debt truth pass (79→45) + data-scroll-behavior (P12), the closed-drawer visibility fix + X hit-target fix + axe-scanned overlay (P13) |
+| **Backend** | v0.6.0 | ✅ Suite Fully Green | 90+ endpoints, **750 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8), InvoiceNow invoice-only gate, nullable-PayNow bank-account contract, as-at-bounded aged reports, seeded account_type backfill + is_bank filter (P9), GST F5 review/amend + fiscal-period open + UEN uniqueness + rate-limit 429 truth + org-create duplicate-UEN 400s (P10), credit notes posting reversed GL entries + netting in F5, production settings that boot (builtin Redis cache, LOG_DIR knob), typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission (P11) |
 | **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced, 30 domain tables, **NUMERIC(19,4) money** |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching; payables include PARTIALLY_PAID bills (P7/F-9) |
 | **InvoiceNow** | v0.6.0 | ✅ Real transmission path (P5/C-2) | send-invoicenow creates a real transmission log + queues the Celery task; status reports real log rows; retention-safe cleanup (never deletes DELIVERED/REJECTED); the detail page exposes Send-via-InvoiceNow + status badge (P7) |
 | **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on, HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes, typed query params (400 not 500) |
-| **Overall** | — | 🟢 **P0–P12 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P9_REPORT.md`, `docs/REMEDIATION_2026-11-22_P10_REPORT.md`, `docs/REMEDIATION_2026-11-23_P11_REPORT.md`, `docs/REMEDIATION_2026-11-23_P12_REPORT.md` and `docs/ledgersg-audit-report.md` |
+| **Overall** | — | 🟢 **P0–P13 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P9_REPORT.md`, `docs/REMEDIATION_2026-11-22_P10_REPORT.md`, `docs/REMEDIATION_2026-11-23_P11_REPORT.md`, `docs/REMEDIATION_2026-11-23_P12_REPORT.md`, `docs/REMEDIATION_2026-11-24_P13_REPORT.md` and `docs/ledgersg-audit-report.md` |
 
 ### Latest Milestone
 
-#### 🎉 P12 Sprint: Mobile-Nav Truth & A11y Floor — 2026-11-23 (session 25)
+#### 🎉 P13 Sprint: Transactional Truth, Header Consolidation & the Typed Suite — 2026-11-24 (session 27)
+
+Source: the post-P12 audit executed live (`docs/REMEDIATION_PLAN_2026-11-24_P13.md`) — all baselines reproduced (735P/5S, 518 vitest, eslint 45, live e2e 37P/0F with the P12 data-conditional skip now passing), the mobile nav + Tailwind v4 questions re-settled with an @layer-aware matched-rule trace, three parallel deep-audit agents (frontend / backend / docs-drift) + lead hand-verification of every Critical/High.
+
+- ✅ **The sprint's focus re-verified**: the mobile nav works at 375/800/1280 and NO Tailwind v4 bug exists (the @layer-recursing rule trace re-proved only `.inline-flex` + the media-gated `.md:hidden` match; the v4 trap log swept — the nav's space-y children carry no explicit margins, so no double-margin violation)
+- ✅ **B-1 (Critical)**: the DRF exception handler's 500 fallback now marks the transaction for ROLLBACK — unhandled exceptions can no longer commit partial financial state (runtime-reproduced pre-fix: a register-halfway user COMMITTED behind the 500; post-fix: rolled back)
+- ✅ **B-2 (High)**: the GST per-line rounding quantum fixed to the IRAS-mandated 2dp — `Decimal(1).scaleb(-rounding)` (sub-cent bases like 100.05 × 0.09 now yield 9.00, verified live; was the 3-dp 9.005)
+- ✅ **H-1 (High)**: the dual header definitions consolidated — middleware deleted, its unique headers (COOP/CORP/COEP, upgrade-insecure-requests, the full Permissions-Policy) ported into `next.config.ts`, the deprecated X-XSS-Protection dropped; production no longer ships `'unsafe-eval' 'unsafe-inline'` (served-headers verified live; the Next 16 middleware→proxy deprecation warning is gone)
+- ✅ **H-2/M-1 (mobile-nav edge states)**: the closed drawer is `invisible` below md (out of the tab order + a11y tree, animation-safe) and the header z-50 keeps the X toggle the real click target while the menu is open — both e2e-pinned with visibility + elementFromPoint assertions plus an axe scan of the open overlay
+- ✅ **The backend contract batch**: typed ImmutabilityError (409 not 500), InvoiceNow missing-document 404s, atomic create_reversal, service/DB balance-tolerance alignment (0.0001), health-endpoint error hygiene, the timezone-aware date sweep (17 naive sites), settings copy-on-write completion (SIMPLE_JWT + DATABASES)
+- ✅ **W-3/M-4 — the typed suite**: all 36 `no-explicit-any` cleared (35 test casts via the in-file `as unknown as ReturnType<typeof hook>` pattern + the one production `any` given the real `BankAccount` type) — eslint **45 → 9**; vitest gains per-glob coverage thresholds (`src/lib/**` at the measured floor); playwright gains `expect.timeout` + the axe/visibility/hit-target specs
+- ✅ **The gate**: backend **750P/0F/5S** (+15 new tests, all RED first), frontend **530/530** (+12), typecheck 0, coverage green (whole-suite 63/51/52/62 + src/lib 73/52/74/71), build:server green, default e2e 11 + 29 gated, live e2e:full **40P/0F/0S** (40 specs), 8 pixel-verified screenshots (72–79, session-27 series)
+
+#### P12 Sprint: Mobile-Nav Truth & A11y Floor — 2026-11-23 (session 25)
 
 Source: the post-P11 audit executed live (`docs/REMEDIATION_PLAN_2026-11-23_P12.md`) — agent-browser at 375×812 / 800×1024 / 1280×800 against the running dev stack, computed-style rule traces on the nav DOM, the repo skills' failure taxonomies (`skills/nextjs16-tailwind4`, `skills/tailwind-patterns`, `skills/astro-7-patterns`).
 
@@ -122,7 +135,7 @@ Source: the post-P11 audit executed live (`docs/REMEDIATION_PLAN_2026-11-23_P12.
 - ✅ **The lint-debt truth pass** (A-3): the full-repo register had drifted to 79 findings while parity was only checked on touched files; every mechanical class cleared (30 unused-vars, prefer-const, no-unescaped-entities, the CustomTooltip-in-render anti-pattern, the dead shell mounted gate) — **79 → 45**, remaining are the registered any-debt + mounted-gates + compiler-informationals
 - ✅ **`data-scroll-behavior="smooth"`** on `<html>` (A-4): kills the Next.js 16 route-transition warning (verified gone live)
 - ✅ **`API_CLI_Usage_Guide.md` re-verified live** (A-8): all 9 documented list envelopes + the journal mount + the login contract re-exercised against the running stack; credit-note reversal + current metrics documented; the session-persistence limitation rewritten to the Playwright storageState truth
-- ✅ **The gate**: backend 735/0 (unchanged), frontend 518/518, typecheck clean, coverage green at the ratchet, build:server green, default e2e 11 green + 26 gated, live e2e **36P/1S/0F** (37 specs incl. the 3 new mobile-nav specs), eslint 79→45 with no new findings
+- ✅ **The gate**: backend 735/0 (unchanged), frontend 518/518, typecheck clean, coverage green at the ratchet, build:server green, default e2e 11 green + 26 gated, live e2e **36P/1S/0F** (37 specs incl. the 3 new mobile-nav specs), eslint 79→45 with no new findings. Superseded by P13 (see the P13 milestone below): 750/530, e2e 40P/0F, eslint 9
 
 #### 🎉 P11 Sprint: Accounting Truth & Config Honesty — 2026-11-23 (session 23)
 
@@ -274,7 +287,7 @@ Source: the independent audit (`docs/ledgersg-audit-report.md`, every Critical/H
 - ✅ **Critical API Contract Bug Fixed** — Banking page now fully functional
 - ✅ **Session Persistence Issue Documented** with comprehensive workaround guide
 - ✅ **E2E Testing Experience Report Created** (898 lines) — Complete lessons learned & best practices
-- ✅ **Test Script Automation** — `e2e_test_phases_7_15_simplified.py` for reproducible testing
+- ✅ **Test Script Automation** — the Playwright e2e suite (`npm run test:e2e:full`) for reproducible testing (the pre-P10 hybrid script was removed in P11's root-debris cleanup)
 - ✅ **Tool Comparison Analysis** — agent-browser vs Playwright recommendations
 
 #### 🎉 Comprehensive SMB Lifecycle Validation — 2026-03-10
@@ -310,17 +323,17 @@ Source: the independent audit (`docs/ledgersg-audit-report.md`, every Critical/H
 
 ## 🧪 Test Suites & Execution
 
-LedgerSG employs comprehensive testing across multiple layers with **1,290 tests passing** (735 backend + 518 frontend unit + 37 e2e: 11 always + 26 backend-gated).
+LedgerSG employs comprehensive testing across multiple layers with **1,320 tests passing** (750 backend + 530 frontend unit + 40 e2e: 11 always + 29 backend-gated).
 
 ### Test Suite Breakdown
 
 | Suite | Count | Framework | Coverage | Status |
 |-------|-------|-----------|----------|--------|
-| **Backend Suite** | 740 collected — 735 passing, 5 skipped | pytest-django | Core, domain, integration, invariants, security | ✅ 100% pass (5 intentional skips) |
-| **Frontend Unit Tests** | 518 passing | Vitest + RTL | Components, hooks, pages, providers | ✅ 100% pass |
+| **Backend Suite** | 755 collected — 750 passing, 5 skipped | pytest-django | Core, domain, integration, invariants, security | ✅ 100% pass (5 intentional skips) |
+| **Frontend Unit Tests** | 530 passing | Vitest + RTL | Components, hooks, pages, providers | ✅ 100% pass |
 | **Frontend Typecheck** | 0 errors | tsc --noEmit | All src + e2e + configs | ✅ Green |
 | **Frontend Coverage Gate** | thresholds at the measured floor | vitest --coverage | The honest ratchet (P10/M-13: the old 85% thresholds had never passed) | ✅ Green |
-| **E2E Specs** | 37 specs (11 always + 26 backend-gated) | Playwright | Auth, navigation, register self-serve loop, contacts, invoice picker, banking workflow, ledger, quotes, reports, session, settings, invoices, P11 accounting truth (F5 boxes, contacts round-trip, dashboard GST), P12 mobile-nav overlay contract (Escape/auto-close/desktop) | ✅ 36/37 live-green (1 data-conditional skip) |
+| **E2E Specs** | 40 specs (11 always + 29 backend-gated) | Playwright | Auth, navigation, register self-serve loop, contacts, invoice picker, banking workflow, ledger, quotes, reports, session, settings, invoices, P11 accounting truth (F5 boxes, contacts round-trip, dashboard GST), P12 mobile-nav overlay contract (Escape/auto-close/desktop), P13 mobile-nav a11y (closed-drawer visibility, X hit-target, axe scan) | ✅ 40/40 live-green |
 
 ### Backend Test Execution
 
@@ -329,18 +342,21 @@ LedgerSG employs comprehensive testing across multiple layers with **1,290 tests
 **Prerequisites:** PostgreSQL on `:5432` with `database_schema.sql` loaded into `test_ledgersg_dev`, **and Redis on `:6379`** (the membership cache and audit context in the middleware use the configured cache; without Redis the suite fails with `tenant_context_error` 500s).
 
 ```bash
-# 1. Manually initialize the test database
+# 1. Create the venv and install dependencies (from the repo root)
+cd apps/backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"   # or: uv sync --all-extras
+
+# 2. Manually initialize the test database (ONE-TIME)
 export PGPASSWORD=ledgersg_secret_to_change
 dropdb -h localhost -U ledgersg test_ledgersg_dev || true
 createdb -h localhost -U ledgersg test_ledgersg_dev
 psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 
-# 2. Run tests with reuse flags
-source /opt/venv/bin/activate
-cd apps/backend
+# 3. Run tests with reuse flags (ALWAYS these two)
 pytest --reuse-db --no-migrations -v
 
-# Expected output (post 2026-11-23 P11 remediation): 735 passed, 0 failed, 5 skipped
+# Expected output (post 2026-11-24 P13 remediation): 750 passed, 0 failed, 5 skipped
 ```
 
 **Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). The P2 sprint (`docs/REMEDIATION_2026-11-21_P2_REPORT.md`) added rate-effectiveness regression tests and the custom tax-code create fix. The P3 sprint (`docs/REMEDIATION_2026-11-21_P3_REPORT.md`) widened all monetary columns to NUMERIC(19,4) (schema v1.1.0, §16 in-place migration) and made `add_line` apply `discount_pct` server-side. The P4 sprint (`docs/REMEDIATION_2026-11-21_P4_REPORT.md`) shipped the HttpOnly refresh-cookie session flow with the `session_hint` evidence gate (14 cookie-contract tests). Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance **incl. numeric precision**, balance queries, **monetary capacity**) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
@@ -349,14 +365,15 @@ pytest --reuse-db --no-migrations -v
 
 ```bash
 cd apps/web
-npm test                    # Vitest unit suite (418 tests)
+npm test                    # Vitest unit suite (530 tests)
 npm run typecheck           # tsc --noEmit (0 errors)
-npm run test:coverage       # With coverage report
-npm run test:e2e            # Playwright e2e — 9 tests green without a backend
-                            # (12 backend-gated specs skip with reasons)
+npm run test:coverage       # With coverage report (the CI ratchet gate)
+npm run test:e2e            # Playwright e2e — 11 tests green without a backend
+                            # (29 backend-gated specs skip with reasons)
                             # first run: npx playwright install chromium
-npm run test:e2e:full       # all 21 tests — needs the backend on :8000 + Redis
-                            # (E2E_API_URL-gated auth + invoice-form + session specs)
+npm run test:e2e:full       # all 40 tests — needs the backend on :8000 + Redis
+                            # (export the E2E_DEMO_* trio first — see §9 of
+                            # docs/DEPLOYMENT.md)
 PLAYWRIGHT_PROJECTS=all npm run test:e2e   # full browser matrix (needs `npx playwright install`)
 ```
 
@@ -382,7 +399,7 @@ Three comprehensive SMB workflows validated end-to-end:
 **Key Insight:** HttpOnly cookies break automation tool session persistence. Solution: API for data operations, UI for visual verification only.
 
 **Artifacts Created:**
-- `e2e_test_phases_7_15_simplified.py` — Reproducible test automation
+- `npm run test:e2e:full` — reproducible full E2E against the live stack (the pre-P10 hybrid script was removed in P11)
 - `E2E_TESTING_EXPERIENCE_REPORT.md` — 898-line comprehensive guide
 - 25+ screenshots documenting entire workflow
 
@@ -1093,7 +1110,7 @@ LedgerSG provides comprehensive documentation for different audiences:
 ### Immediate (High Priority)
 
 - [ ] SEC-004: Expand frontend test coverage for hooks and forms
-- [ ] **E2E Automation**: Integrate `e2e_test_phases_7_15_simplified.py` into CI/CD pipeline
+- [ ] **E2E Automation**: Integrate the Playwright live suite (`test:e2e:full`) into CI/CD pipeline
 - [ ] **Session Persistence Fix**: Implement test-specific auth endpoint (non-HttpOnly tokens for testing)
 - [ ] Error Handling: Add retry logic and fallback UI for dashboard API failures
 - [ ] CI/CD: Automate manual DB initialization workflow in GitHub Actions

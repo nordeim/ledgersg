@@ -8,7 +8,7 @@ schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
 (2026-11-23, session 23 / P11) re-verified every command against the current
 codebase (backend 735P/0F/5S, vitest 518/518, typecheck 0 errors,
-build:server green, live e2e 36P/1S/0F — including the P11 accounting-truth
+build:server green, live e2e 40P/0F/0S (40 specs) — including the P11 accounting-truth
 specs and the P12 mobile-nav a11y specs; re-verified in session 25 / P12).
 
 Verified truths this guide is built on: the schema file
@@ -58,7 +58,7 @@ migration for databases created on ≤ v1.0.2).
   DO blocks CREATE ROLEs, so the **loading role must be SUPERUSER** (the dev
   role `ledgersg` is created SUPERUSER for exactly this reason; the runtime
   application role is `ledgersg_app`, which the schema grants and RLS binds).
-- **A reachable Redis 6.4+** on `:6379` (or set `REDIS_URL`). Rootless
+- **A reachable Redis 7.x** on `:6379` (or set `REDIS_URL`; the 6.4.0 pin in pyproject is the Python client, not the server). Rootless
   method in §5.
 - `git`, `curl`, and on Debian/Ubuntu `apt-get` (for the rootless
   PostgreSQL/Redis package extraction).
@@ -73,7 +73,7 @@ cd ledgersg
 ```
 
 Nothing is read from the repo root `.env` — each app has its own audited
-template (backend: 15 settings-read vars, all listed; web: live vars +
+template (backend: 16 settings-read vars, all listed — LOG_DIR included; web: live vars +
 a clearly-marked reserved section):
 
 ```bash
@@ -140,7 +140,7 @@ psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev     -f database_schema.sql
 psql -h 127.0.0.1 -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 ```
 
-Verify (30 domain tables + 2 token-blacklist tables, money at 19,4):
+Verify (29 domain tables + 1 view + 2 token-blacklist tables, money at 19,4):
 
 ```bash
 psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -tAc \
@@ -185,7 +185,7 @@ export LD_LIBRARY_PATH=~/redis/root/usr/lib/x86_64-linux-gnu
 
 ```bash
 cd apps/backend
-python3 -m venv venv && source venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 python manage.py check     # 0 errors (1 known django_ratelimit W001)
 ```
@@ -287,8 +287,8 @@ export E2E_API_URL=http://127.0.0.1:8000 E2E_DEMO_EMAIL=demo@ledgersg.sg \
 # 5) compute an F5 return:  POST /api/v1/{org}/gst/returns/
 #    {"filing_frequency":"MONTHLY","start_date":"<month>-01","periods":1}
 #    then POST /api/v1/{org}/gst/returns/{id}/?force=true
-npm run test:e2e:full       # 37 specs: 11 always + 26 backend-gated
-                           # (36/37 live-green, 1 data-conditional skip)
+npm run test:e2e:full       # 40 specs: 11 always + 29 backend-gated
+                           # (40/40 live-green, P13)
 ```
 
 (The p11 spec's `ensureDemoActivity` performs steps 3–5 idempotently itself
@@ -301,7 +301,7 @@ Celery tasks. Development can run them inline (`CELERY_ALWAYS_EAGER=true`
 is the dev default); otherwise start a worker:
 
 ```bash
-cd apps/backend && source venv/bin/activate
+cd apps/backend && source .venv/bin/activate
 celery -A config worker -l info
 ```
 
@@ -466,9 +466,101 @@ failure). If a dev run fails only on login/refresh 429s, flush the dev cache
 - **Backups**: standard `pg_dump` of the database is sufficient (schema +
   data + RLS policies all live in SQL).
 
+### 12.1 Process management (systemd)
+
+Nothing in this repo ships process units; a bare `runserver`/`npm start`
+dies with its terminal. On a fresh host use systemd units (templates —
+adjust users/paths):
+
+```ini
+# /etc/systemd/system/ledgersg-backend.service
+[Unit]
+Description=LedgerSG API (gunicorn)
+After=network.target postgresql.service redis.service
+
+[Service]
+User=ledgersg
+WorkingDirectory=/opt/ledgersg/apps/backend
+EnvironmentFile=/opt/ledgersg/apps/backend/.env
+ExecStart=/opt/ledgersg/apps/backend/.venv/bin/gunicorn config.wsgi:application \
+    --bind 127.0.0.1:8000 --workers 3 --timeout 60
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```ini
+# /etc/systemd/system/ledgersg-web.service
+[Unit]
+Description=LedgerSG web (Next.js standalone)
+After=network.target ledgersg-backend.service
+
+[Service]
+User=ledgersg
+WorkingDirectory=/opt/ledgersg/apps/web
+Environment=NODE_ENV=production PORT=3000
+EnvironmentFile=/opt/ledgersg/apps/web/.env.local
+ExecStart=/usr/bin/node .next/standalone/server.js
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Plus a Celery unit (`celery -A config worker`) if asynchronous InvoiceNow
+transmission is used. Enable with `systemctl enable --now <unit>`.
+
+### 12.2 Reverse proxy and TLS (nginx)
+
+`config.settings.production` forces `SECURE_SSL_REDIRECT=True`, HSTS and
+`SECURE_PROXY_SSL_HEADER` — the API MUST sit behind a TLS-terminating
+proxy or it redirect-loops. Minimal nginx shape:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name api.ledgersg.sg;           # your API host
+    ssl_certificate     /etc/letsencrypt/live/api.ledgersg.sg/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.ledgersg.sg/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;   # SECURE_PROXY_SSL_HEADER
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+# a twin server block proxies 127.0.0.1:3000 for the web host
+```
+
+Issue certificates with certbot (`certbot --nginx -d api.ledgersg.sg`).
+Port 80 should redirect to 443 (Django also redirects at the app layer).
+
+### 12.3 The runtime DB role's password
+
+`database_schema.sql` creates `ledgersg_app` with the placeholder password
+`CHANGE_ME_IN_PRODUCTION`. Before production traffic:
+
+```bash
+"$PGBIN/psql" -h 127.0.0.1 -U postgres -d <your-production-db> \
+    -c "ALTER ROLE ledgersg_app PASSWORD '<a-real-secret>';"
+```
+
+then set `DB_USER=ledgersg_app` + that password in the backend `.env`
+(the dev role `ledgersg` keeps its SUPERUSER for schema loads only).
+
+### 12.4 Email (SMTP)
+
+Invoice email delivery is a Celery task; production otherwise inherits
+Django's default SMTP backend with no host. Configure an SMTP relay via
+`EMAIL_HOST`/`EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD` environment additions
+(extend `config/settings/production.py` when you wire them) — or leave
+email tasks unwired and rely on the UI/Peppol channels.
+
 ### Optional: the Docker route
 
-`apps/backend/Dockerfile` (backend) and the root `docker-compose.yml`
+`apps/backend/Dockerfile` (backend) and `apps/backend/docker-compose.yml`
 (backend + PostgreSQL + Redis) ship a container path fixed in P11 (H-6/H-7:
 pinned installs, the gunicorn CMD so the container serves instead of
 sleeping, compose credentials wired, and the removed-at-boot migrate step —
@@ -476,6 +568,7 @@ migrations are permanently disabled in this codebase, the schema loads via
 `database_schema.sql`).
 
 ```bash
+cd apps/backend              # the compose file lives here, not at the repo root
 docker compose up -d          # backend on :8000 + postgres + redis
 ```
 
@@ -488,7 +581,7 @@ The §1–§9 native path above is the fully verified one.
 
 ```bash
 git pull
-cd apps/backend && source venv/bin/activate && pip install -e ".[dev]"
+cd apps/backend && source .venv/bin/activate && pip install -e ".[dev]"
 # schema changed? apply the versioned section from database_schema.sql (§4),
 # to BOTH ledgersg_dev and test_ledgersg_dev — never re-load over live data
 cd ../web && npm install

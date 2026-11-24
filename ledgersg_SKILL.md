@@ -1,9 +1,9 @@
 ---
 name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 2.1.0
-last_updated: 2026-11-23
-project_state: "P12 remediated; all gates green — 735 backend tests (0 failed, 5 skipped), frontend 518 vitest + 37 e2e (11 default / 26 backend-gated; the live suite 36P/1S/0F), typecheck 0 errors, coverage green at the measured-floor ratchet, standalone the only build (export retired); eslint whole-tree 45 findings (the truthful register — 36 any-debt + mounted-gates + exhaustive-deps + compiler-informationals; P12 cleared every mechanical class, 79→45); schema v1.1.0 NUMERIC(19,4) money; P12: the mobile nav verified working live at 375/800/1280 (rule-by-rule cascade trace — the display:flex reading was flex-item blockification, NOT a Tailwind v4 bug; the v4 setup is clean), the open menu is a modal overlay (Escape close, focus trap, body scroll lock, focus return — 7 vitest + 3 gated e2e), data-scroll-behavior=smooth on <html>, API_CLI guide re-verified live; P11: credit notes post REVERSED GL entries and NET in the F5 computation (quotes excluded), production settings boot (builtin Redis cache, LOG_DIR env knob, debug_toolbar one gate), the contacts edit dialog prefills from the DETAIL endpoint and a save persists uen/gst_reg_number/peppol_id, the F5 boxes panel renders computed values (real box keys), the dashboard GST payable equals the F5 net GST, typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission, CI runs coverage, the Docker path boots, CSP unsafe-* dev-only"
+version: 2.2.0
+last_updated: 2026-11-24
+project_state: "P13 remediated; all gates green — 750 backend tests (0 failed, 5 skipped), frontend 530 vitest + 40 e2e (11 default / 29 backend-gated; the live suite 40P/0F/0S), typecheck 0 errors, coverage green at the ratchet (whole-suite 63/51/52/62 + the src/lib per-glob floor 73/52/74/71), standalone the only build (export retired); eslint whole-tree 9 findings (the 36 any-casts cleared in P13; remaining register = mounted-gates + exhaustive-deps + immutability + compiler-informational); schema v1.1.0 NUMERIC(19,4) money; P12: the mobile nav verified working live at 375/800/1280 (rule-by-rule cascade trace — the display:flex reading was flex-item blockification, NOT a Tailwind v4 bug; the v4 setup is clean), the open menu is a modal overlay (Escape close, focus trap, body scroll lock, focus return — 7 vitest + 3 gated e2e), data-scroll-behavior=smooth on <html>, API_CLI guide re-verified live; P11: credit notes post REVERSED GL entries and NET in the F5 computation (quotes excluded), production settings boot (builtin Redis cache, LOG_DIR env knob, debug_toolbar one gate), the contacts edit dialog prefills from the DETAIL endpoint and a save persists uen/gst_reg_number/peppol_id, the F5 boxes panel renders computed values (real box keys), the dashboard GST payable equals the F5 net GST, typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission, CI runs coverage, the Docker path boots, CSP unsafe-* dev-only"
 ---
 
 # LedgerSG — Engineering Skill
@@ -77,19 +77,25 @@ cd apps/backend
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# Current state (2026-11-22, post-P6): 0 failed, 588 passed, 5 skipped — SUITE GREEN
-pytest tests/invariants -q   # 20 gates: atomic rollback, void net-zero, F5 tie-out,
-                             # schema conformance (incl. numeric precision), journal
-                             # balances, CoA trial balance, monetary capacity
-pytest tests/security -q     # 51: RLS transaction isolation, token lifecycle, settings
-                             # gates (incl. the P6/E-1 throttle-posture gates),
-                             # refresh-cookie + session_hint contracts
+# Current state (2026-11-24, post-P13): 0 failed, 750 passed, 5 skipped — SUITE GREEN
+pytest tests/invariants -q   # 27 gates: atomic rollback (+ the P13 handler-layer
+                             # rollback + reversal-atomicity + sub-mil tolerance
+                             # gates), void net-zero, F5 tie-out, schema
+                             # conformance (incl. numeric precision), journal
+                             # balances, CoA trial balance, monetary capacity,
+                             # immutability contract, naive-today gate
+pytest tests/security -q     # 66 passed + 3 skipped: RLS transaction isolation,
+                             # token lifecycle, settings gates (incl. the
+                             # P6/E-1 throttle-posture gates + the P13
+                             # copy-on-write gates), refresh-cookie +
+                             # session_hint contracts
 ```
 
-Frontend gates (`apps/web`): `npm test` (383 vitest), `npm run typecheck` (tsc, 0
-errors), `npm run test:e2e` (playwright; 9 tests green without a backend —
-backend-gated specs skip with reasons), `npm run test:e2e:full` (all 20 — needs
-the Django backend on :8000 + Redis; `npx playwright install chromium` first;
+Frontend gates (`apps/web`): `npm test` (530 vitest), `npm run typecheck` (tsc, 0
+errors), `npm run test:e2e` (playwright; 11 tests green without a backend —
+29 backend-gated specs skip with reasons), `npm run test:e2e:full` (all 40 —
+needs the Django backend on :8000 + Redis AND the E2E_DEMO_* trio exported
+(see docs/DEPLOYMENT.md §9); `npx playwright install chromium` first;
 development settings raise the refresh/DRF throttle budgets so the suite is
 not 429'd mid-run — production posture unchanged, P6/E-1).
 `PLAYWRIGHT_PROJECTS=all` opts into the 5-browser matrix.
@@ -615,6 +621,34 @@ write inside `transaction.atomic()`; new tests RED before the fix.
    ("L LEDGERSG" contains "LEDGER") → strict-mode violation that reads
    like an app bug. Scope to the landmark + `exact: true` when a nav
    item's name is a substring of another element's accessible name.
+
+55. (P13) A DRF exception handler runs INSIDE the request transaction: its
+   500 fallback must call `transaction.set_rollback(True)` or partial
+   writes COMMIT behind a "successful" 500 Response (B-1 — the typed-
+   exception contract has to be audited at every catch layer, and the
+   handler is the last one before the transaction boundary).
+
+56. (P13) Statutory rounding gates need SUB-UNIT fixtures: the GST quantum
+   bug (`0.001` instead of `0.01` for rounding=2) passed every existing
+   test because the fixtures used round amounts — identical at both
+   quanta. Test 100.05/100.06-class bases, and tolerance gates at the
+   boundary (0.0005 between the service's 0.001 and the DB trigger's
+   0.0001 — both now aligned).
+
+57. (P13) Next.js middleware headers OVERRIDE next.config headers() for
+   the same key — two definitions means the middleware's silently wins
+   (H-1: the env-aware CSP was defeated in production while every unit
+   test passed). ONE source of truth; gate the header table with a
+   NODE_ENV-stubbing unit test AND verify the SERVED headers live.
+
+58. (P13) `transform` moves an off-canvas drawer off-screen but NOT out
+   of the tab order (H-2): the closed mobile sidebar stayed keyboard-
+   focusable (WCAG 2.4.3/2.4.7). `invisible md:visible` +
+   `transition-[transform,visibility]` removes it from the tab order and
+   the a11y tree while keeping the slide animation. Bonus proof: a role
+   locator cannot resolve a visibility:hidden element — the a11y-tree
+   exclusion IS the fix working (use a CSS locator for closed-state
+   assertions).
 
 ## 12. Quick Reference Card
 

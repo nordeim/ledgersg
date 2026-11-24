@@ -2,8 +2,8 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 2.5.0
-> **Last Updated**: 2026-11-23 (P12 re-verification — all documented contracts exercised live)
+> **Version**: 2.6.0
+> **Last Updated**: 2026-11-24 (P13 — contracts unchanged; the P13 backend fixes verified: sub-cent GST now rounds to IRAS 2dp, InvoiceNow missing-document 404s)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
 ---
@@ -27,9 +27,21 @@ Every documented contract below was re-exercised against the running stack
 
 | Suite | Count | Status |
 |:---|:---|:---|
-| Backend Tests | 735 passed, 5 skipped, 0 failed | ✅ 100% of registered |
-| Frontend vitest | 518 passed (511 P11 + 7 P12 mobile-nav a11y) | ✅ |
-| Frontend e2e | 11 always-green + 24 backend-gated; 33+ live under `test:e2e:full` | ✅ |
+| Backend Tests | 750 passed, 5 skipped, 0 failed (755 collected) | ✅ 100% of registered |
+| Frontend vitest | 530 passed (518 P12 + 12 P13) | ✅ |
+| Frontend e2e | 11 always-green + 29 backend-gated; 40/40 live under `test:e2e:full` | ✅ |
+
+### 2026-11-24 P13 verification addendum
+
+The P13 backend sprint changed no documented request/response contract;
+the behavioral deltas verified live this session:
+
+| Contract | P13 delta |
+|:---|:---|
+| `POST /gst/calculate/` (and every line-GST path) | Sub-cent bases now round to IRAS 2 decimal places: `100.05 × 0.09 → gst_amount "9.00"` (was the 3-dp `"9.005"`) — verified live via curl |
+| `POST /documents/{id}/send-invoicenow/` + `GET /documents/{id}/invoicenow-status/` | A missing document now returns the typed `404 {"error":{"code":"not_found"}}` envelope (was a raw 500) |
+| Any unhandled server error | Still the `500 {"error":{"code":"internal_error"}}` envelope, but the request transaction now ROLLS BACK (no partial writes) |
+| Health endpoints | The 503 body carries a generic message (no raw DB error strings) |
 
 ---
 
