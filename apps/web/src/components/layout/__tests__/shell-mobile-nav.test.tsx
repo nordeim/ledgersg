@@ -163,4 +163,42 @@ describe("Shell mobile navigation overlay (P12/A-1)", () => {
 
     await user.keyboard("{Escape}");
   });
+
+  // -------------------------------------------------------------------------
+  // P13/H-2: the CLOSED off-canvas sidebar must not be keyboard-focusable.
+  // A transform only moves the element off-screen — the ~10 focusables
+  // (logo, 8 nav links, logout) stayed in the tab order at mobile width,
+  // before the header toggle (WCAG 2.4.3/2.4.7). visibility:hidden removes
+  // elements from the tab order and the a11y tree; the transition covers
+  // it so the slide animation still renders.
+  // -------------------------------------------------------------------------
+  it("the closed sidebar is visibility-hidden below md (not tabbable)", async () => {
+    const { container } = render(
+      <Shell>
+        <div>content</div>
+      </Shell>
+    );
+
+    const aside = container.querySelector("aside");
+    expect(aside).not.toBeNull();
+    expect(getToggle()).toHaveAttribute("aria-expanded", "false");
+    expect((aside as HTMLElement).className).toContain("invisible");
+    // the md band restores visibility (the sticky desktop sidebar)
+    expect((aside as HTMLElement).className).toContain("md:visible");
+  });
+
+  it("the open sidebar is visible (the class flips with the menu)", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <Shell>
+        <div>content</div>
+      </Shell>
+    );
+
+    await user.click(getToggle());
+
+    const aside = container.querySelector("aside");
+    expect(aside).not.toBeNull();
+    expect((aside as HTMLElement).className).not.toContain("invisible");
+  });
 });

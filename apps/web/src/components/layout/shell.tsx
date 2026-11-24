@@ -156,8 +156,16 @@ export function Shell({ children }: ShellProps) {
         tabIndex={-1}
         className={cn(
           "fixed md:sticky top-0 h-screen w-64 bg-carbon border-r border-border z-50",
-          "transition-transform duration-300 ease-in-out",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          // P13/H-2: the closed drawer is visibility-hidden below md — a
+          // transform alone leaves the off-screen focusables in the tab
+          // order (WCAG 2.4.3/2.4.7). visibility is discretely-animatable:
+          // with it on the transition, closing stays visible through the
+          // slide-out and flips to hidden at the end; opening flips
+          // visible immediately.
+          "transition-[transform,visibility] duration-300 ease-in-out",
+          sidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full md:translate-x-0 invisible md:visible"
         )}
       >
         {/* Logo Section */}
@@ -286,7 +294,11 @@ export function Shell({ children }: ShellProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-void/90 backdrop-blur supports-[backdrop-filter]:bg-void/80 px-4 md:px-6">
+        {/* P13/M-1: z-50 — the header must paint ABOVE the z-40 mobile
+            overlay so the X ("Close navigation") toggle stays clickable
+            while the menu is open (it follows the aside in DOM order, so
+            equal z-index paints it on top). */}
+        <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b border-border bg-void/90 backdrop-blur supports-[backdrop-filter]:bg-void/80 px-4 md:px-6">
           {/* Mobile Menu Toggle */}
           <Button
             ref={toggleRef}
