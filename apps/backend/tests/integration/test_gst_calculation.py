@@ -223,3 +223,60 @@ def test_gst_deadlines(auth_client, test_organisation, test_fiscal_period):
     # P11/M-1: the repo's list envelope ({results, count}) — the old "data"
     # key left the frontend banner permanently blank (the hook reads results).
     assert "results" in response.data
+
+
+# ---------------------------------------------------------------------------
+# P13/B-2: the per-line rounding quantum. IRAS mandates cent-level rounding
+# ("GST is calculated per line and rounded to 2 decimal places"). The old
+# quantum expression Decimal(f"0.{('0'*rounding)}1") built 0.001 for
+# rounding=2 — one decimal place too fine — so sub-cent bases persisted
+# mil-level GST amounts (100.05 × 0.09 → 9.005 instead of 9.00).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_gst_subcent_base_rounds_to_cents(
+    auth_client, test_organisation, test_tax_codes
+):
+    """
+    RED for P13/B-2: a sub-cent GST base must round to 2 decimal places,
+    not 3. 100.05 × 0.09 = 9.0045 → IRAS half-up at cents → 9.00.
+    """
+    url = f"/api/v1/{test_organisation.id}/gst/calculate/"
+
+    response = auth_client.post(url, {
+        "org_id": str(test_organisation.id),
+        "amount": "100.05",
+        "rate": "0.09",
+        "is_bcrs_deposit": False
+    }, format="json")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["gst_amount"] == "9.00", (
+        "Sub-cent GST bases must round to cents (IRAS 2dp); "
+        f"got {response.data['gst_amount']} — the quantum is one decimal too fine."
+    )
+    assert response.data["total_amount"] == "109.05"
+
+
+@pytest.mark.django_db
+def test_gst_half_cent_rounds_half_up_to_cents(
+    auth_client, test_organisation, test_tax_codes
+):
+    """
+    RED for P13/B-2 (companion): a exact half-cent rounds HALF-UP at the
+    CENT level — 100.06 × 0.09 = 9.0054 → 9.01, never 9.005 (mil-level).
+    """
+    url = f"/api/v1/{test_organisation.id}/gst/calculate/"
+
+    response = auth_client.post(url, {
+        "org_id": str(test_organisation.id),
+        "amount": "100.06",
+        "rate": "0.09",
+        "is_bcrs_deposit": False
+    }, format="json")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["gst_amount"] == "9.01", (
+        f"Expected 9.01 (9.0054 half-up at cents); got {response.data['gst_amount']}"
+    )

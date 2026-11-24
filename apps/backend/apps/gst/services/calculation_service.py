@@ -57,8 +57,15 @@ class GSTCalculationService:
 
         # Calculate GST
         if rate and rate > 0:
+            # P13/B-2: the quantum must be the rounding-place unit —
+            # Decimal("0.01") for rounding=2 (IRAS cent-level rounding).
+            # The old expression Decimal(f"0.{('0' * rounding)}1") built
+            # 0.001 for rounding=2 — one decimal place too fine, leaking
+            # mil-level GST amounts (100.05 × 0.09 → 9.005) into lines,
+            # totals, journal postings and F5 boxes.
+            quantum = Decimal(1).scaleb(-rounding)
             gst_amount = (amount * rate).quantize(
-                Decimal(f"0.{('0' * rounding)}1"),
+                quantum,
                 rounding=ROUND_HALF_UP
             )
         else:
