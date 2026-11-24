@@ -138,3 +138,51 @@ class TestInvoiceNowQuoteGate:
         response = api_client.post(url)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN, response.data
+
+
+# ---------------------------------------------------------------------------
+# P13/B-10: the InvoiceNow endpoints must honor the typed 404 contract.
+# send_invoicenow/get_invoicenow_status used raw .objects.get() — a missing
+# document raised DoesNotExist, which is NOT a LedgerSGException, so the
+# handler rendered it as a 500 instead of the 404 envelope every sibling
+# endpoint returns.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestInvoiceNowMissingDocumentP13:
+    def test_send_invoicenow_missing_document_is_404(
+        self, api_client, test_user, test_organisation
+    ):
+        from uuid import uuid4
+
+        client = _auth(api_client, test_user)
+        url = (
+            f"/api/v1/{test_organisation.id}/invoicing/documents/"
+            f"{uuid4()}/send-invoicenow/"
+        )
+        response = client.post(url, {}, format="json")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND, (
+            "A missing document must surface the typed 404 envelope, not a 500 "
+            "(P13/B-10)."
+        )
+        assert response.data["error"]["code"] == "not_found"
+
+    def test_invoicenow_status_missing_document_is_404(
+        self, api_client, test_user, test_organisation
+    ):
+        from uuid import uuid4
+
+        client = _auth(api_client, test_user)
+        url = (
+            f"/api/v1/{test_organisation.id}/invoicing/documents/"
+            f"{uuid4()}/invoicenow-status/"
+        )
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND, (
+            "A missing document must surface the typed 404 envelope, not a 500 "
+            "(P13/B-10)."
+        )
+        assert response.data["error"]["code"] == "not_found"
