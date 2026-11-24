@@ -103,9 +103,11 @@ class ImmutableModel(BaseModel):
         super().save(force_insert=True, **kwargs)
 
 
-class ImmutabilityError(Exception):
-    """Raised when attempting to modify an immutable record."""
-    pass
+# P13/B-5: the typed 409 variant from common.exceptions (a LedgerSGException
+# mapping to the ``immutable_record`` envelope). The pre-P13 plain-Exception
+# variant fell through the DRF handler as a 500, breaking the typed-exception
+# contract; nothing imported it, so it is replaced outright.
+from common.exceptions import ImmutabilityError  # noqa: E402
 
 
 class SequenceModel(BaseModel):
