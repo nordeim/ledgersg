@@ -20,7 +20,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from weasyprint import HTML
 
-from apps.core.models import Account, Contact, InvoiceDocument, InvoiceLine
+from apps.core.models import Account, Contact, InvoiceDocument, InvoiceLine, Organisation, TaxCode
 from apps.gst.services import GSTCalculationService, TaxCodeService
 from common.decimal_utils import money, sum_money
 from common.exceptions import ResourceNotFound, ValidationError
@@ -155,6 +155,7 @@ class DocumentService:
         notes: str = "",
         lines: list[dict[str, Any]] = None,
         user_id: UUID | None = None,
+        related_document_id: UUID | None = None,
     ) -> InvoiceDocument:
         """
         Create a new invoice document with lines.
@@ -169,6 +170,8 @@ class DocumentService:
             notes: Internal notes
             lines: List of line items
             user_id: Creating user ID
+            related_document_id: The original invoice a credit note
+                corrects (REQUIRED for *_CREDIT_NOTE — P14/H-4)
 
         Returns:
             Created InvoiceDocument instance
@@ -182,6 +185,30 @@ class DocumentService:
             contact = Contact.objects.get(id=contact_id, org_id=org_id)
         except Contact.DoesNotExist:
             raise ResourceNotFound(f"Contact {contact_id} not found")
+
+        # P14/H-5: only a GST-registered organisation may charge GST, and
+        # only within its registration window. The line-level rate is
+        # resolved from the dated tax-code row (date-aware since P2); a
+        # positive-rate output-tax code on a line is "charging GST".
+        org = Organisation.objects.get(id=org_id)
+        if lines:
+            DocumentService._validate_gst_registration(
+                org, issue_date, lines
+            )
+
+        # P14/H-4: a credit note is the CORRECTION of an original tax
+        # invoice (IRAS: "A credit note must show the number and date of
+        # the original tax invoice") — the reference is required, the
+        # contact must match, and the cumulative credit may not exceed
+        # the original total (incl. GST).
+        if document_type in ("SALES_CREDIT_NOTE", "PURCHASE_CREDIT_NOTE"):
+            DocumentService._validate_credit_note_reference(
+                org_id=org_id,
+                document_type=document_type,
+                contact_id=contact_id,
+                lines=lines or [],
+                related_document_id=related_document_id,
+            )
 
         # Calculate due date if not provided
         if due_date is None:
@@ -197,6 +224,7 @@ class DocumentService:
                 document_type=document_type,
                 document_number=document_number,
                 contact=contact,
+                related_document_id=related_document_id,
                 issue_date=issue_date,
                 due_date=due_date,
                 reference=reference,
@@ -411,6 +439,15 @@ class DocumentService:
             old_status = document.status
             document.status = new_status
 
+            # P14/H-3: APPROVE posts and VOID reverses into the ledger —
+            # both change the basis a filed F5 was computed from. Refuse
+            # when the document's issue date falls inside a GST-filed
+            # period (corrections go through the amendment flow).
+            if new_status in ("APPROVED", "VOID"):
+                from apps.gst.services.period_lock import assert_not_gst_locked
+
+                assert_not_gst_locked(org_id, document.issue_date)
+
             # Status-specific actions
             if new_status == "APPROVED":
                 document.approved_at = timezone.now()
@@ -543,6 +580,132 @@ class DocumentService:
             next_num = cursor.fetchone()[0]
 
         return f"{prefix}-{next_num:05d}"
+
+    @staticmethod
+    def _validate_gst_registration(
+        org: Organisation, issue_date: date, lines: list[dict[str, Any]]
+    ) -> None:
+        """P14/H-5 — refuse GST-charging lines for an organisation that is
+        not GST-registered, or outside its registration window.
+
+        "Charging GST" = a line whose tax code resolves a positive rate
+        for an output/supply box. Zero-rated (ZR) and exempt (ES) codes
+        carry rate 0 and stay valid for unregistered orgs.
+        """
+        gst_charging = False
+        for line_data in lines:
+            tax_code_id = line_data.get("tax_code_id")
+            if not tax_code_id:
+                continue
+            try:
+                tax_code = TaxCode.objects.get(id=tax_code_id, org_id=org.id)
+            except TaxCode.DoesNotExist:
+                # system rows (org_id IS NULL)
+                try:
+                    tax_code = TaxCode.objects.get(id=tax_code_id, org_id__isnull=True)
+                except TaxCode.DoesNotExist:
+                    continue
+            if tax_code.rate and tax_code.rate > 0:
+                gst_charging = True
+                break
+
+        if not gst_charging:
+            return
+
+        if not org.gst_registered:
+            raise ValidationError(
+                "This organisation is not GST-registered and cannot charge "
+                "GST. Use a zero-rated or out-of-scope tax code."
+            )
+        if org.gst_reg_date and issue_date < org.gst_reg_date:
+            raise ValidationError(
+                f"Cannot charge GST before the GST registration date "
+                f"({org.gst_reg_date})."
+            )
+        if getattr(org, "gst_dereg_date", None) and issue_date > org.gst_dereg_date:
+            raise ValidationError(
+                f"Cannot charge GST after the GST deregistration date "
+                f"({org.gst_dereg_date})."
+            )
+
+    @staticmethod
+    def _validate_credit_note_reference(
+        org_id: UUID,
+        document_type: str,
+        contact_id: UUID,
+        lines: list[dict[str, Any]],
+        related_document_id: UUID | None,
+    ) -> None:
+        """P14/H-4 — a credit note corrects a specific original invoice.
+
+        Requires: the original document reference, same contact, same
+        direction (SALES corrects SALES, PURCHASE corrects PURCHASE),
+        non-VOID original, and the cumulative credited amount (incl. GST)
+        capped at the original total (incl. GST).
+        """
+        if not related_document_id:
+            raise ValidationError(
+                "A credit note must reference the original invoice it "
+                "corrects (related_document_id)."
+            )
+
+        try:
+            original = InvoiceDocument.objects.get(id=related_document_id, org_id=org_id)
+        except InvoiceDocument.DoesNotExist:
+            raise ResourceNotFound(
+                f"Original document {related_document_id} not found in this organisation."
+            )
+
+        original_prefix = "SALES" if document_type == "SALES_CREDIT_NOTE" else "PURCHASE"
+        if not original.document_type.startswith(original_prefix):
+            raise ValidationError(
+                f"A {document_type} must reference a {original_prefix} document "
+                f"(got {original.document_type})."
+            )
+
+        if str(original.contact_id) != str(contact_id):
+            raise ValidationError(
+                "The credit note contact must match the original invoice's contact."
+            )
+
+        if original.status == "VOID":
+            raise ValidationError(
+                "Cannot issue a credit note against a VOID document."
+            )
+
+        # Cumulative cap: existing approved-or-better credit notes against
+        # the original + this one's gross total (incl. GST).
+        existing_credits = InvoiceDocument.objects.filter(
+            org_id=org_id,
+            related_document_id=related_document_id,
+            document_type=document_type,
+        ).exclude(status="VOID")
+        already_credited = sum(
+            (d.total_incl or Decimal("0") for d in existing_credits),
+            Decimal("0"),
+        )
+
+        # This note's total: compute from the line payloads (the same
+        # arithmetic _add_lines will apply) — quantity × unit_price, GST
+        # at the line's tax rate.
+        this_total = Decimal("0")
+        for line_data in lines:
+            quantity = Decimal(str(line_data.get("quantity", 1)))
+            unit_price = money(line_data.get("unit_price", 0))
+            line_amount = quantity * unit_price
+            tax_code_id = line_data.get("tax_code_id")
+            rate = Decimal("0")
+            if tax_code_id:
+                tax_code = TaxCode.objects.filter(id=tax_code_id).first()
+                if tax_code and tax_code.rate:
+                    rate = tax_code.rate
+            this_total += line_amount * (Decimal("1") + rate)
+
+        if already_credited + this_total > (original.total_incl or Decimal("0")):
+            raise ValidationError(
+                f"Cumulative credit ({already_credited + this_total}) exceeds the "
+                f"original invoice total ({original.total_incl})."
+            )
 
     @staticmethod
     def _add_lines(org_id: UUID, document: InvoiceDocument, lines: list[dict[str, Any]]) -> None:
@@ -714,6 +877,12 @@ class DocumentService:
             document = InvoiceDocument.objects.select_for_update().get(
                 id=document_id, org_id=org_id
             )
+
+            # P14/H-3: voiding reverses the posting — the ledger basis of
+            # a filed F5 covering the issue date must not change.
+            from apps.gst.services.period_lock import assert_not_gst_locked
+
+            assert_not_gst_locked(org_id, document.issue_date)
 
             # P8/G-3: the accepted set mirrors STATUS_TRANSITIONS — every
             # source that advertises VOID can actually void (DRAFT is

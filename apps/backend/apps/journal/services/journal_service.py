@@ -216,6 +216,13 @@ class JournalService:
         else:
             fiscal_period = JournalService._validate_fiscal_period(org_id, fiscal_period_id)
 
+        # P14/H-3: a manual entry into a GST-filed period changes the
+        # basis the filed F5 was computed from — refuse (the amendment
+        # flow is the correction path, not back-posting).
+        from apps.gst.services.period_lock import assert_not_gst_locked
+
+        assert_not_gst_locked(org_id, entry_date)
+
         with transaction.atomic():
             entry_number = JournalService._get_next_entry_number(org_id)
 
@@ -713,5 +720,3 @@ class JournalService:
             hint="Is the organisation GST-registered? Seed the GST control "
             "accounts (toggle GST registration or re-run the CoA seed).",
         )
-
-

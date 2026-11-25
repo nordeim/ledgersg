@@ -1,0 +1,23 @@
+# Note: some of the following file paths might not match the expected location, so need to check the correct path the associated path should be saved.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+        modified:   apps/backend/apps/banking/services/payment_service.py
+        modified:   apps/backend/apps/core/models/payment.py
+        modified:   apps/backend/apps/invoicing/services/document_service.py
+        modified:   apps/backend/apps/journal/services/journal_service.py
+        new file:   apps/backend/gst/period_lock.py
+        new file:   apps/backend/gst/validators.py
+        new file:   apps/backend/organisation_service.py
+        new file:   apps/backend/tests/integration/test_payment_allocation_contract_p14.py
+        new file:   apps/backend/tests/test_credit_note_gst_guard_p14.py
+        new file:   apps/backend/tests/test_input_validation_p14.py
+        new file:   apps/backend/tests/test_override_and_masking_p14.py
+        new file:   apps/backend/tests/test_rls_conformance.py
+        new file:   apps/backend/tests/test_viewer_gates_p14.py
+        new file:   apps/backend/tests/test_xml_hardening_p14.py
+        new file:   docs/REMEDIATION_PLAN_2026-11-25_P14.md
+        new file:   scripts/daemonize.py
+        new file:   scripts/mobile-nav-audit.js
+        new file:   scripts/rls_smoke.py
+

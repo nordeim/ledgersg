@@ -453,17 +453,49 @@ class PaymentService:
             document_id = alloc_data["document_id"]
             allocated_amount = money(alloc_data["allocated_amount"])
 
-            document = InvoiceDocument.objects.get(id=document_id, org_id=org_id)
+            # P14/H-1: lock the document row for the balance check + the
+            # recompute below — without the lock two concurrent allocations
+            # could both pass the outstanding-balance gate and over-settle.
+            document = InvoiceDocument.objects.select_for_update().get(
+                id=document_id, org_id=org_id
+            )
 
             if document.contact.id != payment.contact.id:
                 raise ValidationError(
                     f"Document {document.document_number} contact does not match payment contact."
                 )
 
-            if document.status not in ("APPROVED", "PARTIALLY_PAID"):
+            # P14/H-1: allocation-eligible statuses — the same set the
+            # serializer now accepts (previously APPROVED/PARTIALLY_PAID
+            # here and APPROVED-only at the serializer; a SENT/OVERDUE
+            # invoice is billed money-not-yet-received and MUST be
+            # allocatable, and VOID/DRAFT never are).
+            if document.status not in ("APPROVED", "SENT", "PARTIALLY_PAID", "OVERDUE"):
                 raise ValidationError(
-                    f"Document {document.document_number} must be APPROVED or "
-                    "PARTIALLY_PAID for allocation."
+                    f"Document {document.document_number} must be APPROVED, SENT, "
+                    "PARTIALLY_PAID or OVERDUE for allocation."
+                )
+
+            # P14/H-1: an allocation may never exceed the document's
+            # outstanding balance. amount_due is the GENERATED
+            # (total_incl - amount_paid) column — the pre-P14 code checked
+            # only allocations-vs-payment-amount, so a 5000.00 allocation
+            # against a 109.00 invoice settled it with amount_due = -4891.
+            # (Voided payments release their allocations by DELETE — the
+            # same convention the recompute below relies on.)
+            already_allocated_to_doc = sum(
+                (
+                    a.allocated_amount
+                    for a in PaymentAllocation.objects.filter(document=document)
+                ),
+                Decimal("0"),
+            )
+            outstanding = document.total_incl - already_allocated_to_doc
+            if allocated_amount > outstanding:
+                raise ValidationError(
+                    f"Allocation of {allocated_amount} for document "
+                    f"{document.document_number} exceeds its outstanding balance "
+                    f"of {outstanding}."
                 )
 
             existing = PaymentAllocation.objects.filter(payment=payment, document=document).first()
