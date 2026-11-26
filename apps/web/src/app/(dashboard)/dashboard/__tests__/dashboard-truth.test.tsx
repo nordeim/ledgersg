@@ -75,11 +75,12 @@ function renderDashboard() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  const rendered = render(
     <QueryClientProvider client={queryClient}>
       <DashboardClient />
     </QueryClientProvider>
   );
+  return { ...rendered, queryClient };
 }
 
 describe("DashboardClient truth (P9/D-2, D-3, D-4)", () => {
@@ -162,5 +163,29 @@ describe("DashboardClient GST truth (P11/H-4, M-7, L-2)", () => {
     // value rendered as 0.
     await userEvent.click(screen.getByRole("button", { name: /show data table/i }));
     expect(await screen.findByText(/S\$ 318/)).toBeInTheDocument();
+  });
+});
+
+describe("DashboardClient cache-key convention (P16/FE-H1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(apiClient.api.get).mockResolvedValue(METRICS);
+  });
+
+  it("registers the metrics query under the orgId-first key the mutations invalidate", async () => {
+    // The pre-P16 page used queryKey: ["dashboard", orgId] while every
+    // mutation invalidates [orgId, "dashboard"] — TanStack prefix
+    // matching requires the key to START with the prefix, so all 10
+    // mutation→dashboard invalidations were silent no-ops and the
+    // compliance landing page served stale figures.
+    const { queryClient: client } = renderDashboard();
+    await screen.findByText(/GST Payable/i);
+
+    const dashboardQuery = client
+      .getQueryCache()
+      .getAll()
+      .find((q) => q.queryKey.includes("dashboard"));
+    expect(dashboardQuery).toBeDefined();
+    expect(dashboardQuery!.queryKey[0]).toBe("org-1");
   });
 });

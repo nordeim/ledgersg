@@ -35,9 +35,18 @@ export default function LoginPage() {
     try {
       await login(email, password);
 
-      // Check for redirect parameter
+      // Check for redirect parameter — P16/FE-M1: only same-app paths
+      // are honoured. Pushing the param verbatim was an open redirect
+      // (CWE-601): /login?redirect=https://phish.example sent the user
+      // off-site right after authentication. Absolute URLs, protocol-
+      // relative //host and anything not starting with / go to the
+      // dashboard.
       const params = new URLSearchParams(window.location.search);
-      const redirect = params.get("redirect") || "/dashboard";
+      const requested = params.get("redirect") || "/dashboard";
+      const redirect =
+        requested.startsWith("/") && !requested.startsWith("//")
+          ? requested
+          : "/dashboard";
 
       router.push(redirect);
     } catch (err) {

@@ -105,17 +105,6 @@ export function truncateText(text: string, maxLength: number): string {
 }
 
 /**
- * Validate Singapore UEN format
- * @param uen - UEN string to validate
- * @returns Boolean indicating if UEN is valid
- */
-export function isValidUEN(uen: string): boolean {
-  // Singapore UEN format: 8-9 digits followed by a letter
-  const uenRegex = /^[0-9]{8,9}[A-Z]$/;
-  return uenRegex.test(uen);
-}
-
-/**
  * Sleep/delay utility
  * @param ms - Milliseconds to sleep
  * @returns Promise that resolves after the delay

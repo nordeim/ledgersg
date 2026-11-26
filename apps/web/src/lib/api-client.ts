@@ -20,7 +20,7 @@
  * - Org-scoped URLs: /api/v1/{org_id}/invoices/
  */
 
-import { QueryClient, type QueryFunction } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -515,14 +515,3 @@ export const queryClient = new QueryClient({
     },
   },
 });
-
-// Type-safe query hooks factory
-export function createQueryHooks<T>(
-  key: string,
-  fetcher: QueryFunction<T>
-) {
-  return {
-    key: [key],
-    fetcher,
-  };
-}

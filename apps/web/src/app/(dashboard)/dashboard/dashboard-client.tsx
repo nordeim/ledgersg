@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,56 +14,20 @@ import { cn } from "@/lib/utils";
 import { DashboardActions } from "./dashboard-actions";
 import { GSTChartWrapper } from "./gst-chart-wrapper";
 import { useAuth } from "@/providers/auth-provider";
-import { api, endpoints } from "@/lib/api-client";
-
-interface DashboardData {
-  gst_payable: string;
-  gst_payable_display: string;
-  outstanding_receivables: string;
-  outstanding_payables: string;
-  revenue_mtd: string;
-  revenue_ytd: string;
-  cash_on_hand: string;
-  gst_threshold_status: "SAFE" | "WARNING" | "CRITICAL" | "EXCEEDED";
-  gst_threshold_utilization: number;
-  gst_threshold_amount: string;
-  gst_threshold_limit: string;
-  compliance_alerts: ComplianceAlert[];
-  invoices_pending: number;
-  invoices_overdue: number;
-  invoices_peppol_pending: number;
-  current_gst_period: GSTPeriod;
-  last_updated: string;
-}
-
-interface ComplianceAlert {
-  id: string;
-  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-  title: string;
-  message: string;
-  action_required: string;
-  deadline?: string;
-  dismissed: boolean;
-}
-
-interface GSTPeriod {
-  start_date: string;
-  end_date: string;
-  filing_due_date: string;
-  days_remaining: number;
-}
+import { useDashboardMetrics } from "@/hooks/use-dashboard";
 
 export function DashboardClient() {
   const { currentOrg, isLoading: authLoading } = useAuth();
 
   const orgId = currentOrg?.id;
 
-  const { data, isLoading, error } = useQuery<DashboardData>({
-    queryKey: ["dashboard", orgId],
-    queryFn: () => api.get<DashboardData>(endpoints.dashboard(orgId!).metrics),
-    enabled: !!orgId, // Only fetch when org is available
-    staleTime: 60 * 1000, // 1 minute
-  });
+  // P16/FE-H1: consume the shared hook — its query key is
+  // [orgId, "dashboard", "metrics"], the orgId-first convention every
+  // mutation's invalidation uses. The pre-P16 inline query keyed
+  // ["dashboard", orgId], which TanStack prefix-matching NEVER matched —
+  // all 10 mutation→dashboard invalidations were silent no-ops and the
+  // compliance landing page served stale figures.
+  const { data, isLoading, error } = useDashboardMetrics(orgId ?? "");
 
   if (authLoading) {
     return (

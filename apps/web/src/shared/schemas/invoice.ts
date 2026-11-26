@@ -9,8 +9,11 @@ import { z } from "zod";
  * - Customer UEN validation for B2B
  */
 
-// Singapore UEN Format Validation
-const uenRegex = /^[0-9]{8,9}[A-Z]$/;
+// Singapore UEN Format Validation — the three ACRA forms, mirroring the
+// backend's apps/core/validators.py contract (P16/FE-H3: the pre-P16
+// 8/9-digit-only regex rejected LLP/society numbers like T08LL1234A that
+// the backend accepts and the product's own data model supports).
+const uenRegex = /^(?:\d{8}[A-Z]|\d{9}[A-Z]|[TS]\d{2}[A-Z]{2}\d{4}[A-Z])$/;
 
 // Tax Codes per IRAS
 export const TAX_CODES = ["SR", "ZR", "ES", "OS", "TX", "BL", "RS"] as const;

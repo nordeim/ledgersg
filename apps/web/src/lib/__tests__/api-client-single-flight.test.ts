@@ -96,3 +96,59 @@ describe("Single-flight refresh (P15/F-B a)", () => {
     expect(calls.filter((c) => c === "refresh").length).toBe(2);
   });
 });
+
+describe("Single-flight refresh — the shared-FAILURE path (P16/FE-I-1)", () => {
+  beforeEach(() => {
+    clearAuth();
+    vi.resetAllMocks();
+    document.cookie = "session_hint=1; path=/";
+    setAccessToken("stale-access-token");
+  });
+
+  afterEach(() => {
+    document.cookie = "session_hint=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    vi.restoreAllMocks();
+  });
+
+  it("three parallel 401s + a FAILING refresh → all three reject, exactly ONE refresh call, auth cleared", async () => {
+    const refreshCalls: string[] = [];
+    const fetchMock = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      const u = String(url);
+      if (u.includes("/auth/refresh/")) {
+        refreshCalls.push(u);
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: { code: "authentication_failed" } }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          })
+        );
+      }
+      // Every data call 401s — the retries after the failed refresh also
+      // fail (no fresh token was issued).
+      return Promise.resolve(
+        new Response(JSON.stringify({ error: { code: "authentication_failed" } }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const outcomes = await Promise.allSettled([
+      api.get("/api/v1/ping-a/"),
+      api.get("/api/v1/ping-b/"),
+      api.get("/api/v1/ping-c/"),
+    ]);
+
+    // Exactly ONE refresh fired — the single flight was shared even
+    // though it failed.
+    expect(refreshCalls).toHaveLength(1);
+
+    // All three callers reject cleanly (no hangs, no unhandled paths).
+    const rejected = outcomes.filter((o) => o.status === "rejected");
+    expect(rejected).toHaveLength(3);
+    for (const o of rejected) {
+      expect(o.reason).toBeDefined();
+    }
+  });
+});

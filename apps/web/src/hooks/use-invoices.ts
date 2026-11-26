@@ -332,7 +332,10 @@ export function useSendInvoiceNow(orgId: string, invoiceId: string) {
         variant: "info",
       });
       queryClient.invalidateQueries({ queryKey: [orgId, "invoices", invoiceId] });
-      queryClient.invalidateQueries({ queryKey: [orgId, "peppol"] });
+      // P16/FE-L3: the live Peppol query key (the pre-P16 [orgId,
+      // "peppol"] prefix matched no query — the settings hook keys on
+      // "peppol-settings").
+      queryClient.invalidateQueries({ queryKey: [orgId, "peppol-settings"] });
     },
     onError: (error: Error) => {
       toast({

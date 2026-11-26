@@ -43,7 +43,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const refreshOrganisations = vi.fn().mockResolvedValue(undefined);
-const switchOrg = vi.fn();
+const selectOrgById = vi.fn();
 
 vi.mock("@/providers/auth-provider", () => ({
   useAuth: () => ({
@@ -52,7 +52,8 @@ vi.mock("@/providers/auth-provider", () => ({
     organisations: [],
     isLoading: false,
     refreshOrganisations,
-    switchOrg,
+    switchOrg: vi.fn(),
+    selectOrgById,
   }),
 }));
 
@@ -135,7 +136,7 @@ describe("NewOrganisationClient (P9/O-1)", () => {
       expect(refreshOrganisations).toHaveBeenCalled();
     });
     await waitFor(() => {
-      expect(switchOrg).toHaveBeenCalledWith("org-new-2");
+      expect(selectOrgById).toHaveBeenCalledWith("org-new-2");
       expect(push).toHaveBeenCalledWith("/dashboard");
     });
     expect(toast).toHaveBeenCalledWith(

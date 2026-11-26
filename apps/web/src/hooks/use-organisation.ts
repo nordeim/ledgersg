@@ -189,7 +189,7 @@ export interface OrganisationCreateInput {
  * the user is routed home. This closes the onboarding dead end — the
  * dashboard's "Create Organisation" CTA finally goes somewhere. */
 export function useCreateOrganisation() {
-  const { refreshOrganisations, switchOrg } = useAuth();
+  const { refreshOrganisations, selectOrgById } = useAuth();
   const router = useRouter();
 
   return useMutation({
@@ -207,7 +207,10 @@ export function useCreateOrganisation() {
         variant: "success",
       });
       await refreshOrganisations();
-      switchOrg(org.id);
+      // P16/FE-H2: the list-state-free selection — switchOrg read the
+      // PRE-creation organisations list from this closure (empty for a
+      // fresh registrant) and silently skipped the selection.
+      selectOrgById(org.id);
       router.push("/dashboard");
     },
     onError: (error: Error) => {

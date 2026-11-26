@@ -77,6 +77,25 @@ export function Shell({ children }: ShellProps) {
     };
   }, [sidebarOpen]);
 
+  // P16/FE-M2: while the drawer is open below md, crossing INTO the md
+  // breakpoint (rotate/resize) hides the overlay and the X toggle (both
+  // md:hidden) — the scroll lock would persist with no visible escape.
+  // Close the drawer at the crossing; the effect above releases the lock.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const mql = window.matchMedia("(min-width: 768px)");
+    const onCross = (e: MediaQueryListEvent) => {
+      if (e.matches) setSidebarOpen(false);
+    };
+    if (typeof mql.addEventListener === "function") {
+      mql.addEventListener("change", onCross);
+      return () => mql.removeEventListener("change", onCross);
+    }
+    // Legacy API fallback
+    mql.addListener(onCross);
+    return () => mql.removeListener(onCross);
+  }, [sidebarOpen]);
+
   // Escape closes the overlay; Tab cycles within it (focus trap).
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -89,8 +108,16 @@ export function Shell({ children }: ShellProps) {
       if (e.key !== "Tab") return;
       const aside = sidebarRef.current;
       if (!aside) return;
-      const focusables = aside.querySelectorAll<HTMLElement>(
-        "a[href], button:not([disabled])"
+      // P16/FE-L4: the full focusable set — a[href]/button alone would
+      // let any future form control in the drawer escape the trap.
+      // (No visibility filter: jsdom has no layout — the drawer is
+      // visible whenever this trap is active.)
+      const focusables = Array.from(
+        aside.querySelectorAll<HTMLElement>(
+          "a[href], button:not([disabled]), input:not([disabled]), " +
+            "select:not([disabled]), textarea:not([disabled]), " +
+            '[tabindex]:not([tabindex="-1"]):not([disabled])'
+        )
       );
       if (focusables.length === 0) return;
       const first = focusables[0];
@@ -154,6 +181,13 @@ export function Shell({ children }: ShellProps) {
       <aside
         ref={sidebarRef}
         tabIndex={-1}
+        // P16/FE-L5: the open drawer behaves as a modal (focus trap,
+        // scroll lock, overlay) — expose the semantics. Desktop md+ is a
+        // persistent sidebar, so the dialog role applies only while the
+        // mobile drawer is open.
+        role={sidebarOpen ? "dialog" : undefined}
+        aria-modal={sidebarOpen ? "true" : undefined}
+        aria-label={sidebarOpen ? "Navigation" : undefined}
         className={cn(
           "fixed md:sticky top-0 h-screen w-64 bg-carbon border-r border-border z-50",
           // P13/H-2: the closed drawer is visibility-hidden below md — a

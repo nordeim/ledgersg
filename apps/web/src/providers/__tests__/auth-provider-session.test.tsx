@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import * as apiClient from "@/lib/api-client";
 import { AuthProvider, useAuth } from "../auth-provider";
 
@@ -222,5 +222,61 @@ describe("switchOrg persists the choice (P10/M-3)", () => {
       expect(document.body.textContent).toContain(orgB);
     });
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+describe("selectOrgById selects without list state (P16/FE-H2)", () => {
+  // The org-CREATION flow calls switchOrg(org.id) right after creating
+  // the org — but switchOrg reads the `organisations` list from the
+  // closure captured at mutation time (the pre-creation list). For a
+  // fresh registrant that list is EMPTY, so the `if (org)` guard skipped
+  // setCurrentOrgId, the query invalidation AND the set-default-org
+  // persist — the dashboard rendered the "No Organisation Selected"
+  // dead-end until a manual reload. The provider needs a selection
+  // method that does not read list state.
+  const freshOrgId = "33333333-3333-4333-8333-333333333333";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    push.mockReset();
+  });
+
+  it("selects an org that is not yet in the loaded list (the just-created org)", async () => {
+    // Fresh registrant: NO organisations loaded yet.
+    vi.mocked(apiClient.api.get).mockImplementation(async (url: string) => {
+      if (url.includes("/organisations/")) return [];
+      return { id: "u1", email: "fresh@ledgersg.sg", full_name: "Fresh" };
+    });
+    const postMock = vi.fn().mockResolvedValue({});
+    (apiClient.api as unknown as { post: unknown }).post = postMock;
+
+    // No outer-variable mutation (the lint register's immutability class):
+    // the probe triggers the selection through a click handler.
+    function SelectProbe() {
+      const auth = useAuth();
+      return (
+        <button data-testid="select-btn" onClick={() => auth.selectOrgById(freshOrgId)}>
+          select
+        </button>
+      );
+    }
+
+    render(
+      <AuthProvider>
+        <SelectProbe />
+      </AuthProvider>
+    );
+
+    const button = await screen.findByTestId("select-btn");
+    fireEvent.click(button);
+
+    // The selection fires the persistence POST with the new org id —
+    // the exact call the stale switchOrg guard skipped.
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith(
+        expect.stringContaining("set-default-org"),
+        expect.objectContaining({ org_id: freshOrgId })
+      );
+    });
   });
 });

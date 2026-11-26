@@ -26,11 +26,20 @@ import { defineConfig, devices } from "@playwright/test";
 
 const fullMatrix = process.env.PLAYWRIGHT_PROJECTS === "all";
 
+// P16/FE-M4: the LIVE suite (E2E_API_URL set) mutates shared backend
+// state — the p11 ensureDemoActivity helpers are check-then-create and
+// the banking/invoices specs assume file ordering. That contract used
+// to live only in the npm script's --workers=1; anyone running
+// `E2E_API_URL=... npx playwright test` re-enabled the race. Encode it
+// here: the default (no-backend) suite stays parallel; the live suite
+// runs serially in the config itself.
+const liveBackend = Boolean(process.env.E2E_API_URL);
+
 export default defineConfig({
   testDir: "./e2e",
 
-  /* Run tests in files in parallel */
-  fullyParallel: true,
+  /* Run tests in files in parallel — except the live suite (see above) */
+  fullyParallel: !liveBackend,
 
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
@@ -38,8 +47,9 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
 
-  /* Opt out of parallel tests on CI for stability */
-  workers: process.env.CI ? 1 : undefined,
+  /* Opt out of parallel tests on CI for stability; the live suite is
+     serial by its own contract (P16/FE-M4). */
+  workers: process.env.CI ? 1 : liveBackend ? 1 : undefined,
 
   /* Terminal summary always; HTML report written without opening a browser */
   reporter: [["list"], ["html", { open: "never" }]],
