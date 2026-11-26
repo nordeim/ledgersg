@@ -200,6 +200,21 @@ class GSTReturnService:
         """
         gst_return = GSTReturnService.get_return(org_id, return_id)
 
+        # P14/C-2: FILED/AMENDED returns are the statutory record of what
+        # was submitted to IRAS — they are immutable. `force_recalculate`
+        # may only refresh a pre-filing state (DRAFT/COMPUTED/REVIEWED);
+        # the pre-P14 guard's `and not force_recalculate` let force bypass
+        # EVERY status, regressing a FILED return to COMPUTED while
+        # filed_at stayed populated. Corrections go through the amendment
+        # flow (/amend/ creates a new linked version), never a silent
+        # recompute of the filed row.
+        if gst_return.status in ("FILED", "AMENDED"):
+            raise ValidationError(
+                f"Cannot recalculate F5 for status '{gst_return.status}': the "
+                "filed return is the statutory record and is immutable. "
+                "Use the amendment flow to correct it."
+            )
+
         # Only recalculate if in DRAFT status or forced
         if gst_return.status not in ("DRAFT", "COMPUTED") and not force_recalculate:
             raise ValidationError(
@@ -263,7 +278,8 @@ class GSTReturnService:
         return_id: UUID,
         filed_by_id: UUID,
         filing_reference: str | None = None,
-        boxes: dict[str, Decimal] | None = None
+        boxes: dict[str, Decimal] | None = None,
+        override_reason: str | None = None
     ) -> GSTReturn:
         """
         File a GST return.
@@ -274,10 +290,35 @@ class GSTReturnService:
             filed_by_id: User ID who filed
             filing_reference: IRAS filing reference number
             boxes: Optional override box amounts (allow-listed)
+            override_reason: REQUIRED with boxes (P14/H-05b) — the evidence
+                trail; persisted into notes together with the
+                computed-vs-filed deltas
 
         Returns:
             Filed GSTReturn instance
         """
+        # P14/H-05b: box NAMES are validated first (the H-12 allow-list is
+        # the older contract — an unknown key must surface as an invalid-box
+        # error even when the request also lacks an override reason), then
+        # overrides without a real reason are refused — the filed figures
+        # may legitimately diverge from the computed subledger (bad-debt
+        # relief, tourist refunds, pre-registration claims), but never
+        # without an evidence trail.
+        if boxes:
+            for box_name in boxes:
+                if box_name not in OVERRIDABLE_BOX_FIELDS:
+                    raise ValidationError(
+                        f"Invalid box name '{box_name}'. Only F5 box "
+                        "fields may be overridden."
+                    )
+        override_reason = (override_reason or "").strip()
+        if boxes and len(override_reason) < 10:
+            raise ValidationError(
+                "Filing with box overrides requires an override_reason "
+                "(at least 10 characters) — the evidence trail for figures "
+                "that differ from the computed subledger."
+            )
+
         with transaction.atomic():
             gst_return = GSTReturnService.get_return(org_id, return_id)
 
@@ -285,6 +326,13 @@ class GSTReturnService:
                 raise ValidationError(
                     f"Cannot file return with status '{gst_return.status}'"
                 )
+
+            # P14/H-05b: snapshot the computed values BEFORE the overrides
+            # apply — the delta trail needs what the subledger said.
+            computed_snapshot = {
+                box_name: getattr(gst_return, box_name, None)
+                for box_name in (boxes or {})
+            }
 
             # Apply box overrides from a STRICT allow-list (H-12: the old
             # hasattr() check accepted org_id, id, status, filed_by... and
@@ -303,6 +351,24 @@ class GSTReturnService:
                             f"Invalid value for '{box_name}': {value!r}"
                         ) from exc
 
+            # P14/H-05b: persist the override evidence BEFORE the derived
+            # boxes are recomputed — capture the computed-vs-filed deltas
+            # while the computed values are still on the instance.
+            override_trail = ""
+            if boxes:
+                deltas = []
+                for box_name, filed_value in boxes.items():
+                    computed_value = computed_snapshot.get(box_name)
+                    if computed_value is not None and Decimal(str(filed_value)) != computed_value:
+                        deltas.append(
+                            f"{box_name}: computed={computed_value} "
+                            f"filed={Decimal(str(filed_value))}"
+                        )
+                override_trail = (
+                    f"OVERRIDE REASON: {override_reason}\n"
+                    + ("\n".join(deltas) if deltas else "no material deltas vs computed")
+                )
+
             # Derived boxes are ALWAYS recomputed server-side — the DB
             # CHECKs (chk_box4_total, chk_box8_net) enforce the identities.
             gst_return.box4_total_supplies = (
@@ -320,6 +386,11 @@ class GSTReturnService:
             gst_return.filed_at = timezone.now()
             gst_return.filed_by_id = filed_by_id
             gst_return.iras_confirmation = filing_reference or ""
+
+            if override_trail:
+                gst_return.notes = (
+                    f"{gst_return.notes}\n{override_trail}" if gst_return.notes else override_trail
+                )
 
             gst_return.save()
 

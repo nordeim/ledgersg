@@ -66,7 +66,24 @@ def create_organisation(
             raise serializers.ValidationError(
                 {"uen": "An organisation with this UEN already exists."}
             )
-        
+
+        # P14/C-1: set the RLS tenant context BEFORE any seeding. Under the
+        # documented runtime role (ledgersg_app, non-superuser) every seed
+        # below INSERTs tenant rows (coa.account, core.fiscal_year,
+        # core.role, gst.tax_code, core.user_organisation) whose RLS
+        # WITH CHECK requires app.current_org_id to be THIS org — the
+        # route is non-org-scoped so the middleware's context is '' (the
+        # membership cache path never sees the new org either). Without
+        # this set_config the whole flow 500s with
+        # InsufficientPrivilege (runtime-reproduced in the 2026-11-24
+        # audit, C-1). set_config(..., true) is transaction-local — the
+        # same atomic block, the same connection, no leakage.
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT set_config('app.current_org_id', %s, true)",
+                [str(org.id)],
+            )
+
         # Seed Chart of Accounts via PostgreSQL function
         _seed_chart_of_accounts(org.id, gst_registered)
         

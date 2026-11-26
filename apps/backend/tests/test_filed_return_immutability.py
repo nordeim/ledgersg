@@ -16,7 +16,7 @@ from decimal import Decimal
 
 import pytest
 
-from rest_framework.exceptions import ValidationError
+from common.exceptions import ValidationError as LedgerSGValidationError
 
 from apps.core.models import GSTReturn
 from apps.gst.services import GSTReturnService
@@ -48,7 +48,7 @@ def filed_return(test_organisation, test_user):
 @pytest.mark.django_db
 def test_filed_return_recompute_forced_is_refused(test_organisation, filed_return):
     """RED for C-2: `?force=true` must NOT regress a FILED return."""
-    with pytest.raises(ValidationError) as excinfo:
+    with pytest.raises(LedgerSGValidationError) as excinfo:
         GSTReturnService.generate_f5(
             org_id=test_organisation.id,
             return_id=filed_return.id,
@@ -70,7 +70,7 @@ def test_filed_return_recompute_forced_is_refused(test_organisation, filed_retur
 def test_filed_return_recompute_plain_is_refused(test_organisation, filed_return):
     """C-2: the non-forced path is refused too (already true for non-DRAFT
     statuses — locked in as a regression gate)."""
-    with pytest.raises(ValidationError):
+    with pytest.raises(LedgerSGValidationError):
         GSTReturnService.generate_f5(
             org_id=test_organisation.id,
             return_id=filed_return.id,
@@ -84,7 +84,7 @@ def test_amended_return_recompute_forced_is_refused(test_organisation, filed_ret
     filed_return.status = "AMENDED"
     filed_return.save()
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(LedgerSGValidationError):
         GSTReturnService.generate_f5(
             org_id=test_organisation.id,
             return_id=filed_return.id,
@@ -96,7 +96,7 @@ def test_amended_return_recompute_forced_is_refused(test_organisation, filed_ret
 def test_filed_return_review_is_refused(test_organisation, filed_return, test_user):
     """C-2: review-after-file is refused (the statutory review happened
     before filing)."""
-    with pytest.raises(ValidationError):
+    with pytest.raises(LedgerSGValidationError):
         GSTReturnService.review_return(
             org_id=test_organisation.id,
             return_id=filed_return.id,
@@ -108,7 +108,7 @@ def test_filed_return_review_is_refused(test_organisation, filed_return, test_us
 def test_filed_return_filing_again_is_refused(test_organisation, filed_return, test_user):
     """C-2: double-filing is refused (FILED not in FILEABLE_STATUSES —
     locked in as a regression gate)."""
-    with pytest.raises(ValidationError):
+    with pytest.raises(LedgerSGValidationError):
         GSTReturnService.file_return(
             org_id=test_organisation.id,
             return_id=filed_return.id,

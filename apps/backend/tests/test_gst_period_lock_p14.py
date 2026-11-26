@@ -36,30 +36,35 @@ def filed_period_fixture(
     test_organisation, test_user, test_accounts, test_tax_codes, test_fiscal_period
 ):
     """An org with a FILED GST return covering January 2024 and an open
-    fiscal period covering it (so ONLY the GST lock can refuse)."""
+    fiscal period covering it (so ONLY the GST lock can refuse).
+
+    Session-30 fix: reuse the FY2024 + January period the conftest's
+    test_fiscal_period fixture already created (creating a second fiscal
+    year starting 2024-01-01 violates fiscal_year_org_id_start_date_key
+    — the fixture errors the interrupted session diagnosed)."""
     org = test_organisation
 
     DocumentSequence.objects.get_or_create(
         org=org, document_type="SALES_INVOICE", defaults={"prefix": "INV-", "next_number": 1}
     )
 
-    # A fiscal year + period covering Jan 2024 (OPEN — the only guard that
-    # can refuse a Jan-2024 posting after the fix is the GST lock).
-    fy = FiscalYear.objects.create(
-        org=org,
-        label="FY2024-lock",
-        start_date=date(2024, 1, 1),
-        end_date=date(2024, 12, 31),
-        is_closed=False,
-    )
-    jan_period = FiscalPeriod.objects.create(
+    # The OPEN January period + its fiscal year (from the conftest fixture)
+    # — the only guard that can refuse a Jan-2024 posting after the fix is
+    # the GST lock.
+    jan_period = test_fiscal_period
+    fy = jan_period.fiscal_year
+
+    # A February period in the same fiscal year (the after-period control).
+    FiscalPeriod.objects.get_or_create(
         org=org,
         fiscal_year=fy,
-        label="Jan 2024 (lock)",
-        period_number=1,
-        start_date=date(2024, 1, 1),
-        end_date=date(2024, 1, 31),
-        is_open=True,
+        label="Feb 2024 (lock)",
+        period_number=2,
+        defaults={
+            "start_date": date(2024, 2, 1),
+            "end_date": date(2024, 2, 29),
+            "is_open": True,
+        },
     )
 
     gst_return = GSTReturn.objects.create(
@@ -87,6 +92,7 @@ def filed_period_fixture(
         "org": org,
         "user": test_user,
         "accounts": test_accounts,
+        "tax_codes": test_tax_codes,
         "contact": contact,
         "filed_return": filed,
         "jan_period": jan_period,
@@ -95,7 +101,9 @@ def filed_period_fixture(
 
 
 def _make_invoice(fx, issue_date):
-    return InvoiceDocument.objects.create(
+    from apps.core.models import InvoiceLine
+
+    doc = InvoiceDocument.objects.create(
         org=fx["org"],
         document_type="SALES_INVOICE",
         contact=fx["contact"],
@@ -108,6 +116,25 @@ def _make_invoice(fx, issue_date):
         total_incl=Decimal("109.00"),
         amount_paid=Decimal("0.0000"),
     )
+    # Session-30 fix (the session-29 lesson): the approve path posts a
+    # journal entry built from the document's LINES — a line-less invoice
+    # fails with "must have at least 2 lines" at the journal seam, before
+    # the GST-lock guard can be exercised.
+    InvoiceLine.objects.create(
+        org=fx["org"],
+        document=doc,
+        line_number=1,
+        account=fx["accounts"]["4000"],
+        description="Lock probe service",
+        quantity=Decimal("1"),
+        unit_price=Decimal("100.0000"),
+        line_amount=Decimal("100.0000"),
+        gst_amount=Decimal("9.0000"),
+        total_amount=Decimal("109.0000"),
+        tax_code=fx["tax_codes"]["SR"],
+        tax_rate=Decimal("0.0900"),
+    )
+    return doc
 
 
 class TestGSTLockP14:
@@ -120,8 +147,8 @@ class TestGSTLockP14:
         doc = _make_invoice(fx, date(2024, 1, 15))
 
         with pytest.raises(ValidationError) as excinfo:
-            DocumentService.transition_status(
-                org_id=fx["org"].id, document_id=doc.id, new_status="APPROVED", user_id=fx["user"].id
+            DocumentService.approve_document(
+                org_id=fx["org"].id, document_id=doc.id, user=fx["user"]
             )
         assert "GST" in str(excinfo.value) or "filed" in str(excinfo.value).lower()
 
@@ -133,20 +160,11 @@ class TestGSTLockP14:
         """H-3 control: February postings stay green (the lock covers the
         filed period only)."""
         fx = filed_period_fixture
-        # Feb period must exist for the posting
-        FiscalPeriod.objects.create(
-            org=fx["org"],
-            fiscal_year=fx["fy"],
-            label="Feb 2024 (lock)",
-            period_number=2,
-            start_date=date(2024, 2, 1),
-            end_date=date(2024, 2, 29),
-            is_open=True,
-        )
+        # The February period was created by the fixture (same fiscal year).
         doc = _make_invoice(fx, date(2024, 2, 15))
 
-        DocumentService.transition_status(
-            org_id=fx["org"].id, document_id=doc.id, new_status="APPROVED", user_id=fx["user"].id
+        DocumentService.approve_document(
+            org_id=fx["org"].id, document_id=doc.id, user=fx["user"]
         )
         doc.refresh_from_db()
         assert doc.status == "APPROVED"

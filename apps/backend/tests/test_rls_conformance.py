@@ -57,7 +57,13 @@ def _tenant_tables(cursor):
 class TestRLSConformanceP14:
     @pytest.mark.django_db
     def test_every_tenant_table_has_rls_enabled(self):
-        """RED for H-6: all tenant-data tables must have relrowsecurity."""
+        """RED for H-6: all tenant-data tables must have relrowsecurity.
+
+        The sweep INTERSECTS the unprotected set with the tenant-table set
+        (session-30 lesson: Django's migrate creates infra tables in the
+        core schema — auth_group, django_admin_log, django_celery_beat_*,
+        django_content_type, django_session — which are NOT tenant data
+        and must not fail this gate)."""
         with connection.cursor() as cursor:
             tenant_tables = _tenant_tables(cursor)
             cursor.execute(
@@ -73,7 +79,7 @@ class TestRLSConformanceP14:
                 (row[0], row[1])
                 for row in cursor.fetchall()
                 if row[1] not in GLOBAL_TABLES
-            }
+            } & tenant_tables
 
         assert not unprotected, (
             f"Tables carrying tenant data WITHOUT RLS (H-6): {sorted(unprotected)} — "
@@ -108,11 +114,22 @@ class TestRLSConformanceP14:
             row = cursor.fetchone()
 
         assert row is not None, "audit.log_change must exist"
-        proconfig = row[0] or {}
+        # Session-30 fix (the session-29 finding): psycopg returns proconfig
+        # as a parsed ARRAY like ['search_path=pg_catalog, audit, public'],
+        # not a dict — normalise before asserting.
+        proconfig_raw = row[0] or []
+        proconfig = {}
+        for item in proconfig_raw:
+            if isinstance(item, str) and "=" in item:
+                key, _, value = item.partition("=")
+                proconfig[key.strip()] = value.strip()
         assert "search_path" in proconfig, (
             f"audit.log_change must pin search_path (SECURITY DEFINER) — "
-            f"got proconfig={proconfig}"
+            f"got proconfig={proconfig_raw}"
         )
+        # the pinned path must lead with pg_catalog (no caller-controlled
+        # schema can shadow object resolution)
+        assert proconfig["search_path"].split(",")[0].strip() == "pg_catalog"
 
 
 class TestOrgCreationContextP14:
@@ -153,65 +170,39 @@ class TestOrgCreationContextP14:
 
     @pytest.mark.django_db
     def test_create_organisation_issues_set_config_in_transaction(self, test_user, monkeypatch):
-        """C-1 mechanism gate: the service executes
-        set_config('app.current_org_id', <org>, true) on the shared
-        connection BEFORE the seed SQL function runs."""
+        """C-1 mechanism gate: when the CoA seed runs, the transaction-local
+        setting app.current_org_id already holds the NEW org id.
+
+        Probe design (session-30: the cursor-spy recursed when Django used
+        the cursor outside a with-block — the delegation fix never landed;
+        this rewrite wraps the seed function itself and reads the setting
+        through the SAME connection the service uses, which cannot
+        recurse and asserts the invariant directly)."""
         import apps.core.services.organisation_service as org_service_module
 
-        executed = []
-        real_cursor_execute = connection.cursor
+        captured = []
+        real_seed = org_service_module._seed_chart_of_accounts
 
-        class SpyCursor:
-            def __init__(self, real):
-                self._real = real
-
-            def __enter__(self):
-                self._cursor = self._real.__enter__()
-                return self
-
-            def __exit__(self, *args):
-                return self._real.__exit__(*args)
-
-            def execute(self, sql, params=None):
-                executed.append((sql, params))
-                return self._cursor.execute(sql, params)
-
-            def __getattr__(self, name):
-                return getattr(self._cursor, name)
-
-        def spy_cursor():
-            return SpyCursor(real_cursor_execute())
+        def probing_seed(org_id, gst_registered):
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT current_setting('app.current_org_id', true)")
+                captured.append(cursor.fetchone()[0])
+            return real_seed(org_id, gst_registered)
 
         monkeypatch.setattr(
-            org_service_module.connection, "cursor", spy_cursor, raising=True
+            org_service_module, "_seed_chart_of_accounts", probing_seed, raising=True
         )
 
-        create_organisation(
+        org = create_organisation(
             user=test_user,
             name="C1 Mechanism Org",
             uen=f"TM{uuid.uuid4().hex[:8]}",
             gst_registered=False,
         )
 
-        set_config_calls = [
-            (sql, params)
-            for sql, params in executed
-            if "set_config" in sql and "app.current_org_id" in sql
-        ]
-        assert set_config_calls, (
-            "create_organisation must issue set_config('app.current_org_id', ...) "
-            "before seeding (C-1)"
-        )
-        sql, params = set_config_calls[0]
-        assert params and str(params[0]) != "", "the set_config must carry the new org id"
-
-        seed_calls = [sql for sql, _ in executed if "seed_default_chart_of_accounts" in sql]
-        assert seed_calls, "the CoA seed must run through the SQL function"
-
-        # Ordering: set_config BEFORE the seed function call.
-        stmts = [sql for sql, _ in executed]
-        set_config_idx = next(i for i, s in enumerate(stmts) if "set_config" in s and "app.current_org_id" in s)
-        seed_idx = next(i for i, s in enumerate(stmts) if "seed_default_chart_of_accounts" in s)
-        assert set_config_idx < seed_idx, (
-            "set_config('app.current_org_id') must precede the CoA seed (C-1)"
+        assert captured, "the CoA seed must run during create_organisation"
+        assert captured[0] == str(org.id), (
+            "app.current_org_id must equal the NEW org id at seed time — "
+            f"got {captured[0]!r}, expected {str(org.id)!r} (C-1: the set_config "
+            "must precede the seed on the same transaction)"
         )

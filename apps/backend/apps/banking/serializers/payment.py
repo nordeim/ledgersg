@@ -85,8 +85,19 @@ class PaymentAllocationInputSerializer(serializers.Serializer):
         except InvoiceDocument.DoesNotExist:
             raise serializers.ValidationError(_("Document not found in this organisation."))
 
-        if document.status != "APPROVED":
-            raise serializers.ValidationError(_("Document must be APPROVED before allocation."))
+        # P14/H-2: the allocation-eligible set — a PARTIALLY_PAID invoice
+        # MUST accept its next instalment (the pre-P14 APPROVED-only check
+        # made instalments impossible through the API: the invoice could
+        # never reach PAID), and SENT/OVERDUE are billed documents awaiting
+        # money. DRAFT/VOID are never allocatable.
+        ALLOCATABLE_STATUSES = ("APPROVED", "SENT", "PARTIALLY_PAID", "OVERDUE")
+        if document.status not in ALLOCATABLE_STATUSES:
+            raise serializers.ValidationError(
+                _(
+                    "Document must be APPROVED, SENT, PARTIALLY_PAID or OVERDUE "
+                    "before allocation."
+                )
+            )
 
         return value
 
