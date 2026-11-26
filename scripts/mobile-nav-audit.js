@@ -13,7 +13,15 @@ const BASE = "http://localhost:3000";
     const page = await ctx.newPage();
     const errors = [];
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text().slice(0, 80)); });
+    // Session-30 fix: the shell (with the nav aside) renders on the
+    // DASHBOARD — log in through the real UI first (the login page has no
+    // sidebar; the pre-P14 probe asserted against nothing).
     await page.goto(BASE + "/login/", { waitUntil: "networkidle" });
+    await page.locator("input[type='email']").fill("demo@ledgersg.sg");
+    await page.locator("input[type='password']").fill("demo1234pass");
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.waitForURL(/dashboard/, { timeout: 30000 });
+    await page.waitForTimeout(500);
 
     if (label === "mobile") {
       // toggle visible + operable
@@ -40,8 +48,16 @@ const BASE = "http://localhost:3000";
       });
       check(`[${label}] X toggle is real hit target`, hit);
       await closeBtn.click();
-      await page.waitForTimeout(300);
-      const visClosed = await aside.evaluate((el) => getComputedStyle(el).visibility);
+      // P13/H-2's transition-[transform,visibility] keeps visibility:visible
+      // THROUGH the slide-out (visibility is discretely-animatable — it flips
+      // at the END while closing). Poll until the transition completes
+      // instead of a fixed 300ms (the session-29 timing lesson).
+      let visClosed = "visible";
+      for (let i = 0; i < 20; i++) {
+        await page.waitForTimeout(100);
+        visClosed = await aside.evaluate((el) => getComputedStyle(el).visibility);
+        if (visClosed === "hidden") break;
+      }
       check(`[${label}] closed again after X`, visClosed === "hidden", `got=${visClosed}`);
       // horizontal overflow check
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
