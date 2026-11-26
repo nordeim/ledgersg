@@ -280,3 +280,68 @@ def test_journal_entry_types(auth_client, test_organisation):
     types = [t["code"] for t in response.data["data"]]
     assert "MANUAL" in types
     assert "SALES_INVOICE" in types
+
+
+@pytest.mark.django_db
+def test_journal_entry_double_reversal_refused(
+    auth_client, test_organisation, test_accounts, test_fiscal_period, test_user
+):
+    """P17/BE-H1: an already-reversed entry must not be reversible again.
+
+    A second reversal would double-count every affected account (swap-side
+    lines posted twice) while the trial balance stays balanced — silent GL
+    corruption. The guard must refuse with a 400 before any lines post.
+    """
+    from apps.journal.services import JournalService
+
+    ar_account = test_accounts["1200"]
+    revenue_account = test_accounts["4000"]
+
+    original = JournalService.create_entry(
+        org_id=test_organisation.id,
+        entry_date=date(2024, 1, 15),
+        source_type="MANUAL",
+        narration="Original entry to be reversed twice",
+        lines=[
+            {
+                "account_id": ar_account.id,
+                "debit": Decimal("100.00"),
+                "credit": Decimal("0.00"),
+                "description": "AR",
+            },
+            {
+                "account_id": revenue_account.id,
+                "debit": Decimal("0.00"),
+                "credit": Decimal("100.00"),
+                "description": "Revenue",
+            },
+        ],
+        fiscal_period_id=test_fiscal_period.id,
+        user_id=test_user.id,
+    )
+
+    url = f"/api/v1/{test_organisation.id}/journal-entries/entries/{original.id}/reverse/"
+
+    # First reversal: accepted (the contract unchanged).
+    first = auth_client.post(
+        url, {"reversal_date": "2024-01-20", "reason": "Correction needed"}, format="json"
+    )
+    assert first.status_code == status.HTTP_201_CREATED
+
+    lines_before = JournalLine.objects.filter(
+        entry__source_type="REVERSAL", org_id=test_organisation.id
+    ).count()
+
+    # Second reversal of the SAME original: must be refused.
+    second = auth_client.post(
+        url, {"reversal_date": "2024-01-21", "reason": "Accidental repeat"}, format="json"
+    )
+    assert second.status_code == status.HTTP_400_BAD_REQUEST, (
+        f"double reversal must 400, got {second.status_code}: {second.data}"
+    )
+
+    # No new reversal lines were posted by the refused attempt.
+    lines_after = JournalLine.objects.filter(
+        entry__source_type="REVERSAL", org_id=test_organisation.id
+    ).count()
+    assert lines_after == lines_before, "the refused reversal must not post lines"

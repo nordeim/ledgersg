@@ -63,13 +63,16 @@ urlpatterns = [
         BankTransactionImportView.as_view(),
         name="bank-transaction-import",
     ),
+    # P17/BE-L2: uuid converters — a malformed id is a routing 404, not
+    # a raw UUID() ValueError through the 500 handler (every sibling
+    # route already uses <uuid:...>).
     path(
-        "bank-transactions/<str:transaction_id>/reconcile/",
+        "bank-transactions/<uuid:transaction_id>/reconcile/",
         BankTransactionReconcileView.as_view(),
         name="bank-transaction-reconcile",
     ),
     path(
-        "bank-transactions/<str:transaction_id>/unreconcile/",
+        "bank-transactions/<uuid:transaction_id>/unreconcile/",
         BankTransactionUnreconcileView.as_view(),
         name="bank-transaction-unreconcile",
     ),

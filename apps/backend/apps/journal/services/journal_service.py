@@ -417,25 +417,40 @@ class JournalService:
         Returns:
             Created reversal JournalEntry instance
         """
-        original = JournalService.get_entry(org_id, original_entry_id)
-
-        reversal_lines = []
-        for line in original.lines.all():
-            reversal_lines.append(
-                {
-                    "account_id": line.account_id,
-                    "debit": line.credit,
-                    "credit": line.debit,
-                    "description": f"Reversal of {original.entry_number}: {line.description}",
-                }
-            )
-
-        # P13/B-11: both phases must be atomic together. create_entry owns
-        # its block, but without an outer wrapper a failure in the marking
-        # phase below would leave an orphan reversal next to an unmarked
-        # original — permitting a SECOND reversal (double-count) from
-        # Celery/shell callers outside a request transaction.
+        # P17/BE-H1: the original row is locked for the whole reversal and
+        # re-checked — a second reversal of the same entry would post the
+        # swap-side lines twice (every account misstated 2x) while the
+        # trial balance stays balanced. The lock closes the concurrent
+        # window; the is_reversed check closes the sequential one.
         with transaction.atomic():
+            try:
+                original = JournalEntry.objects.select_for_update().get(
+                    id=original_entry_id, org_id=org_id
+                )
+            except JournalEntry.DoesNotExist:
+                raise ResourceNotFound(f"Journal entry {original_entry_id} not found")
+            if original.is_reversed:
+                raise ValidationError(
+                    f"Journal entry {original.entry_number} is already reversed; "
+                    "a reversal of a reversal is not permitted."
+                )
+
+            reversal_lines = []
+            for line in original.lines.all():
+                reversal_lines.append(
+                    {
+                        "account_id": line.account_id,
+                        "debit": line.credit,
+                        "credit": line.debit,
+                        "description": f"Reversal of {original.entry_number}: {line.description}",
+                    }
+                )
+
+            # P13/B-11: both phases must be atomic together. create_entry owns
+            # its block, but without an outer wrapper a failure in the marking
+            # phase below would leave an orphan reversal next to an unmarked
+            # original — permitting a SECOND reversal (double-count) from
+            # Celery/shell callers outside a request transaction.
             reversal = JournalService.create_entry(
                 org_id=org_id,
                 entry_date=reversal_date,

@@ -546,7 +546,9 @@ class BankTransactionReconcileView(APIView):
 
         transaction_obj = ReconciliationService.reconcile(
             org_id=org_id,
-            transaction_id=UUID(transaction_id),
+            # P17/BE-L2: the route's uuid converter passes a UUID object —
+            # UUID(str(...)) accepts both it and any legacy str call site.
+            transaction_id=UUID(str(transaction_id)),
             payment_id=serializer.validated_data["payment_id"],
             user_id=request.user.id if request.user else None,
         )
@@ -576,7 +578,7 @@ class BankTransactionUnreconcileView(APIView):
 
         transaction_obj = ReconciliationService.unreconcile(
             org_id=org_id,
-            transaction_id=UUID(transaction_id),
+            transaction_id=UUID(str(transaction_id)),
             user_id=request.user.id if request.user else None,
         )
 

@@ -99,7 +99,9 @@ class PaymentService:
         bank_account = BankAccount.objects.get(id=data["bank_account_id"], org_id=org_id)
 
         amount = money(data["amount"])
-        exchange_rate = money(data.get("exchange_rate", Decimal("1.000000")))
+        exchange_rate = PaymentService._validated_exchange_rate(
+            data.get("exchange_rate", Decimal("1.000000"))
+        )
         currency = data.get("currency", "SGD")
 
         # P16/L1: money() (HALF_UP, 4dp) — the raw .quantize() default
@@ -158,7 +160,9 @@ class PaymentService:
         bank_account = BankAccount.objects.get(id=data["bank_account_id"], org_id=org_id)
 
         amount = money(data["amount"])
-        exchange_rate = money(data.get("exchange_rate", Decimal("1.000000")))
+        exchange_rate = PaymentService._validated_exchange_rate(
+            data.get("exchange_rate", Decimal("1.000000"))
+        )
         currency = data.get("currency", "SGD")
 
         # P16/L1: money() (HALF_UP, 4dp) — the raw .quantize() default
@@ -222,7 +226,11 @@ class PaymentService:
         Returns:
             List of Payment instances
         """
-        queryset = Payment.objects.filter(org_id=org_id)
+        # P17/BE-M7: the serializer traverses contact + bank_account per
+        # row — select_related keeps the list O(1) queries instead of 1+2N.
+        queryset = Payment.objects.filter(org_id=org_id).select_related(
+            "contact", "bank_account"
+        )
 
         if payment_type:
             queryset = queryset.filter(payment_type=payment_type)
@@ -267,6 +275,24 @@ class PaymentService:
         except Payment.DoesNotExist:
             raise ResourceNotFound(f"Payment {payment_id} not found")
 
+
+    @staticmethod
+    def _validated_exchange_rate(value) -> Decimal:
+        """P17/BE-L1: the FX rate contract is 6 dp (wire DecimalField and
+        NUMERIC(12,6) column). money() quantizes to the 4-dp MONEY contract
+        and silently truncated the rate before storage and before the FX
+        math; only the MONETARY products are 4-dp. Validates finite +
+        positive at full 6-dp precision.
+        """
+        if value is None:
+            return Decimal("1.000000")
+        rate = Decimal(str(value))
+        if not rate.is_finite():
+            raise ValidationError("Exchange rate must be a finite number.")
+        if rate <= 0:
+            raise ValidationError("Exchange rate must be positive.")
+        return rate.quantize(Decimal("0.000001"))
+
     @staticmethod
     @transaction.atomic()
     def void(
@@ -290,7 +316,14 @@ class PaymentService:
         Raises:
             ValidationError: If payment cannot be voided
         """
-        payment = PaymentService.get(org_id, payment_id)
+        # P17/BE-H2: the payment row is locked for the whole void — the
+        # is_voided check is otherwise a TOCTOU (two concurrent voids both
+        # read False and both post reversals). Mirrors the P16/BE-M1
+        # allocate() lock; ResourceNotFound keeps the not-found contract.
+        try:
+            payment = Payment.objects.select_for_update().get(id=payment_id, org_id=org_id)
+        except Payment.DoesNotExist:
+            raise ResourceNotFound(f"Payment {payment_id} not found")
 
         if payment.is_voided:
             raise ValidationError("Payment is already voided.")

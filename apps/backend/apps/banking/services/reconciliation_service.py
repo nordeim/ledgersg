@@ -50,7 +50,11 @@ class ReconciliationService:
         Returns:
             List of BankTransaction instances
         """
-        queryset = BankTransaction.objects.filter(org_id=org_id)
+        # P17/BE-M7: the serializer reads bank_account.account_name per
+        # row — select_related keeps the list O(1) queries.
+        queryset = BankTransaction.objects.filter(org_id=org_id).select_related(
+            "bank_account"
+        )
 
         if bank_account_id:
             queryset = queryset.filter(bank_account_id=bank_account_id)
@@ -284,18 +288,36 @@ class ReconciliationService:
         Raises:
             ValidationError: If validation fails
         """
-        transaction_obj = ReconciliationService.get_transaction(org_id, transaction_id)
+        # P17/BE-M5: lock BOTH rows — a concurrent double-reconcile of the
+        # same transaction and the payment-side double-match (payment P
+        # already matched to transaction A) are both TOCTOUs on plain
+        # reads. The payment-side check is NEW: the write path trusted
+        # the caller (suggest_matches filtered candidates, nothing
+        # guarded the write), so P could be matched to A AND B — the
+        # bank rec double-counts it.
+        try:
+            transaction_obj = BankTransaction.objects.select_for_update().get(
+                id=transaction_id, org_id=org_id
+            )
+        except BankTransaction.DoesNotExist:
+            raise ResourceNotFound(f"Bank transaction {transaction_id} not found")
 
         if transaction_obj.is_reconciled:
             raise ValidationError("Transaction is already reconciled.")
 
         try:
-            payment = Payment.objects.get(id=payment_id, org_id=org_id)
+            payment = Payment.objects.select_for_update().get(id=payment_id, org_id=org_id)
         except Payment.DoesNotExist:
             raise ResourceNotFound(f"Payment {payment_id} not found")
 
         if payment.is_voided:
             raise ValidationError("Cannot reconcile to a voided payment.")
+
+        if payment.is_reconciled and transaction_obj.matched_payment_id != payment.id:
+            raise ValidationError(
+                f"Payment {payment.payment_number} is already matched to "
+                "another bank transaction."
+            )
 
         if payment.bank_account_id != transaction_obj.bank_account_id:
             raise ValidationError("Payment bank account does not match transaction bank account.")
