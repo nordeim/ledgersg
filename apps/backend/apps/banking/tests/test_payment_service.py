@@ -293,16 +293,22 @@ class TestPaymentServiceCreateReceived:
             user_id=test_user.id,
         )
 
+        # P16/B13: the trg_audit_payment trigger is the audit truth (its
+        # INSERT mapping writes action='CREATE'). Through HTTP flows the
+        # trigger row carries full attribution (user/ip/agent/path) from
+        # the middleware's request-context GUCs; direct service calls
+        # have no request context, so user_id is honestly NULL here. The
+        # manual duplicate write was removed in P16/BE-L5.
         audit_log = AuditEventLog.objects.filter(
             org_id=test_org.id,
             entity_table="payment",
             entity_id=payment.id,
             action="CREATE",
-            user_id__isnull=False,  # Service-created record has explicit user_id
         ).first()
 
-        assert audit_log is not None
-        assert audit_log.user_id == test_user.id
+        assert audit_log is not None, (
+            "the trg_audit_payment trigger must cover the INSERT"
+        )
 
 
 class TestPaymentServiceCreateMade:
@@ -485,14 +491,29 @@ class TestPaymentServiceVoid:
             user_id=test_user.id,
         )
 
-        audit_log = AuditEventLog.objects.filter(
+        # P16/B13: the manual VOID row was removed (the trg_audit_payment
+        # trigger covers the UPDATE). The trigger's UPDATE row carries the
+        # full new_data (is_voided=true, the reason in notes).
+        # The creation path also UPDATEs the row (the journal_entry
+        # link) — the void is the UPDATE whose new_data carries
+        # is_voided = true.
+        audit_rows = AuditEventLog.objects.filter(
             org_id=test_org.id,
             entity_table="payment",
             entity_id=payment.id,
-            action="VOID",
-        ).first()
-
-        assert audit_log is not None
+            action="UPDATE",
+        )
+        assert audit_rows.exists(), (
+            "the trg_audit_payment trigger must cover the void UPDATE"
+        )
+        void_rows = [
+            row
+            for row in audit_rows
+            if row.new_data and row.new_data.get("is_voided") is True
+        ]
+        assert void_rows, (
+            "the trigger's UPDATE row must capture the voided state"
+        )
 
 
 class TestPaymentServiceAllocate:

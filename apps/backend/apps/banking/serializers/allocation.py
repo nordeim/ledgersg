@@ -12,6 +12,14 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.models import PaymentAllocation, Payment, InvoiceDocument
 from common.decimal_utils import money
 
+# P16/BE-H2: the allocation-eligible status set — ONE wire contract.
+# A PARTIALLY_PAID invoice MUST accept its next instalment (the pre-P14
+# APPROVED-only check made instalments impossible through the API), and
+# SENT/OVERDUE are billed documents awaiting money. DRAFT/VOID are never
+# allocatable. Mirrors the service-side guard in payment_service.allocate
+# (P14/H-1) and PaymentReceiveSerializer (P14/H-2).
+ALLOCATABLE_STATUSES = ("APPROVED", "SENT", "PARTIALLY_PAID", "OVERDUE")
+
 
 class PaymentAllocationSerializer(serializers.ModelSerializer):
     """Read serializer for PaymentAllocation."""
@@ -39,97 +47,16 @@ class PaymentAllocationSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "base_allocated_amount", "created_at"]
 
 
-class AllocationCreateSerializer(serializers.Serializer):
-    """
-    Serializer for creating a new allocation.
-
-    Validates:
-    - Payment belongs to org and is not voided
-    - Document belongs to org and is APPROVED
-    - Allocation amount is positive and doesn't exceed remaining balance
-    - Document is not already fully allocated (unless partial payment)
-    """
-
-    payment_id = serializers.UUIDField()
-    document_id = serializers.UUIDField()
-    allocated_amount = serializers.DecimalField(
-        max_digits=19,
-        decimal_places=4,
-        min_value=Decimal("0.0001"),
-    )
-
-    def validate_payment_id(self, value):
-        org_id = self.context.get("org_id")
-        if not org_id:
-            raise serializers.ValidationError(_("Organisation context required."))
-
-        try:
-            payment = Payment.objects.get(id=value, org_id=org_id)
-        except Payment.DoesNotExist:
-            raise serializers.ValidationError(_("Payment not found in this organisation."))
-
-        if payment.is_voided:
-            raise serializers.ValidationError(_("Cannot allocate a voided payment."))
-
-        return value
-
-    def validate_document_id(self, value):
-        org_id = self.context.get("org_id")
-        if not org_id:
-            raise serializers.ValidationError(_("Organisation context required."))
-
-        try:
-            document = InvoiceDocument.objects.get(id=value, org_id=org_id)
-        except InvoiceDocument.DoesNotExist:
-            raise serializers.ValidationError(_("Document not found in this organisation."))
-
-        if document.status != "APPROVED":
-            raise serializers.ValidationError(_("Document must be APPROVED for allocation."))
-
-        return value
-
-    def validate(self, data):
-        org_id = self.context.get("org_id")
-        if not org_id:
-            raise serializers.ValidationError(_("Organisation context required."))
-
-        payment = Payment.objects.get(id=data["payment_id"], org_id=org_id)
-        document = InvoiceDocument.objects.get(id=data["document_id"], org_id=org_id)
-
-        if payment.contact_id != document.contact_id:
-            raise serializers.ValidationError(_("Payment contact must match document contact."))
-
-        existing_allocations = PaymentAllocation.objects.filter(payment_id=data["payment_id"])
-        already_allocated = sum(
-            (alloc.allocated_amount for alloc in existing_allocations),
-            Decimal("0"),
-        )
-        new_allocation = money(data["allocated_amount"])
-
-        if already_allocated + new_allocation > payment.amount:
-            raise serializers.ValidationError(
-                {"allocated_amount": _("Allocation exceeds remaining payment amount.")}
-            )
-
-        existing_doc_allocations = PaymentAllocation.objects.filter(
-            payment_id=data["payment_id"],
-            document_id=data["document_id"],
-        )
-        if existing_doc_allocations.exists():
-            raise serializers.ValidationError(
-                {"document_id": _("Payment is already allocated to this document.")}
-            )
-
-        return data
-
-
 class BulkAllocationSerializer(serializers.Serializer):
     """
     Serializer for bulk allocation of a payment to multiple documents.
 
     Validates:
     - Payment belongs to org and is not voided
-    - All documents belong to org and are APPROVED
+    - All documents belong to org and are in ALLOCATABLE_STATUSES
+      (P16/BE-H2: the pre-P16 APPROVED-only literal here refused the
+      second instalment of a PARTIALLY_PAID invoice on the dedicated
+      endpoint while the embedded path accepted it)
     - Total allocations don't exceed payment amount
     - No duplicate document allocations
     """
@@ -218,9 +145,12 @@ class BulkAllocationSerializer(serializers.Serializer):
                     _("Document {} not found.").format(alloc["document_id"])
                 )
 
-            if document.status != "APPROVED":
+            if document.status not in ALLOCATABLE_STATUSES:
                 raise serializers.ValidationError(
-                    _("Document {} must be APPROVED.").format(alloc["document_id"])
+                    _(
+                        "Document {} must be APPROVED, SENT, PARTIALLY_PAID or "
+                        "OVERDUE for allocation."
+                    ).format(alloc["document_id"])
                 )
 
             if document.contact_id != payment.contact_id:

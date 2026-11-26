@@ -102,7 +102,9 @@ class PaymentService:
         exchange_rate = money(data.get("exchange_rate", Decimal("1.000000")))
         currency = data.get("currency", "SGD")
 
-        base_amount = (amount * exchange_rate).quantize(Decimal("0.0001"))
+        # P16/L1: money() (HALF_UP, 4dp) — the raw .quantize() default
+        # is HALF_EVEN and drifted sub-cent on FX conversions.
+        base_amount = money(amount * exchange_rate)
 
         payment_number = PaymentService._get_next_payment_number(org_id, "RECEIVED")
 
@@ -125,20 +127,6 @@ class PaymentService:
             is_voided=False,
         )
 
-        AuditEventLog.objects.create(
-            org_id=org_id,
-            user_id=user_id,
-            action="CREATE",
-            entity_schema="banking",
-            entity_table="payment",
-            entity_id=payment.id,
-            new_data={
-                "payment_number": payment.payment_number,
-                "payment_type": "RECEIVED",
-                "amount": str(payment.amount),
-                "contact": contact.name,
-            },
-        )
 
         # Create journal entry
         journal_entry = PaymentService._create_payment_journal_entry(org_id, payment, user_id)
@@ -173,7 +161,9 @@ class PaymentService:
         exchange_rate = money(data.get("exchange_rate", Decimal("1.000000")))
         currency = data.get("currency", "SGD")
 
-        base_amount = (amount * exchange_rate).quantize(Decimal("0.0001"))
+        # P16/L1: money() (HALF_UP, 4dp) — the raw .quantize() default
+        # is HALF_EVEN and drifted sub-cent on FX conversions.
+        base_amount = money(amount * exchange_rate)
 
         payment_number = PaymentService._get_next_payment_number(org_id, "MADE")
 
@@ -196,20 +186,6 @@ class PaymentService:
             is_voided=False,
         )
 
-        AuditEventLog.objects.create(
-            org_id=org_id,
-            user_id=user_id,
-            action="CREATE",
-            entity_schema="banking",
-            entity_table="payment",
-            entity_id=payment.id,
-            new_data={
-                "payment_number": payment.payment_number,
-                "payment_type": "MADE",
-                "amount": str(payment.amount),
-                "contact": contact.name,
-            },
-        )
 
         # Create journal entry
         journal_entry = PaymentService._create_payment_journal_entry(org_id, payment, user_id)
@@ -343,7 +319,9 @@ class PaymentService:
             original_entry = JournalService.get_entry(
                 org_id, payment.journal_entry_id
             )
-            reversal_date = timezone.now().date()
+            # P16/L9: the Asia/Singapore calendar date (consistent with
+            # the journal void path; UTC dates diverge 00:00-07:59 SGT).
+            reversal_date = timezone.localdate()
             if not JournalService._get_fiscal_period(org_id, reversal_date):
                 reversal_date = original_entry.entry_date
 
@@ -375,7 +353,15 @@ class PaymentService:
             )
             document.amount_paid = remaining
             if remaining <= 0:
-                document.status = "APPROVED"
+                # P16/L2: restore the pre-payment lifecycle status where
+                # evidence exists — an InvoiceNow-transmitted document
+                # returns to SENT, not a blanket APPROVED (the
+                # transmission state must survive an allocate-void cycle).
+                # Email-only sends restore to APPROVED pending a lifecycle
+                # evidence column (registered debt).
+                document.status = (
+                    "SENT" if document.invoicenow_sent_at else "APPROVED"
+                )
             elif remaining < document.total_incl:
                 document.status = "PARTIALLY_PAID"
             else:
@@ -386,21 +372,6 @@ class PaymentService:
         payment.notes = f"{payment.notes}\n\nVOIDED: {reason}".strip()
         payment.save()
 
-        AuditEventLog.objects.create(
-            org_id=org_id,
-            user_id=user_id,
-            action="VOID",
-            entity_schema="banking",
-            entity_table="payment",
-            entity_id=payment.id,
-            old_data={"is_voided": False},
-            new_data={
-                "is_voided": True,
-                "reason": reason,
-                "reversal_entry_id": str(reversal.id) if reversal else None,
-                "released_allocations": len(affected_documents),
-            },
-        )
 
         _invalidate_dashboard_cache(org_id)
         return payment
@@ -428,7 +399,13 @@ class PaymentService:
         Raises:
             ValidationError: If validation fails
         """
-        payment = PaymentService.get(org_id, payment_id)
+        # P16/BE-M1: lock the PAYMENT row for the payment-level cap check —
+        # the document rows are locked below, but without this lock two
+        # concurrent allocations against DIFFERENT documents each read
+        # already_allocated = 0 and can jointly exceed the payment amount.
+        payment = Payment.objects.select_for_update().get(
+            id=payment_id, org_id=org_id
+        )
 
         if payment.is_voided:
             raise ValidationError("Cannot allocate a voided payment.")
@@ -505,7 +482,9 @@ class PaymentService:
                     f"Payment is already allocated to {document.document_number}."
                 )
 
-            base_allocated = (allocated_amount * payment.exchange_rate).quantize(Decimal("0.0001"))
+            # P16/L1: money() (HALF_UP) — consistency with every other
+            # money path.
+            base_allocated = money(allocated_amount * payment.exchange_rate)
 
             PaymentAllocation.objects.create(
                 org_id=org_id,
@@ -548,6 +527,48 @@ class PaymentService:
         )
 
         _invalidate_dashboard_cache(org_id)
+        return payment
+
+    @staticmethod
+    @transaction.atomic()
+    def create_received_with_allocations(
+        org_id: UUID,
+        data: Dict[str, Any],
+        user_id: Optional[UUID] = None,
+    ) -> Payment:
+        """P16/BE-M4: create a received payment AND its allocations in ONE
+        transaction. The pre-P16 view called create_received (commits the
+        payment + its journal entry) then allocate as a separate
+        transaction — an allocation failure (e.g. exceeding a document's
+        outstanding) left an orphaned payment behind a 400 response.
+        Inner @atomic blocks become savepoints; the outer block is the
+        single commit boundary."""
+        payment = PaymentService.create_received(org_id=org_id, data=data, user_id=user_id)
+        if data.get("allocations"):
+            PaymentService.allocate(
+                org_id=org_id,
+                payment_id=payment.id,
+                allocations=data["allocations"],
+                user_id=user_id,
+            )
+        return payment
+
+    @staticmethod
+    @transaction.atomic()
+    def create_made_with_allocations(
+        org_id: UUID,
+        data: Dict[str, Any],
+        user_id: Optional[UUID] = None,
+    ) -> Payment:
+        """P16/BE-M4: the make-payment twin of create_received_with_allocations."""
+        payment = PaymentService.create_made(org_id=org_id, data=data, user_id=user_id)
+        if data.get("allocations"):
+            PaymentService.allocate(
+                org_id=org_id,
+                payment_id=payment.id,
+                allocations=data["allocations"],
+                user_id=user_id,
+            )
         return payment
 
     @staticmethod
@@ -611,7 +632,10 @@ class PaymentService:
         elif total_allocated > 0:
             document.status = "PARTIALLY_PAID"
         else:
-            document.status = "APPROVED"
+            # P16/L2: same evidence-based restoration as the void path.
+            document.status = (
+                "SENT" if document.invoicenow_sent_at else "APPROVED"
+            )
         document.save()
 
         # Audit log

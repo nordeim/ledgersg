@@ -23,7 +23,6 @@ from apps.banking.serializers import (
     PaymentMakeSerializer,
     PaymentVoidSerializer,
     PaymentAllocationSerializer,
-    AllocationCreateSerializer,
     BulkAllocationSerializer,
     BankTransactionSerializer,
     BankTransactionImportSerializer,
@@ -278,19 +277,14 @@ class ReceivePaymentView(APIView):
         )
         serializer.is_valid(raise_exception=True)
 
-        payment = PaymentService.create_received(
+        # P16/BE-M4: one transaction for payment + allocations — the old
+        # two-transaction shape left an orphaned payment behind a 400 when
+        # the allocation step failed.
+        payment = PaymentService.create_received_with_allocations(
             org_id=org_id,
             data=serializer.validated_data,
             user_id=request.user.id if request.user else None,
         )
-
-        if serializer.validated_data.get("allocations"):
-            PaymentService.allocate(
-                org_id=org_id,
-                payment_id=payment.id,
-                allocations=serializer.validated_data["allocations"],
-                user_id=request.user.id if request.user else None,
-            )
 
         response_serializer = PaymentSerializer(payment)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -321,19 +315,12 @@ class MakePaymentView(APIView):
         )
         serializer.is_valid(raise_exception=True)
 
-        payment = PaymentService.create_made(
+        # P16/BE-M4 (the make-payment twin).
+        payment = PaymentService.create_made_with_allocations(
             org_id=org_id,
             data=serializer.validated_data,
             user_id=request.user.id if request.user else None,
         )
-
-        if serializer.validated_data.get("allocations"):
-            PaymentService.allocate(
-                org_id=org_id,
-                payment_id=payment.id,
-                allocations=serializer.validated_data["allocations"],
-                user_id=request.user.id if request.user else None,
-            )
 
         response_serializer = PaymentSerializer(payment)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)

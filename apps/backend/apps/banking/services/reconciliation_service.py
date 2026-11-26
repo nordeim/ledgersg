@@ -126,11 +126,16 @@ class ReconciliationService:
         skipped = 0
         errors = []
 
+        # P16/BE-L4: read the bytes ONCE, then try both encodings — the
+        # pre-P16 fallback re-read() the already-consumed stream, got b""
+        # back, and a non-UTF-8 statement silently imported 0 rows with a
+        # success-shaped response.
+        raw_bytes = csv_file.read()
         try:
-            decoded_file = csv_file.read().decode("utf-8")
+            decoded_file = raw_bytes.decode("utf-8")
         except UnicodeDecodeError:
             try:
-                decoded_file = csv_file.read().decode("latin-1")
+                decoded_file = raw_bytes.decode("latin-1")
             except Exception as e:
                 raise ValidationError(f"Could not decode file: {e}")
 

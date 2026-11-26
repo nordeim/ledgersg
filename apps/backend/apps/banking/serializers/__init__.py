@@ -18,8 +18,8 @@ from .payment import (
 )
 from .allocation import (
     PaymentAllocationSerializer,
-    AllocationCreateSerializer,
     BulkAllocationSerializer,
+    ALLOCATABLE_STATUSES,
 )
 from .bank_transaction import (
     BankTransactionSerializer,
@@ -39,7 +39,7 @@ __all__ = [
     "PaymentVoidSerializer",
     "PaymentAllocationInputSerializer",
     "PaymentAllocationSerializer",
-    "AllocationCreateSerializer",
+    "ALLOCATABLE_STATUSES",
     "BulkAllocationSerializer",
     "BankTransactionSerializer",
     "BankTransactionImportSerializer",
