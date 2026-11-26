@@ -3,7 +3,7 @@
 -- ║   LEDGERSG — COMPLETE POSTGRESQL 16 DATABASE SCHEMA                        ║
 -- ║   Enterprise-Grade Accounting Software for Singapore SMBs                  ║
 -- ║                                                                            ║
--- ║   Version:    1.1.0                                                        ║
+-- ║   Version:    1.2.0                                                        ║
 -- ║   DB Engine:  PostgreSQL 16+                                               ║
 -- ║   Precision:  NUMERIC(19,4) for all monetary values                        ║
 -- ║   Encoding:   UTF-8                                                        ║
@@ -1234,7 +1234,8 @@ CREATE TABLE IF NOT EXISTS gst.organisation_peppol_settings (
     -- Access Point Configuration
     access_point_provider VARCHAR(100) NOT NULL DEFAULT '',
     access_point_api_url VARCHAR(500),
-    access_point_api_key VARCHAR(255), -- Encrypted
+    access_point_api_key VARCHAR(255), -- Plaintext at rest (M-7c honesty fix;
+                                       -- envelope encryption is the registered P16 item)
     access_point_client_id VARCHAR(100),
     
     -- Transmission Settings
@@ -2445,8 +2446,9 @@ CREATE POLICY rls_delete_organisation ON core.organisation
     FOR DELETE USING (id = core.current_org_id());
 
 -- Global reference tables: no RLS needed
--- core.currency, core.role, coa.account_type, coa.account_sub_type, gst.tax_code
--- These are shared across all tenants and are read-only for app users.
+-- core.currency, coa.account_type, coa.account_sub_type (true globals).
+-- core.role and gst.tax_code carry org_id and ARE tenant-scoped — §17 (v1.2.0)
+-- completes their policies (system rows + org rows).
 
 
 -- ============================================================================
@@ -3349,8 +3351,271 @@ $$;
 
 
 -- ============================================================================
+-- §17  RLS COMPLETION (v1.2.0 — H-6 + M-6a remediation, 2026-11-26)
+-- ============================================================================
+-- The 2026-11-24 independent audit (H-6, live pg_class evidence) found six
+-- tenant-data tables without working RLS: core.organisation (policies existed
+-- but RLS was never ENABLED — inert), core.user_organisation, core.role,
+-- gst.organisation_peppol_settings, gst.tax_code and audit.event_log. This
+-- section completes the coverage, idempotently (safe to re-run on a live DB;
+-- count-then-skip guards on every ALTER).
+--
+-- DESIGN TRADEOFFS (documented for the next auditor):
+--   * core.organisation + core.user_organisation allow NULL-context reads:
+--     the login route, the org-list route (GET /auth/me) and the middleware's
+--     pre-context membership check all run BEFORE any org context exists.
+--     The APPLICATION layer (membership checks in the services/middleware)
+--     remains the gate on those routes; RLS still enforces org-scoped
+--     UPDATE/DELETE and (for organisation) a permissive INSERT (org creation
+--     precedes context — P14/C-1 sets the context inside the creation
+--     transaction for the seed writes).
+--   * core.role + gst.tax_code: `org_id IS NULL OR org_id = current` — both
+--     carry SYSTEM rows (org_id NULL, shared reference data) alongside
+--     org-scoped rows (rate history / custom roles).
+--   * audit.event_log: strict org scope on SELECT/UPDATE/DELETE. INSERT stays
+--     open to the definer trigger (audit rows are written by table triggers,
+--     not by the application role directly).
+
+-- ──────────────────────────────────────────────
+-- 17a. core.organisation — enable RLS (the §12 policies were inert)
+-- ──────────────────────────────────────────────
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'core' AND c.relname = 'organisation' AND NOT c.relrowsecurity
+    ) THEN
+        ALTER TABLE core.organisation ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE core.organisation FORCE ROW LEVEL SECURITY;
+        RAISE NOTICE '§17: RLS enabled on core.organisation';
+    ELSE
+        RAISE NOTICE '§17: core.organisation already has RLS — skipping';
+    END IF;
+END
+$$;
+
+-- Bootstrap-aware policies: NULL-context SELECT (login / org list / org
+-- creation), permissive INSERT (creation precedes context), org-scoped
+-- UPDATE/DELETE.
+DROP POLICY IF EXISTS rls_select_organisation ON core.organisation;
+DROP POLICY IF EXISTS rls_insert_organisation ON core.organisation;
+DROP POLICY IF EXISTS rls_update_organisation ON core.organisation;
+DROP POLICY IF EXISTS rls_delete_organisation ON core.organisation;
+
+CREATE POLICY rls_select_organisation ON core.organisation
+    FOR SELECT USING (
+        core.current_org_id() IS NULL       -- pre-context routes (login, org list)
+        OR id = core.current_org_id()       -- org-scoped reads
+    );
+CREATE POLICY rls_insert_organisation ON core.organisation
+    FOR INSERT WITH CHECK (TRUE);           -- org creation precedes context
+CREATE POLICY rls_update_organisation ON core.organisation
+    FOR UPDATE USING (id = core.current_org_id())
+    WITH CHECK (id = core.current_org_id());
+CREATE POLICY rls_delete_organisation ON core.organisation
+    FOR DELETE USING (id = core.current_org_id());
+
+-- ──────────────────────────────────────────────
+-- 17b. core.user_organisation — membership rows
+-- ──────────────────────────────────────────────
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'core' AND c.relname = 'user_organisation' AND NOT c.relrowsecurity
+    ) THEN
+        ALTER TABLE core.user_organisation ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE core.user_organisation FORCE ROW LEVEL SECURITY;
+        RAISE NOTICE '§17: RLS enabled on core.user_organisation';
+    ELSE
+        RAISE NOTICE '§17: core.user_organisation already has RLS — skipping';
+    END IF;
+END
+$$;
+
+-- The middleware's membership verification runs BEFORE the org context is
+-- set (it must read the row to decide) — NULL-context SELECT is required;
+-- writes are org-scoped.
+DROP POLICY IF EXISTS rls_select_user_organisation ON core.user_organisation;
+DROP POLICY IF EXISTS rls_insert_user_organisation ON core.user_organisation;
+DROP POLICY IF EXISTS rls_update_user_organisation ON core.user_organisation;
+DROP POLICY IF EXISTS rls_delete_user_organisation ON core.user_organisation;
+
+CREATE POLICY rls_select_user_organisation ON core.user_organisation
+    FOR SELECT USING (
+        core.current_org_id() IS NULL       -- the pre-context membership check
+        OR org_id = core.current_org_id()
+    );
+CREATE POLICY rls_insert_user_organisation ON core.user_organisation
+    FOR INSERT WITH CHECK (org_id = core.current_org_id());
+CREATE POLICY rls_update_user_organisation ON core.user_organisation
+    FOR UPDATE USING (org_id = core.current_org_id())
+    WITH CHECK (org_id = core.current_org_id());
+CREATE POLICY rls_delete_user_organisation ON core.user_organisation
+    FOR DELETE USING (org_id = core.current_org_id());
+
+-- ──────────────────────────────────────────────
+-- 17c. core.role — system roles (org_id NULL) + org roles
+-- ──────────────────────────────────────────────
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'core' AND c.relname = 'role' AND NOT c.relrowsecurity
+    ) THEN
+        ALTER TABLE core.role ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE core.role FORCE ROW LEVEL SECURITY;
+        RAISE NOTICE '§17: RLS enabled on core.role';
+    ELSE
+        RAISE NOTICE '§17: core.role already has RLS — skipping';
+    END IF;
+END
+$$;
+
+DROP POLICY IF EXISTS rls_select_role ON core.role;
+DROP POLICY IF EXISTS rls_insert_role ON core.role;
+DROP POLICY IF EXISTS rls_update_role ON core.role;
+DROP POLICY IF EXISTS rls_delete_role ON core.role;
+
+CREATE POLICY rls_select_role ON core.role
+    FOR SELECT USING (org_id IS NULL OR org_id = core.current_org_id());
+CREATE POLICY rls_insert_role ON core.role
+    FOR INSERT WITH CHECK (org_id = core.current_org_id());
+CREATE POLICY rls_update_role ON core.role
+    FOR UPDATE USING (org_id IS NULL OR org_id = core.current_org_id())
+    WITH CHECK (org_id = core.current_org_id());
+CREATE POLICY rls_delete_role ON core.role
+    FOR DELETE USING (org_id = core.current_org_id());
+
+-- ──────────────────────────────────────────────
+-- 17d. gst.organisation_peppol_settings — strict org scope
+-- ──────────────────────────────────────────────
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'gst' AND c.relname = 'organisation_peppol_settings' AND NOT c.relrowsecurity
+    ) THEN
+        ALTER TABLE gst.organisation_peppol_settings ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE gst.organisation_peppol_settings FORCE ROW LEVEL SECURITY;
+        RAISE NOTICE '§17: RLS enabled on gst.organisation_peppol_settings';
+    ELSE
+        RAISE NOTICE '§17: gst.organisation_peppol_settings already has RLS — skipping';
+    END IF;
+END
+$$;
+
+DROP POLICY IF EXISTS rls_select_organisation_peppol_settings ON gst.organisation_peppol_settings;
+DROP POLICY IF EXISTS rls_insert_organisation_peppol_settings ON gst.organisation_peppol_settings;
+DROP POLICY IF EXISTS rls_update_organisation_peppol_settings ON gst.organisation_peppol_settings;
+DROP POLICY IF EXISTS rls_delete_organisation_peppol_settings ON gst.organisation_peppol_settings;
+
+CREATE POLICY rls_select_organisation_peppol_settings ON gst.organisation_peppol_settings
+    FOR SELECT USING (org_id = core.current_org_id());
+CREATE POLICY rls_insert_organisation_peppol_settings ON gst.organisation_peppol_settings
+    FOR INSERT WITH CHECK (org_id = core.current_org_id());
+CREATE POLICY rls_update_organisation_peppol_settings ON gst.organisation_peppol_settings
+    FOR UPDATE USING (org_id = core.current_org_id())
+    WITH CHECK (org_id = core.current_org_id());
+CREATE POLICY rls_delete_organisation_peppol_settings ON gst.organisation_peppol_settings
+    FOR DELETE USING (org_id = core.current_org_id());
+
+-- ──────────────────────────────────────────────
+-- 17e. gst.tax_code — system rows (rate history) + org rows
+-- ──────────────────────────────────────────────
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'gst' AND c.relname = 'tax_code' AND NOT c.relrowsecurity
+    ) THEN
+        ALTER TABLE gst.tax_code ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE gst.tax_code FORCE ROW LEVEL SECURITY;
+        RAISE NOTICE '§17: RLS enabled on gst.tax_code';
+    ELSE
+        RAISE NOTICE '§17: gst.tax_code already has RLS — skipping';
+    END IF;
+END
+$$;
+
+DROP POLICY IF EXISTS rls_select_tax_code ON gst.tax_code;
+DROP POLICY IF EXISTS rls_insert_tax_code ON gst.tax_code;
+DROP POLICY IF EXISTS rls_update_tax_code ON gst.tax_code;
+DROP POLICY IF EXISTS rls_delete_tax_code ON gst.tax_code;
+
+CREATE POLICY rls_select_tax_code ON gst.tax_code
+    FOR SELECT USING (org_id IS NULL OR org_id = core.current_org_id());
+CREATE POLICY rls_insert_tax_code ON gst.tax_code
+    FOR INSERT WITH CHECK (org_id = core.current_org_id());
+CREATE POLICY rls_update_tax_code ON gst.tax_code
+    FOR UPDATE USING (org_id IS NULL OR org_id = core.current_org_id())
+    WITH CHECK (org_id = core.current_org_id());
+CREATE POLICY rls_delete_tax_code ON gst.tax_code
+    FOR DELETE USING (org_id = core.current_org_id());
+
+-- ──────────────────────────────────────────────
+-- 17f. audit.event_log — strict org scope; INSERT stays open for the
+-- definer trigger (M-6b's coverage expansion is the registered P16 item)
+-- ──────────────────────────────────────────────
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'audit' AND c.relname = 'event_log' AND NOT c.relrowsecurity
+    ) THEN
+        ALTER TABLE audit.event_log ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE audit.event_log FORCE ROW LEVEL SECURITY;
+        RAISE NOTICE '§17: RLS enabled on audit.event_log';
+    ELSE
+        RAISE NOTICE '§17: audit.event_log already has RLS — skipping';
+    END IF;
+END
+$$;
+
+DROP POLICY IF EXISTS rls_select_event_log ON audit.event_log;
+DROP POLICY IF EXISTS rls_insert_event_log ON audit.event_log;
+DROP POLICY IF EXISTS rls_update_event_log ON audit.event_log;
+DROP POLICY IF EXISTS rls_delete_event_log ON audit.event_log;
+
+CREATE POLICY rls_select_event_log ON audit.event_log
+    FOR SELECT USING (org_id = core.current_org_id());
+CREATE POLICY rls_insert_event_log ON audit.event_log
+    FOR INSERT WITH CHECK (TRUE);  -- the SECURITY DEFINER trigger writes rows
+CREATE POLICY rls_update_event_log ON audit.event_log
+    FOR UPDATE USING (FALSE);      -- the audit trail is append-only
+CREATE POLICY rls_delete_event_log ON audit.event_log
+    FOR DELETE USING (FALSE);      -- 5-year retention, no deletions
+
+-- ──────────────────────────────────────────────
+-- 17g. M-6a: pin the SECURITY DEFINER audit function's search_path
+-- (privilege-escalation hardening — the function must resolve names through
+-- a pinned path, never the caller's)
+-- ──────────────────────────────────────────────
+ALTER FUNCTION audit.log_change() SET search_path = pg_catalog, audit, public;
+
+-- Verification (run manually after loading):
+--   SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+--   WHERE n.nspname IN ('core','coa','gst','journal','invoicing','banking','audit')
+--     AND c.relkind = 'r' AND c.relrowsecurity
+--   ORDER BY 1;   -- every tenant table must appear
+
+
+-- ============================================================================
 -- VERSION CHANGELOG
 -- ============================================================================
+
+-- v1.2.0 (2026-11-26) — RLS Completion (H-6 + M-6a remediation, P15 sprint)
+-- ---------------------------------------------------------------------------
+-- Six tenant-data tables gained working RLS (§17): core.organisation (the
+-- §12 policies were inert — RLS was never ENABLED), core.user_organisation,
+-- core.role, gst.organisation_peppol_settings, gst.tax_code, audit.event_log
+-- (append-only: UPDATE/DELETE refused at the policy layer). The SECURITY
+-- DEFINER function audit.log_change now pins search_path = pg_catalog,
+-- audit, public. Design tradeoffs documented in §17's header (NULL-context
+-- reads on organisation/user_organisation for the pre-context routes; the
+-- application layer's membership checks remain the gate there).
+--
+-- Applied earlier in this script as §17.
 
 -- v1.1.0 (2026-11-21) — Monetary Capacity Widening (H-03 remediation, P3 sprint)
 -- ---------------------------------------------------------------------------
@@ -3397,5 +3662,5 @@ $$;
 
 -- ╔══════════════════════════════════════════════════════════════════════════════╗
 -- ║  END OF SCHEMA SCRIPT                                                      ║
--- ║  LedgerSG v1.1.0 — PostgreSQL 16 Database Initialization                  ║
+-- ║  LedgerSG v1.2.0 — PostgreSQL 16 Database Initialization                  ║
 -- ╚══════════════════════════════════════════════════════════════════════════════╝
