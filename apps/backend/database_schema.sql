@@ -3,7 +3,7 @@
 -- ║   LEDGERSG — COMPLETE POSTGRESQL 16 DATABASE SCHEMA                        ║
 -- ║   Enterprise-Grade Accounting Software for Singapore SMBs                  ║
 -- ║                                                                            ║
--- ║   Version:    1.2.0                                                        ║
+-- ║   Version:    1.2.1                                                        ║
 -- ║   DB Engine:  PostgreSQL 16+                                               ║
 -- ║   Precision:  NUMERIC(19,4) for all monetary values                        ║
 -- ║   Encoding:   UTF-8                                                        ║
@@ -3236,6 +3236,63 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ledgersg_app;
 
 
 
+
+-- ============================================================================
+-- §15c  DJANGO FRAMEWORK TABLES (v1.2.1 — P17 fresh-host remediation)
+-- ============================================================================
+-- django.contrib tables, hand-written to honour SQL-First (the app's
+-- bundled migrations are never executed — MIGRATE = False).
+--
+-- WHY (P17): the pytest teardown of transactional tests runs the `flush`
+-- command, whose post_migrate signal (auth's create_permissions) queries
+-- django_content_type. On every environment built by the documented
+-- setup (schema load only) these tables did not exist — the teardown
+-- ERRORED on every transactional test. Long-lived dev environments had
+-- the tables from an early `manage.py migrate`; a fresh clone exposed
+-- the gap (verified live on the P17 fresh-host rebuild: "relation
+-- django_content_type does not exist" at teardown).
+--
+-- Layout mirrors django.contrib.contenttypes.models.ContentType,
+-- django.contrib.auth.models.Permission and the migrations recorder.
+-- Framework rows are global (no RLS, no org column) — same posture as
+-- the §15b token tables. django_session/django_admin_log are NOT
+-- needed by the flush path and are intentionally omitted.
+
+CREATE TABLE IF NOT EXISTS public.django_content_type (
+    id          BIGSERIAL PRIMARY KEY,
+    app_label   VARCHAR(100) NOT NULL,
+    model       VARCHAR(100) NOT NULL,
+    CONSTRAINT django_content_type_app_label_model_key UNIQUE (app_label, model)
+);
+
+CREATE TABLE IF NOT EXISTS public.auth_permission (
+    id              BIGSERIAL PRIMARY KEY,
+    name            VARCHAR(255) NOT NULL,
+    content_type_id BIGINT NOT NULL
+                    REFERENCES public.django_content_type(id)
+                    DEFERRABLE INITIALLY DEFERRED,
+    codename        VARCHAR(100) NOT NULL,
+    CONSTRAINT auth_permission_content_type_id_codename_key
+        UNIQUE (content_type_id, codename)
+);
+
+CREATE TABLE IF NOT EXISTS public.django_migrations (
+    id      BIGSERIAL PRIMARY KEY,
+    app     VARCHAR(255) NOT NULL,
+    name    VARCHAR(255) NOT NULL,
+    applied TIMESTAMPTZ NOT NULL,
+    CONSTRAINT django_migrations_app_name_key UNIQUE (app, name)
+);
+
+-- Framework role access (flush + post_migrate read/write these)
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    public.django_content_type,
+    public.auth_permission,
+    public.django_migrations
+    TO ledgersg_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ledgersg_app;
+
+
 -- ============================================================================
 -- §16  MONETARY CAPACITY WIDENING (v1.1.0 — H-03 remediation, 2026-11-21)
 -- ============================================================================
@@ -3613,6 +3670,19 @@ ALTER FUNCTION audit.log_change() SET search_path = pg_catalog, audit, public;
 -- VERSION CHANGELOG
 -- ============================================================================
 
+-- v1.2.1 (2026-11-27) — Django Framework Tables (P17 fresh-host remediation)
+-- ---------------------------------------------------------------------------
+-- §15c: public.django_content_type, public.auth_permission and
+-- public.django_migrations, hand-written (SQL-First; MIGRATE = False
+-- means Django never creates them). The flush command's post_migrate
+-- signal (auth create_permissions) queries django_content_type; on any
+-- environment built by the documented setup the table was missing and
+-- every transactional pytest teardown ERRORED. Framework tables are
+-- global (no RLS) — the §15b token-blacklist posture. django_session /
+-- django_admin_log are not touched by the flush path and stay omitted.
+--
+-- Applied earlier in this script as §15c.
+
 -- v1.2.0 (2026-11-26) — RLS Completion (H-6 + M-6a remediation, P15 sprint)
 -- ---------------------------------------------------------------------------
 -- Six tenant-data tables gained working RLS (§17): core.organisation (the
@@ -3671,5 +3741,5 @@ ALTER FUNCTION audit.log_change() SET search_path = pg_catalog, audit, public;
 
 -- ╔══════════════════════════════════════════════════════════════════════════════╗
 -- ║  END OF SCHEMA SCRIPT                                                      ║
--- ║  LedgerSG v1.2.0 — PostgreSQL 16 Database Initialization                  ║
+-- ║  LedgerSG v1.2.1 — PostgreSQL 16 Database Initialization                  ║
 -- ╚══════════════════════════════════════════════════════════════════════════════╝

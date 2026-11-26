@@ -341,3 +341,66 @@ def test_service_keeps_the_tenant_audit_middleware(monkeypatch):
             "API path runs without it (P16/BE-H1: no org context, no audit "
             "attribution, no CSP)"
         )
+
+
+def test_admin_route_is_gated_off_in_testing_and_production(monkeypatch):
+    """P17/BE-L3: /admin/ must not mount in non-development settings — the
+    route carried a session-auth + password-reset surface into every mode
+    while its own comment said "development only in production"."""
+    import importlib
+    import sys
+
+    from django.conf import settings as dj_settings
+    from django.urls import resolve, Resolver404
+    import pytest
+
+    # The URLconf reads ENABLE_ADMIN at import time — reload it for each
+    # posture under test (the settings-gate pattern of this module).
+    def _reload_urlconf(enable_admin: bool):
+        for mod in list(sys.modules):
+            if mod.startswith("config.settings") or mod == "config.urls":
+                del sys.modules[mod]
+        import config.settings.testing as testing_settings
+
+        importlib.reload(testing_settings)
+        monkeypatch.setattr(dj_settings, "ENABLE_ADMIN", enable_admin, raising=False)
+        import config.urls as urlconf
+
+        importlib.reload(urlconf)
+        from django.urls import clear_url_caches
+
+        clear_url_caches()
+        return urlconf
+
+    urlconf = _reload_urlconf(enable_admin=False)
+    assert urlconf.urlpatterns and not any(
+        getattr(p, "pattern", None) and str(p.pattern) == "admin/" for p in urlconf.urlpatterns
+    ), "the admin route must not mount when ENABLE_ADMIN is false"
+    with pytest.raises(Resolver404):
+        resolve("/admin/login/")
+
+    urlconf = _reload_urlconf(enable_admin=True)
+    match = resolve("/admin/login/")
+    assert "admin" in match.app_name or "admin" in match.view_name
+
+
+def test_production_uses_storages_not_legacy_staticfiles_storage(monkeypatch):
+    """P17/BE-L4: Django 6 reads STORAGES only — STATICFILES_STORAGE is a
+    silent no-op, so the intended WhiteNoise manifest/compressed storage
+    never actually engaged. Production must set the modern dict."""
+    import importlib
+    import sys
+
+    for mod in list(sys.modules):
+        if mod.startswith("config.settings"):
+            del sys.modules[mod]
+    monkeypatch.setenv("SECRET_KEY", "x" * 56)
+    import config.settings.production as prod
+
+    importlib.reload(prod)
+    storages = getattr(prod, "STORAGES", None)
+    assert storages is not None, "production must define STORAGES (Django 6 contract)"
+    assert (
+        storages.get("staticfiles", {}).get("BACKEND")
+        == "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    ), storages

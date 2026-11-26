@@ -181,8 +181,19 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# WhiteNoise configuration for static files in production
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# P17/BE-L4: Django 6 reads only the STORAGES dict — the legacy
+# STATICFILES_STORAGE setting was a silent no-op (verified against the
+# installed django package: zero reads), so the WhiteNoise manifest
+# contract never actually engaged. Base uses plain staticfiles storage
+# (development); production overrides the backend below.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 # =============================================================================
 # DEFAULT PRIMARY KEY FIELD TYPE

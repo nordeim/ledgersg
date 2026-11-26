@@ -167,3 +167,7 @@ SHELL_PLUS_PRINT_SQL = True
 SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
+
+# P17/BE-L3: the /admin/ route mounts only when ENABLE_ADMIN is true
+# (gated in config/urls.py — development convenience, production OFF).
+ENABLE_ADMIN = config("ENABLE_ADMIN", default=True, cast=bool)

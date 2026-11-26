@@ -139,7 +139,15 @@ LOGGING = {
 # STATIC FILES (Production)
 # =============================================================================
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# P17/BE-L4: the Django 6 STORAGES contract — compressed + hashed
+# manifest storage (the STATICFILES_STORAGE line it replaces was never
+# read by Django 6, so this posture silently did not engage).
+STORAGES = {
+    **{k: v for k, v in STORAGES.items() if k != "staticfiles"},
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # =============================================================================
 # ADMINS AND MANAGERS
@@ -158,3 +166,7 @@ MANAGERS = ADMINS
 # Only report errors via Sentry (configured in base.py)
 # Disable email error reporting to avoid spam
 SEND_BROKEN_LINK_EMAILS = False
+
+# P17/BE-L3: the /admin/ route mounts only when ENABLE_ADMIN is true
+# (gated in config/urls.py — development convenience, production OFF).
+ENABLE_ADMIN = config("ENABLE_ADMIN", default=False, cast=bool)

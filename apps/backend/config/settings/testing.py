@@ -151,3 +151,7 @@ CELERY_TASK_EAGER_PROPAGATES = True
 
 # Speed up tests
 DEBUG_PROPAGATE_EXCEPTIONS = True
+
+# P17/BE-L3: the /admin/ route mounts only when ENABLE_ADMIN is true
+# (gated in config/urls.py — development convenience, production OFF).
+ENABLE_ADMIN = config("ENABLE_ADMIN", default=False, cast=bool)

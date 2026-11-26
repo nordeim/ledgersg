@@ -161,6 +161,14 @@ urlpatterns = debug_urlpatterns + [
     path("api/v1/", include("apps.core.urls")),
     # Org-scoped modules (handled by tenant middleware)
     path("api/v1/<uuid:org_id>/", include(org_scoped_urlpatterns)),
-    # Admin (development only in production)
-    path("admin/", admin.site.urls),
 ]
+
+
+# Admin — gated (P17/BE-L3): the comment said "development only in
+# production" for three sprints while the route mounted unconditionally
+# in every mode (a session-auth + password-reset attack surface in
+# production). ENABLE_ADMIN=true opts in explicitly (e.g. a private ops
+# network); production and testing boot with it OFF.
+if getattr(settings, "ENABLE_ADMIN", False):
+    urlpatterns.append(path("admin/", admin.site.urls))
+
