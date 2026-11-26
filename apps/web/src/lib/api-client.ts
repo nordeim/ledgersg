@@ -230,6 +230,30 @@ function resolveErrorMessage(
  * @returns {Promise<boolean>} True if token was refreshed successfully
  */
 async function tryRefreshToken(): Promise<boolean> {
+  // P15/F-B(a) — SINGLE-FLIGHT: concurrent 401s (two parallel requests
+  // whose tokens expired together) must share ONE refresh call. The
+  // backend rotates the token pair and blacklists the old refresh token
+  // (the P4 contract), so a second in-flight refresh with the
+  // pre-rotation cookie gets 401 and its failure path would kill the
+  // session (clearAuth + hard redirect) for no user-visible reason —
+  // the live e2e suite caught exactly this mid-run. The second caller
+  // awaits the SAME promise; a fresh 401 after the flight completes
+  // starts a new one.
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+
+  refreshInFlight = doRefreshToken();
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
+}
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function doRefreshToken(): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh/`, {
       method: "POST",

@@ -127,8 +127,12 @@ test.describe("Self-serve loop (P10/H-2 + P9 org-creation, live)", () => {
 
     // The org-creation page completes the loop (unique UEN per run — the
     // org-create endpoint now 400s on taken UENs instead of 500ing).
+    // P14/M-1 (F-B d): the UEN must match a real ACRA format — the M-1
+    // gate now rejects the old pseudo-UEN (E2EP10...). Business form:
+    // 8 digits + check letter.
     await page.getByLabel(/organisation name/i).fill(`E2E P10 Org ${stamp}`);
-    await page.getByLabel(/uen/i).fill(`E2EP10${String(stamp).slice(-9)}X`);
+    const uenDigits = String(stamp).replace(/\D/g, "").padStart(8, "7").slice(-8);
+    await page.getByLabel(/uen/i).fill(`${uenDigits}X`);
     await page.getByRole("button", { name: /create organisation/i }).click();
 
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });

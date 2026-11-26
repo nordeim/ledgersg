@@ -81,6 +81,8 @@ interface DocumentRow {
   document_number: string;
   document_type: string;
   status: string;
+  total_incl: string;
+  amount_paid: string;
 }
 
 /**
@@ -121,15 +123,22 @@ async function ensureDemoActivity(page: import("@playwright/test").Page) {
 
   // Documents: reuse posted ones when present (APPROVED or settled-PAID —
   // both carry journal entries; the F5/dashboard truth is the same).
+  // P14/H-4 (F-B c): the CN's original invoice needs CAP HEADROOM — the
+  // cumulative credit (incl. GST) may not exceed the original total. A
+  // 250.00+GST CN needs an invoice with >= 272.50 uncredited, so an
+  // arbitrary reused invoice (e.g. the banking spec's 80.00 one) cannot
+  // be the original.
   const docs = (await (
     await page.request.get(`${apiUrl}/api/v1/${orgId}/invoicing/documents/`, {
       headers: auth,
     })
   ).json()) as { results: DocumentRow[] };
+  const cnGross = 250.0 * 1.09; // the CN this helper creates (incl. GST)
   const postedInv = docs.results.find(
     (d) =>
       d.document_type === "SALES_INVOICE" &&
-      ["APPROVED", "PAID"].includes(d.status)
+      ["APPROVED", "PAID"].includes(d.status) &&
+      parseFloat(d.total_incl) - parseFloat(d.amount_paid || "0") >= cnGross + 1
   );
   const postedCn = docs.results.find(
     (d) =>
@@ -158,7 +167,12 @@ async function ensureDemoActivity(page: import("@playwright/test").Page) {
       );
     }
 
-    const make = async (type: string, reference: string, lines: unknown[]) => {
+    const make = async (
+      type: string,
+      reference: string,
+      lines: unknown[],
+      relatedDocumentId?: string
+    ) => {
       const created = await page.request.post(`${apiUrl}/api/v1/${orgId}/invoicing/documents/`, {
         headers: auth,
         data: {
@@ -167,6 +181,9 @@ async function ensureDemoActivity(page: import("@playwright/test").Page) {
           issue_date: new Date().toISOString().slice(0, 10),
           reference,
           lines,
+          // P14/H-4 (F-B b): a credit note must reference the original
+          // invoice it corrects.
+          related_document_id: relatedDocumentId,
         },
       });
       test.expect(created.ok()).toBeTruthy();
@@ -176,10 +193,12 @@ async function ensureDemoActivity(page: import("@playwright/test").Page) {
         { headers: auth, data: {} }
       );
       test.expect(approved.ok()).toBeTruthy();
+      return body.id;
     };
 
-    if (!postedInv) {
-      await make("SALES_INVOICE", "E2E-P11-INV", [
+    let invId = postedInv?.id;
+    if (!invId) {
+      invId = await make("SALES_INVOICE", "E2E-P11-INV", [
         {
           account_id: revenue.id,
           description: "P11 live gate — consulting",
@@ -190,23 +209,45 @@ async function ensureDemoActivity(page: import("@playwright/test").Page) {
       ]);
     }
     if (!postedCn) {
-      await make("SALES_CREDIT_NOTE", "E2E-P11-CN", [
-        {
-          account_id: revenue.id,
-          description: "P11 live gate — partial return",
-          quantity: "1.0000",
-          unit_price: "250.0000",
-          tax_code_id: sr.id,
-        },
-      ]);
+      await make(
+        "SALES_CREDIT_NOTE",
+        "E2E-P11-CN",
+        [
+          {
+            account_id: revenue.id,
+            description: "P11 live gate — partial return",
+            quantity: "1.0000",
+            unit_price: "250.0000",
+            tax_code_id: sr.id,
+          },
+        ],
+        invId
+      );
     }
   }
 
-  // A computed F5 return for the current period.
-  const returns = (await (
+  // A computed F5 return for the current period. F-A (P14): on a fresh
+  // database NO return exists — create the MONTHLY period for the current
+  // month first (the pre-P14 helper only force-computed an existing row,
+  // so a fresh-clone test:e2e:full failed the F5/banking specs despite
+  // DEPLOYMENT.md §9's self-bootstrap claim).
+  let returns = (await (
     await page.request.get(`${apiUrl}/api/v1/${orgId}/gst/returns/`, { headers: auth })
   ).json()) as { results: Array<{ id: string }> };
-  const returnId = returns.results[0]?.id;
+  let returnId = returns.results[0]?.id;
+  if (!returnId) {
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const created = await page.request.post(`${apiUrl}/api/v1/${orgId}/gst/returns/`, {
+      headers: auth,
+      data: { filing_frequency: "MONTHLY", start_date: monthStart, periods: 1 },
+    });
+    test.expect(created.ok()).toBeTruthy();
+    const createdBody = (await created.json()) as {
+      data: Array<{ id: string }>;
+    };
+    returnId = createdBody.data[0]?.id;
+  }
   if (returnId) {
     const computed = await page.request.post(
       `${apiUrl}/api/v1/${orgId}/gst/returns/${returnId}/?force=true`,
