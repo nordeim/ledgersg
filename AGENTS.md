@@ -2,19 +2,21 @@ LedgerSG Project Status — Comprehensive Summary
 Executive Overview
 LedgerSG is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs with IRAS 2026 compliance. The platform has undergone significant development across multiple phases, achieving enterprise-grade security, comprehensive test coverage, and a complete banking UI.
 ---
-Current Status (2026-11-24 — P13 remediated; see the sprint-patterns sections
-at the bottom of this file for P0–P13 and the README status table for the
+Current Status (2026-11-26 — P15 remediated; see the sprint-patterns sections
+at the bottom of this file for P0–P15 and the README status table for the
 live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 27):
-- Backend: pytest 750 passed / 0 failed / 5 skipped (755 collected)
-- Frontend: vitest 530/530, tsc --noEmit 0 errors
+Current truth (all gates executed and green, session 30):
+- Backend: pytest 834 passed / 0 failed / 5 skipped (839 collected)
+- Frontend: vitest 532/532, tsc --noEmit 0 errors
 - E2E: 40 specs (11 always-green + 29 backend-gated); live run 40P/0F/0S
-- ESLint whole-tree: 9 findings (P13 cleared the 36 any-casts)
-- Coverage: green at the ratchet (whole-suite 63/51/52/62 + src/lib
-  per-glob 73/52/74/71); build:server green; schema v1.1.0
+- Runtime-role smoke: 13/13 steps green as ledgersg_app (C-1/H-7)
+- ESLint whole-tree: 9 findings (the documented deferred register)
+- Coverage: green at the ratchet (whole-suite + src/lib per-glob);
+  build:server green; schema v1.2.0 (§17 RLS complete)
+- npm audit / pip-audit: zero known advisories on the production sets
 ---
 Major Completed Work
 1. Authentication Flow Remediation (Defense-in-Depth) ✅ COMPLETE
@@ -1378,3 +1380,69 @@ and `next dev` the same survival — the one-call constraint of earlier
 sessions no longer forces servers+audit into a single call. Next dev
 needs a manual restart for next.config.ts changes (HMR covers source
 only).
+
+
+## 2026-11-26 P15 Sprint — New Patterns & Lessons (session 30)
+
+### A Partially-Committed Sprint Is a Tree-Corruption Vector (R-0)
+The interrupted session-29 committed its P14 work to wrong paths: the real
+Payment MODEL file was overwritten with the payment SERIALIZER (a circular
+import killed `manage.py check`), while the C-1/C-2/H-05b fixes sat
+stranded at `apps/backend/` root where no import could reach them. Lesson:
+when a session is interrupted mid-commit, the NEXT session must first
+verify the tree boots before building anything on it — `manage.py check`
+is the cheapest possible corruption probe, and `git show <commit>~1:<path>`
+is the ground truth for what a file should contain. Repair = restore the
+destroyed file from the parent commit + relocate the stranded fixes (diff
+first — port the FIX BLOCKS into the canonical files, do not adopt
+wholesale rewrites that diverged from canonical).
+
+### Never-Run RED Suites Carry Their Own Bugs (R-0.7)
+The P14 test files had never executed (the backend could not boot). Five
+test-side defects surfaced only at first run: a DRF-vs-LedgerSG
+ValidationError import mismatch, a fixture that created a duplicate fiscal
+year (UNIQUE violation), approve-path tests that skipped the state
+machine, posting fixtures without document lines, and a cursor-spy that
+reursed when Django used the cursor outside a with-block. Lesson: a RED
+suite written blind is a HYPOTHESIS batch — diagnose every failure as
+either a genuine implementation gap (write the fix) or a test-side bug
+(fix the test), and never treat the batch as uniformly correct.
+
+### RLS Completion Must Account for the Pre-Context Reads (§17c)
+Enabling RLS on `core.role` with org-scoped-only SELECT broke EVERY
+org-scoped request: the middleware attaches `request.org_role` BEFORE the
+org context is set — the role row vanished behind the policy and every
+permission gate saw an empty role. Lesson: enumerate every pre-context
+read path (login, org-list, the membership+role attach) before choosing
+policy predicates; NULL-context SELECT on the membership/role tables is
+the documented tradeoff (the app-layer membership checks remain the gate).
+
+### lxml Parser Flags Are Write-Only (X-1)
+`etree.XMLParser(resolve_entities=False, ...)` accepts the flags but the
+parser object exposes NONE of them for reading — a config gate that
+asserts `parser.resolve_entities is False` fails on a missing attribute.
+Ship the policy as a module-level constant the parser is built from and
+gate THAT (single source of truth).
+
+### The M-Form GST Number Has Two Documented Lengths (M-1)
+The OECD TIN guide specifies ASGD = ANNNNNNNC (9 chars — M + 7 digits +
+check letter), while real IRAS-issued numbers on company documents are
+M + 8 digits + check letter (10 chars, e.g. M90356174N). Accept both
+(`^M\d{7,8}[A-Z]$`); inventing a checksum remains the registered P16
+decision. Lesson: when authoritative sources disagree on a format's
+length, accept the union unless one form is provably dead — a validator
+that rejects real numbers is worse than one that accepts both.
+
+### npm audit fix --omit=dev PRunes the Dev Tree (H-8 follow-up)
+Running `npm audit fix --omit=dev` removed vitest/playwright from
+node_modules (the flag filters what gets INSTALLED, not just what gets
+AUDITED). The fix: run the audit fix, then a plain `npm install` to
+restore devDependencies — verify with the dev bins before running gates.
+
+### A Dup-Definition Serializer Is the F811 Tell (M-4)
+Adding a "new" InvoiceLineCreateSerializer without checking for an
+existing one created a silent shadow (the second definition wins — the
+P5/A-6 anti-pattern in class form). The lint warning (F811) caught it
+before it shipped a behavior change to the line-add endpoint. Lesson:
+grep for the class name before defining a serializer; lint parity on
+touched files is a functional gate, not a style gate.

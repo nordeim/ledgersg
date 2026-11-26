@@ -648,3 +648,56 @@ ruff register, D-24 — plus everything carried forward from P11/P12.
 Conventional commits on `main` per plan §5; pushed via
 `docs/ssh_git_wrapper_v3.py --remote git@github.com:nordeim/ledgersg.git`
 (paramiko shim; key shredded after push).
+
+---
+
+## 2026-11-26 — P15 Sprint: Tree Repair, P14 Completion & the Runtime-Role Gate (session 30)
+
+**Base:** `4ad18d2e` · **Plan:** `docs/REMEDIATION_PLAN_2026-11-26_P15.md` ·
+**Report:** `docs/REMEDIATION_2026-11-26_P15_REPORT.md`
+
+The interrupted session-29 had committed its P14 work to wrong paths
+(`2bcb43f0`): the Payment MODEL was overwritten by the payment SERIALIZER
+(circular import — the backend could not run `manage.py check`), and the
+C-1/C-2/H-05b/H-3 fixes sat stranded at `apps/backend/` root. This sprint
+repaired the tree and completed the P14 remediation end to end.
+
+### What was fixed (TDD where implementations were missing; every committed RED test diagnosed)
+
+| Task | Fix | Evidence |
+|---|---|---|
+| R-0 (the repair) | Payment model restored from `2bcb43f0~1`; the stranded fixes relocated (period_lock, validators with both M-form lengths, the C-1 set_config block, the C-2/H-05b ports); 5 test-side bugs in the never-run RED suite fixed | backend boots (check green); the suite's failures map only to missing implementations |
+| C-2 | FILED/AMENDED returns immutable — even `force=true` (409) | 5 tests + the tie-out ordering fix |
+| H-1 + H-2 | allocation cap + the instalment status set | the committed contract tests green |
+| H-3 | the GST period lock on approve/void/journal/payment-void | 4 tests (refusals + the after-period control) |
+| H-4 | credit notes require + cap against the original invoice; `related_document_id` through the API | 9 guard tests + the P11 tests updated (8) |
+| H-5 | the GST-registration guard (verified — the interrupted session placed it correctly) | 9 tests green |
+| H-6 + M-6a + M-7c | schema **v1.2.0 §17**: RLS on the six remaining tenant tables; the audit log append-only; `audit.log_change` pins search_path; the §17c NULL-context role refinement (the live smoke exposed the pre-context role read) | conformance tests + the live psql probes |
+| C-1 + H-7 | org creation sets the RLS context; **the runtime-role gate live: 13/13 smoke steps as `ledgersg_app`** (org creation 201 — the audit's 500 inverted) | rls_smoke + isolation probes (fail-closed, append-only) |
+| M-4 | the line-item schema (merged into the existing serializer — F811 caught the duplicate); 400s not 500s | 7 tests |
+| M-1 | honest ACRA/IRAS validators wired (both M-form lengths + the UEN form; the invalid `^\d{10}$` branch gone) | 23 parametrised cases + the serializer contracts |
+| X-1 | the hardened lxml parser (`_HARDENED_PARSER_FLAGS` — the flags are write-only) | 5 tests |
+| H-05b | override_reason required with box overrides; the reason + deltas persist into notes | 5 tests |
+| H-04b | NRIC PayNow masking on read + masked-echo rejection (PDPA) | 4 tests |
+| M-5 | the Viewer role is read-only (contacts + send gated on `can_create_invoices`) | 6 tests |
+| M-10 | the tax-code band dedupe (org shadows system; history intact) | 3 tests (RED first) |
+| H-8 | django 6.0.10, DRF 3.18.3, lxml 6.1.3, weasyprint 70, next 16.4.6, zod 4.6.7 — **0 known advisories on both production sets** | full gates on the upgraded tree |
+| H-9 | the service.py key gate + env ALLOWED_HOSTS; the Docker per-boot strong key | 3 settings-gate tests |
+| F-A + F-B | the e2e bootstrap creates the F5 return; linked-CN + cap-headroom + real-UEN contracts; **single-flight refresh** (the rotation race killed sessions mid-suite) | live e2e 40P/0F/0S + 2 vitest |
+
+### Final gate (all Verified, executed)
+
+backend **834P/0F/5S** (invariants 34P; security 72P/3S) · vitest **532/532**
+· typecheck 0 · coverage green at both ratchets · eslint **9** ·
+build:server green · e2e default 11P + 29 gated · **live e2e:full
+40P/0F/0S** · **rls_smoke 13/13 as `ledgersg_app`** · GST live proof 9.00 ·
+**mobile-nav 17/17 (the navigation works; no Tailwind v4 bug exists)** ·
+8 verified screenshots (80-87_session30) · pip/npm audits clean.
+
+### Deferred (registered, not dropped)
+
+The UEN checksum (pending the official ACRA algorithm) + F-form foreign UENs;
+the H-3 DB-trigger layer; the H-05b attachment model; everything carried
+forward from the P14 §6 and P13 registers (audit1 M-2/M-3/M-6b/M-8/M-9/M-7-
+full; audit2 M-01..M-05/M-07/M-08; B-3/B-4/B-8/B-9/B-12/B-15..B-19; the
+frontend L-batch; the 9 eslint findings; the ruff register).

@@ -6,13 +6,18 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-23, session 23 / P11) re-verified every command against the current
-codebase (backend 735P/0F/5S, vitest 518/518, typecheck 0 errors,
-build:server green, live e2e 40P/0F/0S (40 specs) — including the P11 accounting-truth
-specs and the P12 mobile-nav a11y specs; re-verified in session 25 / P12).
+(2026-11-26, session 30 / P15) re-verified every command against the current
+codebase on a fresh sandbox (backend 834P/0F/5S, vitest 532/532, typecheck
+0 errors, build:server green, live e2e 40P/0F/0S (40 specs), the
+runtime-role smoke 13/13 as `ledgersg_app`) — including the P14 statutory
+contracts (FILED-return immutability, the GST period lock, linked credit
+notes, the allocation cap), the §17 RLS completion (schema v1.2.0), the
+H-8 dependency upgrades (Django 6.0.10, DRF 3.18.3, Next 16.4.6, zod
+4.6.7 — zero known advisories on the production dependency sets) and the
+P15 tree repair after the corrupted `2bcb43f0` commit.
 
 Verified truths this guide is built on: the schema file
-`apps/backend/database_schema.sql` (v1.1.0) CREATEs ROLEs inside DO blocks
+`apps/backend/database_schema.sql` (v1.2.0) CREATEs ROLEs inside DO blocks
 so the loader must connect as a SUPERUSER; the backend suite requires
 `--reuse-db --no-migrations` against a pre-initialised `test_ledgersg_dev`;
 Redis on `:6379` is a hard prerequisite even for dev (the tenant middleware
@@ -156,7 +161,7 @@ in-place widening block at the end of `database_schema.sql` (monetary
 columns 10,4 → 19,4; idempotent — it skips when nothing remains):
 
 ```bash
-psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -f - < <(sed -n '/^-- §16/,/^-- v1.1.0/p' database_schema.sql)
+psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -f - < <(sed -n '/^-- §16/,/^-- §17/p' database_schema.sql)
 ```
 
 **Never run `python manage.py makemigrations`** — schema changes are
@@ -196,9 +201,11 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-23 P11): 735 passed, 0 failed, 5 skipped
-pytest tests/invariants -q    # 27 passed (schema conformance + capacity + balance)
-pytest tests/security -q      # 66 passed, 3 skipped (RLS, tokens, cookies, posture gates)
+# expected (post-2026-11-26 P15): 834 passed, 0 failed, 5 skipped
+pytest tests/invariants -q    # 34 passed (conformance, capacity, balances,
+                              # filed-return immutability, GST lock, RLS)
+pytest tests/security -q      # 72 passed, 3 skipped (RLS, tokens, cookies,
+                              # posture gates incl. the service-key gate)
 ```
 
 ## 8. Run the backend
@@ -549,6 +556,21 @@ Port 80 should redirect to 443 (Django also redirects at the app layer).
 
 then set `DB_USER=ledgersg_app` + that password in the backend `.env`
 (the dev role `ledgersg` keeps its SUPERUSER for schema loads only).
+
+**Verify the runtime role before traffic** (P14/C-1 + H-7 — the whole gate
+previously ran as SUPERUSER, which bypasses RLS). Start a second backend
+as the app role and walk the full onboarding path:
+
+```bash
+cd apps/backend && source .venv/bin/activate
+DB_NAME=ledgersg_dev DB_USER=ledgersg_app DB_PASSWORD=<a-real-secret> \
+DB_HOST=127.0.0.1 DB_PORT=5432 DJANGO_SETTINGS_MODULE=config.settings.development \
+python manage.py runserver 127.0.0.1:8001 --noreload &
+python ../../scripts/rls_smoke.py --base http://127.0.0.1:8001
+# expected: "13/13 steps green as ledgersg_app" — register → create org
+# (201 — the C-1 regression) → contact → invoice → approve (journal posts
+# under RLS) → bank account → payment+allocation → F5 compute
+```
 
 ### 12.4 Email (SMTP)
 

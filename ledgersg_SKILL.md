@@ -1,9 +1,9 @@
 ---
 name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 2.2.0
-last_updated: 2026-11-24
-project_state: "P13 remediated; all gates green — 750 backend tests (0 failed, 5 skipped), frontend 530 vitest + 40 e2e (11 default / 29 backend-gated; the live suite 40P/0F/0S), typecheck 0 errors, coverage green at the ratchet (whole-suite 63/51/52/62 + the src/lib per-glob floor 73/52/74/71), standalone the only build (export retired); eslint whole-tree 9 findings (the 36 any-casts cleared in P13; remaining register = mounted-gates + exhaustive-deps + immutability + compiler-informational); schema v1.1.0 NUMERIC(19,4) money; P12: the mobile nav verified working live at 375/800/1280 (rule-by-rule cascade trace — the display:flex reading was flex-item blockification, NOT a Tailwind v4 bug; the v4 setup is clean), the open menu is a modal overlay (Escape close, focus trap, body scroll lock, focus return — 7 vitest + 3 gated e2e), data-scroll-behavior=smooth on <html>, API_CLI guide re-verified live; P11: credit notes post REVERSED GL entries and NET in the F5 computation (quotes excluded), production settings boot (builtin Redis cache, LOG_DIR env knob, debug_toolbar one gate), the contacts edit dialog prefills from the DETAIL endpoint and a save persists uen/gst_reg_number/peppol_id, the F5 boxes panel renders computed values (real box keys), the dashboard GST payable equals the F5 net GST, typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission, CI runs coverage, the Docker path boots, CSP unsafe-* dev-only"
+version: 2.4.0
+last_updated: 2026-11-26
+project_state: "P15 remediated; all gates green — 834 backend tests (0 failed, 5 skipped), frontend 532 vitest + 40 e2e (40/40 live), typecheck 0, coverage green at both ratchets, eslint 9, the runtime-role smoke 13/13 as ledgersg_app (org creation 201 under RLS — the C-1 inversion), schema v1.2.0 (§17 completed RLS on every tenant table; the audit log is append-only; audit.log_change pins search_path), zero known dependency advisories (Django 6.0.10, DRF 3.18.3, lxml 6.1.3, WeasyPrint 70, Next 16.4.6, zod 4.6.7), the tree repaired after the corrupted 2bcb43f0 commit, P14 complete (FILED immutability, GST lock, linked CNs, allocation cap, honest validators, line-item 400s, NRIC masking, Viewer read-only, XXE hardening, tax-code dedupe, single-flight refresh); P13 state — 750 backend tests (0 failed, 5 skipped), frontend 530 vitest + 40 e2e (11 default / 29 backend-gated; the live suite 40P/0F/0S), typecheck 0 errors, coverage green at the ratchet (whole-suite 63/51/52/62 + the src/lib per-glob floor 73/52/74/71), standalone the only build (export retired); eslint whole-tree 9 findings (the 36 any-casts cleared in P13; remaining register = mounted-gates + exhaustive-deps + immutability + compiler-informational); schema v1.1.0 NUMERIC(19,4) money; P12: the mobile nav verified working live at 375/800/1280 (rule-by-rule cascade trace — the display:flex reading was flex-item blockification, NOT a Tailwind v4 bug; the v4 setup is clean), the open menu is a modal overlay (Escape close, focus trap, body scroll lock, focus return — 7 vitest + 3 gated e2e), data-scroll-behavior=smooth on <html>, API_CLI guide re-verified live; P11: credit notes post REVERSED GL entries and NET in the F5 computation (quotes excluded), production settings boot (builtin Redis cache, LOG_DIR env knob, debug_toolbar one gate), the contacts edit dialog prefills from the DETAIL endpoint and a save persists uen/gst_reg_number/peppol_id, the F5 boxes panel renders computed values (real box keys), the dashboard GST payable equals the F5 net GST, typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission, CI runs coverage, the Docker path boots, CSP unsafe-* dev-only"
 ---
 
 # LedgerSG — Engineering Skill
@@ -649,6 +649,41 @@ write inside `transaction.atomic()`; new tests RED before the fix.
    locator cannot resolve a visibility:hidden element — the a11y-tree
    exclusion IS the fix working (use a CSS locator for closed-state
    assertions).
+
+59. (P15) An interrupted session's partial commit is a tree-corruption
+vector: the model file was overwritten by serializer code (circular
+import — `manage.py check` is the cheapest corruption probe) and the real
+fixes sat at wrong paths. Repair from the parent commit (`git show
+<commit>~1:<path>`), port fix BLOCKS into canonical files (diff first,
+never adopt wholesale rewrites), and never build on an unverified tree.
+
+60. (P15) A never-run RED suite is a hypothesis batch, not a spec: five
+test-side bugs surfaced at first execution (wrong ValidationError import,
+a duplicate fiscal-year fixture, state-machine-skipping approve tests,
+line-less posting fixtures, a recursing cursor spy). Diagnose every
+failure as implementation-gap OR test-bug — never treat the batch as
+uniformly correct.
+
+61. (P15) RLS completion must account for PRE-CONTEXT reads: the
+middleware attaches request.org_role before the org context exists, so
+an org-scoped-only policy on core.role broke every org-scoped request
+(403s across the board). NULL-context SELECT on the membership/role
+tables is the documented tradeoff (§17b/§17c); enumerate every
+pre-context read before choosing policy predicates.
+
+62. (P15) lxml parser flags are write-only — a config gate cannot read
+them back. Ship the policy as a module constant the parser builds from
+(X-1). And the IRAS M-form GST number has TWO documented lengths (OECD
+ANNNNNNNC 9-char + real-world 10-char, e.g. M90356174N) — accept the
+union (`^M\d{7,8}[A-Z]$`); a validator that rejects real numbers is
+worse than one accepting both (M-1).
+
+63. (P15) `npm audit fix --omit=dev` PRUNES devDependencies from
+node_modules (vitest/playwright vanish) — follow it with a plain
+`npm install` and verify the dev bins. And a duplicate serializer class
+definition silently wins (F811) — grep for the class name before
+defining one; lint parity on touched files is a functional gate.
+
 
 ## 12. Quick Reference Card
 

@@ -1,8 +1,12 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.8.0
-> **Last Updated**: 2026-11-23
+> **Version**: 3.10.0
+> **Last Updated**: 2026-11-26
+> **P15 note**: tree repair + P14 completion + the runtime-role gate — the corrupted `2bcb43f0` commit (Payment model destroyed, P14 fixes misplaced) repaired; FILED F5 returns immutable (409), the GST period lock blocks back-posting, credit notes require+cap against the original invoice, allocations capped at the outstanding balance, RLS complete on every tenant table (schema v1.2.0 §17 — the audit log is append-only; `audit.log_change` pins search_path), the full onboarding path verified live as the non-superuser `ledgersg_app` role (13/13 smoke steps), honest ACRA/IRAS identity validators, the line-item 400 contract, NRIC PayNow masking (PDPA), Viewer read-only, XXE-hardened XML, zero known dependency advisories (Django 6.0.10 / DRF 3.18.3 / Next 16.4.6), single-flight token refresh; see `docs/REMEDIATION_PLAN_2026-11-26_P15.md`.
+>
+> **P14 note**: the statutory + runtime-role sprint (planned 2026-11-25, completed by P15 after the interrupted commit) — see the P15 note above for the shipped state.
+>
 > **P12 note**: mobile-nav truth & a11y floor — the mobile navigation verified working live at 375/800/1280 with rule-by-rule cascade traces (the `display:flex` computed style is flex-item blockification, NOT a Tailwind v4 bug; the v4 setup is clean), the open menu now behaves as a modal overlay (Escape closes, body scroll locks, focus moves in on open and returns to the trigger on close, Tab cycles within), `data-scroll-behavior=smooth` on `<html>`, the eslint whole-tree register made truthful (79→45; every mechanical class cleared), and `API_CLI_Usage_Guide.md` re-verified live (all documented contracts exercised against the running stack); see `docs/REMEDIATION_2026-11-23_P12_REPORT.md`.
 >
 > **P11 note**: accounting truth & config honesty — credit notes post REVERSED GL entries and NET in the F5 computation (quotes excluded; pre-P11 a credit note debited the customer's AR), production settings boot (builtin Redis cache, the LOG_DIR env knob, debug_toolbar with one gate), the contacts edit dialog prefills from the DETAIL endpoint and a save persists uen/gst_reg_number/peppol_id, the F5 boxes panel renders computed values (real box keys), the dashboard GST payable equals the F5 net GST (raw chart inputs, single prefixes), typed org-settings PATCH, routing-layer UUID 404s, the audit trail carries request context + LOGIN/LOGOUT emission, CI runs coverage, the Docker path boots, CSP unsafe-* dev-only; see `docs/REMEDIATION_2026-11-23_P11_REPORT.md`.
@@ -39,7 +43,7 @@
 ### Key Metrics (P13, 2026-11-24)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,320 Tests Passing** | 750 Backend + 530 Frontend unit + 40 e2e (11 always + 29 backend-gated; 40/40 live-green) |
+| **Test Coverage** | **1,406 Tests Passing** | 834 Backend + 532 Frontend unit + 40 e2e (11 always + 29 backend-gated; 40/40 live-green) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+") |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
@@ -48,10 +52,10 @@
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 530 | 100% | Vitest + RTL | ✅ Passing |
-| **Backend (pytest)** | 750 passed / 5 skipped (755 collected) | 100% of run | pytest | ✅ Passing |
+| **Frontend Unit** | 532 | 100% | Vitest + RTL | ✅ Passing |
+| **Backend (pytest)** | 834 passed / 5 skipped (839 collected) | 100% of run | pytest | ✅ Passing |
 | **E2E (Playwright)** | 40 (11 always + 29 backend-gated) | 100% live | Playwright | ✅ Passing |
-| **Total Passing** | **1,320** | — | Mixed | ✅ Verified |
+| **Total Passing** | **1,406** | — | Mixed | ✅ Verified |
 
 ---
 
@@ -313,7 +317,12 @@ class InvoiceService:
 | **Total** | | | **30 tables** |
 
 ### RLS Policies
-Every table (30 total) has RLS enabled. Policies look like this:
+Every tenant-data table has RLS enabled (schema v1.2.0 §17 completed the
+last six — `core.organisation`, `user_organisation`, `role`,
+`gst.organisation_peppol_settings`, `gst.tax_code`, `audit.event_log`;
+the documented globals `app_user`/`currency`/`account_type`/
+`account_sub_type` are correctly un-scoped). The audit log is append-only
+(UPDATE/DELETE refused at the policy layer). Policies look like this:
 
 ```sql
 CREATE POLICY tenant_isolation ON invoicing.document

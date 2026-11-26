@@ -1,9 +1,9 @@
 # LedgerSG — Comprehensive Developer Briefing
 
 > **Single Source of Truth** for coding agents and human developers
-> **Version**: 2.16.0
-> **Last Updated**: 2026-11-23
-> **Status**: P13 Remediated 🟢 — all gates green (backend 750P/0F/5S, frontend vitest 530/530, typecheck 0 errors, e2e 40 specs / 11+29skip default, the live suite 40P/0F/0S; eslint 45→9 with the 36 any-casts cleared and the register truthful). Mobile-nav truth: the navigation verified working live at 375/800/1280 with rule-by-rule cascade traces (the `display:flex` reading is correct flex-item blockification, NOT a Tailwind v4 bug — the v4 setup is clean, no legacy config); the open menu now behaves as a modal overlay (Escape closes, body scroll locks, focus moves in on open and returns to the trigger on close, Tab cycles within — the P12/A-1 floor with 7 vitest + 3 gated e2e); `data-scroll-behavior=smooth` on <html> kills the Next.js 16 route-transition warning; the API_CLI guide re-verified live (see `docs/REMEDIATION_2026-11-23_P12_REPORT.md`, plus the P0–P11 reports)
+> **Version**: 2.18.0
+> **Last Updated**: 2026-11-26
+> **Status**: P15 Remediated 🟢 (P14 completed + the tree repaired after the corrupted 2bcb43f0 commit; the runtime-role gate live: the full onboarding path as ledgersg_app, 13/13 smoke steps; schema v1.2.0 §17 RLS complete; zero known dependency advisories) — all gates green (backend 750P/0F/5S, frontend vitest 530/530, typecheck 0 errors, e2e 40 specs / 11+29skip default, the live suite 40P/0F/0S; eslint 45→9 with the 36 any-casts cleared and the register truthful). Mobile-nav truth: the navigation verified working live at 375/800/1280 with rule-by-rule cascade traces (the `display:flex` reading is correct flex-item blockification, NOT a Tailwind v4 bug — the v4 setup is clean, no legacy config); the open menu now behaves as a modal overlay (Escape closes, body scroll locks, focus moves in on open and returns to the trigger on close, Tab cycles within — the P12/A-1 floor with 7 vitest + 3 gated e2e); `data-scroll-behavior=smooth` on <html> kills the Next.js 16 route-transition warning; the API_CLI guide re-verified live (see `docs/REMEDIATION_2026-11-23_P12_REPORT.md`, plus the P0–P11 reports)
 
 ---
 
@@ -30,14 +30,27 @@
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.3.2 | ✅ Ready | 16 pages, 530 unit + 40 e2e tests (11 always + 29 backend-gated; the live suite 40P/0F), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages, working void dialog + real error messages + PDF/InvoiceNow actions, real reports + quotes pages, organisation creation + full payment workflow + truthful dashboard (P5–P9), registration + contacts + the contact-picker invoice form + the GST F5 lifecycle + bank edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit-dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11) |
-| **Backend** | v0.6.1 | ✅ Suite Fully Green | 90+ endpoints, **750 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth (credit notes post reversed entries and net in F5 — P11/C-1), per-status transition permissions + active custom exception handler, real financial reports + aged AR/AP + quote lifecycle + the P9 banking/onboarding contracts (P5–P9), GST F5 review/amend + fiscal-period open + UEN 400s + the 429 rate-limit contract (P10), production settings that boot (builtin cache + LOG_DIR) + typed org-settings PATCH + UUID routing 404s + audit-trail context (P11); the exception-handler rollback + IRAS 2dp GST quantum + typed ImmutabilityError + InvoiceNow 404s + reversal atomicity + timezone-aware dates + copy-on-write settings (P13) |
-| **Database** | v1.1.0 | ✅ Complete | 7 schemas + token blacklist, RLS enforced (transaction-scoped), 30 domain tables, NUMERIC(19,4) money |
+| **Frontend** | v0.3.3 | ✅ Ready | 16 pages, 532 unit + 40 e2e tests (11 always + 29 backend-gated; the live suite 40P/0F), typecheck clean, axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages, working void dialog + real error messages + PDF/InvoiceNow actions, real reports + quotes pages, organisation creation + full payment workflow + truthful dashboard (P5–P9), registration + contacts + the contact-picker invoice form + the GST F5 lifecycle + bank edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit-dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11) |
+| **Backend** | v0.6.2 | ✅ Suite Fully Green | 90+ endpoints, **834 tests passing, 0 failed** (5 skipped, documented), HttpOnly refresh-cookie auth, real InvoiceNow + accounting truth (credit notes post reversed entries and net in F5 — P11/C-1), per-status transition permissions + active custom exception handler, real financial reports + aged AR/AP + quote lifecycle + the P9 banking/onboarding contracts (P5–P9), GST F5 review/amend + fiscal-period open + UEN 400s + the 429 rate-limit contract (P10), production settings that boot (builtin cache + LOG_DIR) + typed org-settings PATCH + UUID routing 404s + audit-trail context (P11); the exception-handler rollback + IRAS 2dp GST quantum + typed ImmutabilityError + InvoiceNow 404s + reversal atomicity + timezone-aware dates + copy-on-write settings (P13) |
+| **Database** | v1.2.0 | ✅ Complete | 7 schemas + token blacklist, RLS complete on every tenant table (§17, incl. the append-only audit log), 30 domain tables, NUMERIC(19,4) money |
 | **Accounting** | v1.0.0 | ✅ Verified | 3/3 Workflows (void reversal restored 2026-11-21) |
 | **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation+blacklist, SECRET_KEY gate, ratelimit default-on (settings-driven login knobs), HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes |
 | **API Contracts** | v1.2.0 | ✅ Standardized | {results, count} lists; auth contract aligned to tests 2026-11-21; error envelope {error:{code,message,details}} active in DRF (P7/F-19) |
 
-### Latest Milestone: P11 Sprint — Accounting Truth & Config Honesty ✅ — 2026-11-23 (session 23)
+### Latest Milestone: P15 Sprint — Tree Repair, P14 Completion & the Runtime-Role Gate ✅ — 2026-11-26 (session 30)
+
+| Fix | Impact |
+|-----|--------|
+| **Tree repair** | The interrupted session-29 committed its P14 work to wrong paths (the Payment model destroyed by a serializer overwrite — the backend could not boot); every stranded fix relocated to its canonical home, all P14 RED tests green |
+| **C-2 + H-3** | FILED/AMENDED F5 returns are immutable (409, not even `force=true`); the GST period lock refuses back-posted approvals/journals/voids inside filed periods |
+| **H-1..H-5** | Allocation cap (no negative amount_due), instalment statuses complete, linked+cap-checked credit notes (IRAS credit-note rule), the GST-registration guard |
+| **H-6 + M-6a** | Schema v1.2.0 §17: RLS on all six remaining tenant tables (organisation, user_organisation, role, peppol_settings, tax_code, event_log — append-only); `audit.log_change` pins search_path |
+| **C-1 + H-7** | Org creation sets the RLS context before seeding; the whole onboarding path verified LIVE as the non-superuser `ledgersg_app` (13/13 smoke steps; cross-org reads blocked; no-context reads fail closed) |
+| **H-8 + H-9** | Django 6.0.10 / DRF 3.18.3 / lxml 6.1.3 / WeasyPrint 70 / Next 16.4.6 / zod 4.6.7 (zero known advisories, both production sets); the Docker path generates a strong per-boot key; service.py gates its key like production |
+| **M-1/M-4/M-5/M-10/X-1/H-04b/H-05b** | Honest ACRA/IRAS validators (both M-form lengths; UEN-form GST numbers accepted); the line-item schema (400s); Viewer read-only; tax-code dedupe; XXE-hardened parser; NRIC PayNow masking + masked-echo rejection; F5 override evidence trail |
+| **F-A + F-B** | The e2e bootstrap self-creates the F5 return; linked-CN + cap-headroom + real-UEN e2e contracts; single-flight token refresh (the rotation race killed sessions mid-suite) |
+
+### Previous Milestone: P11 Sprint — Accounting Truth & Config Honesty ✅ — 2026-11-23 (session 23)
 
 | Fix | Impact |
 |-----|--------|

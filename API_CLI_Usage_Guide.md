@@ -2,8 +2,8 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 2.6.0
-> **Last Updated**: 2026-11-24 (P13 — contracts unchanged; the P13 backend fixes verified: sub-cent GST now rounds to IRAS 2dp, InvoiceNow missing-document 404s)
+> **Version**: 2.7.0
+> **Last Updated**: 2026-11-26 (P14/P15 — NEW error contracts: FILED-return immutability 409, GST-lock 409, linked-credit-note + line-schema + UEN/GST-validator 400s, NRIC PayNow masking; allocation cap; single-flight refresh)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
 ---
@@ -42,6 +42,29 @@ the behavioral deltas verified live this session:
 | `POST /documents/{id}/send-invoicenow/` + `GET /documents/{id}/invoicenow-status/` | A missing document now returns the typed `404 {"error":{"code":"not_found"}}` envelope (was a raw 500) |
 | Any unhandled server error | Still the `500 {"error":{"code":"internal_error"}}` envelope, but the request transaction now ROLLS BACK (no partial writes) |
 | Health endpoints | The 503 body carries a generic message (no raw DB error strings) |
+
+### 2026-11-26 P14/P15 verification addendum
+
+The P14/P15 sprints changed several request/response contracts (all
+exercised live against the running stack this session):
+
+| Contract | P14/P15 delta |
+|:---|:---|
+| `POST /gst/returns/{id}/?force=true` | A **FILED/AMENDED** return is refused with a typed 409 (the statutory record is immutable — corrections go through `/amend/`); pre-P14 `force=true` silently recomputed it and regressed the status |
+| `POST /documents/{id}/approve/`, `void`, `POST /journal-entries/entries/`, payment void | A 409 "GST-locked" refusal when the document/journal date falls inside a period whose F5 return is FILED/AMENDED (the ledger basis of the filed figures cannot change by back-posting) |
+| `POST /banking/payments/receive/` | Allocations are capped at the document's outstanding balance (400 with the outstanding figure in the message; was: negative `amount_due`); allocation-eligible statuses are APPROVED, SENT, PARTIALLY_PAID, OVERDUE (instalment cycles now complete) |
+| `POST /invoicing/documents/` | `lines` is REQUIRED (min 1) with a real line schema — `account_id` UUID, `quantity` > 0 ≤ 10^6, `unit_price` ≥ 0 < 10^13, `discount_pct` ∈ [0,100]; a missing `lines` key is a 400 (was a KeyError 500). `*_CREDIT_NOTE` documents REQUIRE `related_document_id` (same contact, same direction, cumulative credit ≤ the original total incl. GST — the IRAS credit-note rule) |
+| `POST /organisations/` + `POST /gst/register/` | UEN must match an ACRA format (8 digits+letter / 9 digits+letter / T|S+YY+2letters+4digits+letter); GST numbers accept the M-form (M+7 or 8 digits+check letter) **or** a valid UEN (the old `startswith("M")` rejected valid UEN-form numbers and accepted garbage) |
+| `POST /gst/returns/{id}/file/` | Box overrides REQUIRE `override_reason` (≥ 10 chars); the reason + computed-vs-filed deltas persist into the return's `notes` |
+| `GET /banking/bank-accounts/` | NRIC-type `paynow_id` values are MASKED on read (`S*****67D`); writes reject values containing `*` (PDPA) |
+| Viewer-role members | Contact create/patch/delete and document send now 403 (read-only role) |
+| `GET /gst/tax-codes/` | Deduped per (code, effective_from, effective_to) — org bands shadow identical system bands; rate history intact |
+| Runtime DB role | The full onboarding path (register → org → contact → invoice → approve → payment → F5) runs as the non-superuser `ledgersg_app` role under RLS — verified by `scripts/rls_smoke.py` (13/13 steps; org creation was a 500 pre-P14) |
+| Frontend api-client | Concurrent 401s share ONE refresh call (single-flight) — sessions no longer die mid-suite on the rotation race |
+
+**Current test metrics (post-P15)**: backend **834 passed / 0 failed / 5
+skipped** · frontend vitest **532/532** · e2e 11 always-green + 29
+backend-gated, **40/40 live** under `test:e2e:full`.
 
 ---
 
