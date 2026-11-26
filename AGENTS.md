@@ -2,26 +2,34 @@ LedgerSG Project Status — Comprehensive Summary
 Executive Overview
 LedgerSG is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs with IRAS 2026 compliance. The platform has undergone significant development across multiple phases, achieving enterprise-grade security, comprehensive test coverage, and a complete banking UI.
 ---
-Current Status (2026-11-26 — P16 remediated; see the sprint-patterns sections
-at the bottom of this file for P0–P16 and the README status table for the
+Current Status (2026-11-27 — P17 remediated; see the sprint-patterns sections
+at the bottom of this file for P0–P17 and the README status table for the
 live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 32):
-- Backend: pytest 860 passed / 0 failed / 5 skipped (865 collected;
-  invariants 34, security 76 passed + 3 skipped)
-- Frontend: vitest 554/554 (64 files), tsc --noEmit 0 errors, eslint 9
-  (the documented deferred register — parity maintained)
+Current truth (all gates executed and green, session 34):
+- Backend: pytest 882 passed / 0 failed / 5 skipped (887 collected;
+  invariants 34, security 78 passed + 3 skipped)
+- Frontend: vitest 582/582 (69 files), tsc --noEmit 0 errors, whole-tree
+  eslint **0 errors** (5 warnings — the documented deferred register,
+  parity maintained)
 - E2E: 40 specs (11 always-green + 29 backend-gated); live run 40P/0F/0S
 - Production-CSP smoke (P16/FE-C1): 5/5 — nonce served, hydration
   happened, zero violations (the gate class the dev suite cannot cover)
 - Runtime-role smoke: 13/13 steps green as ledgersg_app (C-1/H-7)
 - Mobile-nav live probe: 17/17 at 375/800/1280 — the navigation works,
-  no Tailwind v4 bug (the P12/P13/P15 verdicts re-settled on the P16 tree)
+  no Tailwind v4 bug (the P12–P16 verdicts re-settled on the P17 tree)
 - Coverage: green at the ratchet (whole-suite + src/lib per-glob);
-  build:server green; schema v1.2.0 (§17 RLS complete)
+  build:server green; schema v1.2.1 (§17 RLS complete + §15c framework
+  tables for the pytest transactional teardowns)
 - npm audit / pip-audit: zero known advisories on the production sets
+- P17 headline: the concurrency guards (double-reversal / double-void /
+  double-reconcile refused under row locks), the Celery tenant context
+  (on-commit dispatch + worker-side RLS), the 400-contract sweep, the
+  admin/STORAGES settings gates, the `--color-success` token, the
+  unsaved-changes guard, the org-selector Radix menu contract, the
+  shared UEN schema, lint-error zero
 ---
 Major Completed Work
 1. Authentication Flow Remediation (Defense-in-Depth) ✅ COMPLETE
@@ -108,12 +116,12 @@ All three tabs fully implemented with TDD:
 ---
 Technical Architecture
 Frontend Stack
-- Next.js 16.1.6 (App Router) + React 19.2
+- Next.js 16.4.6 (App Router) + React 19.2
 - Tailwind CSS 4.0 + Shadcn/Radix UI
 - Zustand (UI State) + TanStack Query (Server State)
 - Hybrid rendering: Server Components for data fetching, Client Components for interactivity
 Backend Stack
-- Django 6.0.2 + Django REST Framework 3.16.1
+- Django 6.0.10 + Django REST Framework 3.18.3
 - Service Layer Pattern (views are thin controllers)
 - Celery 5.4+ with Redis 7+ for async tasks
 - WeasyPrint 68.1 for PDF generation
@@ -184,13 +192,13 @@ Without Org
 ---
 File Structure
 apps/
-├── backend/           # Django 6.0.2
+├── backend/           # Django 6.0.10
 │   ├── apps/          # core, coa, gst, journal, invoicing, banking, reporting
 │   ├── common/        # BaseModel, TenantModel, decimal_utils
 │   ├── config/        # settings, celery, urls
 │   └── tests/         # integration, security, TDD
 │
-└── web/               # Next.js 16.1.6
+└── web/               # Next.js 16.4.6
     ├── src/
     │   ├── app/       # App Router pages
     │   ├── components/
@@ -238,13 +246,13 @@ Summary: The LedgerSG platform is production-ready with comprehensive test cover
 **LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore Small and Medium Businesses (SMBs). Its primary mission is to transform IRAS 2026 compliance from a regulatory burden into a seamless, automated experience. The platform combines enterprise-grade financial integrity with a distinctive "Illuminated Carbon" neo-brutalist user interface.
 
 **Current Status:** ✅ **Production Ready**
-- **Frontend:** v0.1.1 (Next.js 16.1.6, 12 pages, 22 test files, **305 tests passing**)
-- **Backend:** v0.3.3 (Django 6.0.2, 83 API endpoints, 16 test files, **233+ tests passing**)
-- **Database:** v1.0.3 (PostgreSQL 16+, 7 schemas, 28 tables, RLS enforced)
+- **Frontend:** v0.3.4 (Next.js 16.4.6, 16 pages, 69 test files, **582 tests passing**)
+- **Backend:** v0.6.4 (Django 6.0.10, 90+ API endpoints, **882 tests passing, 0 failed**)
+- **Database:** v1.2.1 (PostgreSQL 16+, 7 schemas, 29 domain tables + 1 view + §15c framework tables, RLS complete on every tenant table §17)
 - **Dashboard:** v1.0.0 (Real Data Integration, 36 TDD tests, 100% coverage)
 - **Integration Gaps:** Phase 3 Complete (GAP-3: 20 tests, GAP-4: 13 tests)
 - **Banking UI:** Phase 5.5 Complete (73 TDD tests, all tabs live)
-- **Security Score:** 98% (Audit Verified, All Issues Remediated)
+- **Security Posture:** P0–P17 remediated; remaining P1/P2 items tracked in the deferred register (see the README Security Posture table)
 
 As an autonomous coding agent, your objective is to maintain this high standard of architectural maturity while executing Pull Requests (PRs). You must operate under the **Meticulous Approach**: Analyze → Plan → Validate → Implement → Verify → Deliver. Surface-level assumptions are prohibited; every change must be grounded in deep technical reasoning.
 
@@ -255,7 +263,7 @@ As an autonomous coding agent, your objective is to maintain this high standard 
 The project utilizes a decoupled, service-oriented architecture designed for security, scalability, and regulatory compliance.
 
 ### 2.1 Frontend Architecture
-- **Framework:** Next.js 16.1.6 (App Router) with React 19.2.
+- **Framework:** Next.js 16.4.6 (App Router) with React 19.2.
 - **Styling:** Tailwind CSS 4.0 + Shadcn/Radix UI primitives.
 - **State Management:** Zustand (UI State) + TanStack Query (Server State).
 - **Rendering Strategy:** Hybrid. Critical data paths use **Server Components** to ensure zero JWT exposure to client-side JavaScript. Interactive elements (charts, forms) are isolated Client Components.
@@ -265,7 +273,7 @@ The project utilizes a decoupled, service-oriented architecture designed for sec
 - **Design Philosophy:** "Illuminated Carbon" Neo-Brutalist. Reject generic templates. Use whitespace as a structural element. Ensure WCAG AAA compliance.
 
 ### 2.2 Backend Architecture
-- **Framework:** Django 6.0.2 with Django REST Framework (DRF) 3.16.1.
+- **Framework:** Django 6.0.10 with Django REST Framework (DRF) 3.18.3.
 - **Pattern:** **Service Layer Pattern**. Views are thin controllers; ALL business logic resides in `services/` modules.
 - **Task Queue:** Celery 5.4+ with Redis 7+ for async tasks (PDF generation, Email delivery).
 - **PDF Engine:** WeasyPrint 68.1 for IRAS-compliant document generation.

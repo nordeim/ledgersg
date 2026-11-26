@@ -1,9 +1,9 @@
 ---
 name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 2.5.0
-last_updated: 2026-11-26
-project_state: "P16 remediated; all gates green — 860 backend tests (0 failed, 5 skipped; invariants 34, security 76P/3S), frontend 554 vitest + 40 e2e (40/40 live), typecheck 0, eslint 9 (parity), the NEW production-CSP smoke 5/5 (nonce + hydration + zero violations — the shipped production app previously could NOT hydrate under its own static CSP), the runtime-role smoke 13/13 as ledgersg_app, the mobile-nav probe 17/17 (the navigation works; no Tailwind v4 bug — re-settled on the P16 tree), schema v1.2.0 (§17 RLS complete), zero known dependency advisories; P16 headline: the nonce-based CSP via src/proxy.ts + src/lib/csp.ts with force-dynamic (FE-C1), the service-path middleware restored from base + settings-gated (BE-H1), the allocate endpoint accepts instalments (BE-H2), the dashboard invalidation key fixed (FE-H1), org-creation selects the new org via selectOrgById (FE-H2), all three ACRA UEN forms accepted (FE-H3), the payment-row lock + atomic create+allocate + NaN/Infinity box rejection + the line-total bound + system-tax-code read-only + UEN normalization (the M-batch), the open-redirect guard + scroll-lock release + dialog semantics + the e2e serial contract (the FE batch); P15: the tree repaired after the corrupted 2bcb43f0, P14 complete (FILED immutability, GST lock, linked CNs, allocation cap, honest validators, line-item 400s, NRIC masking, Viewer read-only, XXE hardening, tax-code dedupe, single-flight refresh); P12: the mobile nav verified working (the v4 setup is clean), the open menu is a modal overlay (now with role=dialog — P16); P11: credit notes post REVERSED GL entries and NET in the F5 computation"
+version: 2.6.0
+last_updated: 2026-11-27
+project_state: "P17 remediated; all gates green — 882 backend tests (0 failed, 5 skipped; invariants 34, security 78P/3S), frontend 582 vitest + 40 e2e (40/40 live), typecheck 0, whole-tree eslint 0 errors (5 warnings, parity), the production-CSP smoke 5/5 (nonce + hydration + zero violations), the runtime-role smoke 13/13 as ledgersg_app, the mobile-nav probe 17/17 (the navigation works; no Tailwind v4 bug — re-settled on the P17 tree), schema v1.2.1 (§17 RLS complete + §15c Django framework tables for the pytest transactional teardowns), zero known dependency advisories; P17 headline: the concurrency guards (double-reversal 409 / double-void / double-reconcile typed 400, all under row locks — BE-H1/H2/M5), the Celery tenant context (on-commit dispatch + the worker-side RLS context via common/tenant_context.py — BE-H3), the 400-contract sweep (typed GST box parsing, bulk-allocation UUID field errors, UEN normalize-then-validate on org PATCH, tax-rate range, 6-dp exchange_rate), /admin/ gated off outside DEBUG + the Django 6 STORAGES manifest migration, select_related on the three list services, no negative-membership cache poisoning, the --color-success token + the unsaved-changes beforeunload guard + the org-selector Radix menu contract + the shared uenSchema + redirect-carry + the dead CSP origins dropped; P16: the nonce-based CSP via src/proxy.ts + src/lib/csp.ts with force-dynamic (FE-C1), the service-path middleware restored from base + settings-gated (BE-H1), the allocate endpoint accepts instalments (BE-H2), the dashboard invalidation key fixed (FE-H1), org-creation selects the new org via selectOrgById (FE-H2), all three ACRA UEN forms accepted (FE-H3), the payment-row lock + atomic create+allocate + NaN/Infinity box rejection + the line-total bound + system-tax-code read-only + UEN normalization (the M-batch), the open-redirect guard + scroll-lock release + dialog semantics + the e2e serial contract (the FE batch); P15: the tree repaired after the corrupted 2bcb43f0, P14 complete (FILED immutability, GST lock, linked CNs, allocation cap, honest validators, line-item 400s, NRIC masking, Viewer read-only, XXE hardening, tax-code dedupe, single-flight refresh); P12: the mobile nav verified working (the v4 setup is clean), the open menu is a modal overlay (now with role=dialog — P16); P11: credit notes post REVERSED GL entries and NET in the F5 computation"
 ---
 
 # LedgerSG — Engineering Skill
@@ -77,21 +77,21 @@ cd apps/backend
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# Current state (2026-11-26, post-P16): 0 failed, 860 passed, 5 skipped — SUITE GREEN
+# Current state (2026-11-27, post-P17): 0 failed, 882 passed, 5 skipped — SUITE GREEN
 pytest tests/invariants -q   # 34 gates: atomic rollback (+ the P13 handler-layer
                              # rollback + reversal-atomicity + sub-mil tolerance
                              # gates), void net-zero, F5 tie-out, schema
                              # conformance (incl. numeric precision), journal
                              # balances, CoA trial balance, monetary capacity,
                              # immutability contract, naive-today gate
-pytest tests/security -q     # 76 passed + 3 skipped: RLS transaction isolation,
+pytest tests/security -q     # 78 passed + 3 skipped: RLS transaction isolation,
                              # token lifecycle, settings gates (incl. the
                              # P6/E-1 throttle-posture gates + the P13
                              # copy-on-write gates), refresh-cookie +
                              # session_hint contracts
 ```
 
-Frontend gates (`apps/web`): `npm test` (554 vitest), `npm run typecheck` (tsc, 0
+Frontend gates (`apps/web`): `npm test` (582 vitest), `npm run typecheck` (tsc, 0
 errors), `npm run test:e2e` (playwright; 11 tests green without a backend —
 29 backend-gated specs skip with reasons), `npm run test:e2e:full` (all 40 —
 needs the Django backend on :8000 + Redis AND the E2E_DEMO_* trio exported
@@ -722,7 +722,7 @@ delete dead duplicate validators.
 
 | Thing | Where |
 |---|---|
-| Schema (truth) | `apps/backend/database_schema.sql` (v1.1.0) |
+| Schema (truth) | `apps/backend/database_schema.sql` (v1.2.1 — §17 RLS complete + §15c framework tables) |
 | RLS middleware | `common/middleware/tenant_context.py` |
 | wrap_response | `common/views.py` |
 | money() | `common/decimal_utils.py` |
@@ -740,7 +740,7 @@ delete dead duplicate validators.
 | P2 remediation report | `docs/REMEDIATION_2026-11-21_P2_REPORT.md` |
 | P3 remediation report | `docs/REMEDIATION_2026-11-21_P3_REPORT.md` |
 | Audit report | `LedgerSG_Code_Review_Audit_Report_2026-11-21.md` |
-| Env templates | root `.env.example` (combined index) → `apps/backend/.env.example` + `apps/web/.env.example`; `.gitignore` lists `.env*`, but the two local dev `.env`s are already tracked by earlier repo history (`git ls-files | rg '\.env'`) |
+| Env templates | root `.env.example` (combined index) → `apps/backend/.env.example` + `apps/web/.env.example`; `.gitignore` lists `.env*` — the local dev `.env` / `.env.local` are UNTRACKED (`git ls-files` shows only the three `.env.example`s; never commit them) |
 | Session cookies | login/register/refresh set + rotate; logout/change-password/failed-cookie-refresh expire — `apps/backend/apps/core/views/_refresh_cookie.py`; gate = `tests/security/test_refresh_cookie.py` |
 | Rate resolution | `TaxCodeService.get_tax_code_by_code(org, code, as_of)` / `is_effective(tc, date)` — `apps/gst/services/tax_code_service.py` |
 | Money capacity | All money `NUMERIC(19,4)` since schema v1.2.0; §16 = in-place widening migration; gate = `tests/invariants/test_numeric_capacity.py` |
@@ -750,4 +750,6 @@ delete dead duplicate validators.
 | P4 plan/report | `docs/REMEDIATION_PLAN_2026-11-21_P4.md` / `docs/REMEDIATION_2026-11-21_P4_REPORT.md` |
 | P10 plan/report | `docs/REMEDIATION_PLAN_2026-11-22_P10.md` / `docs/REMEDIATION_2026-11-22_P10_REPORT.md` |
 | P11 plan/report | `docs/REMEDIATION_PLAN_2026-11-23_P11.md` / `docs/REMEDIATION_2026-11-23_P11_REPORT.md` |
-| P11 live-gate bootstrap | `apps/web/e2e/p11.spec.ts` ensureDemoActivity (idempotent contact/invoice/CN/F5) — mirrors `scripts/p11_bootstrap.py` |
+| P16 plan/report | `docs/REMEDIATION_PLAN_2026-11-26_P16.md` / `docs/REMEDIATION_2026-11-26_P16_REPORT.md` |
+| P17 plan/report | `docs/REMEDIATION_PLAN_2026-11-27_P17.md` / `docs/REMEDIATION_2026-11-27_P17_REPORT.md` |
+| P11 live-gate bootstrap | `apps/web/e2e/p11.spec.ts` ensureDemoActivity (idempotent contact/invoice/CN/F5) — the P16 tree's canonical bootstrap (the historical `scripts/p11_bootstrap.py` no longer ships) |

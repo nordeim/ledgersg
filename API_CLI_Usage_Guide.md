@@ -2,8 +2,8 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 2.7.0
-> **Last Updated**: 2026-11-26 (P14/P15 — NEW error contracts: FILED-return immutability 409, GST-lock 409, linked-credit-note + line-schema + UEN/GST-validator 400s, NRIC PayNow masking; allocation cap; single-flight refresh)
+> **Version**: 2.8.0
+> **Last Updated**: 2026-11-27 (P17 — NEW 400 contracts: double-reversal / double-void / double-reconcile refusals under row locks; typed GST box parsing; allocation UUID field errors; UEN normalize-then-validate on org PATCH; tax-rate range; on-commit task dispatch + the worker RLS context)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
 ---
@@ -101,6 +101,32 @@ the runtime-role smoke **13/13**.
 | `POST /api/v1/{org_id}/banking/bank-transactions/import/` | Multipart CSV statement import (utf-8 or latin-1); returns `{imported, skipped, errors}` |
 | `GET /api/v1/{org_id}/gst/returns/deadlines/` | The filing-deadline envelope (current + upcoming periods) |
 | `GET /api/v1/{org_id}/journal-entries/ledger/` | The flat line-level ledger (one row per journal line — the line-level table's source) |
+
+### 2026-11-27 P17 verification addendum
+
+The P17 sprint (session 34) closed the money-mutation concurrency races and
+the 400-contract gaps (all pinned by `tests/integration/test_concurrency_
+contracts_p17.py` + `tests/integration/test_api_contract_p17.py`):
+
+| Contract | P17 delta |
+|:---|:---|
+| `POST /journal-entries/entries/{id}/reverse/` | A **second reversal of the same entry is refused (400)** — the row is locked for the whole reversal and re-checked (`select_for_update`); pre-P17 two sequential (or concurrent) reversals posted the swap-side lines twice, misstating every account 2x while the trial balance stayed balanced |
+| `POST /banking/payments/{id}/void/` | A **second void is refused (400)** — the payment row is locked and `is_voided` re-checked post-lock (the TOCTOU window is closed); the single void still posts the reversal GL entry |
+| `POST /banking/bank-transactions/{id}/reconcile/` | Reconciling the **same payment twice is refused (400)**; the payment and transaction rows are locked for the match. The two routes now use `<uuid:transaction_id>` converters — a malformed id is a **404 at the routing layer** (was a UUID() 500) |
+| `POST /gst/returns/{id}/file/` (box overrides) | Box values are **type-checked before parsing** — `null`, objects, and non-numeric strings are a 400 field error (was a TypeError 500); NaN/Infinity stay 400 (P16) |
+| `POST /banking/payments/{id}/allocate/` (bulk) | A non-UUID `document_id` ("abc") is a **400 field error** (was an unhandled UUID 500); valid UUIDs unchanged |
+| `PATCH /api/v1/organisations/{id}/` (uen) | The UEN is **normalized (trim + upper) then validated** on update — lowercase/whitespace input is accepted and stored normalized; an invalid ACRA form is a 400; the case-dodge UNIQUE collision (update "abc123d" against existing "ABC123D") is refused |
+| `PATCH /gst/tax-codes/{id}/` (rate) | The rate is range-checked on update — 9 (a percent) and negative values are 400; `0.09` unchanged |
+| `POST /banking/payments/receive/` (exchange_rate) | FX rates round-trip at their wire precision — a 6-dp rate (0.876543) is stored and used exactly (the money() quantize no longer truncates it to 4 dp); monetary amounts stay 4-dp |
+| InvoiceNow/PDF/email tasks | Dispatched **on commit** — a rolled-back transaction no longer queues phantom tasks; a real Celery worker runs the task inside the tenant RLS context (`app.current_org_id` SET LOCAL — `common/tenant_context.py`). Eager mode (dev default) is bit-identical |
+| `GET /admin/` | **404 under non-DEBUG settings** (the URL is no longer mounted in production/service settings — settings-gate tested) |
+| List endpoints (`payments`, `documents`, `transactions`) | `select_related` on the FK joins — the N+1 is gone (query-count gated); response shapes unchanged |
+
+**Current test metrics (post-P17)**: backend **882 passed / 0 failed / 5
+skipped** (887 collected; invariants 34, security 78+3 skipped) · frontend
+vitest **582/582** (69 files) · e2e 11 always-green + 29 backend-gated,
+**40/40 live** under `test:e2e:full` · the production-CSP smoke **5/5** ·
+the runtime-role smoke **13/13** · the mobile-nav probe **17/17**.
 
 ---
 

@@ -6,18 +6,21 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-26, session 32 / P16) re-verified every command against the current
-codebase on a live sandbox (backend 860P/0F/5S, vitest 554/554, typecheck
-0 errors, build:server green, the NEW production-CSP smoke 5/5, live e2e
-40P/0F/0S (40 specs), the runtime-role smoke 13/13 as `ledgersg_app`) — including the P14 statutory
-contracts (FILED-return immutability, the GST period lock, linked credit
-notes, the allocation cap), the §17 RLS completion (schema v1.2.0), the
-H-8 dependency upgrades (Django 6.0.10, DRF 3.18.3, Next 16.4.6, zod
-4.6.7 — zero known advisories on the production dependency sets) and the
-P15 tree repair after the corrupted `2bcb43f0` commit.
+(2026-11-27, session 34 / P17) re-verified every command against the current
+codebase on a live sandbox (backend 882P/0F/5S, vitest 582/582, typecheck
+0 errors, whole-tree eslint 0 errors, build:server green, the production-CSP
+smoke 5/5, live e2e 40P/0F/0S (40 specs), the runtime-role smoke 13/13 as
+`ledgersg_app`, the mobile-nav probe 17/17) — including the P17 concurrency
+truth (double-reversal / double-void / double-reconcile refused under row
+locks), the 400-contract sweep (typed GST box parsing, bulk-allocation UUID
+validation, UEN normalize-then-validate on PATCH), the Celery tenant context
+(on-commit dispatch + the worker-side RLS context), the `/admin/` gate, the
+Django 6 `STORAGES` manifest migration, and the org-selector keyboard/a11y
+contract — on schema **v1.2.1** (v1.2.0 + the §15c Django framework tables
+the pytest suite needs for transactional teardown).
 
 Verified truths this guide is built on: the schema file
-`apps/backend/database_schema.sql` (v1.2.0) CREATEs ROLEs inside DO blocks
+`apps/backend/database_schema.sql` (v1.2.1) CREATEs ROLEs inside DO blocks
 so the loader must connect as a SUPERUSER; the backend suite requires
 `--reuse-db --no-migrations` against a pre-initialised `test_ledgersg_dev`;
 Redis on `:6379` is a hard prerequisite even for dev (the tenant middleware
@@ -145,12 +148,15 @@ psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev     -f database_schema.sql
 psql -h 127.0.0.1 -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 ```
 
-Verify (29 domain tables + 1 view + 2 token-blacklist tables, money at 19,4):
+Verify (29 domain tables + 1 view + 2 token-blacklist tables + the 10
+Django framework tables of §15c — all in the seven domain schemas;
+`auth_permission`/`django_content_type`/`django_migrations` land in
+`public`; money at 19,4):
 
 ```bash
 psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -tAc \
   "SELECT count(*) FROM information_schema.tables WHERE table_schema IN ('core','coa','gst','journal','invoicing','banking','audit');"
-# 30
+# 40
 psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -tAc \
   "SELECT count(*) FROM information_schema.columns WHERE table_schema IN ('core','coa','gst','journal','invoicing','banking','audit') AND data_type='numeric' AND numeric_precision=19 AND numeric_scale=4;"
 # 47
@@ -175,6 +181,20 @@ psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -c \
   "SELECT n.nspname||'.'||c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('core','gst','audit','invoicing','banking','journal','coa') AND c.relkind='r' AND NOT c.relrowsecurity AND c.relname NOT IN ('app_user','currency','account_type','account_sub_type');"
 # (expected: 0 rows — only the documented globals are un-scoped)
 ```
+
+**Existing database on schema v1.2.0 (pre-P17)?** Apply the §15c block
+(idempotent `CREATE TABLE IF NOT EXISTS` — safe even on databases that
+already carry some of these tables):
+
+```bash
+cd apps/backend
+psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -f - < <(sed -n '/^-- §15c/,/^-- §16/p' database_schema.sql)
+```
+
+The §15c tables let the pytest suite run transactional test classes — the
+teardown flush needs `django_session` / `django_admin_log` /
+`django_content_type` (the P17 fresh-host gap: on a schema-only v1.2.0
+database every transactional teardown errored out).
 
 **Never run `python manage.py makemigrations`** — schema changes are
 hand-written DDL patches + version bump + model alignment, gated by
@@ -213,12 +233,18 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-26 P15): 834 passed, 0 failed, 5 skipped
+# expected (post-2026-11-27 P17): 882 passed, 0 failed, 5 skipped
 pytest tests/invariants -q    # 34 passed (conformance, capacity, balances,
                               # filed-return immutability, GST lock, RLS)
-pytest tests/security -q      # 72 passed, 3 skipped (RLS, tokens, cookies,
+pytest tests/security -q      # 78 passed, 3 skipped (RLS, tokens, cookies,
                               # posture gates incl. the service-key gate)
 ```
+
+(The `DB_NAME` export overrides `apps/backend/.env` — which points at the
+dev database — so the runner targets the pre-initialised `test_ledgersg_dev`
+instead of prompting to destroy `ledgersg_dev`. And note: `manage.py test` is
+NOT this repo's runner — the custom SchemaTestRunner it would use targets
+`DB_NAME` too; always drive the suite with pytest as above.)
 
 ## 8. Run the backend
 
@@ -282,7 +308,7 @@ Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 554 vitest tests
+npm test                    # 582 vitest tests
 npm run test:coverage       # green at the honest measured-floor ratchet
 npm run build:server        # the only build mode
 npm run test:e2e            # green without a backend (gated specs skip)
@@ -304,7 +330,7 @@ export E2E_API_URL=http://127.0.0.1:8000 E2E_DEMO_EMAIL=demo@ledgersg.sg \
 #    (201 with tokens; 200 login if the user already exists)
 # 2) create the demo org with the token:  POST /api/v1/organisations/
 #    {"name":"Ledger Demo Pte Ltd","uen":"202612345D","entity_type":"PRIVATE_LIMITED",
-#     "gst_registered":true,"gst_reg_number":"M90345678","gst_reg_date":"2026-01-01",
+#     "gst_registered":true,"gst_reg_number":"M9034567K","gst_reg_date":"2026-01-01",
 #     "fy_start_month":1,"base_currency":"SGD"}   (seeds CoA + fiscal year + tax codes)
 # 3) create a contact (the P11 contacts specs' prefill substrate):
 #    POST /api/v1/{org}/invoicing/contacts/  {"name":"Demo Trading Pte Ltd", ...}
@@ -312,7 +338,9 @@ export E2E_API_URL=http://127.0.0.1:8000 E2E_DEMO_EMAIL=demo@ledgersg.sg \
 #    (uen, gst_reg_number, peppol_id — the edit dialog prefills from DETAIL)
 # 4) post one invoice and one credit note (the C-1/F5 truth substrate):
 #    POST /api/v1/{org}/invoicing/documents/  with  document_type SALES_INVOICE
-#    and SALES_CREDIT_NOTE (issue_date inside an open fiscal period; lines
+#    and SALES_CREDIT_NOTE (a credit note additionally carries
+#    "related_document_id": <the invoice's id> — the P11 linkage contract;
+#    issue_date inside an open fiscal period; lines
 #    reference a REVENUE account id and optionally the SR tax code), then
 #    POST …/documents/{id}/approve/  for each (posts the journal entries —
 #    the credit note's are direction-reversed, P11/C-1)
@@ -356,26 +384,37 @@ curl -s -b /tmp/cj.txt -X POST http://127.0.0.1:8000/api/v1/auth/refresh/ \
   -H 'Content-Type: application/json' -d '{}' -o /dev/null -w '%{http_code}\n'
 # 200 — the cookie alone refreshes (rotation re-sets it)
 
+# 3b. Bearer token + the default org id for the API spot checks below
+#     (JWT-only endpoints — the cookie jar is for the refresh flow only):
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/v1/auth/login/ \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@ledgersg.sg","password":"demo1234pass"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['tokens']['access'])")
+export ORG_ID=$(curl -s -H "Authorization: Bearer $TOKEN" \
+  http://127.0.0.1:8000/api/v1/auth/organisations/ \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['org']['id'])")
+echo "org: $ORG_ID"
+
 # 4. Browser: log in at http://localhost:3000, press F5 — you must stay on
 #    /dashboard (the reload-persistence acceptance test, e2e/session.spec.ts)
 
 # 5. P7 API-truth spot checks
 #    - fiscal periods route (was 404 pre-P7):
-curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
   "http://127.0.0.1:8000/api/v1/$ORG_ID/fiscal-periods/"   # 200 (with auth)
 #    - malformed query params are 400s, not 500s:
-curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
   "http://127.0.0.1:8000/api/v1/$ORG_ID/journal-entries/entries/?date_from=garbage"  # 400
 
 # 6. P8 reporting-truth spot checks
 #    - financial reports (the route is single-prefixed /reports/financial/):
-curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
   "http://127.0.0.1:8000/api/v1/$ORG_ID/reports/financial/?report_type=trial_balance&as_at_date=2026-12-31"  # 200
 #    - aged receivables buckets:
-curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
   "http://127.0.0.1:8000/api/v1/$ORG_ID/reports/aged/?type=receivables"   # 200
 #    - quotes list via the type filter key the backend reads:
-curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
   "http://127.0.0.1:8000/api/v1/$ORG_ID/invoicing/documents/?type=SALES_QUOTE"  # 200
 
 # 7. Browser (P8): open /reports — the tabs (Trial Balance / P&L / Balance
@@ -385,7 +424,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
 
 # 8. P9 onboarding + banking spot checks
 #    - the seeded bank accounts are filterable (children of the 1000 header):
-curl -s -o /dev/null -w '%{http_code}\n' -b /tmp/cj2.txt \
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" \
   "http://127.0.0.1:8000/api/v1/$ORG_ID/accounts/?is_bank=true"        # 200 (results non-empty)
 #    - the aged report honours its as-at date (docs issued after it are excluded)
 #    - InvoiceNow refuses non-invoice types (a converted quote is APPROVED
@@ -633,6 +672,7 @@ cd apps/backend && source .venv/bin/activate && pip install -e ".[dev]"
 # to BOTH ledgersg_dev and test_ledgersg_dev — never re-load over live data
 #   ≤ v1.0.2 → apply §16 (the NUMERIC(19,4) widening)
 #   v1.1.0   → apply §17 (the RLS completion, v1.2.0)
+#   v1.2.0   → apply §15c (the Django framework tables, v1.2.1)
 cd ../web && npm install
 npm run build:server       # cold build for production
 node ../../scripts/prod-csp-smoke.js   # P16: the CSP/hydration smoke gate

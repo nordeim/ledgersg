@@ -4,7 +4,12 @@
 // P16 deltas vs session 30: the open mobile nav now exposes dialog
 // semantics (role=dialog + aria-modal — FE-L5), and the dashboard is the
 // orgId-first-keyed live surface (FE-H1).
-const { chromium } = require("@playwright/test");
+// P17/DOC-M11: self-resolving require — this script runs from the repo
+// root, where a bare require("@playwright/test") cannot resolve; resolve it
+// from the web app's node_modules (the prod-csp-smoke.js pattern).
+const { chromium } = require(
+  require("path").join(__dirname, "..", "apps", "web", "node_modules", "@playwright", "test")
+);
 const fs = require("fs");
 const path = require("path");
 

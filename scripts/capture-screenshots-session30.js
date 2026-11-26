@@ -1,7 +1,12 @@
 // Session-30 screenshot capture — the remediated surfaces.
 // Mirrors the repo convention: pixel-verified captures with DOM truths
 // asserted per surface (docs/screenshots/80-87_*_session30.png).
-const { chromium } = require("@playwright/test");
+// P17/DOC-M11: self-resolving require — this script runs from the repo
+// root, where a bare require("@playwright/test") cannot resolve; resolve it
+// from the web app's node_modules (the prod-csp-smoke.js pattern).
+const { chromium } = require(
+  require("path").join(__dirname, "..", "apps", "web", "node_modules", "@playwright", "test")
+);
 const fs = require("fs");
 const path = require("path");
 

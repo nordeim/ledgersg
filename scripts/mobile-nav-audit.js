@@ -1,6 +1,11 @@
 // Mobile-nav live verification probe (session 29)
 // Verifies the P12/P13 contract at 375/800/1280 + the documented v4 trap sweep.
-const { chromium } = require("@playwright/test");
+// P17/DOC-M11: self-resolving require — this script runs from the repo root,
+// where a bare require("@playwright/test") cannot resolve; resolve it from
+// the web app's node_modules (the prod-csp-smoke.js pattern).
+const { chromium } = require(
+  require("path").join(__dirname, "..", "apps", "web", "node_modules", "@playwright", "test")
+);
 const BASE = "http://localhost:3000";
 
 (async () => {

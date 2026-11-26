@@ -1,6 +1,6 @@
 # LedgerSG — Enterprise Accounting Platform for Singapore SMBs
 
-[![Tests](https://img.shields.io/badge/tests-1454%20passing-success)]()
+[![Tests](https://img.shields.io/badge/tests-1504%20passing-success)]()
 [![Security](https://img.shields.io/badge/security-100%25-brightgreen)]()
 [![IRAS](https://img.shields.io/badge/IRAS-2026%20Compliant-red)]()
 [![WCAG](https://img.shields.io/badge/WCAG-AAA-success)]()
@@ -101,17 +101,35 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.3.2 | ✅ Production Ready | 16 pages, **532 unit tests + 40 e2e** (11 always + 29 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9), registration + contacts management + the invoice-form contact picker + the full GST F5 lifecycle + bank-account edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11), the mobile-nav overlay a11y floor (Escape / focus trap / scroll lock / focus return) + the lint-debt truth pass (79→45) + data-scroll-behavior (P12), the closed-drawer visibility fix + X hit-target fix + axe-scanned overlay (P13) |
-| **Backend** | v0.6.2 | ✅ Suite Fully Green | 90+ endpoints, **834 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8), InvoiceNow invoice-only gate, nullable-PayNow bank-account contract, as-at-bounded aged reports, seeded account_type backfill + is_bank filter (P9), GST F5 review/amend + fiscal-period open + UEN uniqueness + rate-limit 429 truth + org-create duplicate-UEN 400s (P10), credit notes posting reversed GL entries + netting in F5, production settings that boot (builtin Redis cache, LOG_DIR knob), typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission (P11) |
-| **Database** | v1.2.0 | ✅ Complete | 7 schemas + token blacklist, **RLS complete on every tenant table (§17)**, 29 domain tables + 1 view, **NUMERIC(19,4) money** |
+| **Frontend** | v0.3.4 | ✅ Production Ready | 16 pages, **582 unit tests + 40 e2e** (11 always + 29 backend-gated), typecheck clean, whole-tree eslint 0 errors, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9), registration + contacts management + the invoice-form contact picker + the full GST F5 lifecycle + bank-account edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11), the mobile-nav overlay a11y floor (P12), the closed-drawer visibility fix + X hit-target fix + axe-scanned overlay (P13), single-flight token refresh (P15), the nonce-CSP proxy + mobile-nav probe green (P16), the `--color-success` token + unsaved-changes guard + org-selector Radix menu contract + shared UEN schema + lint-error zero (P17) |
+| **Backend** | v0.6.4 | ✅ Suite Fully Green | 90+ endpoints, **882 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8), InvoiceNow invoice-only gate, nullable-PayNow bank-account contract, as-at-bounded aged reports, seeded account_type backfill + is_bank filter (P9), GST F5 review/amend + fiscal-period open + UEN uniqueness + rate-limit 429 truth + org-create duplicate-UEN 400s (P10), credit notes posting reversed GL entries + netting in F5, production settings that boot (builtin Redis cache, LOG_DIR knob), typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission (P11), FILED immutability + the GST period lock (P14), serializer contract fixes (P16), the concurrency guards (double-reversal / double-void / double-reconcile refused under row locks) + the 400-contract sweep + the Celery tenant context + the admin/STORAGES gates (P17) |
+| **Database** | v1.2.1 | ✅ Complete | 7 schemas + token blacklist, **RLS complete on every tenant table (§17)**, 29 domain tables + 1 view + §15c Django framework tables, **NUMERIC(19,4) money** |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching; payables include PARTIALLY_PAID bills (P7/F-9) |
 | **InvoiceNow** | v0.6.0 | ✅ Real transmission path (P5/C-2) | send-invoicenow creates a real transmission log + queues the Celery task; status reports real log rows; retention-safe cleanup (never deletes DELIVERED/REJECTED); the detail page exposes Send-via-InvoiceNow + status badge (P7) |
 | **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on, HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes, typed query params (400 not 500) |
-| **Overall** | — | 🟢 **P0–P15 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P9_REPORT.md`, `docs/REMEDIATION_2026-11-22_P10_REPORT.md`, `docs/REMEDIATION_2026-11-23_P11_REPORT.md`, `docs/REMEDIATION_2026-11-23_P12_REPORT.md`, `docs/REMEDIATION_2026-11-24_P13_REPORT.md` and `docs/ledgersg-audit-report.md` |
+| **Overall** | — | 🟢 **P0–P17 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P9_REPORT.md`, `docs/REMEDIATION_2026-11-22_P10_REPORT.md`, `docs/REMEDIATION_2026-11-23_P11_REPORT.md`, `docs/REMEDIATION_2026-11-23_P12_REPORT.md`, `docs/REMEDIATION_2026-11-24_P13_REPORT.md` and `docs/ledgersg-audit-report.md` |
 
 ### Latest Milestone
+
+#### 🎉 P17 Sprint: Concurrency Truth, the 400-Contract Sweep & the Celery Tenant Context — 2026-11-27 (session 34)
+
+Source: `docs/REMEDIATION_PLAN_2026-11-27_P17.md` (validated against the codebase before execution; every fix TDD — RED first).
+
+- ✅ **Concurrency guards (the Highs)**: double journal-entry reversals refused (409-class, row lock + re-check), double payment void refused under `select_for_update`, reconcile double-match refused (typed 400) — the three money-mutation races closed
+- ✅ **The Celery tenant context (H-3)**: tasks dispatched `on_commit` (never inside the request transaction) and the worker wraps each task body in the RLS tenant context (`app.current_org_id` SET LOCAL) — eager mode stays bit-identical for dev/test
+- ✅ **The 400-contract sweep**: typed GST box parsing (None/dict/"garbage" → 400), bulk-allocation UUID field errors, UEN normalize-then-validate on org PATCH (case-dodge duplicates refused), tax-rate range on update, exchange_rate stored at its true 6-dp wire precision
+- ✅ **Settings/ops gates**: `/admin/` 404s outside DEBUG (settings-gate tested), the Django 6 `STORAGES` manifest migration (WhiteNoise compressed-manifest storage actually active), `select_related` on the three list services (O(1) FK queries, query-count gated), no negative-membership cache poisoning
+- ✅ **Frontend contract batch**: the `--color-success` token (14 previously-dead class usages now compile), the unsaved-changes `beforeunload` guard wired, the org-selector Radix menu contract (aria + Escape + outside-click + arrow keys), the shared `uenSchema` across all three surfaces, redirect-carry on refresh failure, the four dead CSP origins dropped, whole-tree eslint **0 errors**
+- ✅ **Schema v1.2.1 (§15c)**: the Django framework tables, SQL-First — the fresh-host pytest gap (transactional teardowns) closed
+- ✅ **The gate**: backend **882P/0F/5S** (+22) · vitest **582/582** (+28) · tsc 0 · eslint 0 errors (5 warnings, documented parity) · build:server green · mobile-nav probe 17/17 (no Tailwind v4 bug — re-settled on the remediated tree)
+
+#### P16 Sprint: CSP Nonce, the Proxy Restore & Serializer Contract Fixes — 2026-11-26 (session 32)
+
+- ✅ **The per-request nonce CSP** (`src/proxy.ts` + `src/lib/csp.ts`): production serves `script-src 'nonce-…'`, no `unsafe-inline`; the production-CSP smoke (5/5) and the vitest proxy-orchestration tests pin it
+- ✅ **The middleware restore** (Next 16 `middleware`→`proxy` rename): static security headers consolidated in `next.config.ts headers()`, CSP owned by the proxy
+- ✅ **Serializer contract fixes** + the mobile-nav live probe (17/17) re-settled; session 33 archived the raw transcript
 
 #### 🎉 P15 Sprint: Tree Repair, P14 Completion & the Runtime-Role Gate — 2026-11-26 (session 30)
 
@@ -337,14 +355,14 @@ Source: the independent audit (`docs/ledgersg-audit-report.md`, every Critical/H
 
 ## 🧪 Test Suites & Execution
 
-LedgerSG employs comprehensive testing across multiple layers with **1,320 tests passing** (750 backend + 530 frontend unit + 40 e2e: 11 always + 29 backend-gated).
+LedgerSG employs comprehensive testing across multiple layers with **1,504 tests passing** (882 backend + 582 frontend unit + 40 e2e: 11 always + 29 backend-gated).
 
 ### Test Suite Breakdown
 
 | Suite | Count | Framework | Coverage | Status |
 |-------|-------|-----------|----------|--------|
-| **Backend Suite** | 865 collected — 860 passing, 5 skipped | pytest-django | Core, domain, integration, invariants, security | ✅ 100% pass (5 intentional skips) |
-| **Frontend Unit Tests** | 530 passing | Vitest + RTL | Components, hooks, pages, providers | ✅ 100% pass |
+| **Backend Suite** | 887 collected — 882 passing, 5 skipped | pytest-django | Core, domain, integration, invariants, security | ✅ 100% pass (5 intentional skips) |
+| **Frontend Unit Tests** | 582 passing | Vitest + RTL | Components, hooks, pages, providers | ✅ 100% pass |
 | **Frontend Typecheck** | 0 errors | tsc --noEmit | All src + e2e + configs | ✅ Green |
 | **Frontend Coverage Gate** | thresholds at the measured floor | vitest --coverage | The honest ratchet (P10/M-13: the old 85% thresholds had never passed) | ✅ Green |
 | **E2E Specs** | 40 specs (11 always + 29 backend-gated) | Playwright | Auth, navigation, register self-serve loop, contacts, invoice picker, banking workflow, ledger, quotes, reports, session, settings, invoices, P11 accounting truth (F5 boxes, contacts round-trip, dashboard GST), P12 mobile-nav overlay contract (Escape/auto-close/desktop), P13 mobile-nav a11y (closed-drawer visibility, X hit-target, axe scan) | ✅ 40/40 live-green |
@@ -370,7 +388,7 @@ psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 # 3. Run tests with reuse flags (ALWAYS these two)
 pytest --reuse-db --no-migrations -v
 
-# Expected output (post 2026-11-24 P13 remediation): 750 passed, 0 failed, 5 skipped
+# Expected output (post 2026-11-27 P17 remediation): 882 passed, 0 failed, 5 skipped
 ```
 
 **Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). The P2 sprint (`docs/REMEDIATION_2026-11-21_P2_REPORT.md`) added rate-effectiveness regression tests and the custom tax-code create fix. The P3 sprint (`docs/REMEDIATION_2026-11-21_P3_REPORT.md`) widened all monetary columns to NUMERIC(19,4) (schema v1.1.0, §16 in-place migration) and made `add_line` apply `discount_pct` server-side. The P4 sprint (`docs/REMEDIATION_2026-11-21_P4_REPORT.md`) shipped the HttpOnly refresh-cookie session flow with the `session_hint` evidence gate (14 cookie-contract tests). Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance **incl. numeric precision**, balance queries, **monetary capacity**) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
@@ -379,7 +397,7 @@ pytest --reuse-db --no-migrations -v
 
 ```bash
 cd apps/web
-npm test                    # Vitest unit suite (530 tests)
+npm test                    # Vitest unit suite (582 tests)
 npm run typecheck           # tsc --noEmit (0 errors)
 npm run test:coverage       # With coverage report (the CI ratchet gate)
 npm run test:e2e            # Playwright e2e — 11 tests green without a backend
@@ -611,12 +629,14 @@ Ledger-SG/
 │       │   ├── 📂 lib/
 │       │   │    └── api-client.ts     # Typed API client
 │       │   └── 📂 providers/         # Context providers (Auth, Theme)
-│       ├── middleware.ts             # CSP & Security Headers
-│       └── next.config.ts            # Next.js Configuration
+│       ├── proxy.ts               # Per-request nonce CSP (Next 16 proxy, ex-middleware; P16)
+│       └── next.config.ts            # Next.js Configuration (static security headers)
+│
+│       📌 The tree above is abridged — the authoritative layout lives in
+│          AGENTS.md §2 and Project_Architecture_Document.md.
 │
 ├── 📂 docker/                        # Docker Configuration
 ├── 📂 docs/                          # Documentation
-├── 📄 start_apps.sh                  # Application Startup Script
 │
 ├── 📄 Project_Architecture_Document.md  # Comprehensive Architecture Guide
 ├── 📄 GEMINI.md                          # AI Agent Context & Status
@@ -760,26 +780,44 @@ open http://localhost:3000
 
 ### Environment Variables
 
-#### Backend (`.env`)
+Nothing reads env files from the repo root — each app owns its own
+(verified per `apps/backend/.env.example` and `apps/web/.env.example`; the
+root `.env.example` is a combined index of both). **There is no
+`DATABASE_URL`**: the backend reads five discrete `DB_*` variables.
+
+#### Backend (`apps/backend/.env`) — 16 settings-read variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SECRET_KEY` | ✅ | — | Django secret key |
-| `DATABASE_URL` | ✅ | — | PostgreSQL connection string |
-| `REDIS_URL` | ✅ | — | Redis connection for Celery |
-| `DEBUG` | ❌ | False | Debug mode |
-| `ALLOWED_HOSTS` | ✅ | — | Comma-separated host list |
-| `CORS_ALLOWED_ORIGINS` | ✅ | — | Frontend origins |
+| `SECRET_KEY` | ✅ | — | Django secret key (production refuses the placeholder — H-06) |
+| `DB_NAME` | ✅ | ledgersg_dev | PostgreSQL database name (`test_ledgersg_dev` for the pytest run) |
+| `DB_USER` | ✅ | ledgersg | PostgreSQL role (superuser loader role; runtime role is `ledgersg_app`) |
+| `DB_PASSWORD` | ✅ | — | PostgreSQL role password |
+| `DB_HOST` | ✅ | localhost | PostgreSQL host |
+| `DB_PORT` | ✅ | 5432 | PostgreSQL port |
+| `REDIS_URL` | ✅ | — | Redis — Celery broker AND the Django cache (org-membership cache, rate limiting) |
+| `DEBUG` | ❌ | true (dev) | Django debug mode — never true in production |
+| `DJANGO_SETTINGS_MODULE` | ❌ | config.settings.development | `development` or `production` |
+| `ALLOWED_HOSTS` | ✅ (prod) | localhost,127.0.0.1 | Comma-separated host list |
+| `CORS_ALLOWED_ORIGINS` | ✅ | — | Frontend origins (scheme + host + port) |
+| `RATELIMIT_ENABLE` | ❌ | true | Auth rate limits on/off (testing forces off) |
+| `DEBUG_TOOLBAR` | ❌ | false | django-debug-toolbar (development only) |
+| `CELERY_ALWAYS_EAGER` | ❌ | true (dev) | Run Celery tasks inline (development only) |
+| `SENTRY_DSN` | ❌ | — | Optional error-reporting DSN |
+| `ADMIN_EMAIL` | ❌ | — | Health-check/admin recipient |
+| `LOG_DIR` | ❌ | /var/log/ledgersg | Production file-handler log directory (must exist before the production boot — P11/C-2) |
 
-#### Frontend (`.env.local`)
+#### Frontend (`apps/web/.env.local`) — 2 live variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `NEXT_PUBLIC_API_URL` | ✅ | http://localhost:8000 | Backend API URL |
-| `NEXT_OUTPUT_MODE` | ❌ | standalone | `standalone` or `export` |
-| `NEXT_PUBLIC_ENABLE_PEPPOL` | ❌ | true | InvoiceNow feature flag |
-| `NEXT_PUBLIC_ENABLE_GST_F5` | ❌ | true | GST F5 feature flag |
-| `NEXT_PUBLIC_ENABLE_BCRS` | ❌ | true | BCRS feature flag |
+| `NEXT_PUBLIC_API_URL` | ✅ | http://localhost:8000 | Browser-facing API URL (read by `src/lib/api-client.ts`, `next.config.ts` and `src/proxy.ts` for CSP `connect-src`) |
+| `NEXT_OUTPUT_MODE` | ❌ | standalone | `standalone` only — see Build Modes below |
+
+> **Reserved, not read:** `NEXT_PUBLIC_ENABLE_PEPPOL`,
+> `NEXT_PUBLIC_ENABLE_GST_F5`, `NEXT_PUBLIC_ENABLE_BCRS` and `BACKEND_URL`
+> are documented as reserved in `apps/web/.env.example` — no code reads
+> them; they activate when the gated features ship.
 
 ### Build Modes
 
@@ -874,7 +912,7 @@ open http://localhost:3000
 ┌─────────────────────────────────────────────────────────────┐
 │              DJANGO BACKEND (localhost:8000)                │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │  GET /api/v1/{org_id}/dashboard/                    │   │
+│  │  GET /api/v1/{org_id}/reports/dashboard/metrics/  │   │
 │  │  • Aggregates all metrics                           │   │
 │  │  • Returns JSON                                     │   │
 │  └─────────────────────────────────────────────────────┘   │
@@ -1109,11 +1147,10 @@ LedgerSG provides comprehensive documentation for different audiences:
 | [CLAUDE.md](CLAUDE.md) | Developer briefing, code patterns, critical files | Developers working on features |
 | [AGENT_BRIEF.md](AGENT_BRIEF.md) | Agent guidelines, architecture details | Coding agents, AI assistants |
 | [ACCOMPLISHMENTS.md](ACCOMPLISHMENTS.md) | Feature completion log, milestones, changelog | Project managers, stakeholders |
-| [SECURITY_AUDIT.md](SECURITY_AUDIT.md) | Security audit report, findings, remediation | Security team, auditors |
+| [docs/COMPREHENSIVE_SECURITY_n_QUALITY_AUDIT_REPORT.md](docs/COMPREHENSIVE_SECURITY_n_QUALITY_AUDIT_REPORT.md) | Security audit report, findings, remediation | Security team, auditors |
 | [PYTEST_FIX_VALIDATION_REPORT.md](PYTEST_FIX_VALIDATION_REPORT.md) | pytest configuration fix details | Backend developers |
 | [E2E_TESTING_EXPERIENCE_REPORT.md](E2E_TESTING_EXPERIENCE_REPORT.md) | Complete E2E testing guide, lessons learned, best practices | QA, developers, AI agents |
 | [E2E_TEST_FINDINGS.md](E2E_TEST_FINDINGS.md) | Critical bugs found during E2E testing | Developers, QA |
-| [E2E_TEST_EXECUTION_SUMMARY.md](E2E_TEST_EXECUTION_SUMMARY.md) | E2E execution summary and results | Project managers, stakeholders |
 
 **Recommendation:** Start with the [Project Architecture Document](Project_Architecture_Document.md) for a complete understanding of the system.
 
@@ -1173,8 +1210,8 @@ See [LICENSE](LICENSE) for full license text.
 
 ## 📞 Support
 
-- **Documentation:** https://docs.ledgersg.sg
-- **Issues:** https://github.com/ledgersg/ledgersg/issues
+- **Documentation:** this repo's `docs/` folder (see `docs/DEPLOYMENT.md`, `API_CLI_Usage_Guide.md`, `docs/REMEDIATION_*` series)
+- **Issues:** https://github.com/nordeim/ledgersg/issues
 - **Email:** support@ledgersg.sg
 - **Security Reports:** security@ledgersg.sg (encrypted)
 
@@ -1182,8 +1219,8 @@ See [LICENSE](LICENSE) for full license text.
 
 **LedgerSG — Built with ❤️ for Singapore SMBs**
 
-[Report Bug](https://github.com/ledgersg/ledgersg/issues) · [Request Feature](https://github.com/ledgersg/ledgersg/issues) · [Documentation](https://docs.ledgersg.sg)
+[Report Bug](https://github.com/nordeim/ledgersg/issues) · [Request Feature](https://github.com/nordeim/ledgersg/issues) · [Documentation](docs/DEPLOYMENT.md)
 
 ---
 
-*Last Updated: 2026-03-11 | Version: 2.3.0 | Status: Production Ready ✅*
+*Last Updated: 2026-11-27 | Version: 2.5.0 (P17) | Status: Production Ready ✅*
