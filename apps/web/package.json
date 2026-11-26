@@ -8,7 +8,7 @@
     "dev": "next dev",
     "dev:clean": "rm -rf .next && next dev",
     "================ SERVER MODE (Backend API) ====================": "",
-    "================ (the only production path \u2014 P10/M-12) ========": "",
+    "================ (the only production path — P10/M-12) ========": "",
     "build:server": "NEXT_OUTPUT_MODE=standalone next build && cp -r .next/static .next/standalone/.next/",
     "start": "node .next/standalone/server.js",
     "start:prod": "NODE_ENV=production PORT=3000 node .next/standalone/server.js",
@@ -43,7 +43,7 @@
     "clsx": "^2.1.1",
     "decimal.js": "^10.6.0",
     "lucide-react": "^0.575.0",
-    "next": "16.1.6",
+    "next": "^16.4.6",
     "next-themes": "^0.4.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -53,7 +53,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4",
     "uuid": "^13.0.0",
-    "zod": "^4.3.6",
+    "zod": "^4.6.7",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
