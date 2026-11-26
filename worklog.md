@@ -701,3 +701,63 @@ the H-3 DB-trigger layer; the H-05b attachment model; everything carried
 forward from the P14 §6 and P13 registers (audit1 M-2/M-3/M-6b/M-8/M-9/M-7-
 full; audit2 M-01..M-05/M-07/M-08; B-3/B-4/B-8/B-9/B-12/B-15..B-19; the
 frontend L-batch; the 9 eslint findings; the ruff register).
+
+---
+
+## 2026-11-26 — P16 Sprint: Production Truth (session 32)
+
+**Base:** `d7f7d9b7` · **Plan:** `docs/REMEDIATION_PLAN_2026-11-26_P16.md` ·
+**Report:** `docs/REMEDIATION_2026-11-26_P16_REPORT.md`
+
+Three parallel deep audits (backend P15-diff, frontend, cross-cutting
+truth) + lead verification of every Critical/High in source and build
+artifacts. The headline finding: **the shipped production app could not
+hydrate** — the static production CSP blocked Next's non-nonced inline
+bootstrap scripts on every page, and the dev-mode suite structurally
+could not catch it.
+
+### What was fixed (TDD — every behavioural fix RED first)
+
+| Task | Fix | Evidence |
+|---|---|---|
+| FE-C1 (Critical) | The nonce-based production CSP: `src/lib/csp.ts` + `src/proxy.ts` (per-request nonce on request+response headers), `force-dynamic` in the root layout (nonces require dynamic rendering — verified against the bundled Next 16 guide), the CSP removed from next.config (single source, the P13/H-1 trap) | 8 builder tests + **`scripts/prod-csp-smoke.js` 5/5 on the real standalone build** (nonce served, hydration happened, zero violations) |
+| BE-H1 | service.py's from-scratch MIDDLEWARE (the Docker API entrypoint) had dropped TenantContext + AuditContext + CSP + WhiteNoise — derived from base now, gated in every HTTP-serving settings module | 4 settings-gate tests |
+| BE-H2 | The dedicated `POST /payments/{id}/allocate/` still demanded APPROVED-only (the P14 instalment fix missed the wire serializer) — shares `ALLOCATABLE_STATUSES`; the dead twin serializer deleted | 4 endpoint-level tests |
+| BE-M batch | The payment-row `select_for_update` (TOCTOU); NaN/Infinity box-override rejection (money() is_finite + both seams) + HALF_UP on the FX paths; the line-total NUMERIC(19,4) bound; atomic create+allocate (no orphaned payments behind 400s); `discount_pct` forwarded on line-add; system tax-code rows read-only; file/amend row locks | Each RED → GREEN |
+| BE-L batch | CSV bytes-once decode (latin-1 actually imports); the normalized-UEN write-back; SENT restored on allocation release (the invoicenow_sent_at evidence; the email residual registered); the payment-void reversal date is localdate; the audit dedup (the trg_audit_payment trigger is the truth); the period_lock docstring corrected + the advertised payment-void lock test written | Each RED → GREEN |
+| FE-H1 | The dashboard query key was inverted — all 10 mutation→dashboard invalidations were no-ops. The page now consumes `useDashboardMetrics` (orgId-first) | The QueryCache-key test |
+| FE-H2 | Org creation dead-ended on a stale closure (`switchOrg` read the PRE-creation org list) — the provider's new `selectOrgById` selects without list state | The select-without-list test + the live p10 e2e |
+| FE-H3 | The frontend UEN regex rejected the ACRA LLP/society forms the backend accepts — mirrors all three forms; the dead duplicate validator deleted | 6 format tests |
+| FE-M/L batch | The open-redirect guard on `?redirect=`; the drawer closes at the md crossing (scroll lock released); the broadened focus trap + `role="dialog"`/`aria-modal`; the e2e serial contract in the Playwright config; the dead code swept; the single-flight shared-FAILURE path pinned | All RED → GREEN; eslint parity 9 held |
+| Docs truth pass | Every stale count/version/claim fixed across CLAUDE/README/PAD/SKILL/AGENTS/ci.yml/API guide/DEPLOYMENT (incl. the §17 upgrade note + the smoke step); Current_Project_Status.md archived; 7 tracked logs + 49 backup/plan files untracked | The audit's consolidated table, row by row |
+
+### The mobile navigation (the sprint's named focus — settled live, third time)
+
+**17/17 live probe checks PASS on the remediated tree** (375/800/1280:
+toggle, closed-drawer `visibility:hidden`, overlay, X hit-target,
+transition-aware close, no overflow, no console errors, sticky
+tablet/desktop, the v4 space-y trap sweep clean). The v4 setup is
+CSS-first clean. **The navigation works; no TailwindCSS v4 bug exists.**
+The P16 changes improved it: dialog semantics, the full focusable set in
+the trap, and the resize-past-md lock release.
+
+### Final gate (all Verified, executed)
+
+backend **860P/0F/5S** (invariants 34P; security 76P/3S) · vitest
+**554/554** (64 files) · typecheck 0 · coverage green at both ratchets ·
+eslint **9** (exact parity) · build:server green (dynamic + proxy) ·
+**the production-CSP smoke 5/5 (NEW)** · e2e default 11P + 29 gated ·
+**live e2e:full 40P/0F/0S** · **rls_smoke 13/13 as ledgersg_app** ·
+**mobile-nav 17/17** · 8 verified screenshots (88-95_session32).
+
+### Deferred (registered, not dropped)
+
+The ContactPicker WAI-ARIA combobox (the next sprint's first item);
+email-sent documents restore to APPROVED (needs a lifecycle-evidence
+column); backend list pagination; the audit-log INSERT WITH CHECK (TRUE)
+forgery surface + the tax-code row-capture note (schema tier); the ruff
+mechanical debt (register re-baselined honestly: ~1216 whole-tree);
+plus everything carried forward from the P15 register (UEN checksum,
+H-3 DB trigger, H-05b attachment model, M-2/M-3/M-6b/M-8/M-9/M-7-full,
+audit2 M-01..M-08, B-3/B-4/B-8/B-9/B-12/B-15..B-19, the L-batch, the 9
+eslint findings).
