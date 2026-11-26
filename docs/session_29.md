@@ -105,3 +105,135 @@ The ORM can't create system rows (null org). Using raw SQL for those:
 The schema seed already carries 3 dated SR bands — the dedupe works. Fixing the test to assert band uniqueness:
 Now **F-A (e2e bootstrap fix) + H-9 (Docker key)**, then the full regression run:
 Now the M-7c schema comment honesty fix + full regression run:
+
+I'll start by setting up a task plan and checking the current workspace state.
+The workspace has been reset — no local repo exists. Cloning fresh:
+Repo cloned successfully. Now let me review the documentation. First, let me see the docs folder structure:
+Now let me read the key session and remediation documents to understand the current state:
+Now let me read the partial P14 changes file and the P13 report:
+Let me check what the "partial p14 changes" commit actually contains and the current state of the codebase:
+Now let me understand the backend structure to compare against those committed paths:
+The situation is now clear: the previous session committed several P14 fixes to **wrong file paths** (misplaced at `apps/backend/` root instead of the Django app packages). Let me delegate digestion of the large docs to parallel Explore agents while I verify the codebase state myself:
+Both doc digests are complete. Now let me read the operational files myself — the skills catalog, PG setup script, and SSH wrapper instructions:
+The setup script creates rootless PG. Now let me find the relevant skills in the catalog (grep the persisted output) and read the rootless-postgresql skill:
+Now let me set up PostgreSQL using the repo's setup script:
+PG 17 is up. Now create the LedgerSG roles and databases, then load the schema:
+Schema loaded into both DBs (30 tables). Now let me check the schema version, set up Redis, and start building the environments:
+Schema is at v1.1.0 — confirming the P14 §17 RLS patch was never committed. Now let me set up Redis and build the backend/frontend environments:
+Redis is running. Now let me build the backend venv and frontend node_modules in parallel:
+Both environments built. Now let me verify the state of P14 fixes — checking whether the correctly-placed service files import from the misplaced modules:
+Critical discovery — the real service files import `from apps.gst.services.period_lock import assert_not_gst_locked` but the file was misplaced at `apps/backend/gst/period_lock.py`. Let me check what the tests expect and verify the actual runtime state:
+Tests import from the CORRECT locations while fixes sit in misplaced files — the tests will be RED. Let me reproduce the actual gate state. First check the test settings:
+**The committed HEAD is broken** — circular import in `payment.py` makes the backend unable to even run `manage.py check`. Let me inspect the damage:
+The previous session overwrote the **models** file with **serializer** code — the real `Payment` model definition was destroyed. Let me verify with git history:
+Fully confirmed: commit `2bcb43f0` corrupted the codebase. Let me diff the other "correctly placed" modified files against their pre-P14 state to assess which changes are sound:
+The correctly-placed fixes reference `apps.gst.services.period_lock` which doesn't exist. Let me map ALL the broken wiring — where each misplaced module is expected:
+Let me check which serializer-layer fixes exist in the real serializer files:
+Let me check the remaining P14 task states — XXE hardening, viewer gates, tax-code dedupe, Docker key, and the e2e bootstrap:
+Vitest and Playwright are already configured. Now let me complete the damage map — comparing the corrupted model file against the real payment serializer:
+M-5 confirmed unfixed. Now let me verify the frontend baseline and remaining items:
+Vitest baseline green (530/530). Let me check a few remaining audit points and pip-audit availability:
+All versions confirmed. Now let me review the DEPLOYMENT.md and API guide structure to plan the doc updates:
+Now I have the full picture. Let me check what the committed P14 test files cover so the plan maps them correctly:
+All P14 tests exist and are RED (awaiting their fixes). I now have everything needed. Let me update my todo list and write the remediation plan:
+Plan saved. Now let me validate the plan's key assumptions against the codebase before executing:
+The plan aligns with the tests. Let me verify the current RLS state in the live DB to scope §17 precisely:
+§17 scope confirmed: 6 tables need RLS. Let me study the schema's §12 RLS section to match its style:
+Let me check the `current_org_id()` helper function definition and the middleware context mechanism:
+Let me verify the org_id columns on the six §17 target tables:
+The plan is fully validated. Now executing **Phase 0 — tree repair**. Starting with the Payment model restore:
+Backend boots (only the documented W001). Now the H-2 serializer fix — porting the stranded fix block:
+Now moving the misplaced period_lock.py to its expected home:
+Now Phase 0.5 — porting the C-1 fix into the canonical organisation service:
+Now check whether views pass `override_reason` and `related_document_id` through:
+Two view wirings are missing. Let me check the file serializer then wire both:
+Now wire `related_document_id` through the document create view:
+Wait — existing test fixtures use pseudo-UENs like `TP<hex>`. Let me check what conftest and other tests use before this gate breaks the suite:
+There's a subtle mismatch: the committed P14 test expects `M1234567A` (7 digits) valid, but the stranded validator regex only accepts M+8 digits+letter. Let me verify the real IRAS format before deciding:
+Authoritative sources (OECD TIN guide: ASGD = `ANNNNNNNC`, 9 chars) confirm the real M-form is M + 7 digits + check letter, with a 10-char older variant. The committed test is right; the stranded regex was wrong. Fixing the validator:
+`OrganisationUpdateSerializer` deliberately excludes the regulatory `gst_reg_number` (owned by `GSTRegistrationSerializer` per the P5/M-6 design). The committed test targets the wrong serializer — a defect in the never-run RED suite. Correcting it to exercise the real contract:
+Now let me run the full backend suite to see the interim state after Phase 0:
+789 passed — the remaining failures map exactly to my Phase 1 tasks. Let me diagnose each group. First the filed-return immutability failures (the C-2 fix was ported — why still failing?):
+The fix works — the test must be asserting differently. Let me read the test:
+The test imports the DRF ValidationError while the service raises `common.exceptions.ValidationError`. Fixing the test import (the session-29 fix that never landed):
+The tieout test reveals an ordering bug: unknown-box validation must run before the override_reason check. Let me fix the ordering in `file_return`:
+C-2/H-05b green. Now diagnosing the fixture ERRORs in the period-lock and input-validation files:
+The committed test class lacks `@pytest.mark.django_db` marks (never ran in session 29 — backend was broken). Fixing:
+Now check the period-lock test file for the same issue and run both:
+M-4 tests are properly RED (implementation pending). Diagnosing the period-lock control test:
+The two approve-path tests don't respect the DRAFT→SENT→APPROVED state machine. Fixing them to put the document in SENT first (as the void test already does):
+The posting needs document lines (session-29 lesson). Let me check how the credit-note test creates them:
+Let me get the full InvoiceLine model to fill all required fields at once:
+All 4 period-lock tests green. Now the P11 credit-note tests broken by the H-4 contract change:
+The netting test needs the CN linked to the same invoice it nets (not `_make_document`'s internal original). Rewriting it explicitly:
+The test DB lost its tables — the session-29 "DB destruction" phenomenon. Let me investigate the test infra's schema handling:
+My single-file runs omitted `--reuse-db` — pytest-django recreated the test DB empty (the session-29 methodology trap). Reloading the schema and re-running with both flags:
+Dashboard green. Now the GST registration test failures:
+Now the RLS isolation test:
+The test asserts the schema's own §15 default password — my manually-created role diverged from the schema provisioning. Aligning both (env-overridable test + schema-default role password):
+Let me get the full-suite interim state:
+809 passed. Let me diagnose the C-1 mechanism test before committing Phase 0:
+The SpyCursor recurses when Django calls `cursor.execute()` without a with-block (session-29's "spy recursed" bug — fix never landed). Rewriting the spy to delegate without context-manager emulation:
+C-1 mechanism green. Phase 0 complete — let me run lint parity on touched files, then commit:
+Lint parity improved (156 → 150 findings on touched files). Committing Phase 0:
+Phase 0 committed. Now **Phase 1.1 — M-4 line-item schema**. Let me study how create_document consumes lines:
+Now implementing the M-4 nested line schema (RED → GREEN):
+M-4 GREEN (29/29). Now **1.2 — X-1 XXE hardening**:
+lxml's XMLParser doesn't expose its construction flags (session-29 lesson). Converting the config test to assert the policy constant — the single source of truth:
+Now update the config test to assert the policy constant:
+X-1 GREEN. Now **1.3 — H-04b NRIC PayNow masking**:
+Now the same guard in the update serializer:
+The tests construct the serializer without the org context. Fixing the test (never ran in session 29):
+The fixture accounts aren't bank-type GL accounts. Adding a proper bank GL to the fixture:
+H-04b GREEN. Now **1.4 — M-5 viewer gates**:
+M-5 GREEN. Now **1.5 — M-10 tax-code dedupe**:
+Writing the M-10 RED test first, then the fix:
+Now adding the M-10 RED test and implementing the dedupe:
+RED for the right reason (23 rows, 16 unique bands). Now the GREEN fix:
+The band-uniqueness gate passed; my assertion was too strict (SR's 2007/2023 bands are legitimate history). Fixing the assertion:
+M-10 GREEN. Now the big one — **1.6: schema §17 (H-6 + M-6a + M-7c)**. Let me study the schema structure:
+I have the complete design. Writing §17 into the schema:
+Now the version header, changelog, M-7c comment fix, and the stale §12 comment:
+Now reload both DBs with the updated schema (§17 included):
+§17 live — only the 4 documented globals lack RLS. Running the conformance tests:
+The proconfig arrives as a parsed array, not a dict. Fixing the test's normalization:
+Django's infra tables (created by migrate in the `core` schema) aren't tenant data — the sweep must intersect with actual tenant tables. Fixing the test's semantics:
+All RLS/security green. Full backend suite check:
+**830 passed / 0 failed / 5 skipped** — all P14 tests green. Committing Phase 1:
+Now **1.7 — the live runtime-role proof**. Let me read the rls_smoke script:
+The smoke script's generated UEN/GST numbers don't match the new M-1 formats. Fixing the generators:
+The smoke reached the CoA check — the account codes need verifying. Checking what the seed actually provides:
+The accounts list defaults to top-level only — bank GLs need the `is_bank=true` filter (the session-29 lesson). Fixing the smoke script:
+The API's canonical approve path is DRAFT→APPROVED (the dedicated endpoint). Checking how the e2e suite approves to match the realistic flow:
+**13/13 steps green as `ledgersg_app`** — C-1/H-7 proven live. Now **1.8 — H-8 dependency upgrades**:
+uv is available — the proper manifest updater. Let me see the full deps:
+Backend deps upgraded. Running the full suite on the upgraded tree:
+Backend green on upgraded deps. Now the frontend upgrades:
+0 vulnerabilities. Verifying frontend gates on the upgraded tree:
+`npm audit fix --omit=dev` pruned the dev dependencies. Restoring the full tree:
+9 eslint findings — exactly the documented register. Now vitest:
+Build green. Recording the audit deltas and running coverage:
+All gates green. Now **1.9 — H-9 Docker key + service.py gates**. Writing the RED test first:
+The codebase convention is `ImproperlyConfigured` (production pattern). Rewriting the test to match, then implementing:
+Now implementing the service.py gates and the Dockerfile fix:
+The mock doesn't affect the cached base module. Fixing the reload helper to reload base too:
+Found it — the helper imports `service` BEFORE reloading `base`, so the import executes against the stale weak key and raises immediately. Fixing the order:
+The gate refuses boot without a strong key (correct). Verifying the positive path:
+H-9 GREEN. Now **1.11 — F-A e2e bootstrap fix**:
+F-A done. Now **1.12 — the .env.example truth pass**:
+All templates match the code. Adding the new optional test var to the backend template:
+Committing the H-8/H-9/F-A batch:
+Now **Phase 2 — verification**. Restarting the dev stack on upgraded deps and checking the demo bootstrap:
+Bootstrapping the demo substrate (register + org + contact) on the dev backend:
+Starting the frontend dev server, then the full live e2e:
+6 e2e failures to diagnose. Let me look at the details:
+The log shows the classic double-refresh race: refresh #200 rotates the token, the parallel second refresh sends the now-blacklisted old token → 401 → logout. Let me examine the client's refresh single-flight:
+`tryRefreshToken` has no single-flight — concurrent 401s double-refresh and the second gets the blacklisted token. Let me check the existing test harness and write the RED test:
+Writing the RED single-flight refresh test:
+RED confirmed. Implementing the single-flight fix:
+Single-flight GREEN. Re-running the live session spec:
+Session fixed. Now the p11 specs:
+The e2e's credit-note creation lacks the new `related_document_id` contract. Fixing the spec:
+The p11 spec reuses ANY paid invoice as the CN's original — the banking spec's 80.00 invoice can't cap a 250.00 credit note. Fixing the reuse logic to require cap headroom:
+p11 green. Now the banking and p10 specs:
+The p10 spec uses a pseudo-UEN — now rejected by the M-1 gate (as the audit mandates). Fixing the spec to a real ACRA format:
