@@ -1,3 +1,11 @@
+> ⚠️ **SUPERSEDED (2026-11-26)** — this file is a 2026-03-14-era snapshot
+> (780 tests, 94 endpoints, "Security Score 100%"). The current truth
+> lives in `CLAUDE.md` (the header + status table), `README.md` (the
+> badge + Test Suites section) and `AGENTS.md` (the status header):
+> post-P16 the suite is 1,454 tests (860 backend + 554 frontend + 40
+> e2e), ~86 leaf endpoints, schema v1.2.0 with RLS on every tenant
+> table.
+
 # 🔍 Critical Validation & Comparative Analysis
 
 I have conducted a meticulous, line-by-line validation of the provided assessment against the actual LedgerSG codebase and documentation corpus. Here is my comprehensive analysis:
