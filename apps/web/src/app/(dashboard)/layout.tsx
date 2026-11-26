@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-provider";
 import { Shell } from "@/components/layout/shell";
@@ -12,11 +12,14 @@ export default function DashboardLayout({
 }) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // P17/FE-M2: the hydration probe via useSyncExternalStore (server
+  // snapshot false, client true) — the setMounted-in-an-effect pattern
+  // was a cascading render flagged by react-hooks/set-state-in-effect.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   useEffect(() => {
     // Only redirect after initial loading is complete

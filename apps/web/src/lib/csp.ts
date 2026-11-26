@@ -50,10 +50,19 @@ export function buildCsp({ nonce, isDev, apiUrl }: CspOptions): string {
   return [
     "default-src 'self'",
     scriptSrc,
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    // P17/FE-L1: fonts are self-hosted via next/font (every compiled
+    // @font-face src points at /_next/static/media) — the Google origins
+    // were dead policy-widening; CSP is only as strong as its loosest
+    // unused allowance. Re-add them only when a runtime font fetch
+    // actually ships.
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",
     "img-src 'self' data: blob:",
-    `connect-src 'self' ${apiUrl} https://api.peppol.sg https://api.iras.gov.sg`,
+    // P17/FE-L1: api.peppol.sg / api.iras.gov.sg map to the
+    // NEXT_PUBLIC_ENABLE_* flags the .env.example marks "RESERVED — NOT
+    // READ BY THE CODE"; zero browser-side callers exist. connect-src
+    // stays 'self' + the backend origin until those integrations ship.
+    `connect-src 'self' ${apiUrl}`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

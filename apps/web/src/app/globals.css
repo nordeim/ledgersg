@@ -29,6 +29,11 @@
   --color-alert: #FF3333;
   --color-warning: #FFB347;
   --color-info: #4A90D9;
+  /* P17/FE-M1: the status-green the components already reference
+     (text-success/bg-success on the PAID badge, reconcile surfaces,
+     fiscal + InvoiceNow cards). Tailwind v4 generates utilities only
+     for tokens that exist — 14 usages silently compiled to nothing. */
+  --color-success: #00FF94;
 
   --color-text-primary: #FFFFFF;
   --color-text-secondary: #A0A0A0;

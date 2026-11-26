@@ -31,7 +31,10 @@ describe("buildCsp (P16/FE-C1 — nonce-based production CSP)", () => {
       "script-src 'self' 'nonce-abc123==' 'strict-dynamic'"
     );
     expect(csp).not.toContain("unsafe-eval");
-    expect(csp).not.toContain("unsafe-inline';"); // script-src has no inline escape
+    // P17: scoped to the script-src directive — style-src keeps its
+    // documented 'unsafe-inline' (React style attributes).
+    const scriptSrc = csp.split(";").find((d) => d.trim().startsWith("script-src")) ?? "";
+    expect(scriptSrc).not.toContain("unsafe-inline");
   });
 
   it("production: script-src contains no unsafe-inline anywhere in that directive", () => {
@@ -66,9 +69,9 @@ describe("buildCsp (P16/FE-C1 — nonce-based production CSP)", () => {
         isDev,
         apiUrl,
       });
-      expect(csp).toContain(
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com"
-      );
+      // P17/FE-L1: fonts are self-hosted (next/font) — no Google origin.
+      expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+      expect(csp).not.toContain("fonts.googleapis.com");
     }
   });
 
@@ -94,7 +97,10 @@ describe("buildCsp (P16/FE-C1 — nonce-based production CSP)", () => {
       expect(csp).toContain("frame-ancestors 'none'");
       expect(csp).toContain("base-uri 'self'");
       expect(csp).toContain("form-action 'self'");
-      expect(csp).toContain("font-src 'self' https://fonts.gstatic.com");
+      // P17/FE-L1: no gstatic origin — the compiled @font-face src
+      // points at /_next/static/media only.
+      expect(csp).toContain("font-src 'self'");
+      expect(csp).not.toContain("fonts.gstatic.com");
       expect(csp).toContain("img-src 'self' data: blob:");
     }
   });

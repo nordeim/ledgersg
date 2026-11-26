@@ -115,7 +115,7 @@ describe("DashboardClient truth (P9/D-2, D-3, D-4)", () => {
 
   it("carries no invented GST box figures (P9/D-2)", async () => {
     renderDashboard();
-    await screen.findByText(/GST F5/i);
+    await screen.findByText("GST F5 Breakdown");
 
     // The hardcoded Box 1/2 labels and default output/input values are gone;
     // only the real Net GST figure renders.
@@ -145,7 +145,7 @@ describe("DashboardClient GST truth (P11/H-4, M-7, L-2)", () => {
 
   it("renders no double currency prefix (S$ SGD) on the money cards (L-2)", async () => {
     renderDashboard();
-    await screen.findByText(/GST Payable/i);
+    await screen.findByText("GST Payable");
 
     // The backend's display strings already carry "SGD x.xx" — the S$
     // prefixes produced "S$ SGD 318.00" on every money card.
@@ -156,7 +156,7 @@ describe("DashboardClient GST truth (P11/H-4, M-7, L-2)", () => {
 
   it("the F5 chart renders a non-zero Net GST bar from the raw gst_payable (M-7)", async () => {
     renderDashboard();
-    await screen.findByText(/GST Payable/i);
+    await screen.findByText("GST Payable");
 
     // Toggle the accessible data table — the chart's parsed value shows up
     // as a row amount. parseFloat("SGD 318.00") was NaN, so every real
@@ -179,7 +179,7 @@ describe("DashboardClient cache-key convention (P16/FE-H1)", () => {
     // mutation→dashboard invalidations were silent no-ops and the
     // compliance landing page served stale figures.
     const { queryClient: client } = renderDashboard();
-    await screen.findByText(/GST Payable/i);
+    await screen.findByText("GST Payable");
 
     const dashboardQuery = client
       .getQueryCache()

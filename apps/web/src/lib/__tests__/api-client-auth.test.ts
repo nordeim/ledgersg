@@ -638,3 +638,55 @@ describe("api.blob — authorized binary downloads (P3/D-2)", () => {
     });
   });
 });
+
+describe("P17/FE-L5: refresh-failure redirect carries the return path", () => {
+  it("lands on /login?redirect=<path> from a deep dashboard route", async () => {
+    vi.resetModules();
+    const hrefSpy = vi.fn();
+    const pathnameSpy = vi.fn(() => "/invoices/abc-123");
+    Object.defineProperty(window, "location", {
+      value: { get href() { return "http://localhost:3000/invoices/abc-123"; }, set href(v: string) { hrefSpy(v); }, get pathname() { return pathnameSpy(); } },
+      writable: true,
+      configurable: true,
+    });
+    localStorage.removeItem("ledgersg_access_token");
+    document.cookie = "session_hint=1; path=/";
+
+    const responses = [
+      { status: 401, ok: false, json: vi.fn().mockResolvedValue({}) },
+      { ok: false, status: 401, json: vi.fn().mockResolvedValue({}) },
+    ];
+    global.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(responses.shift())
+    ) as unknown as typeof fetch;
+
+    const mod = await import("../api-client");
+    await expect(mod.api.get("/api/v1/x/")).rejects.toBeInstanceOf(mod.ApiError);
+    expect(hrefSpy).toHaveBeenCalledWith(
+      `/login?redirect=${encodeURIComponent("/invoices/abc-123")}`
+    );
+  });
+
+  it("a bare /login (no path) stays plain", async () => {
+    vi.resetModules();
+    const hrefSpy = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { get href() { return "http://localhost:3000/"; }, set href(v: string) { hrefSpy(v); }, get pathname() { return "/"; } },
+      writable: true,
+      configurable: true,
+    });
+    document.cookie = "session_hint=1; path=/";
+
+    const responses = [
+      { status: 401, ok: false, json: vi.fn().mockResolvedValue({}) },
+      { ok: false, status: 401, json: vi.fn().mockResolvedValue({}) },
+    ];
+    global.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(responses.shift())
+    ) as unknown as typeof fetch;
+
+    const mod = await import("../api-client");
+    await expect(mod.api.get("/api/v1/x/")).rejects.toBeInstanceOf(mod.ApiError);
+    expect(hrefSpy).toHaveBeenCalledWith("/login");
+  });
+});

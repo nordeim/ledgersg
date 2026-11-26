@@ -13,7 +13,9 @@ import { z } from "zod";
 // backend's apps/core/validators.py contract (P16/FE-H3: the pre-P16
 // 8/9-digit-only regex rejected LLP/society numbers like T08LL1234A that
 // the backend accepts and the product's own data model supports).
-const uenRegex = /^(?:\d{8}[A-Z]|\d{9}[A-Z]|[TS]\d{2}[A-Z]{2}\d{4}[A-Z])$/;
+// P17/FE-L6: the pattern is the SHARED uen module's — one source across
+// invoice customers, PayNow bank accounts and org creation.
+import { uenRegex } from "./uen";
 
 // Tax Codes per IRAS
 export const TAX_CODES = ["SR", "ZR", "ES", "OS", "TX", "BL", "RS"] as const;

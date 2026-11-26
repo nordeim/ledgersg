@@ -16,4 +16,4 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 }
 
-export { useAuth, useCurrentOrg } from "./auth-provider";
+export { useAuth } from "./auth-provider";

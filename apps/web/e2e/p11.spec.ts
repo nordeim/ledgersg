@@ -231,7 +231,7 @@ async function ensureDemoActivity(page: import("@playwright/test").Page) {
   // month first (the pre-P14 helper only force-computed an existing row,
   // so a fresh-clone test:e2e:full failed the F5/banking specs despite
   // DEPLOYMENT.md §9's self-bootstrap claim).
-  let returns = (await (
+  const returns = (await (
     await page.request.get(`${apiUrl}/api/v1/${orgId}/gst/returns/`, { headers: auth })
   ).json()) as { results: Array<{ id: string }> };
   let returnId = returns.results[0]?.id;

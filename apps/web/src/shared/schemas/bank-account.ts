@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { uenRegex } from "./uen";
 
 /**
  * LEDGERSG BANK ACCOUNT SCHEMA
@@ -57,7 +58,9 @@ export const bankAccountSchema = z
       // Validate PayNow ID format based on type
       switch (data.paynow_type) {
         case "UEN":
-          return data.paynow_id.length <= 10;
+          // P17/FE-L6: the three ACRA forms (shared uen module) — the
+          // pre-P17 length-only check accepted anything <= 10 chars.
+          return data.paynow_id.trim().length === 0 || uenRegex.test(data.paynow_id.trim().toUpperCase());
         case "MOBILE":
           return data.paynow_id.startsWith("+");
         case "NRIC":
@@ -113,7 +116,9 @@ export const bankAccountInputSchema = z
       // Validate PayNow ID format based on type
       switch (data.paynow_type) {
         case "UEN":
-          return data.paynow_id.length <= 10;
+          // P17/FE-L6: the shared ACRA contract (mirrors the detail-schema
+          // refinement above).
+          return data.paynow_id.trim().length === 0 || uenRegex.test(data.paynow_id.trim().toUpperCase());
         case "MOBILE":
           return data.paynow_id.startsWith("+");
         case "NRIC":

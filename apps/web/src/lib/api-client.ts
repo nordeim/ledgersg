@@ -129,7 +129,21 @@ async function fetchWithAuth(
     } else {
       // Refresh failed, clear auth
       clearAuth();
-      window.location.href = "/login";
+      // P17/FE-L5: carry the current path as ?redirect= (the login page's
+      // CWE-601 guard sanitizes it) — the two sibling redirect paths
+      // (auth-provider, dashboard layout) already do; a hard /login lost
+      // the return URL on session expiry.
+      const currentPath =
+        typeof window !== "undefined" && typeof window.location.pathname === "string"
+          ? window.location.pathname
+          : "";
+      const returnUrl =
+        currentPath &&
+        currentPath !== "/" &&
+        !currentPath.includes("/login")
+          ? `?redirect=${encodeURIComponent(currentPath)}`
+          : "";
+      window.location.href = `/login${returnUrl}`;
       throw new ApiError(401, "Session expired. Please log in again.");
     }
   }

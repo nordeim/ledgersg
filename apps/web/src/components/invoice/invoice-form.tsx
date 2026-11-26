@@ -25,6 +25,7 @@ import {
   validateSubmissionReadiness,
 } from "@/lib/invoice-submit";
 import { useInvoiceStore } from "@/stores/invoice-store";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { useAuth } from "@/providers/auth-provider";
 import { useTaxCodes } from "@/hooks/use-tax-codes";
 import { useRevenueAccounts } from "@/hooks/use-accounts";
@@ -134,6 +135,10 @@ export function InvoiceForm({
   React.useEffect(() => {
     setHasUnsavedChanges(isDirty);
   }, [isDirty, setHasUnsavedChanges]);
+
+  // P17/FE-M4: the READ side of hasUnsavedChanges — warn before the tab
+  // closes on a dirty form (the writer above existed with no consumer).
+  useUnsavedChangesGuard();
 
   // Add new line
   const handleAddLine = () => {

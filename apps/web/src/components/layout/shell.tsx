@@ -65,6 +65,11 @@ export function Shell({ children }: ShellProps) {
   const toggleRef = useRef<HTMLButtonElement | null>(null);
   const prevSidebarOpen = useRef(false);
 
+  // P17/FE-L4: the org-selector is a menu (the Radix contract) —
+  // container ref for outside-click, trigger ref for focus return.
+  const orgMenuRef = useRef<HTMLDivElement | null>(null);
+  const orgTriggerRef = useRef<HTMLButtonElement | null>(null);
+
   useEffect(() => {
     if (!sidebarOpen) return;
     document.body.style.overflow = "hidden";
@@ -154,7 +159,77 @@ export function Shell({ children }: ShellProps) {
   const handleOrgSwitch = (orgId: string) => {
     switchOrg(orgId);
     setOrgSelectorOpen(false);
+    orgTriggerRef.current?.focus();
   };
+
+  // P17/FE-L4: keyboard + focus contract for the org-selector menu.
+  // Open: focus lands on the current org's item (the drawer exemplar
+  // moves focus into the overlay). While open: Escape closes and
+  // returns focus to the trigger; arrows/Home/End rove with wrap;
+  // pointerdown outside the container closes. The menu itself stays
+  // mounted (hidden) so the trigger's aria-controls is always valid.
+  useEffect(() => {
+    if (!orgSelectorOpen) return;
+    const container = orgMenuRef.current;
+    const items = container
+      ? Array.from(
+          container.querySelectorAll<HTMLElement>('[role^="menuitem"]')
+        )
+      : [];
+    (
+      items.find((i) => i.getAttribute("aria-checked") === "true") ??
+        items[0]
+    )?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOrgSelectorOpen(false);
+        orgTriggerRef.current?.focus();
+        return;
+      }
+      if (
+        e.key !== "ArrowDown" &&
+        e.key !== "ArrowUp" &&
+        e.key !== "Home" &&
+        e.key !== "End"
+      ) {
+        return;
+      }
+      const menuItems = container
+        ? Array.from(
+            container.querySelectorAll<HTMLElement>('[role^="menuitem"]')
+          )
+        : [];
+      if (menuItems.length === 0) return;
+      e.preventDefault();
+      const active = document.activeElement;
+      const idx =
+        active instanceof HTMLElement ? menuItems.indexOf(active) : -1;
+      let next: HTMLElement;
+      if (e.key === "Home") {
+        next = menuItems[0];
+      } else if (e.key === "End") {
+        next = menuItems[menuItems.length - 1];
+      } else if (e.key === "ArrowDown") {
+        next = menuItems[(idx + 1 + menuItems.length) % menuItems.length];
+      } else {
+        next = menuItems[(idx - 1 + menuItems.length) % menuItems.length];
+      }
+      next.focus();
+    };
+    const onPointerDown = (e: MouseEvent) => {
+      if (container && !container.contains(e.target as Node)) {
+        setOrgSelectorOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("mousedown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("mousedown", onPointerDown);
+    };
+  }, [orgSelectorOpen]);
 
   // Get user initials for avatar
   const userInitials = user?.full_name
@@ -248,11 +323,30 @@ export function Shell({ children }: ShellProps) {
 
         {/* Footer: User & Org Info */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
-          {/* Org Selector */}
+          {/* Org Selector (P17/FE-L4: the Radix menu contract — aria
+              state on the trigger, Escape/outside-click close,
+              arrow-key navigation with wrap-around) */}
           {currentOrg && organisations.length > 0 && (
-            <div className="mb-3">
+            <div className="mb-3" ref={orgMenuRef}>
               <button
+                id="org-selector-trigger"
+                ref={orgTriggerRef}
                 onClick={() => setOrgSelectorOpen(!orgSelectorOpen)}
+                onKeyDown={(e) => {
+                  // Radix contract: vertical arrows on the closed
+                  // trigger open the menu (focus effect takes over).
+                  if (
+                    !orgSelectorOpen &&
+                    (e.key === "ArrowDown" || e.key === "ArrowUp")
+                  ) {
+                    e.preventDefault();
+                    setOrgSelectorOpen(true);
+                  }
+                }}
+                aria-label="Switch organisation"
+                aria-haspopup="menu"
+                aria-expanded={orgSelectorOpen}
+                aria-controls="org-selector-menu"
                 className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-text-muted hover:text-text-secondary transition-colors rounded-sm hover:bg-surface"
               >
                 <Building2 className="h-3 w-3" aria-hidden="true" />
@@ -268,28 +362,36 @@ export function Shell({ children }: ShellProps) {
                 />
               </button>
 
-              {/* Org Dropdown */}
-              {orgSelectorOpen && (
-                <div className="mt-1 py-1 bg-surface border border-border rounded-sm shadow-lg">
-                  {organisations.map((uo) => (
-                    <button
-                      key={uo.org.id}
-                      onClick={() => handleOrgSwitch(uo.org.id)}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-carbon transition-colors",
-                        uo.org.id === currentOrg.id && "text-accent-primary"
-                      )}
-                    >
-                      <span className="truncate flex-1 text-left">
-                        {uo.org.name}
-                      </span>
-                      {uo.org.id === currentOrg.id && (
-                        <Check className="h-3 w-3" aria-hidden="true" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Org Dropdown — stays mounted (hidden when closed) so
+                  the trigger's aria-controls id always resolves. */}
+              <div
+                id="org-selector-menu"
+                role="menu"
+                aria-labelledby="org-selector-trigger"
+                hidden={!orgSelectorOpen}
+                className="mt-1 py-1 bg-surface border border-border rounded-sm shadow-lg"
+              >
+                {organisations.map((uo) => (
+                  <button
+                    key={uo.org.id}
+                    role="menuitemradio"
+                    aria-checked={uo.org.id === currentOrg.id}
+                    tabIndex={-1}
+                    onClick={() => handleOrgSwitch(uo.org.id)}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-carbon transition-colors",
+                      uo.org.id === currentOrg.id && "text-accent-primary"
+                    )}
+                  >
+                    <span className="truncate flex-1 text-left">
+                      {uo.org.name}
+                    </span>
+                    {uo.org.id === currentOrg.id && (
+                      <Check className="h-3 w-3" aria-hidden="true" />
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

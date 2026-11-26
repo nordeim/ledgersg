@@ -19,26 +19,3 @@ export function useDashboardMetrics(orgId: string) {
     staleTime: 60 * 1000,
   });
 }
-
-// Compliance alerts
-export function useComplianceAlerts(orgId: string) {
-  return useQuery({
-    queryKey: [orgId, "dashboard", "alerts"],
-    queryFn: async () => {
-      const response = await api.get<{
-        results: Array<{
-          id: string;
-          severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-          title: string;
-          message: string;
-          action_required: string;
-          deadline?: string;
-          dismissed: boolean;
-        }>;
-      }>(endpoints.dashboard(orgId).alerts);
-      return response.results;
-    },
-    enabled: !!orgId,
-    refetchInterval: 60 * 1000, // Refresh every minute
-  });
-}

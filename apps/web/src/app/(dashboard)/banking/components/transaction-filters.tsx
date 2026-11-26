@@ -142,7 +142,7 @@ export function TransactionFilters({
             type="date"
             value={filters.date_from || ""}
             onChange={handleDateFromChange}
-            className="w-full h-10 px-3 rounded-md border border-border bg-background text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+            className="w-full h-10 px-3 rounded-md border border-border bg-surface text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
             data-testid="date-from-input"
           />
         </div>
@@ -156,7 +156,7 @@ export function TransactionFilters({
             type="date"
             value={filters.date_to || ""}
             onChange={handleDateToChange}
-            className="w-full h-10 px-3 rounded-md border border-border bg-background text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
+            className="w-full h-10 px-3 rounded-md border border-border bg-surface text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-transparent"
             data-testid="date-to-input"
           />
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -385,30 +385,30 @@ function DeactivateAccountButton({
 function PaymentsTab() {
   const { currentOrg } = useAuth();
   const orgId = currentOrg?.id ?? null;
-  const [showReceiveForm, setShowReceiveForm] = useState(false);
   const [showMakeForm, setShowMakeForm] = useState(false);
   // P9/B-3b: the invoice detail's Record Payment action deep-links here
   // prefilled (?receive=1&contact=…&document=…&amount=…).
+  // P17/FE-M2: derived during render (no cascading setState in an effect —
+  // the react.dev "derive state during render" contract; the URL params
+  // are fixed for a page view, so first-render derivation is exact).
   const searchParams = useSearchParams();
+  const prefillContact = searchParams.get("receive") === "1" ? searchParams.get("contact") : null;
+  const prefillDocument = searchParams.get("document") ?? "";
+  const prefillAmount = searchParams.get("amount") ?? "";
   const [prefill, setPrefill] = useState<{
     contactId: string;
     allocations: { document_id: string; allocated_amount: string }[];
-  } | null>(null);
-
-  useEffect(() => {
-    if (searchParams.get("receive") !== "1") return;
-    const contact = searchParams.get("contact") ?? "";
-    const document = searchParams.get("document") ?? "";
-    const amount = searchParams.get("amount") ?? "";
-    if (!contact) return;
-    setPrefill({
-      contactId: contact,
-      allocations: document
-        ? [{ document_id: document, allocated_amount: amount }]
-        : [],
-    });
-    setShowReceiveForm(true);
-  }, [searchParams]);
+  } | null>(
+    prefillContact
+      ? {
+          contactId: prefillContact,
+          allocations: prefillDocument
+            ? [{ document_id: prefillDocument, allocated_amount: prefillAmount }]
+            : [],
+        }
+      : null
+  );
+  const [showReceiveForm, setShowReceiveForm] = useState(prefill !== null);
   const [paymentFilters, setPaymentFilters] = useState<{
     payment_type?: "RECEIVED" | "MADE";
     is_reconciled?: boolean | null;

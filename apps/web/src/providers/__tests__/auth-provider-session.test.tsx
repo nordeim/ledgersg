@@ -8,6 +8,7 @@
  * the same split).
  */
 
+import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import * as apiClient from "@/lib/api-client";
@@ -155,12 +156,15 @@ describe("switchOrg persists the choice (P10/M-3)", () => {
     const postMock = vi.fn().mockResolvedValue({});
     (apiClient.api as unknown as { post: unknown }).post = postMock;
 
-    // A holder object (not a bare outer variable) — the lint rule forbids
-    // reassigning outer-scope let bindings inside a component.
+    // A holder object captured via useEffect — the react-hooks/immutability
+    // rule forbids mutating outer-scope values in a component render body;
+    // effects are the sanctioned sync point (P17/FE-M2 lint-clear).
     const holder: { switch: ((orgId: string) => void) | null } = { switch: null };
     function SwitchProbe() {
       const auth = useAuth();
-      holder.switch = auth.switchOrg;
+      React.useEffect(() => {
+        holder.switch = auth.switchOrg;
+      }, [auth.switchOrg]);
       return <div data-testid="switch-probe">{auth.currentOrg?.id ?? "none"}</div>;
     }
 
@@ -197,12 +201,15 @@ describe("switchOrg persists the choice (P10/M-3)", () => {
     const postMock = vi.fn().mockRejectedValue(new Error("offline"));
     vi.mocked(apiClient.api).post = postMock;
 
-    // A holder object (not a bare outer variable) — the lint rule forbids
-    // reassigning outer-scope let bindings inside a component.
+    // A holder object captured via useEffect — the react-hooks/immutability
+    // rule forbids mutating outer-scope values in a component render body;
+    // effects are the sanctioned sync point (P17/FE-M2 lint-clear).
     const holder: { switch: ((orgId: string) => void) | null } = { switch: null };
     function SwitchProbe() {
       const auth = useAuth();
-      holder.switch = auth.switchOrg;
+      React.useEffect(() => {
+        holder.switch = auth.switchOrg;
+      }, [auth.switchOrg]);
       return <div data-testid="switch-probe">{auth.currentOrg?.id ?? "none"}</div>;
     }
 

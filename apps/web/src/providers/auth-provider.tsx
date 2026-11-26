@@ -327,18 +327,3 @@ export function useAuth() {
   return context;
 }
 
-// Hook for org-scoped API calls
-export function useCurrentOrg() {
-  const { currentOrg, switchOrg, hasPermission } = useAuth();
-  
-  if (!currentOrg) {
-    throw new Error("No current organisation selected");
-  }
-
-  return {
-    orgId: currentOrg.id,
-    org: currentOrg,
-    switchOrg,
-    hasPermission,
-  };
-}
