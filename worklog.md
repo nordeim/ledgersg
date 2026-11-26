@@ -761,3 +761,69 @@ plus everything carried forward from the P15 register (UEN checksum,
 H-3 DB trigger, H-05b attachment model, M-2/M-3/M-6b/M-8/M-9/M-7-full,
 audit2 M-01..M-08, B-3/B-4/B-8/B-9/B-12/B-15..B-19, the L-batch, the 9
 eslint findings).
+
+---
+
+## 2026-11-27 — P17 Sprint: Concurrency Truth, the 400-Contract Sweep & the Celery Tenant Context (session 34)
+
+**Base:** `e9b2626d` · **Plan:** `docs/REMEDIATION_PLAN_2026-11-27_P17.md` ·
+**Report:** `docs/REMEDIATION_2026-11-27_P17_REPORT.md` · **Session log:**
+`docs/session_34.md`
+
+Executed across two context windows (plan + Phase 1 + most of Phase 2 in
+window 1; completion, the docs truth pass, the live gates, the screenshots
+and the push in window 2 — the workspace, PG, Redis and the double-forked
+dev stack persisted, zero loss). Fresh clone: PostgreSQL 17 + Redis 8
+rootless, both DBs schema-loaded, every documented baseline reproduced
+green (860P/0F/5S · vitest 554/554 · tsc 0 · eslint src 9 · mobile-nav
+17/17 · prod-CSP 5/5). Three parallel deep audits + lead verification of
+every Critical/High; the session_29 `payment.py`/serializer regression
+question settled via git history (no surviving regression — the P15 repair
++ the P16 allocation completion hold; the P17 guards then harden those
+exact seams).
+
+### What was fixed (TDD — every behavioural fix RED first)
+
+| Task | Fix | Evidence |
+|---|---|---|
+| BE-H1 | The double-reversal guard: `select_for_update` + `is_reversed` re-check in `create_reversal` — two reversals of one journal entry posted the swap-side lines twice (every account 2x misstated, trial balance still balanced) | double-reversal refused 400; first reversal GREEN |
+| BE-H2 | The double-void guard: row lock + `is_voided` re-check post-lock (the TOCTOU closed) | double-void refused; single void unchanged |
+| BE-H3 | The Celery tenant context: NEW `common/tenant_context.py` (the middleware's SET LOCAL semantics, reusable); the invoicing/peppol task bodies wrap in it; the three dispatch seams dispatch **on commit** — real workers run inside the RLS tenant GUC, eager mode bit-identical | the GUC asserted mid-flight + a real RLS-enforced probe as `ledgersg_app` (a vacuous first test caught: the test connection ran as superuser) |
+| BE-M batch | Typed GST box parse (None/dict/"garbage" → 400); bulk-allocation UUID field errors; UEN normalize-then-validate on org PATCH (case-dodge UNIQUE refused); tax-rate range on update; reconcile double-match typed 400 + payment/transaction locks; uuid route converters (404 not 500); `select_related` on the three list services; the negative-membership cache fix | each RED → GREEN (9-file API-contract batch + the concurrency batch) |
+| BE-L batch | `/admin/` gated off outside DEBUG; the Django 6 `STORAGES` manifest migration (the legacy `STATICFILES_STORAGE` was a silent no-op — WhiteNoise compressed-manifest storage is actually active); `exchange_rate` at its true 6-dp wire precision | 2 settings-gate tests; the 6-dp round-trip test |
+| Schema §15c (v1.2.1) | The Django framework tables, SQL-First, idempotent — the fresh-host pytest gap: transactional teardowns flush `django_session`/`django_admin_log`/`django_content_type`, absent from a schema-only v1.2.0 load | both DBs re-verified (40 tables / 47 numeric(19,4) columns); header bumped |
+| FE-M1 | The `--color-success: #00FF94` token — 14 dead `text-success`/`bg-success` usages across 10 files now compile (the PAID badge, reconcile forms, match scores, fiscal/InvoiceNow cards) | design-token gates + **2 live token elements on the Payments tab screenshot** |
+| FE-M2 | The 6 eslint errors cleared with real refactors (the `mounted` trio → `useSyncExternalStore`/derive-during-render; the immutability pair → a hoisted capture; prefer-const) — no rule weakening | whole-tree **0 errors / 5 parity warnings**; the CI lint gate added (`--max-warnings 5`) |
+| FE-M3/M4 | The proxy nonce-CSP orchestration unit-gated (request CSP + x-nonce + response CSP + rotation); the unsaved-changes `beforeunload` guard wired (the store's write side finally has a reader) | 4 + 6 tests |
+| FE-L batch | The four dead CSP origins dropped; the dead utilities swept (`bg-background`/`text-foreground`); the dead code deleted (`useComplianceAlerts`, `useCurrentOrg`, the invoice-store's unconsumed fields + `createInvoiceLine`); the org-selector as a real Radix-contract menu (aria state, menuitemradio, Escape/outside-click, arrow-key roving, focus return); the redirect carry on refresh failure; the shared `uenSchema` on all three surfaces | 6 menu tests + the 3-form ACRA parity tests; deletion-only (tsc 0, suite GREEN) |
+| Docs truth pass | DEPLOYMENT.md re-verified end to end (the §9 GST example fixed `M9034567K` — the old value failed the P15 validator live; §11 token/`ORG_ID`/Bearer flow — every probe re-executed; §4/§13 the v1.2.1 path; §7 counts + the pytest-runner note); README (badge/status/milestones/env tables/dead refs/URLs/footer); AGENTS/CLAUDE/PAD/SKILL normalized; the API guide P17 addendum; the AGPL-3.0 LICENSE; ci.yml (`DATABASE_URL` no-op removed + the lint gate); the tracked status artifact untracked; the scripts' self-resolving requires; both `.env.example`s corrected | the audit's findings row by row; the §9/§11 flows executed live |
+| Deliverables | 8 DOM-verified screenshots (`docs/screenshots/96-103_*_session34.png`, md5-unique) incl. the open org-selector menu; `docs/session_34.md`; this worklog | `scripts/capture-screenshots-session34.js` |
+
+### The named focuses (settled live)
+
+**Mobile navigation:** 17/17 probe checks PASS on the remediated tree
+(375/800/1280) — **no TailwindCSS v4 bug exists** (fifth consecutive live
+settlement, this time on a fresh clone AND the remediated tree).
+**`payment.py`/serializer (session_29):** git history + the live gates
+confirm no surviving regression.
+
+### Final gate (all verified, executed)
+
+backend **882P/0F/5S** (887 collected; invariants 34P; security 78P/3S) ·
+vitest **582/582** (69 files) · tsc 0 · whole-tree eslint **0 errors / 5
+parity warnings** · build:server green · prod-CSP smoke **5/5** · e2e
+default 11P + 29 gated · **live e2e:full 40P/0F/0S** (consecutive run) ·
+**rls_smoke 13/13 as `ledgersg_app`** · **mobile-nav 17/17** · 8 verified
+screenshots (96-103_session34) · schema **v1.2.1** (§15c).
+
+### Deferred (registered, not dropped)
+
+The full P16 register carries forward (ContactPicker WAI-ARIA combobox,
+email-restore lifecycle evidence, list pagination, the audit-log INSERT
+WITH CHECK surface, the ruff ~1216 mechanical register, UEN checksum,
+H-3 DB-trigger layer, H-05b attachment model, the B/L batches) plus:
+BE-M4's full invalidation design; the in-app route guard for unsaved
+invoice work; BE-L5 (CSV size cap/dedup); the CSP report-endpoint log
+bound; `display_money`/`round_half_up` consistency; journal serializer
+tolerance; lines `max_length`; `get_allocations` org-filter
+defense-in-depth; the 5 documented eslint warnings.
