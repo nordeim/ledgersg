@@ -56,11 +56,20 @@ def transmit_peppol_invoice_task(self, transmission_log_id: str, org_id: str) ->
     )
 
     try:
-        # Execute transmission against the pre-created log (P5/C-2: the old
-        # call passed the LOG id to transmit_invoice(), which expects an
-        # INVOICE id — the auto-transmit path could never succeed).
-        service = TransmissionService()
-        log = service.execute_transmission_for_log(transmission_log_id)
+        # P17/BE-H3: a Celery worker has no middleware — the RLS tenant GUC
+        # is NULL there, so the transmission-log queries inside the service
+        # see zero rows and the task retries to death while the API already
+        # answered. Open the org's tenant context for the whole execution
+        # (dev/test eager mode runs inside the request transaction where the
+        # middleware already set it — a same-value no-op).
+        from common.tenant_context import tenant_context
+
+        with tenant_context(org_id):
+            # Execute transmission against the pre-created log (P5/C-2: the old
+            # call passed the LOG id to transmit_invoice(), which expects an
+            # INVOICE id — the auto-transmit path could never succeed).
+            service = TransmissionService()
+            log = service.execute_transmission_for_log(transmission_log_id)
 
         # Prepare result
         result = {

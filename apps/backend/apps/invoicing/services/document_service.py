@@ -125,7 +125,13 @@ class DocumentService:
         if search:
             queryset = queryset.filter(document_number__icontains=search)
 
-        return list(queryset.order_by("-issue_date", "-document_number"))
+        # P17/BE-M7: the list serializer reads contact.name per row —
+        # select_related keeps the list O(1) queries.
+        return list(
+            queryset.select_related("contact").order_by(
+                "-issue_date", "-document_number"
+            )
+        )
 
     @staticmethod
     def get_document(org_id: UUID, document_id: UUID) -> InvoiceDocument:
@@ -1014,6 +1020,7 @@ class DocumentService:
             ValidationError: If email data is invalid
         """
         from apps.invoicing.tasks import send_invoice_email_task
+        from common.tenant_context import queue_task
 
         document = DocumentService.get_document(org_id, document_id)
 
@@ -1028,7 +1035,11 @@ class DocumentService:
         # Trigger background task (P8/G-6: cc/bcc travel with the send —
         # they were validated by the serializer since P7 but never reached
         # the task).
-        send_invoice_email_task.delay(
+        # P17/BE-H3: queue_task defers dispatch past the request commit in
+        # non-eager mode (a worker must never race the uncommitted row);
+        # eager mode keeps the synchronous contract the tests pin.
+        queue_task(
+            send_invoice_email_task,
             str(org_id), str(document_id), to_emails,
             cc=email_data.get("cc") or [],
             bcc=email_data.get("bcc") or [],
@@ -1114,7 +1125,9 @@ class DocumentService:
             attempt_number=1,
         )
 
-        task = transmit_peppol_invoice_task.delay(str(log.id), str(org_id))
+        from common.tenant_context import queue_task
+
+        task = queue_task(transmit_peppol_invoice_task, str(log.id), str(org_id))
 
         return {
             "document_id": str(document_id),
@@ -1250,6 +1263,8 @@ class DocumentService:
             attempt_number=1,
         )
 
-        # Queue async task
-        task = transmit_peppol_invoice_task.delay(str(log.id), str(org_id))
-        return task.id
+        # Queue async task (P17/BE-H3: past the commit in non-eager mode)
+        from common.tenant_context import queue_task
+
+        task = queue_task(transmit_peppol_invoice_task, str(log.id), str(org_id))
+        return task.id if task else None

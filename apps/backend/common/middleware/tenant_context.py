@@ -243,8 +243,14 @@ class TenantContextMiddleware:
                 accepted_at__isnull=False,  # Must have accepted invitation
             ).exists()
 
-            # Cache for 5 minutes
-            cache.set(cache_key, is_member, 300)
+            # Cache for 5 minutes — POSITIVE lookups only (P17/BE-M4
+            # interim): a cached False denies a member who just accepted
+            # an invite for up to the TTL (there is no invalidation
+            # surface yet — the full design rides the deferred register).
+            # The removal-side window (a cached True after revocation)
+            # stays registered as the B-9 deferral.
+            if is_member:
+                cache.set(cache_key, True, 300)
 
             return is_member
         except Exception:

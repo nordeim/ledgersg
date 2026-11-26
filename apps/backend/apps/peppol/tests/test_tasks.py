@@ -18,8 +18,13 @@ class TestTransmitPeppolInvoiceTask:
 
         assert transmit_peppol_invoice_task is not None
 
+    @pytest.mark.django_db
     def test_transmit_task_calls_service(self):
-        """Test that task executes against the pre-created log (P5/C-2 seam)."""
+        """Test that task executes against the pre-created log (P5/C-2 seam).
+
+        django_db since P17/BE-H3: the task body opens the RLS tenant
+        context (real transaction + set_config) before driving the service
+        seam."""
         from apps.peppol.tasks import transmit_peppol_invoice_task
         from apps.peppol.services.transmission_service import TransmissionService
 
@@ -48,8 +53,13 @@ class TestTransmitPeppolInvoiceTask:
             mock_execute.assert_called_once_with(log_id)
             assert result["success"] is True
 
+    @pytest.mark.django_db
     def test_transmit_task_success_updates_log(self):
-        """Test successful transmission updates log to DELIVERED."""
+        """Test successful transmission updates log to DELIVERED.
+
+        django_db since P17/BE-H3: the task body opens the RLS tenant
+        context (real transaction + set_config) before driving the service
+        seam."""
         from apps.peppol.tasks import transmit_peppol_invoice_task
         from apps.peppol.services.transmission_service import TransmissionService
 
