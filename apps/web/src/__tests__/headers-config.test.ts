@@ -1,5 +1,5 @@
 /**
- * Response-header configuration contract (P13/H-1 + L-1).
+ * Response-header configuration contract (P13/H-1 + L-1, revised P16/FE-C1).
  *
  * The repo had TWO header sources: src/middleware.ts (deleted in P13)
  * and next.config.ts headers(). The middleware's version silently won —
@@ -7,8 +7,12 @@
  * dev-only exemptions defeated) plus Vercel-specific origins. This gate
  * pins the SINGLE consolidated table in next.config.ts:
  *
- * - CSP keeps the env-aware P11/M-15 policy (unsafe-* in dev only)
- * - production CSP carries upgrade-insecure-requests
+ * - the NON-CSP security headers stay consolidated here (P13)
+ * - the CSP itself is NOT in this table anymore (P16/FE-C1): production
+ *   needs a per-request nonce applied to Next's inline bootstrap scripts,
+ *   which only src/proxy.ts + src/lib/csp.ts can do — the contract lives
+ *   in src/lib/__tests__/csp.test.ts, and this file guards against a
+ *   second CSP source reappearing here (the P13/H-1 override trap).
  * - the cross-origin trio (COOP/CORP/COEP) survives the middleware removal
  * - Permissions-Policy keeps the full directive list
  * - the deprecated X-XSS-Protection is gone (OWASP: drop it)
@@ -44,26 +48,14 @@ describe("consolidated response headers (P13/H-1)", () => {
     vi.unstubAllEnvs();
   });
 
-  it("production script-src has NO unsafe-eval and NO unsafe-inline", async () => {
+  it("next.config headers carries NO CSP — the proxy owns it (P16/FE-C1 single source)", async () => {
+    // A CSP entry here would silently override the proxy's nonce-based
+    // policy (proxy-set headers win — the P13/H-1 lesson) and re-ship
+    // the hydration-blocking static policy.
     const headers = await loadHeaders("production");
-    const csp = get(headers, "Content-Security-Policy");
-    expect(csp).toBeDefined();
-    const scriptSrc = cspDirective(csp, "script-src");
-    expect(scriptSrc).not.toContain("unsafe-eval");
-    expect(scriptSrc).not.toContain("unsafe-inline");
-  });
-
-  it("production CSP carries upgrade-insecure-requests", async () => {
-    const headers = await loadHeaders("production");
-    const csp = get(headers, "Content-Security-Policy");
-    expect(csp).toContain("upgrade-insecure-requests");
-  });
-
-  it("development CSP keeps the dev-only unsafe exemptions", async () => {
-    const headers = await loadHeaders("development");
-    const csp = get(headers, "Content-Security-Policy");
-    expect(csp).toContain("'unsafe-eval'");
-    expect(csp).toContain("'unsafe-inline'");
+    expect(get(headers, "Content-Security-Policy")).toBeUndefined();
+    const devHeaders = await loadHeaders("development");
+    expect(get(devHeaders, "Content-Security-Policy")).toBeUndefined();
   });
 
   it("the cross-origin trio survives the middleware removal", async () => {
@@ -103,11 +95,17 @@ describe("consolidated response headers (P13/H-1)", () => {
     expect(get(headers, "Referrer-Policy")).toBe("strict-origin-when-cross-origin");
   });
 
-  it("production CSP drops the Vercel-specific origins the middleware shipped", async () => {
-    const headers = await loadHeaders("production");
-    const csp = get(headers, "Content-Security-Policy");
+  it("the CSP builder drops the Vercel-specific origins the middleware shipped", async () => {
+    const { buildCsp } = await import("@/lib/csp");
+    const csp = buildCsp({ nonce: "n", isDev: false, apiUrl: "http://localhost:8000" });
     expect(csp).not.toContain("vercel.live");
     expect(csp).not.toContain("vercel-insights.com");
     expect(csp).not.toContain("img-src 'self' data: blob: https:");
+    expect(cspDirective(csp, "script-src")).not.toContain("unsafe-eval");
+    expect(cspDirective(csp, "script-src")).not.toContain("unsafe-inline");
+    expect(csp).toContain("upgrade-insecure-requests");
+    const devCsp = buildCsp({ isDev: true, apiUrl: "http://localhost:8000" });
+    expect(devCsp).toContain("'unsafe-eval'");
+    expect(devCsp).toContain("'unsafe-inline'");
   });
 });

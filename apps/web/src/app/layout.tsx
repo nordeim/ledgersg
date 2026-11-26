@@ -47,6 +47,14 @@ export const viewport: Viewport = {
   themeColor: "#050505",
 };
 
+// P16/FE-C1: the production CSP is nonce-based (src/proxy.ts), and Next
+// applies a nonce to its bootstrap scripts only during SERVER-SIDE
+// rendering — statically prerendered shells carry no nonce and cannot
+// hydrate under the strict policy. Force dynamic rendering for every
+// route (the per-request cost is a thin server-component shell for a
+// login-gated dashboard app — the documented Next trade for nonces).
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{

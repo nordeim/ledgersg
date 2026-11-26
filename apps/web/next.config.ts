@@ -9,7 +9,10 @@ import type { NextConfig } from "next";
  *   API-driven detail routes — generateStaticParams cannot enumerate
  *   live IDs, and the export build was already failing on
  *   /invoices/[id] and /quotes/[id])
- * - Security headers (CSP, HSTS, etc.) — served via headers() in server mode
+ * - Security headers (HSTS, XFO, COOP/COEP/CORP, ...) — served via
+ *   headers() in server mode. The CSP is NOT here: `src/proxy.ts` owns
+ *   it (P16/FE-C1 — the per-request nonce needs the request header
+ *   mechanism; two sources would re-create the P13/H-1 override trap).
  * - CORS configuration for backend API
  * - Image optimization
  *
@@ -25,18 +28,18 @@ const outputMode = process.env.NEXT_OUTPUT_MODE || "standalone";
 const isStaticExport = outputMode === "export";
 const isServerMode = outputMode === "standalone" || !isStaticExport;
 
-// Backend API URL for CSP and rewrites
+// Backend API URL for rewrites
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-// P11/M-15: the dev-only CSP exemptions key off the build mode, not
-// isServerMode (both dev server and production standalone are server
-// mode — what differs is NODE_ENV).
-const isDev = process.env.NODE_ENV === "development";
 
 const nextConfig: NextConfig = {
   // Output mode: 'standalone' (default) or 'export' (experimental — see header)
   output: isServerMode ? "standalone" : "export",
   distDir: isServerMode ? ".next" : "dist",
+
+  // P16/FE-L1: Next 16's dev-origin protection silently blocks dev
+  // chunks for the 127.0.0.1 origin (the documented trap in
+  // docs/Tailwind-V4-Validation-Report.md) — allow both dev origins.
+  allowedDevOrigins: ["127.0.0.1"],
 
   // Image optimization: disabled for static, enabled for server
   images: {
@@ -51,54 +54,33 @@ const nextConfig: NextConfig = {
 
   // Security headers - only applied in server mode.
   //
-  // P13/H-1 + L-1: this is the SINGLE source of response headers.
-  // src/middleware.ts was deleted in P13 — its header set silently
-  // overrode this table (middleware-set headers win), shipping
-  // 'unsafe-eval' + 'unsafe-inline' unconditionally and defeating the
-  // P11/M-15 env-aware policy. The middleware's unique headers (the
-  // cross-origin trio, upgrade-insecure-requests, the fuller
-  // Permissions-Policy) are consolidated here; the deprecated
-  // X-XSS-Protection is dropped (OWASP: modern browsers ignore it and
-  // it enables XSS in old ones). This also retires the Next 16
-  // middleware→proxy deprecation warning.
+  // P13/H-1 + L-1: this is the SINGLE source of the NON-CSP response
+  // headers. src/middleware.ts was deleted in P13 — its header set
+  // silently overrode this table (middleware-set headers win). The
+  // middleware's unique headers (the cross-origin trio,
+  // upgrade-insecure-requests, the fuller Permissions-Policy) are
+  // consolidated here; the deprecated X-XSS-Protection is dropped (OWASP:
+  // modern browsers ignore it and it enables XSS in old ones). This also
+  // retires the Next 16 middleware→proxy deprecation warning.
+  //
+  // P16/FE-C1: the Content-Security-Policy lives in src/proxy.ts —
+  // production needs a per-request nonce applied to Next's inline
+  // bootstrap scripts, which only the proxy's request-header mechanism
+  // can do. A static `script-src 'self'` here blocked every non-nonced
+  // inline script in the shipped build (no hydration). Do NOT add a CSP
+  // entry back to this table: proxy-set headers win, and a second source
+  // re-creates the P13/H-1 override trap.
   async headers() {
     // Security headers don't work with static export
     if (isStaticExport) {
       return [];
     }
 
-    const csp = [
-      "default-src 'self'",
-      // P11/M-15: the unsafe-eval/unsafe-inline exemptions apply
-      // in DEVELOPMENT only (dev overlays/HMR need them; Next 16's
-      // standalone production build does not).
-      isDev
-        ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
-        : "script-src 'self'",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob:",
-      // P11/M-15: connect-src derives from NEXT_PUBLIC_API_URL
-      // (the same env the client reads) instead of hardcoding
-      // localhost:8000 twice plus placeholder external APIs.
-      `connect-src 'self' ${apiUrl} https://api.peppol.sg https://api.iras.gov.sg`,
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-      // upgrade-insecure-requests is a production posture (dev runs on
-      // plain http://localhost by design).
-      ...(isDev ? [] : ["upgrade-insecure-requests"]),
-    ].join("; ");
-
     return [
       {
         source: "/:path*",
         headers: [
-          // Content Security Policy
-          {
-            key: "Content-Security-Policy",
-            value: csp,
-          },
+          // (Content-Security-Policy — set by src/proxy.ts, NOT here)
           // HTTP Strict Transport Security
           {
             key: "Strict-Transport-Security",
