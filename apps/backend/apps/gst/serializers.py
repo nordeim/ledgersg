@@ -102,6 +102,18 @@ class TaxCodeUpdateSerializer(serializers.Serializer):
     description = serializers.CharField(max_length=500, required=False, allow_blank=True)
     is_active = serializers.BooleanField(required=False)
 
+    # P17/BE-M6: mirror the create path's 0..1 gate — the DB's
+    # chk_rate_range must never be the first line of defense (a raw
+    # CheckViolation surfaces as a 500, the exact class this repo has
+    # systematically eliminated).
+    def validate_rate(self, value: Decimal) -> Decimal:
+        """Validate GST rate."""
+        if value is not None and (value < 0 or value > 1):
+            raise serializers.ValidationError(
+                "Rate must be between 0 and 1 (e.g., 0.09 for 9%)."
+            )
+        return value
+
 
 class GSTCalculationRequestSerializer(serializers.Serializer):
     """Serializer for GST calculation request."""

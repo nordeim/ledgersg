@@ -191,7 +191,7 @@ class TestOrganisationSettingsView:
         update_data = {
             "name": "Updated Organisation Name",
             "legal_name": "Updated Legal Name Pte Ltd",
-            "uen": "NEWUEN123",
+            "uen": "53356778D",  # P17/BE-M3: a valid ACRA business form (8 digits + letter)
             "timezone": "UTC",
             "fy_start_month": 4,
         }
@@ -212,7 +212,7 @@ class TestOrganisationSettingsView:
         settings_test_org.refresh_from_db()
         assert settings_test_org.name == "Updated Organisation Name"
         assert settings_test_org.legal_name == "Updated Legal Name Pte Ltd"
-        assert settings_test_org.uen == "NEWUEN123"
+        assert settings_test_org.uen == "53356778D"
         assert settings_test_org.timezone == "UTC"
         assert settings_test_org.fy_start_month == 4
 

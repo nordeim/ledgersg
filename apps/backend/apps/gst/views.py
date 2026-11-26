@@ -394,9 +394,19 @@ class GSTReturnFileView(APIView):
         if boxes:
             # P16/BE-M2: reject non-finite values before they reach the
             # service (NaN/Infinity parse cleanly out of Decimal()).
+            # P17/BE-M1: non-numeric VALUES (None/dict/"garbage") raise
+            # InvalidOperation out of Decimal(str(v)) — a typed 400, not
+            # a 500 out of the handler.
             boxes = {}
             for k, v in data["boxes"].items():
-                parsed = Decimal(str(v))
+                try:
+                    parsed = Decimal(str(v))
+                except (ArithmeticError, TypeError, ValueError):
+                    from rest_framework.exceptions import ValidationError as DRFValidationError
+
+                    raise DRFValidationError(
+                        {"boxes": f"Box {k} must be a finite number (got {v!r})"}
+                    )
                 if not parsed.is_finite():
                     from rest_framework.exceptions import ValidationError as DRFValidationError
 

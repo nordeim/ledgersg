@@ -131,6 +131,46 @@ class OrganisationCreateSerializer(serializers.Serializer):
         return data
 
 
+
+
+def _normalize_uen_fields(data: dict) -> dict:
+    """P17/BE-M3: normalize + format-validate UEN/GST identity fields on
+    EVERY write path (create already does this — the two PATCH paths stored
+    raw, unvalidated values and dodged the case-sensitive duplicate
+    pre-check). Mirrors the create-path block: strip/upper, ACRA forms,
+    both M-form GST lengths.
+    """
+    uen = (data.get("uen") or "").strip().upper()
+    if uen:
+        if not validate_uen(uen):
+            raise serializers.ValidationError(
+                {
+                    "uen": (
+                        "UEN must match an ACRA format: 8 digits + letter "
+                        "(business), 9 digits + letter (local company), or "
+                        "T/S + YY + 2 letters + 4 digits + letter (other "
+                        "entities)."
+                    )
+                }
+            )
+        data["uen"] = uen
+    elif "uen" in data and data["uen"] is not None:
+        data["uen"] = ""
+    gst = (data.get("gst_reg_number") or "").strip().upper()
+    if gst:
+        if not validate_gst_reg_number(gst):
+            raise serializers.ValidationError(
+                {
+                    "gst_reg_number": (
+                        "GST registration number must be the IRAS M-form "
+                        "(M + 7 or 8 digits + check letter) or a valid UEN."
+                    )
+                }
+            )
+        data["gst_reg_number"] = gst
+    return data
+
+
 class GSTRegistrationSerializer(serializers.Serializer):
     """Serializer for GST registration."""
     
@@ -276,6 +316,8 @@ class OrganisationSettingsSerializer(serializers.Serializer):
         gst_reg_date. A PATCH flipping gst_registered on must carry (or
         the instance must already hold) both.
         """
+        # P17/BE-M3: identity fields normalize + validate on PATCH too.
+        data = _normalize_uen_fields(data)
         instance = self.instance
         if instance is not None:
             effective = {
@@ -327,3 +369,10 @@ class OrganisationUpdateSerializer(serializers.Serializer):
     base_currency = serializers.CharField(min_length=3, max_length=3, required=False)
     peppol_participant_id = serializers.CharField(max_length=64, required=False, allow_blank=True)
     invoicenow_enabled = serializers.BooleanField(required=False)
+
+    def validate(self, data):
+        """P17/BE-M3: the detail PATCH normalizes + format-validates the
+        UEN/GST identity fields exactly like create — the raw path stored
+        unnormalized values and dodged the case-sensitive duplicate
+        pre-check in the view."""
+        return _normalize_uen_fields(data)
