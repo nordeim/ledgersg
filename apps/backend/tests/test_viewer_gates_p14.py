@@ -32,6 +32,20 @@ def _org_with_role(role_flags):
     org = Organisation.objects.create(
         name=f"Role Org {uuid.uuid4().hex[:6]}", entity_type="PRIVATE_LIMITED", base_currency="SGD"
     )
+    # Session-30 fix: the bare org needs its Chart of Accounts —
+    # ContactService.create_contact resolves the AR/AP control accounts
+    # (P6/F-6 fail-closed) and DocumentService needs the document
+    # sequence; without these the requests 400/500 before the permission
+    # under test can fire.
+    from django.db import connection
+
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT core.seed_default_chart_of_accounts(%s, false)", [str(org.id)])
+        cursor.execute(
+            "INSERT INTO core.document_sequence (org_id, document_type, prefix, next_number) "
+            "VALUES (%s, 'SALES_INVOICE', 'INV-', 1) ON CONFLICT DO NOTHING",
+            [str(org.id)],
+        )
     role = Role.objects.create(org=org, name="Custom", description="probe", **role_flags)
     UserOrganisation.objects.create(
         user=user, org=org, role=role, is_default=True,

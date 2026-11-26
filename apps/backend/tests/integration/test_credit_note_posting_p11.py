@@ -51,15 +51,21 @@ def posting_fixtures(test_organisation):
     return test_organisation
 
 
-def _make_document(org, accounts, tax_codes, user, document_type):
-    contact = Contact.objects.create(
-        org=org,
-        contact_type="CUSTOMER" if document_type.startswith("SALES") else "SUPPLIER",
-        name=f"CN Fixture {document_type}",
-        is_customer=document_type.startswith("SALES"),
-        is_supplier=not document_type.startswith("SALES"),
-        is_active=True,
-    )
+def _make_document(org, accounts, tax_codes, user, document_type, related_document=None):
+    """P14/H-4 contract update: a *_CREDIT_NOTE requires (and this helper
+    now carries) the related_document — the original invoice it corrects
+    (same contact, within the cumulative cap)."""
+    if related_document is not None:
+        contact = related_document.contact
+    else:
+        contact = Contact.objects.create(
+            org=org,
+            contact_type="CUSTOMER" if document_type.startswith("SALES") else "SUPPLIER",
+            name=f"CN Fixture {document_type}",
+            is_customer=document_type.startswith("SALES"),
+            is_supplier=not document_type.startswith("SALES"),
+            is_active=True,
+        )
     lines = [
         {
             "account_id": accounts["4000"].id,
@@ -76,6 +82,7 @@ def _make_document(org, accounts, tax_codes, user, document_type):
         issue_date=date(2024, 1, 15),
         lines=lines,
         user_id=user.id,
+        related_document_id=related_document.id if related_document else None,
     )
 
 
@@ -106,8 +113,12 @@ class TestSalesCreditNotePosting:
         self, test_organisation, test_user, test_accounts, test_tax_codes, test_fiscal_period
     ):
         """SALES_CREDIT_NOTE: Cr AR, Dr Revenue, Dr GST-output (the reversal)."""
+        original = _make_document(
+            test_organisation, test_accounts, test_tax_codes, test_user, "SALES_INVOICE"
+        )
         doc = _make_document(
-            test_organisation, test_accounts, test_tax_codes, test_user, "SALES_CREDIT_NOTE"
+            test_organisation, test_accounts, test_tax_codes, test_user,
+            "SALES_CREDIT_NOTE", related_document=original,
         )
         _approve(test_organisation, doc, test_user)
         doc.refresh_from_db()
@@ -137,8 +148,12 @@ class TestSalesCreditNotePosting:
         self, test_organisation, test_user, test_accounts, test_tax_codes, test_fiscal_period
     ):
         """The reversed entry still balances (the invariant the suite enforces)."""
+        original = _make_document(
+            test_organisation, test_accounts, test_tax_codes, test_user, "SALES_INVOICE"
+        )
         doc = _make_document(
-            test_organisation, test_accounts, test_tax_codes, test_user, "SALES_CREDIT_NOTE"
+            test_organisation, test_accounts, test_tax_codes, test_user,
+            "SALES_CREDIT_NOTE", related_document=original,
         )
         _approve(test_organisation, doc, test_user)
         doc.refresh_from_db()
@@ -175,8 +190,12 @@ class TestPurchaseCreditNotePosting:
         self, test_organisation, test_user, test_accounts, test_tax_codes, test_fiscal_period, posting_fixtures
     ):
         """PURCHASE_CREDIT_NOTE: Dr AP, Cr expense, Cr GST-input."""
+        original = _make_document(
+            test_organisation, test_accounts, test_tax_codes, test_user, "PURCHASE_INVOICE"
+        )
         doc = _make_document(
-            test_organisation, test_accounts, test_tax_codes, test_user, "PURCHASE_CREDIT_NOTE"
+            test_organisation, test_accounts, test_tax_codes, test_user,
+            "PURCHASE_CREDIT_NOTE", related_document=original,
         )
         _approve(test_organisation, doc, test_user)
         doc.refresh_from_db()
@@ -277,7 +296,8 @@ class TestF5ComputationDocumentTypes:
         )
         _approve(test_organisation, invoice, test_user)
         credit_note = _make_document(
-            test_organisation, test_accounts, test_tax_codes, test_user, "SALES_CREDIT_NOTE"
+            test_organisation, test_accounts, test_tax_codes, test_user,
+            "SALES_CREDIT_NOTE", related_document=invoice,
         )
         _approve(test_organisation, credit_note, test_user)
 

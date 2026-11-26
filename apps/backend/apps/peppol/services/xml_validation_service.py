@@ -2,10 +2,27 @@
 XML Validation Service for InvoiceNow/Peppol integration.
 
 Validates UBL 2.1 XML against XSD schemas.
+
+P14/X-1 — hardened parsing: the validation path accepts candidate UBL XML
+from the outside world, so EVERY parse (schemas and candidate documents)
+uses the shared hardened parser: no entity resolution (XXE), no network
+(SSRF), no DTD loading, no huge trees (billion-laughs). lxml does not
+expose its parser flags for introspection, so `_HARDENED_PARSER_FLAGS`
+is the single source of truth for the policy — the configuration gate
+asserts the constant.
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List  # noqa: UP006 — Dict matches the codebase idiom
 from lxml import etree
+
+# P14/X-1: the parser policy (the knobs, asserted by the configuration gate —
+# lxml.etree.XMLParser does not expose its construction flags for reading).
+_HARDENED_PARSER_FLAGS: Dict[str, Any] = {
+    "resolve_entities": False,
+    "no_network": True,
+    "load_dtd": False,
+    "huge_tree": False,
+}
 
 
 class XMLValidationService:
@@ -26,11 +43,19 @@ class XMLValidationService:
         self._credit_note_schema = None
         self._load_schemas()
 
+    @staticmethod
+    def _hardened_parser() -> etree.XMLParser:
+        """The shared hardened parser (P14/X-1) — built from
+        `_HARDENED_PARSER_FLAGS`, the single policy constant."""
+        return etree.XMLParser(**_HARDENED_PARSER_FLAGS)
+
     def _load_schemas(self):
         """Load XSD schemas."""
         # Load Invoice schema
         try:
-            schema_doc = etree.parse(self.INVOICE_SCHEMA_PATH)
+            schema_doc = etree.parse(
+                self.INVOICE_SCHEMA_PATH, self._hardened_parser()
+            )
             self._invoice_schema = etree.XMLSchema(schema_doc)
         except Exception:
             # Schema loading failed
@@ -38,7 +63,9 @@ class XMLValidationService:
 
         # Load CreditNote schema
         try:
-            schema_doc = etree.parse(self.CREDIT_NOTE_SCHEMA_PATH)
+            schema_doc = etree.parse(
+                self.CREDIT_NOTE_SCHEMA_PATH, self._hardened_parser()
+            )
             self._credit_note_schema = etree.XMLSchema(schema_doc)
         except Exception:
             # Schema loading failed
@@ -55,7 +82,9 @@ class XMLValidationService:
             Tuple of (xml_doc, error) where xml_doc is None on error
         """
         try:
-            xml_doc = etree.fromstring(xml_string.encode("utf-8"))
+            xml_doc = etree.fromstring(
+                xml_string.encode("utf-8"), self._hardened_parser()
+            )
             return xml_doc, None
         except etree.XMLSyntaxError as e:
             return None, str(e)

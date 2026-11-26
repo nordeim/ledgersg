@@ -354,7 +354,8 @@ class TestGSTCalculations:
             name="TDD Credit Note Customer", is_customer=True,
         )
 
-        def _make(document_type, unit_price, issue_date):
+        def _make(document_type, unit_price, issue_date, related_document=None):
+            """P14/H-4 contract update: credit notes carry the original."""
             doc = DocumentService.create_document(
                 org_id=test_org.id,
                 document_type=document_type,
@@ -370,6 +371,7 @@ class TestGSTCalculations:
                     }
                 ],
                 user_id=test_user.id,
+                related_document_id=related_document.id if related_document else None,
             )
             DocumentService.transition_status(
                 org_id=test_org.id, document_id=doc.id,
@@ -381,8 +383,8 @@ class TestGSTCalculations:
             )
             return doc
 
-        _make("SALES_INVOICE", Decimal("10000.00"), date(2024, 1, 17))
-        _make("SALES_CREDIT_NOTE", Decimal("2000.00"), date(2024, 1, 18))
+        invoice = _make("SALES_INVOICE", Decimal("10000.00"), date(2024, 1, 17))
+        _make("SALES_CREDIT_NOTE", Decimal("2000.00"), date(2024, 1, 18), related_document=invoice)
 
         # Execute
         service = DashboardService()

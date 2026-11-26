@@ -133,8 +133,12 @@ def _contact(org, document_type):
     )
 
 
-def _make_and_approve(org, accounts, tax_codes, user, document_type, account_code, tax_code):
-    contact = _contact(org, document_type)
+def _make_and_approve(org, accounts, tax_codes, user, document_type, account_code, tax_code, related_document=None):
+    """P14/H-4 contract update: credit notes carry the original invoice."""
+    if related_document is not None:
+        contact = related_document.contact
+    else:
+        contact = _contact(org, document_type)
     doc = DocumentService.create_document(
         org_id=org.id,
         document_type=document_type,
@@ -150,6 +154,7 @@ def _make_and_approve(org, accounts, tax_codes, user, document_type, account_cod
             }
         ],
         user_id=user.id,
+        related_document_id=related_document.id if related_document else None,
     )
     DocumentService.transition_status(
         org_id=org.id, document_id=doc.id, new_status="SENT", user_id=user.id
@@ -190,8 +195,11 @@ class TestDashboardGSTLiabilityIsReal:
     def test_credit_note_nets_the_liability(self, org, accounts, tax_codes):
         """An equal credit note nets the period's GST to zero (H-4 + C-1)."""
         cache.delete(f"dashboard:{org.id}")
-        _make_and_approve(org, accounts, tax_codes, _owner(org), "SALES_INVOICE", "4000", "SR")
-        _make_and_approve(org, accounts, tax_codes, _owner(org), "SALES_CREDIT_NOTE", "4000", "SR")
+        invoice = _make_and_approve(org, accounts, tax_codes, _owner(org), "SALES_INVOICE", "4000", "SR")
+        _make_and_approve(
+            org, accounts, tax_codes, _owner(org), "SALES_CREDIT_NOTE", "4000", "SR",
+            related_document=invoice,
+        )
 
         liability = DashboardService().calculate_gst_liability(
             str(org.id), date(2024, 1, 1), date(2024, 12, 31)

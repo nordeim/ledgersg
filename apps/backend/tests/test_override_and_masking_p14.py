@@ -116,8 +116,28 @@ class TestF5OverrideControlP14:
 class TestNRICMaskingP14:
     @pytest.fixture
     def bank_fx(self, test_organisation, test_user, test_accounts):
+        from apps.core.models import Account
+
         contact = create_test_contact(test_organisation, is_customer=True)
-        return {"org": test_organisation, "user": test_user, "accounts": test_accounts, "contact": contact}
+        # Session-30 fix: the write serializer's validate_gl_account demands
+        # a proper ASSET/bank-type GL (the test_accounts fixture's string
+        # "ASSET_CURRENT" accounts are not) AND an org context.
+        # chk_code_format: numeric codes only (3-10 digits) — derive a
+        # collision-free numeric code from the uuid.
+        bank_gl = Account.objects.create(
+            org=test_organisation,
+            code=str(100000 + int(uuid.uuid4().int % 899999)),
+            name="Bank GL (H-04b probe)",
+            account_type="ASSET",
+            is_bank=True,
+        )
+        return {
+            "org": test_organisation,
+            "user": test_user,
+            "accounts": test_accounts,
+            "bank_gl": bank_gl,
+            "contact": contact,
+        }
 
     def _bank(self, fx, paynow_type, paynow_id):
         return BankAccount.objects.create(
@@ -164,10 +184,11 @@ class TestNRICMaskingP14:
                 "bank_name": "TB",
                 "account_number": "001234567",
                 "currency": "SGD",
-                "gl_account": (fx := bank_fx)["accounts"]["1200"].id,
+                "gl_account": bank_fx["bank_gl"].id,
                 "paynow_type": "NRIC",
                 "paynow_id": "S*****67D",
-            }
+            },
+            context={"org_id": bank_fx["org"].id},
         )
         assert not serializer.is_valid(), (
             "a masked echo must be rejected on write (it would persist the mask)"
@@ -185,9 +206,10 @@ class TestNRICMaskingP14:
                 "bank_name": "TB",
                 "account_number": "001234568",
                 "currency": "SGD",
-                "gl_account": bank_fx["accounts"]["1200"].id,
+                "gl_account": bank_fx["bank_gl"].id,
                 "paynow_type": "NRIC",
                 "paynow_id": "S7654321B",
-            }
+            },
+            context={"org_id": bank_fx["org"].id},
         )
         assert serializer.is_valid(), serializer.errors

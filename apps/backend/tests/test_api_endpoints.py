@@ -67,7 +67,7 @@ def test_organisation(test_user):
         legal_name="Test Organisation Pte Ltd",
         uen="123456789A",
         gst_registered=True,
-        gst_reg_number="M12345678",
+        gst_reg_number="M12345678K",
         gst_reg_date=date(2024, 1, 1),
         fy_start_month=1,
         base_currency="SGD",
@@ -250,7 +250,7 @@ class TestOrganisationAPI:
             "legal_name": "New Test Org Pte Ltd",
             "entity_type": "PRIVATE_LIMITED",
             "gst_registered": True,
-            "gst_reg_number": "M98765432",
+            "gst_reg_number": "M98765432X",
             "gst_reg_date": "2024-01-01",
             "base_currency": "SGD"
         }, format="json")

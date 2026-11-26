@@ -43,6 +43,20 @@ from apps.invoicing.serializers import (
 )
 
 
+def require_permission(request, permission: str) -> None:
+    """P14/M-5: the shared role-flag gate (the same convention the
+    document views' _check_permission uses — request.org_role is set by
+    the tenant middleware). Raises UnauthorizedOrgAccess when the
+    member's role lacks the flag; a Viewer (all manage flags false) is
+    read-only."""
+    org_role = getattr(request, "org_role", {}) or {}
+    if org_role.get(permission) or getattr(request.user, "is_superadmin", False):
+        return
+    from common.exceptions import UnauthorizedOrgAccess
+
+    raise UnauthorizedOrgAccess("Insufficient permissions")
+
+
 class ContactListCreateView(APIView):
     """
     GET: List contacts
@@ -83,6 +97,10 @@ class ContactListCreateView(APIView):
     @wrap_response
     def post(self, request, org_id: str) -> Response:
         """Create new contact."""
+        # P14/M-5: contacts are the master data invoices consume — the
+        # Viewer role is read-only (pre-P14 only IsOrgMember gated this).
+        require_permission(request, "can_create_invoices")
+
         serializer = ContactCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -116,6 +134,9 @@ class ContactDetailView(APIView):
     @wrap_response
     def patch(self, request, org_id: str, contact_id: str) -> Response:
         """Update contact."""
+        # P14/M-5: the Viewer role is read-only.
+        require_permission(request, "can_create_invoices")
+
         from uuid import UUID
 
         serializer = ContactUpdateSerializer(data=request.data)
@@ -130,6 +151,9 @@ class ContactDetailView(APIView):
     @wrap_response
     def delete(self, request, org_id: str, contact_id: str) -> Response:
         """Deactivate contact."""
+        # P14/M-5: the Viewer role is read-only.
+        require_permission(request, "can_create_invoices")
+
         from uuid import UUID
 
         contact = ContactService.deactivate_contact(UUID(str(org_id)), UUID(str(contact_id)))
@@ -208,6 +232,9 @@ class InvoiceDocumentListCreateView(APIView):
             notes=data.get("notes", ""),
             lines=data["lines"],
             user_id=request.user.id,
+            # P14/H-4: the original invoice a credit note corrects (the
+            # service enforces the same-contact + cap rules).
+            related_document_id=data.get("related_document_id"),
         )
 
         return Response(
@@ -588,7 +615,10 @@ class InvoiceSendView(APIView):
     """
 
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated, IsOrgMember]
+    # P14/M-5: sending a document is a write-grade action — the Viewer
+    # role must not reach the send path (parity with the InvoiceNow send,
+    # which has carried CanCreateInvoices since P9/C-3).
+    permission_classes = [IsAuthenticated, IsOrgMember, CanCreateInvoices]
 
     @wrap_response
     def post(self, request, org_id: str, document_id: str) -> Response:

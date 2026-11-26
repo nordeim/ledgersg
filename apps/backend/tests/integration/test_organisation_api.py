@@ -147,7 +147,7 @@ def test_gst_registration_success(auth_client, test_organisation):
 
     url = f"/api/v1/{test_organisation.id}/gst/"
     data = {
-        "gst_reg_number": "M87654321",
+        "gst_reg_number": "M87654321W",
         "gst_reg_date": "2024-06-01"
     }
 
@@ -155,7 +155,7 @@ def test_gst_registration_success(auth_client, test_organisation):
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["gst_registered"] is True
-    assert response.data["gst_reg_number"] == "M87654321"
+    assert response.data["gst_reg_number"] == "M87654321W"
 
     # Verify in database
     test_organisation.refresh_from_db()
@@ -208,7 +208,7 @@ def test_organisation_creation_seeds_coa(auth_client, test_user):
         "name": "Org With CoA",
         "legal_name": "Org With CoA Pte Ltd",
         "gst_registered": True,
-        "gst_reg_number": "M11111111",
+        "gst_reg_number": "M11111111Z",
         "gst_reg_date": "2024-01-01",
         "base_currency": "SGD"
     }

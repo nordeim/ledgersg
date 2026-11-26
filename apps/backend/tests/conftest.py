@@ -67,7 +67,7 @@ def test_organisation(test_user) -> Organisation:
         uen="123456789A",
         entity_type="PRIVATE_LIMITED",
         gst_registered=True,
-        gst_reg_number="M12345678",
+        gst_reg_number="M12345678K",
         gst_reg_date=date(2024, 1, 1),
         fy_start_month=1,
         base_currency="SGD",

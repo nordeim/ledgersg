@@ -3,6 +3,12 @@ Bank Account Serializers for LedgerSG Banking Module.
 
 Validates all bank account data before persistence.
 SEC-001 Remediation: Replaces unvalidated request.data.get() stubs.
+
+P14/H-04b (PDPA): NRIC-type PayNow identifiers are protected identifiers
+under Singapore's PDPA — masked by default on READ (first char + last 3,
+e.g. S*****67A); the write path rejects values containing '*' (a masked
+echo must never corrupt the stored identifier). MOBILE/UEN proxies are not
+PDPA protected identifiers and round-trip unchanged.
 """
 
 from decimal import Decimal
@@ -12,8 +18,21 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.models import BankAccount, Account
 
 
+def _mask_paynow_id(paynow_type, paynow_id):
+    """H-04b: mask NRIC-type identifiers on read; others pass through."""
+    if paynow_type == "NRIC" and paynow_id:
+        cleaned = str(paynow_id)
+        if len(cleaned) >= 4:
+            return f"{cleaned[0]}{'*' * (len(cleaned) - 4)}{cleaned[-3:]}"
+        return "*" * len(cleaned)
+    return paynow_id
+
+
 class BankAccountSerializer(serializers.ModelSerializer):
     """Read serializer for BankAccount."""
+
+    # P14/H-04b: NRIC PayNow identifiers are masked on read (PDPA).
+    paynow_id = serializers.SerializerMethodField()
 
     class Meta:
         model = BankAccount
@@ -37,6 +56,9 @@ class BankAccountSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "org", "created_at", "updated_at"]
+
+    def get_paynow_id(self, obj) -> str | None:
+        return _mask_paynow_id(obj.paynow_type, obj.paynow_id)
 
 
 class BankAccountCreateSerializer(serializers.ModelSerializer):
@@ -146,6 +168,18 @@ class BankAccountCreateSerializer(serializers.ModelSerializer):
         if paynow_id == "":
             data["paynow_id"] = None
 
+        # P14/H-04b: a masked read echoed back through the write path must
+        # never persist the mask characters into the stored identifier.
+        if paynow_id and "*" in str(paynow_id):
+            raise serializers.ValidationError(
+                {
+                    "paynow_id": _(
+                        "PayNow ID contains '*' — send the real identifier, "
+                        "not the masked display value."
+                    )
+                }
+            )
+
         if paynow_type and not paynow_id:
             raise serializers.ValidationError(
                 {"paynow_id": _("PayNow ID is required when PayNow type is specified.")}
@@ -229,6 +263,18 @@ class BankAccountUpdateSerializer(serializers.ModelSerializer):
         instance_id = getattr(self.instance, "paynow_id", None)
         eff_type = data.get("paynow_type", instance_type)
         eff_id = data.get("paynow_id", instance_id)
+
+        # P14/H-04b: a masked read echoed back through PATCH must never
+        # persist the mask characters into the stored identifier.
+        if "paynow_id" in data and data["paynow_id"] and "*" in str(data["paynow_id"]):
+            raise serializers.ValidationError(
+                {
+                    "paynow_id": _(
+                        "PayNow ID contains '*' — send the real identifier, "
+                        "not the masked display value."
+                    )
+                }
+            )
 
         # "" and null both mean "unset"; the DB stores NULL (P9/B-4, P10/M-1)
         if eff_type in ("", None):

@@ -15,6 +15,7 @@ from apps.core.models import (
     Role,
     UserOrganisation,
 )
+from apps.core.validators import validate_uen, validate_gst_reg_number
 
 
 def ensure_uen_available(uen, exclude_org=None):
@@ -78,7 +79,7 @@ class OrganisationCreateSerializer(serializers.Serializer):
     contact_phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
     
     def validate(self, data):
-        """Validate GST registration fields."""
+        """Validate GST registration fields + identity-number formats."""
         if data.get("gst_registered"):
             if not data.get("gst_reg_number"):
                 raise serializers.ValidationError(
@@ -88,6 +89,34 @@ class OrganisationCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"gst_reg_date": "GST registration date is required when GST is registered."}
                 )
+
+        # P14/M-1: format-validate the identity numbers (three ACRA UEN
+        # formats; the IRAS M-form in both documented lengths, or the
+        # UEN form — the pre-P14 create path accepted "garbage!!" and
+        # the register path's startswith("M") rejected valid UEN-form
+        # GST numbers).
+        uen = (data.get("uen") or "").strip().upper()
+        if uen and not validate_uen(uen):
+            raise serializers.ValidationError(
+                {
+                    "uen": (
+                        "UEN must match an ACRA format: 8 digits + letter "
+                        "(business), 9 digits + letter (local company), or "
+                        "T/S + YY + 2 letters + 4 digits + letter (other "
+                        "entities)."
+                    )
+                }
+            )
+        gst_number = (data.get("gst_reg_number") or "").strip().upper()
+        if gst_number and not validate_gst_reg_number(gst_number):
+            raise serializers.ValidationError(
+                {
+                    "gst_reg_number": (
+                        "GST registration number must be the IRAS M-form "
+                        "(M + 7 or 8 digits + check letter) or a valid UEN."
+                    )
+                }
+            )
 
         # P10: DB-level uen UNIQUE must surface as a 400 field error, not
         # an IntegrityError 500.
@@ -102,13 +131,21 @@ class GSTRegistrationSerializer(serializers.Serializer):
     gst_reg_date = serializers.DateField()
     
     def validate_gst_reg_number(self, value):
-        """Validate GST registration number format."""
-        # Singapore GST numbers start with 'M' followed by digits
-        if not value.startswith("M"):
+        """Validate GST registration number format.
+
+        P14/M-1: the honest format check — the IRAS M-form (M + 7 or 8
+        digits + check letter) OR the UEN form (IRAS "Invoicing customers"
+        shows the UEN-form example 123456789A). The pre-P14
+        startswith("M") accepted garbage like "M123" and rejected every
+        valid UEN-form GST number.
+        """
+        cleaned = value.strip().upper()
+        if not validate_gst_reg_number(cleaned):
             raise serializers.ValidationError(
-                "Singapore GST registration number must start with 'M'."
+                "GST registration number must be the IRAS M-form "
+                "(M + 7 or 8 digits + check letter) or a valid UEN."
             )
-        return value.upper()
+        return cleaned
 
 
 class FiscalYearSerializer(serializers.ModelSerializer):

@@ -400,6 +400,9 @@ class GSTReturnFileView(APIView):
             filed_by_id=request.user.id,
             filing_reference=data.get("filing_reference"),
             boxes=boxes,
+            # P14/H-05b: the override evidence trail (validated at the
+            # service: required with boxes, persisted into notes).
+            override_reason=data.get("override_reason"),
         )
 
         return Response(

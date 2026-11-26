@@ -265,38 +265,25 @@ class ContactService:
     @staticmethod
     def _validate_uen(uen: str) -> bool:
         """
-        Validate Singapore UEN format.
-        
-        UEN formats:
-        - Local companies: 9 digits (e.g., 123456789A)
-        - Businesses: 8 digits + 1 letter (e.g., 12345678A)
-        - Others: Various formats
-        
+        Validate Singapore UEN format (P14/M-1).
+
+        Delegates to the shared honest validator
+        (apps.core.validators.validate_uen): the three real ACRA formats —
+        business (8 digits + check letter), local company (9 digits +
+        check letter), other entities (T/S + YY + 2 letters + 4 digits +
+        check letter). The pre-P14 copy accepted the bare ^\d{10}$
+        pattern (a branch registration number, NOT a UEN) alongside the
+        real formats.
+
         Args:
             uen: UEN to validate
-            
+
         Returns:
             True if valid format
         """
-        if not uen:
-            return True  # Empty is valid (optional field)
-        
-        uen = uen.strip().upper()
-        
-        # Basic format checks
-        if len(uen) < 8 or len(uen) > 10:
-            return False
-        
-        # Common UEN patterns
-        import re
-        patterns = [
-            r'^\d{9}[A-Z]$',  # Local companies
-            r'^\d{8}[A-Z]$',  # Businesses
-            r'^[TS]\d{2}[A-Z]{2}\d{4}[A-Z]$',  # Partnerships
-            r'^\d{10}$',  # GST-registered businesses
-        ]
-        
-        return any(re.match(pattern, uen) for pattern in patterns)
+        from apps.core.validators import validate_uen
+
+        return validate_uen(uen)
     
     @staticmethod
     def _validate_peppol_id(peppol_id: str) -> bool:

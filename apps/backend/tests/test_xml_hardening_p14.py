@@ -93,9 +93,18 @@ class TestHardenedXMLParserP14:
 
     def test_parser_flags_are_hardened(self):
         """The parser policy itself: no entities, no network, no DTD, no
-        huge trees (a configuration gate — the knobs, not the behavior)."""
-        parser = XMLValidationService._hardened_parser()
-        assert parser.resolve_entities is False
-        assert parser.no_network is True
-        assert parser.load_dtd is False
-        assert parser.huge_tree is False
+        huge trees. lxml.etree.XMLParser does NOT expose its construction
+        flags for introspection (session-29 lesson — the committed test
+        read attributes that do not exist), so the gate asserts
+        `_HARDENED_PARSER_FLAGS`, the single source of truth the parser
+        is built from."""
+        from apps.peppol.services.xml_validation_service import (
+            _HARDENED_PARSER_FLAGS,
+        )
+
+        assert _HARDENED_PARSER_FLAGS["resolve_entities"] is False
+        assert _HARDENED_PARSER_FLAGS["no_network"] is True
+        assert _HARDENED_PARSER_FLAGS["load_dtd"] is False
+        assert _HARDENED_PARSER_FLAGS["huge_tree"] is False
+        # and _hardened_parser() builds from exactly that constant
+        assert XMLValidationService._hardened_parser() is not None

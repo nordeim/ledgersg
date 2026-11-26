@@ -154,7 +154,25 @@ class TaxCodeService:
                 resolved.append(row)
             return resolved
 
-        return list(rows)
+        # P14/M-10: without effective_on, dedupe per (code, effective_from,
+        # effective_to) — a seeded org's copy shadows the identical SYSTEM
+        # band (the pre-P14 list returned both, so UI dropdowns showed every
+        # code twice). Distinct bands are legitimate rate history and stay.
+        # Row order (org first within a code, newest effective_from first)
+        # makes the FIRST row of each band the org row when both exist.
+        seen_bands = set()
+        resolved = []
+        for row in rows:
+            band = (
+                row.code,
+                row.effective_from,
+                row.effective_to,
+            )
+            if band in seen_bands:
+                continue
+            seen_bands.add(band)
+            resolved.append(row)
+        return resolved
 
     @staticmethod
     def get_tax_code(org_id: UUID, tax_code_id: UUID) -> TaxCode:

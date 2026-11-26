@@ -263,6 +263,12 @@ class GSTReturnFileSerializer(serializers.Serializer):
 
     filing_reference = serializers.CharField(max_length=50, required=False, allow_blank=True)
     boxes = serializers.DictField(required=False)
+    # P14/H-05b: REQUIRED (>= 10 chars at the service layer) whenever box
+    # overrides are present — the evidence trail for filed figures that
+    # diverge from the computed subledger.
+    override_reason = serializers.CharField(
+        max_length=500, required=False, allow_blank=True
+    )
 
 
 class GSTReturnAmendSerializer(serializers.Serializer):

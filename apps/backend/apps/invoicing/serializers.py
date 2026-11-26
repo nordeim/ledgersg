@@ -110,14 +110,38 @@ class InvoiceLineSerializer(serializers.ModelSerializer):
 
 
 class InvoiceLineCreateSerializer(serializers.Serializer):
-    """Serializer for creating a new invoice line."""
-    
+    """Serializer for creating a new invoice line.
+
+    P14/M-4: bounded quantities/prices (the pre-P14 schema accepted
+    negative unit_prices and 10^15 magnitudes that crashed deeper in the
+    stack); discount_pct is bounded to [0, 100]. Shared by the line-add
+    endpoint AND the document-create `lines` schema."""
+
     account_id = serializers.UUIDField()
     description = serializers.CharField(max_length=500)
-    quantity = serializers.DecimalField(max_digits=19, decimal_places=4, default=Decimal("1.0000"))
-    unit_price = serializers.DecimalField(max_digits=19, decimal_places=4)
+    quantity = serializers.DecimalField(
+        max_digits=19,
+        decimal_places=4,
+        default=Decimal("1.0000"),
+        min_value=Decimal("0.0001"),
+        max_value=Decimal("1000000"),
+    )
+    unit_price = serializers.DecimalField(
+        max_digits=19,
+        decimal_places=4,
+        min_value=Decimal("0"),
+        max_value=Decimal("9999999999999"),
+    )
     tax_code_id = serializers.UUIDField()
     is_bcrs_deposit = serializers.BooleanField(default=False)
+    discount_pct = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        min_value=Decimal("0"),
+        max_value=Decimal("100"),
+        required=False,
+        default=Decimal("0"),
+    )
 
 
 class InvoiceDocumentListSerializer(serializers.ModelSerializer):
@@ -207,17 +231,25 @@ class InvoiceDocumentDetailSerializer(serializers.ModelSerializer):
 
 class InvoiceDocumentCreateSerializer(serializers.Serializer):
     """Serializer for creating a new document."""
-    
+
     document_type = serializers.ChoiceField(choices=InvoiceDocument.DOCUMENT_TYPES)
     contact_id = serializers.UUIDField()
     issue_date = serializers.DateField()
     due_date = serializers.DateField(required=False, allow_null=True)
     reference = serializers.CharField(max_length=100, required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
+    # P14/M-4: REQUIRED with min_length=1 — a document without lines is a
+    # data error, not a valid state (the view's data["lines"] KeyError'd
+    # to a 500 when the field was optional).
     lines = serializers.ListField(
-        child=serializers.DictField(),
-        required=False
+        child=InvoiceLineCreateSerializer(),
+        required=True,
+        min_length=1,
     )
+    # P14/H-4: the original invoice a credit note corrects — REQUIRED at
+    # the service layer for *_CREDIT_NOTE (validated there, where the
+    # same-contact + cap rules live; here it is just the typed pass-through).
+    related_document_id = serializers.UUIDField(required=False, allow_null=True)
 
 
 class InvoiceDocumentUpdateSerializer(serializers.Serializer):

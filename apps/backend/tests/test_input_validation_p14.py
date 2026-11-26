@@ -31,6 +31,7 @@ from tests.conftest import create_test_contact
 
 # ── M-4: the document create contract ────────────────────────────────────
 
+@pytest.mark.django_db
 class TestDocumentCreateContractP14:
     def _payload(self, fx, lines):
         return {
@@ -157,12 +158,27 @@ class TestContactUenValidatorP14:
 
     @pytest.mark.django_db
     def test_org_serializer_accepts_uen_form_gst_number(self, test_organisation):
-        """M-1: the register/update serializer accepts UEN-form GST numbers."""
-        from apps.core.serializers.organisation import OrganisationUpdateSerializer
+        """M-1: the GST registration serializer (the serializer that OWNS
+        gst_reg_number per the P5/M-6 design — OrganisationUpdateSerializer
+        deliberately excludes it) accepts UEN-form GST numbers; the
+        pre-P14 startswith("M") check rejected them."""
+        from apps.core.serializers.organisation import GSTRegistrationSerializer
 
-        serializer = OrganisationUpdateSerializer(
-            data={"gst_reg_number": "202612345D"}, partial=True
+        serializer = GSTRegistrationSerializer(
+            data={"gst_reg_number": "202612345D", "gst_reg_date": "2026-01-01"}
         )
-        # validation of the field alone
-        field = serializer.fields["gst_reg_number"]
-        assert field.run_validation("202612345D") == "202612345D"
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["gst_reg_number"] == "202612345D"
+
+        # and the M-form in BOTH documented lengths passes
+        for m_form in ("M1234567A", "M90345678K"):
+            ok = GSTRegistrationSerializer(
+                data={"gst_reg_number": m_form, "gst_reg_date": "2026-01-01"}
+            )
+            assert ok.is_valid(), (m_form, ok.errors)
+
+        # and garbage is refused
+        bad = GSTRegistrationSerializer(
+            data={"gst_reg_number": "M123", "gst_reg_date": "2026-01-01"}
+        )
+        assert not bad.is_valid()

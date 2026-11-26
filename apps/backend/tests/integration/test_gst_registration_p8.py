@@ -81,7 +81,7 @@ class TestGSTRegistrationPermissions:
 
         response = client.post(
             self._url(test_organisation),
-            {"gst_reg_number": "M87654321", "gst_reg_date": "2024-06-01"},
+            {"gst_reg_number": "M87654321W", "gst_reg_date": "2024-06-01"},
             format="json",
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN, response.content
@@ -92,7 +92,7 @@ class TestGSTRegistrationPermissions:
         self, api_client, test_organisation, test_user
     ):
         test_organisation.gst_registered = True
-        test_organisation.gst_reg_number = "M87654321"
+        test_organisation.gst_reg_number = "M87654321W"
         test_organisation.save()
         limited = _make_limited_member(test_organisation)
         client = _make_client(api_client, limited)
@@ -109,7 +109,7 @@ class TestGSTRegistrationPermissions:
 
         response = client.post(
             self._url(test_organisation),
-            {"gst_reg_number": "M87654321", "gst_reg_date": "2024-06-01"},
+            {"gst_reg_number": "M87654321W", "gst_reg_date": "2024-06-01"},
             format="json",
         )
         assert response.status_code == status.HTTP_200_OK, response.content
