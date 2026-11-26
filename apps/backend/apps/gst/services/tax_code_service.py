@@ -299,12 +299,18 @@ class TaxCodeService:
         """
         tax_code = TaxCodeService.get_tax_code(org_id, tax_code_id)
 
-        # System codes (global) have limited update capability
+        # P16/BE-M6: system (global) tax-code rows are not updateable —
+        # the rls_update_tax_code policy's WITH CHECK (org_id = current)
+        # refuses any write that leaves org_id NULL, so the previously
+        # allowed description/is_active edits surfaced as unhandled
+        # InsufficientPrivilege 500s under the application role. Mirror
+        # deactivate_tax_code: system rows are read-only through the API.
         if tax_code.org_id is None:
-            allowed_fields = {"description", "is_active"}
-            for key in updates:
-                if key not in allowed_fields:
-                    raise ValidationError(f"Cannot modify '{key}' on system tax codes.")
+            raise ValidationError(
+                "System tax codes are maintained globally and cannot be "
+                "updated. Create an organisation-specific tax code to "
+                "shadow it (same code, your own effective window)."
+            )
 
         for key, value in updates.items():
             if hasattr(tax_code, key):

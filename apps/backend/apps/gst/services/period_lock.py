@@ -3,9 +3,13 @@ P14/H-3 — the GST period lock.
 
 A FILED (or AMENDED) GST return fixes the statutory figures for its
 period: once filed, no posting may change the ledger basis inside that
-period. This module provides the single shared guard used by every
-posting path (document approve/void, manual journal creation, payment
-void) so the ledger can never silently diverge from what was filed.
+period. This module provides the shared guard used by the DIRECT posting
+paths (document approve/void, manual journal creation). The payment-void
+path is covered TRANSITIVELY: its reversal entry posts through
+JournalService.create_entry, which enforces the lock on the reversal
+date (today, or the original entry's date in the no-open-period
+fallback) — PaymentService.void does not call the guard itself (P16/B12:
+this docstring previously claimed it did).
 
 Design note: the lock is DERIVED (a runtime check against FILED/AMENDED
 returns covering the date) rather than a persisted flag — no schema

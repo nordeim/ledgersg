@@ -253,3 +253,91 @@ class TestInstalmentCycleP14:
             context={"org_id": str(fx["org"].id)},
         )
         assert serializer.is_valid(), serializer.errors
+
+
+class TestWireEndpointInstalmentContractP16:
+    """P16/BE-H2: the dedicated allocate ENDPOINT must accept instalments.
+
+    The P14/H-2 fix landed in the service and the embedded-path serializer
+    but BulkAllocationSerializer (the POST /payments/{id}/allocate/ wire
+    contract) still demanded APPROVED-only — a PARTIALLY_PAID invoice 400'd
+    on the dedicated endpoint while the embedded path worked. The endpoint
+    is what the standalone allocation flow (Banking → Payments → Allocate)
+    uses.
+    """
+
+    @pytest.mark.django_db
+    def test_bulk_serializer_accepts_partially_paid_instalment(self, payment_fixture):
+        from apps.banking.serializers.allocation import BulkAllocationSerializer
+
+        fx = payment_fixture
+        first = _receive(fx["org"], fx["user"], fx["bank"], fx["contact"], Decimal("40.00"))
+        PaymentService.allocate(
+            org_id=fx["org"].id,
+            payment_id=first.id,
+            allocations=[
+                {"document_id": str(fx["invoice"].id), "allocated_amount": Decimal("40.00")}
+            ],
+        )
+        fx["invoice"].refresh_from_db()
+        assert fx["invoice"].status == "PARTIALLY_PAID"
+
+        second = _receive(fx["org"], fx["user"], fx["bank"], fx["contact"], Decimal("69.00"))
+        serializer = BulkAllocationSerializer(
+            data={
+                "payment_id": str(second.id),
+                "allocations": [
+                    {
+                        "document_id": str(fx["invoice"].id),
+                        "allocated_amount": "69.00",
+                    }
+                ],
+            },
+            context={"org_id": str(fx["org"].id)},
+        )
+        assert serializer.is_valid(), serializer.errors
+
+    @pytest.mark.django_db
+    def test_bulk_serializer_accepts_sent_document(self, payment_fixture):
+        from apps.banking.serializers.allocation import BulkAllocationSerializer
+
+        fx = payment_fixture
+        fx["invoice"].status = "SENT"
+        fx["invoice"].save(update_fields=["status"])
+        payment = _receive(fx["org"], fx["user"], fx["bank"], fx["contact"], Decimal("109.00"))
+        serializer = BulkAllocationSerializer(
+            data={
+                "payment_id": str(payment.id),
+                "allocations": [
+                    {
+                        "document_id": str(fx["invoice"].id),
+                        "allocated_amount": "109.00",
+                    }
+                ],
+            },
+            context={"org_id": str(fx["org"].id)},
+        )
+        assert serializer.is_valid(), serializer.errors
+
+    @pytest.mark.django_db
+    @pytest.mark.parametrize("doc_status", ["DRAFT", "VOID"])
+    def test_bulk_serializer_still_refuses_draft_and_void(self, payment_fixture, doc_status):
+        from apps.banking.serializers.allocation import BulkAllocationSerializer
+
+        fx = payment_fixture
+        fx["invoice"].status = doc_status
+        fx["invoice"].save(update_fields=["status"])
+        payment = _receive(fx["org"], fx["user"], fx["bank"], fx["contact"], Decimal("109.00"))
+        serializer = BulkAllocationSerializer(
+            data={
+                "payment_id": str(payment.id),
+                "allocations": [
+                    {
+                        "document_id": str(fx["invoice"].id),
+                        "allocated_amount": "109.00",
+                    }
+                ],
+            },
+            context={"org_id": str(fx["org"].id)},
+        )
+        assert not serializer.is_valid()

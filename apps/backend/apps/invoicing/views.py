@@ -403,6 +403,10 @@ class InvoiceLineAddView(APIView):
             unit_price=data["unit_price"],
             tax_code_id=data["tax_code_id"],
             is_bcrs_deposit=data.get("is_bcrs_deposit", False),
+            # P16/BE-M5: forward the validated discount — the create path
+            # applied it while the line-add path silently dropped it (the
+            # same payload produced different line amounts per endpoint).
+            discount_pct=data.get("discount_pct", Decimal("0")),
         )
 
         from apps.invoicing.serializers import InvoiceLineSerializer

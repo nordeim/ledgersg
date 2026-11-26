@@ -215,3 +215,96 @@ class TestGSTLockP14:
                 reason="post-filing void probe",
             )
         assert "GST" in str(excinfo.value) or "filed" in str(excinfo.value).lower()
+
+
+class TestPaymentVoidLockP16:
+    """P16/B12 — the advertised-but-missing payment-void lock spec.
+
+    A payment created BEFORE the period was filed (its original journal
+    entry sits inside the period). Voiding it afterwards: the reversal
+    prefers TODAY's period; when none exists (the fixture reality — only
+    FY2024 periods are seeded) it falls back to the ORIGINAL entry date,
+    which now sits inside the filed period — the transitive lock through
+    JournalService.create_entry must refuse the void.
+    """
+
+    @pytest.mark.django_db
+    def test_payment_void_into_filed_period_is_refused(
+        self, test_organisation, test_user, test_accounts, test_tax_codes,
+        test_fiscal_period,
+    ):
+        from datetime import timedelta
+
+        from apps.banking.services import PaymentService
+        from apps.core.models import BankAccount, GSTReturn
+        from apps.gst.services import GSTReturnService
+        from common.exceptions import ValidationError
+
+        org = test_organisation
+        # The documented conftest convention: the org fixture seeds
+        # sequences only for the types it uses — payment creation needs
+        # PAYMENT_RECEIVED (the P14 allocation fixture does the same).
+        from apps.core.models import DocumentSequence
+
+        DocumentSequence.objects.get_or_create(
+            org=org,
+            document_type="PAYMENT_RECEIVED",
+            defaults={"prefix": "PAY-", "next_number": 1},
+        )
+        bank = BankAccount.objects.create(
+            org=org,
+            gl_account=test_accounts["1200"],
+            account_name="Void Lock Bank",
+            bank_name="Test Bank",
+            account_number="001-777-001",
+            currency="SGD",
+            paynow_type=None,
+            is_active=True,
+        )
+        contact = create_test_contact(org, is_customer=True)
+
+        # 1. The payment predates the filing (dated inside Jan 2024).
+        payment = PaymentService.create_received(
+            org_id=org.id,
+            data={
+                "contact_id": str(contact.id),
+                "bank_account_id": str(bank.id),
+                "payment_date": "2024-01-20",
+                "amount": "50.00",
+                "currency": "SGD",
+                "exchange_rate": "1.000000",
+                "payment_method": "BANK_TRANSFER",
+            },
+            user_id=test_user.id,
+        )
+
+        # 2. File the return covering Jan 2024.
+        gst_return = GSTReturn.objects.create(
+            org_id=org.id,
+            period_start=date(2024, 1, 1),
+            period_end=date(2024, 1, 31),
+            filing_due_date=date(2024, 2, 29),
+            status="COMPUTED",
+            box1_std_rated_supplies=Decimal("0"),
+            box4_total_supplies=Decimal("0"),
+            box6_output_tax=Decimal("0"),
+            box8_net_gst=Decimal("0"),
+            box13_total_revenue=Decimal("0"),
+        )
+        GSTReturnService.file_return(
+            org_id=org.id,
+            return_id=gst_return.id,
+            filed_by_id=test_user.id,
+            filing_reference="IRAS-VOIDLOCK-001",
+        )
+
+        # 3. The void: no open period for TODAY exists (only FY2024 is
+        # seeded), so the reversal falls back to the original entry date
+        # — inside the filed period. The transitive lock must refuse.
+        with pytest.raises(ValidationError, match="(?i)filed|lock|period"):
+            PaymentService.void(
+                org_id=org.id,
+                payment_id=payment.id,
+                reason="P16 payment-void lock probe",
+                user_id=test_user.id,
+            )

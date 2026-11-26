@@ -392,7 +392,18 @@ class GSTReturnFileView(APIView):
         data = serializer.validated_data
         boxes = data.get("boxes")
         if boxes:
-            boxes = {k: Decimal(str(v)) for k, v in boxes.items()}
+            # P16/BE-M2: reject non-finite values before they reach the
+            # service (NaN/Infinity parse cleanly out of Decimal()).
+            boxes = {}
+            for k, v in data["boxes"].items():
+                parsed = Decimal(str(v))
+                if not parsed.is_finite():
+                    from rest_framework.exceptions import ValidationError as DRFValidationError
+
+                    raise DRFValidationError(
+                        {"boxes": f"Box {k} must be a finite number (got {v!r})"}
+                    )
+                boxes[k] = parsed
 
         gst_return = GSTReturnService.file_return(
             org_id=org_id,

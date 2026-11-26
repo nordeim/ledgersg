@@ -42,14 +42,29 @@ def money(value: Union[str, int, float, Decimal]) -> Decimal:
             f"Float {value} is not allowed for monetary values. "
             f"Use str or Decimal: money('{value}')"
         )
-    
+
     try:
         with localcontext() as ctx:
             ctx.rounding = ROUND_HALF_UP
             ctx.traps[InvalidOperation] = True
-            return Decimal(str(value)).quantize(MONEY_PLACES)
+            converted = Decimal(str(value))
     except (InvalidOperation, ValueError) as e:
         raise ValueError(f"Cannot convert {value!r} to money: {e}")
+
+    # P16/BE-M2: NaN and Infinity parse cleanly out of Decimal() and
+    # quantize() propagates NaN without raising — a non-finite value that
+    # reaches a statutory write (e.g. a GST box override) persists into
+    # the filed record. Reject non-finite values at the seam.
+    if not converted.is_finite():
+        raise ValueError(
+            f"Non-finite value {value!r} is not a monetary amount "
+            "(P16/BE-M2: NaN/Infinity must never reach a money column)"
+        )
+
+    with localcontext() as ctx:
+        ctx.rounding = ROUND_HALF_UP
+        ctx.traps[InvalidOperation] = True
+        return converted.quantize(MONEY_PLACES)
 
 
 def display_money(value: Union[str, int, float, Decimal]) -> str:

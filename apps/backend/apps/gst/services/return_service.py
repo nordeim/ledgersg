@@ -320,7 +320,12 @@ class GSTReturnService:
             )
 
         with transaction.atomic():
-            gst_return = GSTReturnService.get_return(org_id, return_id)
+            # P16/BE-L3: lock the return row — concurrent file/amend on the
+            # same return interleaved (FILED->AMENDED->FILED re-ordering,
+            # notes lost-update).
+            gst_return = GSTReturn.objects.select_for_update().get(
+                org_id=org_id, id=return_id
+            )
 
             if gst_return.status not in FILEABLE_STATUSES:
                 raise ValidationError(
@@ -345,11 +350,21 @@ class GSTReturnService:
                             "fields may be overridden."
                         )
                     try:
-                        setattr(gst_return, box_name, Decimal(str(value)))
+                        box_value = Decimal(str(value))
                     except (TypeError, ValueError, ArithmeticError) as exc:
                         raise ValidationError(
                             f"Invalid value for '{box_name}': {value!r}"
                         ) from exc
+                    # P16/BE-M2: NaN/Infinity parse cleanly out of Decimal()
+                    # and PostgreSQL numeric accepts both — without this
+                    # gate a non-finite value could be FILED into the
+                    # statutory record.
+                    if not box_value.is_finite():
+                        raise ValidationError(
+                            f"Invalid value for '{box_name}': {value!r} — "
+                            "box values must be finite numbers"
+                        )
+                    setattr(gst_return, box_name, box_value)
 
             # P14/H-05b: persist the override evidence BEFORE the derived
             # boxes are recomputed — capture the computed-vs-filed deltas
@@ -423,7 +438,10 @@ class GSTReturnService:
         `notes` (documented decision — a dedicated column requires a
         versioned schema change; see the deferred debt register).
         """
-        gst_return = GSTReturnService.get_return(org_id, return_id)
+        # P16/BE-L3: lock the return row (same rationale as file_return).
+        gst_return = GSTReturn.objects.select_for_update().get(
+            org_id=org_id, id=return_id
+        )
 
         if gst_return.status != "FILED":
             raise ValidationError("Only filed returns can be amended")

@@ -120,6 +120,13 @@ class OrganisationCreateSerializer(serializers.Serializer):
 
         # P10: DB-level uen UNIQUE must surface as a 400 field error, not
         # an IntegrityError 500.
+        # P16/BE-L7: store the NORMALIZED form — validation ran on
+        # uen.strip().upper() but the raw value kept a lowercase tail,
+        # dodging the case-sensitive UNIQUE pre-check on storage.
+        if data.get("uen"):
+            data["uen"] = data["uen"].strip().upper()
+        if data.get("gst_reg_number"):
+            data["gst_reg_number"] = data["gst_reg_number"].strip().upper()
         ensure_uen_available(data.get("uen"))
         return data
 

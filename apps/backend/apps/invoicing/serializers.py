@@ -143,6 +143,26 @@ class InvoiceLineCreateSerializer(serializers.Serializer):
         default=Decimal("0"),
     )
 
+    # P16/BE-M3: NUMERIC(19,4) holds at most 15 integer digits — the
+    # individual bounds above permit a 19-integer-digit PRODUCT that
+    # overflows the column at INSERT (unhandled DataError 500).
+    _MAX_LINE_TOTAL = Decimal("99999999999999.9999")
+
+    def validate(self, data):
+        quantity = data.get("quantity", Decimal("1"))
+        unit_price = data.get("unit_price", Decimal("0"))
+        if quantity * unit_price > self._MAX_LINE_TOTAL:
+            raise serializers.ValidationError(
+                {
+                    "quantity": (
+                        f"Line total (quantity x unit_price = {quantity * unit_price}) "
+                        "exceeds the maximum representable amount "
+                        f"({self._MAX_LINE_TOTAL})."
+                    )
+                }
+            )
+        return data
+
 
 class InvoiceDocumentListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for document list views."""
