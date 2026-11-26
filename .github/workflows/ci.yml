@@ -124,7 +124,8 @@ jobs:
       - name: 🧪 Run Backend Tests (Meticulous Workflow)
         working-directory: ./apps/backend
         env:
-          DATABASE_URL: postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
+          # P17/DOC-L: DATABASE_URL removed — nothing reads it (the backend
+          # reads the five DB_* variables; see apps/backend/.env.example)
           DB_NAME: test_ledgersg_dev
           DB_USER: ${{ env.POSTGRES_USER }}
           DB_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
@@ -137,7 +138,7 @@ jobs:
         run: |
           echo "🧪 Running backend tests with SQL-First configuration..."
           echo "📊 Configuration:"
-          echo "   - DATABASE_URL: postgres://****@****:****/ledgersg_dev"
+          echo "   - DB_NAME: test_ledgersg_dev (schema-loaded via psql above)"
           echo "   - REDIS_URL: redis://localhost:6379/1"
           echo "   - DJANGO_SETTINGS_MODULE: config.settings.testing"
           echo ""
@@ -183,6 +184,17 @@ jobs:
           echo "🔍 Running TypeScript strict check..."
           npx tsc --noEmit
           echo "✅ TypeScript check passed"
+
+      - name: 🧹 ESLint Gate (0 errors, warnings at the documented parity)
+        working-directory: ./apps/web
+        run: |
+          echo "🧹 Running the whole-tree eslint gate..."
+          # P17/FE-M2: whole-tree eslint 0 errors; --max-warnings pins the
+          # documented 5-warning register so the count cannot drift
+          # silently again (the P16 lesson: 6 errors lived for a sprint
+          # because no CI step ran lint).
+          npx eslint . --max-warnings 5
+          echo "✅ ESLint gate passed (0 errors, warnings at parity)"
 
       - name: 🧪 Run Frontend Tests (coverage ratchet)
         working-directory: ./apps/web

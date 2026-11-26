@@ -52,3 +52,6 @@ apps/backend/uv.lock
 *_log_new.txt
 start_*_log.txt
 startup_log.txt
+
+# P17: untracked runtime artifact (was committed by an earlier session)
+apps/backend/database_connection_status.txt
