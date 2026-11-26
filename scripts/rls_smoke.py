@@ -176,7 +176,7 @@ def main():
 
     # 8. bank account + payment (allocate exactly the outstanding — H-1 cap)
     r = s.post(
-        f"{api}/{org_id}/banking/accounts/",
+        f"{api}/{org_id}/banking/bank-accounts/",
         json={
             "account_name": f"RLS Smoke Bank {run}",
             "bank_name": "Test Bank",

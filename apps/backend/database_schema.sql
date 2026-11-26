@@ -3477,8 +3477,17 @@ DROP POLICY IF EXISTS rls_insert_role ON core.role;
 DROP POLICY IF EXISTS rls_update_role ON core.role;
 DROP POLICY IF EXISTS rls_delete_role ON core.role;
 
+-- NULL-context SELECT (same tradeoff class as 17b): the middleware's
+-- pre-context role attach (request.org_role, used by the permission
+-- gates) runs BEFORE the org context exists — it reads the membership's
+-- role through the same connection. The application layer's membership
+-- check remains the gate; role rows carry names + flags, not user data.
 CREATE POLICY rls_select_role ON core.role
-    FOR SELECT USING (org_id IS NULL OR org_id = core.current_org_id());
+    FOR SELECT USING (
+        core.current_org_id() IS NULL
+        OR org_id IS NULL
+        OR org_id = core.current_org_id()
+    );
 CREATE POLICY rls_insert_role ON core.role
     FOR INSERT WITH CHECK (org_id = core.current_org_id());
 CREATE POLICY rls_update_role ON core.role
