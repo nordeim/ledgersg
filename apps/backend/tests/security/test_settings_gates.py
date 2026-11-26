@@ -280,3 +280,64 @@ def test_service_boots_with_a_strong_key(monkeypatch):
     svc = _load_service_settings(monkeypatch, strong, hosts="localhost,127.0.0.1")
     assert svc.SECRET_KEY == strong
     assert svc.ALLOWED_HOSTS == ["localhost", "127.0.0.1"]
+
+
+# =============================================================================
+# P16/BE-H1 — the tenant/audit middleware must survive into EVERY
+# HTTP-serving settings module (service.py rebuilt its MIDDLEWARE list from
+# scratch and dropped all four base entries: the Docker/script API path ran
+# with no org context — every org-scoped endpoint 403s for non-superusers,
+# RLS sees NULL on every request, and the audit trigger loses attribution)
+# =============================================================================
+
+TENANT_MIDDLEWARE = "common.middleware.tenant_context.TenantContextMiddleware"
+AUDIT_MIDDLEWARE = "common.middleware.audit_context.AuditContextMiddleware"
+CSP_MIDDLEWARE = "csp.middleware.CSPMiddleware"
+WHITENOISE_MIDDLEWARE = "whitenoise.middleware.WhiteNoiseMiddleware"
+
+
+def _load_settings_module(name):
+    """Import a settings module fresh (cache-cleared) — the file's
+    _load_production_settings pattern, generalized."""
+    import sys
+
+    for mod in list(sys.modules):
+        if mod.startswith("config.settings"):
+            del sys.modules[mod]
+    return __import__(f"config.settings.{name}", fromlist=["*"])
+
+
+def test_base_has_the_tenant_audit_csp_whitenoise_middleware():
+    """Control: the base stack carries all four (the source of truth)."""
+    base = _load_settings_module("base")
+    for entry in (TENANT_MIDDLEWARE, AUDIT_MIDDLEWARE, CSP_MIDDLEWARE, WHITENOISE_MIDDLEWARE):
+        assert entry in base.MIDDLEWARE, f"{entry} missing from base MIDDLEWARE"
+
+
+def test_development_keeps_the_tenant_audit_middleware():
+    dev = _load_settings_module("development")
+    assert TENANT_MIDDLEWARE in dev.MIDDLEWARE
+    assert AUDIT_MIDDLEWARE in dev.MIDDLEWARE
+
+
+def test_production_keeps_the_tenant_audit_middleware(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "p" * 64)
+    prod = _load_settings_module("production")
+    assert TENANT_MIDDLEWARE in prod.MIDDLEWARE
+    assert AUDIT_MIDDLEWARE in prod.MIDDLEWARE
+
+
+def test_service_keeps_the_tenant_audit_middleware(monkeypatch):
+    """RED for P16/BE-H1: the shipped Docker/script entrypoint must serve
+    the API through the SAME middleware stack as every other mode —
+    org context (RLS), audit attribution, CSP and static files included.
+    service.py must DERIVE its list from base, never rebuild it."""
+    monkeypatch.setenv("SECRET_KEY", "s" * 64)
+    monkeypatch.setenv("ALLOWED_HOSTS", "localhost,127.0.0.1")
+    svc = _load_settings_module("service")
+    for entry in (TENANT_MIDDLEWARE, AUDIT_MIDDLEWARE, CSP_MIDDLEWARE, WHITENOISE_MIDDLEWARE):
+        assert entry in svc.MIDDLEWARE, (
+            f"{entry} missing from service MIDDLEWARE — the Docker/script "
+            "API path runs without it (P16/BE-H1: no org context, no audit "
+            "attribution, no CSP)"
+        )

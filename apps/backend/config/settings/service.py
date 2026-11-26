@@ -95,17 +95,18 @@ LOGGING = {
 # MIDDLEWARE
 # =============================================================================
 
-# Remove debug toolbar middleware for service mode
-MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-]
+# P16/BE-H1: DERIVE from base — never rebuild. The pre-P16 from-scratch
+# list had drifted and dropped TenantContextMiddleware,
+# AuditContextMiddleware, the CSP middleware and WhiteNoise: the Docker/
+# script API path served every org-scoped request with no org context
+# (403s for non-superusers; RLS saw NULL on every request) and no audit
+# attribution. base.py has no debug_toolbar entry, so the service-mode
+# list is identical to base's — copied so the module is a plain list
+# (importing the NAME would alias base's list; a copy is the
+# copy-on-write convention from P10/LG-4).
+from .base import MIDDLEWARE as _BASE_MIDDLEWARE
+
+MIDDLEWARE = list(_BASE_MIDDLEWARE)
 
 # =============================================================================
 # EMAIL BACKEND
