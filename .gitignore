@@ -46,3 +46,9 @@ apps/backend/uv.lock
 *.bak4
 *.swp
 *~
+
+# Runtime/build logs (P16 hygiene — the tracked copies were untracked)
+*_log.txt
+*_log_new.txt
+start_*_log.txt
+startup_log.txt
