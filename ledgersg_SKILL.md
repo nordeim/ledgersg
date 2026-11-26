@@ -1,9 +1,9 @@
 ---
 name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
-version: 2.4.0
+version: 2.5.0
 last_updated: 2026-11-26
-project_state: "P15 remediated; all gates green — 834 backend tests (0 failed, 5 skipped), frontend 532 vitest + 40 e2e (40/40 live), typecheck 0, coverage green at both ratchets, eslint 9, the runtime-role smoke 13/13 as ledgersg_app (org creation 201 under RLS — the C-1 inversion), schema v1.2.0 (§17 completed RLS on every tenant table; the audit log is append-only; audit.log_change pins search_path), zero known dependency advisories (Django 6.0.10, DRF 3.18.3, lxml 6.1.3, WeasyPrint 70, Next 16.4.6, zod 4.6.7), the tree repaired after the corrupted 2bcb43f0 commit, P14 complete (FILED immutability, GST lock, linked CNs, allocation cap, honest validators, line-item 400s, NRIC masking, Viewer read-only, XXE hardening, tax-code dedupe, single-flight refresh); P13 state — 750 backend tests (0 failed, 5 skipped), frontend 530 vitest + 40 e2e (11 default / 29 backend-gated; the live suite 40P/0F/0S), typecheck 0 errors, coverage green at the ratchet (whole-suite 63/51/52/62 + the src/lib per-glob floor 73/52/74/71), standalone the only build (export retired); eslint whole-tree 9 findings (the 36 any-casts cleared in P13; remaining register = mounted-gates + exhaustive-deps + immutability + compiler-informational); schema v1.1.0 NUMERIC(19,4) money; P12: the mobile nav verified working live at 375/800/1280 (rule-by-rule cascade trace — the display:flex reading was flex-item blockification, NOT a Tailwind v4 bug; the v4 setup is clean), the open menu is a modal overlay (Escape close, focus trap, body scroll lock, focus return — 7 vitest + 3 gated e2e), data-scroll-behavior=smooth on <html>, API_CLI guide re-verified live; P11: credit notes post REVERSED GL entries and NET in the F5 computation (quotes excluded), production settings boot (builtin Redis cache, LOG_DIR env knob, debug_toolbar one gate), the contacts edit dialog prefills from the DETAIL endpoint and a save persists uen/gst_reg_number/peppol_id, the F5 boxes panel renders computed values (real box keys), the dashboard GST payable equals the F5 net GST, typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission, CI runs coverage, the Docker path boots, CSP unsafe-* dev-only"
+project_state: "P16 remediated; all gates green — 860 backend tests (0 failed, 5 skipped; invariants 34, security 76P/3S), frontend 554 vitest + 40 e2e (40/40 live), typecheck 0, eslint 9 (parity), the NEW production-CSP smoke 5/5 (nonce + hydration + zero violations — the shipped production app previously could NOT hydrate under its own static CSP), the runtime-role smoke 13/13 as ledgersg_app, the mobile-nav probe 17/17 (the navigation works; no Tailwind v4 bug — re-settled on the P16 tree), schema v1.2.0 (§17 RLS complete), zero known dependency advisories; P16 headline: the nonce-based CSP via src/proxy.ts + src/lib/csp.ts with force-dynamic (FE-C1), the service-path middleware restored from base + settings-gated (BE-H1), the allocate endpoint accepts instalments (BE-H2), the dashboard invalidation key fixed (FE-H1), org-creation selects the new org via selectOrgById (FE-H2), all three ACRA UEN forms accepted (FE-H3), the payment-row lock + atomic create+allocate + NaN/Infinity box rejection + the line-total bound + system-tax-code read-only + UEN normalization (the M-batch), the open-redirect guard + scroll-lock release + dialog semantics + the e2e serial contract (the FE batch); P15: the tree repaired after the corrupted 2bcb43f0, P14 complete (FILED immutability, GST lock, linked CNs, allocation cap, honest validators, line-item 400s, NRIC masking, Viewer read-only, XXE hardening, tax-code dedupe, single-flight refresh); P12: the mobile nav verified working (the v4 setup is clean), the open menu is a modal overlay (now with role=dialog — P16); P11: credit notes post REVERSED GL entries and NET in the F5 computation"
 ---
 
 # LedgerSG — Engineering Skill
@@ -29,7 +29,7 @@ compliance (F5 returns, InvoiceNow/Peppol PINT-SG, BCRS). Three non-negotiables:
 1. **SQL-First**: `apps/backend/database_schema.sql` is the source of truth. All models
    are `managed = False`. NEVER run `makemigrations`. Schema changes = hand-written DDL
    patch + version bump + model alignment + conformance gate green.
-2. **Money is `NUMERIC(19,4)`** (schema v1.1.0) — no floats, ever. All Python money math goes through
+2. **Money is `NUMERIC(19,4)`** (schema v1.2.0) — no floats, ever. All Python money math goes through
    `common.decimal_utils.money()`.
 3. **Corrections are reversals**: journal entries are immutable; a void is a reversing
    entry, never an update.
@@ -38,10 +38,10 @@ compliance (F5 returns, InvoiceNow/Peppol PINT-SG, BCRS). Three non-negotiables:
 
 | Layer | Tech | Version |
 |---|---|---|
-| Backend | Django / DRF / simplejwt | 6.0.2 / 3.16.1 / 5.5.1 (+ token_blacklist app, schema §15b) |
+| Backend | Django / DRF / simplejwt | 6.0.10 / 3.18.3 / 5.5.1 (+ token_blacklist app, schema §15b) |
 | DB | PostgreSQL (rootless dev via `docs/setup_pg_z.sh`) | 16+ (dev: 17) |
 | Cache/queue | Redis + Celery | 6.4 / 5.6 |
-| Frontend | Next.js App Router / React / Tailwind / Shadcn | 16.1.6 / 19.2 / 4.0 |
+| Frontend | Next.js App Router / React / Tailwind / Shadcn | 16.4.6 / 19.2 / 4.0 |
 | Tests | pytest-django (`--reuse-db --no-migrations`) / Vitest + RTL | 9.x / 4.x |
 | Lint | ruff (`target-version py312`, line-length 100) | 0.15.x |
 
@@ -77,21 +77,21 @@ cd apps/backend
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# Current state (2026-11-24, post-P13): 0 failed, 750 passed, 5 skipped — SUITE GREEN
-pytest tests/invariants -q   # 27 gates: atomic rollback (+ the P13 handler-layer
+# Current state (2026-11-26, post-P16): 0 failed, 860 passed, 5 skipped — SUITE GREEN
+pytest tests/invariants -q   # 34 gates: atomic rollback (+ the P13 handler-layer
                              # rollback + reversal-atomicity + sub-mil tolerance
                              # gates), void net-zero, F5 tie-out, schema
                              # conformance (incl. numeric precision), journal
                              # balances, CoA trial balance, monetary capacity,
                              # immutability contract, naive-today gate
-pytest tests/security -q     # 66 passed + 3 skipped: RLS transaction isolation,
+pytest tests/security -q     # 76 passed + 3 skipped: RLS transaction isolation,
                              # token lifecycle, settings gates (incl. the
                              # P6/E-1 throttle-posture gates + the P13
                              # copy-on-write gates), refresh-cookie +
                              # session_hint contracts
 ```
 
-Frontend gates (`apps/web`): `npm test` (530 vitest), `npm run typecheck` (tsc, 0
+Frontend gates (`apps/web`): `npm test` (554 vitest), `npm run typecheck` (tsc, 0
 errors), `npm run test:e2e` (playwright; 11 tests green without a backend —
 29 backend-gated specs skip with reasons), `npm run test:e2e:full` (all 40 —
 needs the Django backend on :8000 + Redis AND the E2E_DEMO_* trio exported
@@ -208,7 +208,7 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
     must await the auth-redirect chain (`toHaveURL(/login/)`) before `.analyze()`.
 21. **Money width is a business-model contract** — `NUMERIC(10,4)` capped at
     S$999,999.9999, below the S$1M GST registration threshold (P3/C-1). All
-    money is `NUMERIC(19,4)` since schema v1.1.0; the conformance gate asserts
+    money is `NUMERIC(19,4)` since schema v1.2.0; the conformance gate asserts
     DecimalField precision against `information_schema` (it caught
     `JournalLine.exchange_rate` over-declaring 19,6 vs the real 12,6 on its
     first run — schema is truth; align the model DOWN).
@@ -684,6 +684,39 @@ node_modules (vitest/playwright vanish) — follow it with a plain
 definition silently wins (F811) — grep for the class name before
 defining one; lint parity on touched files is a functional gate.
 
+64. (P16) A static production CSP kills hydration silently: Next ships
+NON-nonced inline bootstrap scripts on every page, and the whole test
+suite runs against `next dev` (whose CSP allows unsafe-inline) — the
+production CSP branch had zero coverage. Ship the nonce via
+`src/proxy.ts` + `src/lib/csp.ts` (ONE source; the request-CSP header is
+how Next learns the nonce), opt the app into dynamic rendering, and gate
+with a standalone-build smoke (`scripts/prod-csp-smoke.js`).
+
+65. (P16) A from-scratch MIDDLEWARE list in a settings module is a drift
+bomb: service.py dropped the tenant/audit/CSP/WhiteNoise middleware and
+the Docker path would have 403'd every org request. DERIVE from base and
+gate every HTTP-serving settings module on the four entries.
+
+66. (P16) Enumerate every ENFORCER of a contract when fixing it: the P14
+instalment fix landed in the service and the embedded serializer but the
+dedicated allocate endpoint's serializer kept the stale literal — and the
+tests called the service, never the wire. Test through the wire
+serializer, not just the service.
+
+67. (P16) State updates do not rebind closure variables: an onSuccess
+that calls refreshOrganisations() then switchOrg(id) holds the
+PRE-refresh list. Mutation callbacks that need post-mutation state need
+an API that takes the id (selectOrgById), not a state re-read.
+
+68. (P16) `Decimal("NaN")` parses cleanly and quantize() propagates it —
+every decimal seam needs an is_finite() gate (in money() AND at the parse
+sites that bypass it). A NaN box override could be FILED.
+
+69. (P16) The frontend must not be stricter than the backend: a frontend
+UEN regex accepting 2 of 3 ACRA formats rejected LLP numbers the backend
+accepts. Mirror the backend's validator vocabulary in the shared schema;
+delete dead duplicate validators.
+
 
 ## 12. Quick Reference Card
 
@@ -710,7 +743,7 @@ defining one; lint parity on touched files is a functional gate.
 | Env templates | root `.env.example` (combined index) → `apps/backend/.env.example` + `apps/web/.env.example`; `.gitignore` lists `.env*`, but the two local dev `.env`s are already tracked by earlier repo history (`git ls-files | rg '\.env'`) |
 | Session cookies | login/register/refresh set + rotate; logout/change-password/failed-cookie-refresh expire — `apps/backend/apps/core/views/_refresh_cookie.py`; gate = `tests/security/test_refresh_cookie.py` |
 | Rate resolution | `TaxCodeService.get_tax_code_by_code(org, code, as_of)` / `is_effective(tc, date)` — `apps/gst/services/tax_code_service.py` |
-| Money capacity | All money `NUMERIC(19,4)` since schema v1.1.0; §16 = in-place widening migration; gate = `tests/invariants/test_numeric_capacity.py` |
+| Money capacity | All money `NUMERIC(19,4)` since schema v1.2.0; §16 = in-place widening migration; gate = `tests/invariants/test_numeric_capacity.py` |
 | Invoice form adapter | `src/lib/invoice-submit.ts` (form state → contact+document payloads) — `src/hooks/use-tax-codes.ts`, `src/hooks/use-accounts.ts` |
 | Authed e2e pattern | UI login → sidebar Links (client-side only); `E2E_API_URL` gating — `apps/web/e2e/invoices.spec.ts`; session persistence (reload survival) — `apps/web/e2e/session.spec.ts` |
 | Deployment guide | `docs/DEPLOYMENT.md` (fresh-host, rootless PG + §16 migration + Redis + gates) |

@@ -6,10 +6,10 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-26, session 30 / P15) re-verified every command against the current
-codebase on a fresh sandbox (backend 834P/0F/5S, vitest 532/532, typecheck
-0 errors, build:server green, live e2e 40P/0F/0S (40 specs), the
-runtime-role smoke 13/13 as `ledgersg_app`) — including the P14 statutory
+(2026-11-26, session 32 / P16) re-verified every command against the current
+codebase on a live sandbox (backend 860P/0F/5S, vitest 554/554, typecheck
+0 errors, build:server green, the NEW production-CSP smoke 5/5, live e2e
+40P/0F/0S (40 specs), the runtime-role smoke 13/13 as `ledgersg_app`) — including the P14 statutory
 contracts (FILED-return immutability, the GST period lock, linked credit
 notes, the allocation cap), the §17 RLS completion (schema v1.2.0), the
 H-8 dependency upgrades (Django 6.0.10, DRF 3.18.3, Next 16.4.6, zod
@@ -164,6 +164,18 @@ columns 10,4 → 19,4; idempotent — it skips when nothing remains):
 psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -f - < <(sed -n '/^-- §16/,/^-- §17/p' database_schema.sql)
 ```
 
+**Existing database on schema v1.1.0 (post-widening, pre-P15)?** Apply the
+§17 RLS-completion block (idempotent DO blocks — safe to re-run):
+
+```bash
+cd apps/backend
+psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -f - < <(sed -n '/^-- §17/,/^-- ╚══/p' database_schema.sql)
+# Verify: every tenant table has row-level security enabled
+psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -c \
+  "SELECT n.nspname||'.'||c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('core','gst','audit','invoicing','banking','journal','coa') AND c.relkind='r' AND NOT c.relrowsecurity AND c.relname NOT IN ('app_user','currency','account_type','account_sub_type');"
+# (expected: 0 rows — only the documented globals are un-scoped)
+```
+
 **Never run `python manage.py makemigrations`** — schema changes are
 hand-written DDL patches + version bump + model alignment, gated by
 `tests/invariants/test_schema_conformance.py`.
@@ -253,11 +265,24 @@ npm run build:server         # NEXT_OUTPUT_MODE=standalone + static copy
 npm run start                # node .next/standalone/server.js
 ```
 
+**P16/FE-C1 — the production-CSP smoke (run after every production build).**
+The production CSP is per-request nonce-based (`src/proxy.ts` +
+`src/lib/csp.ts`); the dev-mode test suite cannot cover the production
+branch (dev CSP allows `unsafe-inline`). The smoke builds nothing itself —
+it boots the standalone output on a scratch port and asserts the served
+nonce, hydration and zero CSP violations:
+
+```bash
+# from the repo root, after `npm run build:server` in apps/web:
+node scripts/prod-csp-smoke.js   # 5/5 checks (nonce, no unsafe-inline,
+                                 # hydration, zero violations, shell renders)
+```
+
 Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 518 vitest tests
+npm test                    # 554 vitest tests
 npm run test:coverage       # green at the honest measured-floor ratchet
 npm run build:server        # the only build mode
 npm run test:e2e            # green without a backend (gated specs skip)
@@ -604,10 +629,13 @@ The §1–§9 native path above is the fully verified one.
 ```bash
 git pull
 cd apps/backend && source .venv/bin/activate && pip install -e ".[dev]"
-# schema changed? apply the versioned section from database_schema.sql (§4),
+# schema changed? apply the versioned section from database_schema.sql (§4)
 # to BOTH ledgersg_dev and test_ledgersg_dev — never re-load over live data
+#   ≤ v1.0.2 → apply §16 (the NUMERIC(19,4) widening)
+#   v1.1.0   → apply §17 (the RLS completion, v1.2.0)
 cd ../web && npm install
 npm run build:server       # cold build for production
+node ../../scripts/prod-csp-smoke.js   # P16: the CSP/hydration smoke gate
 # restart gunicorn / node / celery
 ```
 

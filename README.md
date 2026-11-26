@@ -1,11 +1,11 @@
 # LedgerSG — Enterprise Accounting Platform for Singapore SMBs
 
-[![Tests](https://img.shields.io/badge/tests-1406%20passing-success)]()
+[![Tests](https://img.shields.io/badge/tests-1454%20passing-success)]()
 [![Security](https://img.shields.io/badge/security-100%25-brightgreen)]()
 [![IRAS](https://img.shields.io/badge/IRAS-2026%20Compliant-red)]()
 [![WCAG](https://img.shields.io/badge/WCAG-AAA-success)]()
-[![Django](https://img.shields.io/badge/Django-6.0.2-092E20)]()
-[![Next.js](https://img.shields.io/badge/Next.js-16.1.6-000000)]()
+[![Django](https://img.shields.io/badge/Django-6.0.10-092E20)]()
+[![Next.js](https://img.shields.io/badge/Next.js-16.4.6-000000)]()
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-336791)]()
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue)]()
 
@@ -90,7 +90,7 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 - **NUMERIC(19,4) Monetary Precision** — No floating-point arithmetic; all amounts stored as DECIMAL in PostgreSQL (capacity above the S$1M GST registration threshold — schema v1.1.0)
 - **Real-Time GST Calculation** — Client-side preview with Decimal.js, server-side authoritative calculation
 - **Immutable Audit Trail** — All financial mutations logged with before/after values, user, timestamp, IP
-- **PDF Document Generation** — IRAS-compliant tax invoices via WeasyPrint 68.1
+- **PDF Document Generation** — IRAS-compliant tax invoices via WeasyPrint 70.0
 - **Email Delivery Service** — Asynchronous invoice distribution with attachments via Celery
 - **WCAG AAA Accessibility** — Screen reader support, keyboard navigation, reduced motion respect
 - **Multi-Tenant Isolation** — PostgreSQL Row-Level Security (RLS) with session variables
@@ -103,7 +103,7 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 |-----------|---------|--------|-------------|
 | **Frontend** | v0.3.2 | ✅ Production Ready | 16 pages, **532 unit tests + 40 e2e** (11 always + 29 backend-gated), typecheck clean, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9), registration + contacts management + the invoice-form contact picker + the full GST F5 lifecycle + bank-account edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11), the mobile-nav overlay a11y floor (Escape / focus trap / scroll lock / focus return) + the lint-debt truth pass (79→45) + data-scroll-behavior (P12), the closed-drawer visibility fix + X hit-target fix + axe-scanned overlay (P13) |
 | **Backend** | v0.6.2 | ✅ Suite Fully Green | 90+ endpoints, **834 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8), InvoiceNow invoice-only gate, nullable-PayNow bank-account contract, as-at-bounded aged reports, seeded account_type backfill + is_bank filter (P9), GST F5 review/amend + fiscal-period open + UEN uniqueness + rate-limit 429 truth + org-create duplicate-UEN 400s (P10), credit notes posting reversed GL entries + netting in F5, production settings that boot (builtin Redis cache, LOG_DIR knob), typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission (P11) |
-| **Database** | v1.2.0 | ✅ Complete | 7 schemas + token blacklist, **RLS complete on every tenant table (§17)**, 30 domain tables, **NUMERIC(19,4) money** |
+| **Database** | v1.2.0 | ✅ Complete | 7 schemas + token blacklist, **RLS complete on every tenant table (§17)**, 29 domain tables + 1 view, **NUMERIC(19,4) money** |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching; payables include PARTIALLY_PAID bills (P7/F-9) |
@@ -343,7 +343,7 @@ LedgerSG employs comprehensive testing across multiple layers with **1,320 tests
 
 | Suite | Count | Framework | Coverage | Status |
 |-------|-------|-----------|----------|--------|
-| **Backend Suite** | 755 collected — 750 passing, 5 skipped | pytest-django | Core, domain, integration, invariants, security | ✅ 100% pass (5 intentional skips) |
+| **Backend Suite** | 865 collected — 860 passing, 5 skipped | pytest-django | Core, domain, integration, invariants, security | ✅ 100% pass (5 intentional skips) |
 | **Frontend Unit Tests** | 530 passing | Vitest + RTL | Components, hooks, pages, providers | ✅ 100% pass |
 | **Frontend Typecheck** | 0 errors | tsc --noEmit | All src + e2e + configs | ✅ Green |
 | **Frontend Coverage Gate** | thresholds at the measured floor | vitest --coverage | The honest ratchet (P10/M-13: the old 85% thresholds had never passed) | ✅ Green |
@@ -561,7 +561,7 @@ flowchart LR
 ```
 Ledger-SG/
 ├── 📂 apps/
-│   ├── 📂 backend/                    # Django 6.0.2 Application
+│   ├── 📂 backend/                    # Django 6.0.10 Application
 │   │   ├── 📂 apps/                  # Domain Modules
 │   │   │   ├── 📂 banking/             # Bank Accounts, Payments, Recon
 │   │   │   │   ├── services.py       # Banking service layer
@@ -594,7 +594,7 @@ Ledger-SG/
 │   │   ├── database_schema.sql       # ⭐ SOURCE OF TRUTH
 │   │   └── manage.py                 # Django Management
 │   │
-│   └── 📂 web/                       # Next.js 16.1.6 Application
+│   └── 📂 web/                       # Next.js 16.4.6 Application
 │       ├── 📂 src/
 │       │   ├── 📂 app/                # App Router (Pages & Layouts)
 │       │   │   ├── (auth)/           # Authentication routes
@@ -679,7 +679,7 @@ Ledger-SG/
 |-----------|------------|---------|---------|
 | Container | Docker | Latest | Multi-service deployment |
 | Database | PostgreSQL | 16+ | RLS, NUMERIC precision |
-| Cache | Redis | 6.4.0 | Celery broker, caching |
+| Cache | Redis | 7.x server (the 6.4.0 pin in pyproject is the Python client) | Celery broker, caching |
 | CI/CD | GitHub Actions | Latest | Automated testing |
 | Monitoring | Sentry | 2.53.0 | Error tracking |
 
@@ -697,7 +697,7 @@ Ledger-SG/
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/ledgersg/ledgersg.git
+git clone https://github.com/nordeim/ledgersg.git
 cd ledgersg
 ```
 
@@ -922,7 +922,7 @@ open http://localhost:3000
 
 ## 🐳 Deployment
 
-**Full fresh-host deployment guide:** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — step-by-step from `git clone` through rootless PostgreSQL (§4), schema load (§4b, incl. the v1.1.0 §16 in-place widening migration), Redis, backend, frontend, Celery, verification checklist and production notes.
+**Full fresh-host deployment guide:** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — step-by-step from `git clone` through rootless PostgreSQL (§3), schema load (§4, incl. the v1.1.0 §16 in-place widening migration), Redis, backend, frontend, Celery, verification checklist and production notes.
 
 ### Docker Deployment
 

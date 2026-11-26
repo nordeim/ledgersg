@@ -23,7 +23,7 @@ Every documented contract below was re-exercised against the running stack
 | Dashboard metrics | ✅ `GET /api/v1/{orgId}/reports/dashboard/metrics/` (the H-4 surface; `gst_payable` non-zero on real data) |
 | Org context for CLI flows | ✅ `GET /api/v1/auth/organisations/` returns the membership list — take `[i].org.id`; note it is a bare array at the top level (no `{results, count}` envelope on this auth route) |
 
-### Current Test Metrics (post-P11/P12)
+### Historical Test Metrics (post-P11/P12 — superseded by post-P16 below)
 
 | Suite | Count | Status |
 |:---|:---|:---|
@@ -54,7 +54,7 @@ exercised live against the running stack this session):
 | `POST /documents/{id}/approve/`, `void`, `POST /journal-entries/entries/`, payment void | A 409 "GST-locked" refusal when the document/journal date falls inside a period whose F5 return is FILED/AMENDED (the ledger basis of the filed figures cannot change by back-posting) |
 | `POST /banking/payments/receive/` | Allocations are capped at the document's outstanding balance (400 with the outstanding figure in the message; was: negative `amount_due`); allocation-eligible statuses are APPROVED, SENT, PARTIALLY_PAID, OVERDUE (instalment cycles now complete) |
 | `POST /invoicing/documents/` | `lines` is REQUIRED (min 1) with a real line schema — `account_id` UUID, `quantity` > 0 ≤ 10^6, `unit_price` ≥ 0 < 10^13, `discount_pct` ∈ [0,100]; a missing `lines` key is a 400 (was a KeyError 500). `*_CREDIT_NOTE` documents REQUIRE `related_document_id` (same contact, same direction, cumulative credit ≤ the original total incl. GST — the IRAS credit-note rule) |
-| `POST /organisations/` + `POST /gst/register/` | UEN must match an ACRA format (8 digits+letter / 9 digits+letter / T|S+YY+2letters+4digits+letter); GST numbers accept the M-form (M+7 or 8 digits+check letter) **or** a valid UEN (the old `startswith("M")` rejected valid UEN-form numbers and accepted garbage) |
+| `POST /organisations/` + `POST /api/v1/{org_id}/gst/` (register) | UEN must match an ACRA format (8 digits+letter / 9 digits+letter / T|S+YY+2letters+4digits+letter); GST numbers accept the M-form (M+7 or 8 digits+check letter) **or** a valid UEN (the old `startswith("M")` rejected valid UEN-form numbers and accepted garbage) |
 | `POST /gst/returns/{id}/file/` | Box overrides REQUIRE `override_reason` (≥ 10 chars); the reason + computed-vs-filed deltas persist into the return's `notes` |
 | `GET /banking/bank-accounts/` | NRIC-type `paynow_id` values are MASKED on read (`S*****67D`); writes reject values containing `*` (PDPA) |
 | Viewer-role members | Contact create/patch/delete and document send now 403 (read-only role) |
@@ -62,9 +62,45 @@ exercised live against the running stack this session):
 | Runtime DB role | The full onboarding path (register → org → contact → invoice → approve → payment → F5) runs as the non-superuser `ledgersg_app` role under RLS — verified by `scripts/rls_smoke.py` (13/13 steps; org creation was a 500 pre-P14) |
 | Frontend api-client | Concurrent 401s share ONE refresh call (single-flight) — sessions no longer die mid-suite on the rotation race |
 
-**Current test metrics (post-P15)**: backend **834 passed / 0 failed / 5
+**Test metrics (post-P15)**: backend **834 passed / 0 failed / 5
 skipped** · frontend vitest **532/532** · e2e 11 always-green + 29
 backend-gated, **40/40 live** under `test:e2e:full`.
+
+### 2026-11-26 P16 verification addendum
+
+The P16 sprint (session 32) changed several request/response contracts
+(all exercised live against the running stack):
+
+| Contract | P16 delta |
+|:---|:---|
+| `POST /banking/payments/{id}/allocate/` | The dedicated allocate endpoint now accepts instalments: allocation-eligible statuses are APPROVED, SENT, PARTIALLY_PAID, OVERDUE (the wire serializer still demanded APPROVED-only — the P14 fix had missed it) |
+| `POST /banking/payments/receive/` + `/make/` | Payment creation + allocations are ONE transaction — an allocation failure no longer leaves an orphaned payment + journal entry behind a 400 |
+| `POST /gst/returns/{id}/file/` (box overrides) | NaN/Infinity values are refused (400) — a non-finite value could previously be FILED into the statutory record |
+| `POST /invoicing/documents/` (lines) | The line TOTAL (quantity × unit_price) is bounded to the NUMERIC(19,4) capacity — in-bounds fields whose product overflowed were a 500 |
+| `POST /invoicing/documents/{id}/lines/` | `discount_pct` is now forwarded (the same payload previously produced a discounted line via create and an undiscounted line via line-add) |
+| `PATCH /gst/tax-codes/{id}/` (system rows) | System (global) tax-code rows are read-only through the API (a typed 400; previously the RLS policy turned the edit into an unhandled 500) |
+| `POST /organisations/` (uen) | The UEN/GST number is stored NORMALIZED (trimmed + upper) — a lowercase tail previously dodged the case-sensitive UNIQUE pre-check |
+| Bank statement import (`/banking/bank-transactions/import/`) | Non-UTF-8 (latin-1) statements actually import (the fallback previously re-read a consumed stream and silently imported 0 rows) |
+| Payment audit trail | The `trg_audit_payment` trigger is the single audit source for payment rows (the manual duplicate writes were removed); ALLOCATE/UNALLOCATE events remain app-level (payment_allocation has no trigger) |
+| Status restoration | Releasing the last allocation of an InvoiceNow-transmitted document restores SENT (not a blanket APPROVED); the payment-void reversal date is Asia/Singapore localdate |
+| Frontend (login) | The `?redirect=` parameter only honours same-app paths (open-redirect closed) |
+| Frontend (org creation) | The new organisation is SELECTED immediately (the stale-closure fix) — no more "No Organisation Selected" dead-end |
+| Frontend (UEN) | All three ACRA formats validate (LLP/society T/S-forms included — previously rejected) |
+
+**Current test metrics (post-P16)**: backend **860 passed / 0 failed / 5
+skipped** (865 collected; invariants 34, security 76+3 skipped) · frontend
+vitest **554/554** (64 files) · e2e 11 always-green + 29 backend-gated,
+**40/40 live** under `test:e2e:full` · the production-CSP smoke **5/5** ·
+the runtime-role smoke **13/13**.
+
+### Endpoints added to this guide's coverage (P16)
+
+| Endpoint | Contract |
+|:---|:---|
+| `POST /api/v1/{org_id}/banking/payments/make/` | Pay a supplier (contact + bank account + amount + optional allocations) — the twin of `/receive/` |
+| `POST /api/v1/{org_id}/banking/bank-transactions/import/` | Multipart CSV statement import (utf-8 or latin-1); returns `{imported, skipped, errors}` |
+| `GET /api/v1/{org_id}/gst/returns/deadlines/` | The filing-deadline envelope (current + upcoming periods) |
+| `GET /api/v1/{org_id}/journal-entries/ledger/` | The flat line-level ledger (one row per journal line — the line-level table's source) |
 
 ---
 

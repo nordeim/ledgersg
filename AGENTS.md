@@ -2,18 +2,23 @@ LedgerSG Project Status — Comprehensive Summary
 Executive Overview
 LedgerSG is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs with IRAS 2026 compliance. The platform has undergone significant development across multiple phases, achieving enterprise-grade security, comprehensive test coverage, and a complete banking UI.
 ---
-Current Status (2026-11-26 — P15 remediated; see the sprint-patterns sections
-at the bottom of this file for P0–P15 and the README status table for the
+Current Status (2026-11-26 — P16 remediated; see the sprint-patterns sections
+at the bottom of this file for P0–P16 and the README status table for the
 live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 30):
-- Backend: pytest 834 passed / 0 failed / 5 skipped (839 collected)
-- Frontend: vitest 532/532, tsc --noEmit 0 errors
+Current truth (all gates executed and green, session 32):
+- Backend: pytest 860 passed / 0 failed / 5 skipped (865 collected;
+  invariants 34, security 76 passed + 3 skipped)
+- Frontend: vitest 554/554 (64 files), tsc --noEmit 0 errors, eslint 9
+  (the documented deferred register — parity maintained)
 - E2E: 40 specs (11 always-green + 29 backend-gated); live run 40P/0F/0S
+- Production-CSP smoke (P16/FE-C1): 5/5 — nonce served, hydration
+  happened, zero violations (the gate class the dev suite cannot cover)
 - Runtime-role smoke: 13/13 steps green as ledgersg_app (C-1/H-7)
-- ESLint whole-tree: 9 findings (the documented deferred register)
+- Mobile-nav live probe: 17/17 at 375/800/1280 — the navigation works,
+  no Tailwind v4 bug (the P12/P13/P15 verdicts re-settled on the P16 tree)
 - Coverage: green at the ratchet (whole-suite + src/lib per-glob);
   build:server green; schema v1.2.0 (§17 RLS complete)
 - npm audit / pip-audit: zero known advisories on the production sets
@@ -1446,3 +1451,82 @@ P5/A-6 anti-pattern in class form). The lint warning (F811) caught it
 before it shipped a behavior change to the line-add endpoint. Lesson:
 grep for the class name before defining a serializer; lint parity on
 touched files is a functional gate, not a style gate.
+
+
+## 2026-11-26 P16 Sprint — New Patterns & Lessons (session 32)
+
+### A Static Production CSP Can Kill Hydration Silently (FE-C1 — the Critical)
+The production branch shipped `script-src 'self'` while EVERY prerendered
+page carried non-nonced inline bootstrap scripts (`<script id="_R_">`, the
+`self.__next_f.push(...)` flight payloads) — browsers blocked them and the
+shipped production app was inert server HTML. No test could catch it: the
+whole suite runs against `next dev` (whose CSP allows unsafe-inline), so
+the production CSP branch had ZERO coverage. Lessons: (a) a security
+posture that breaks the app in the untested mode needs a smoke test IN
+that mode — `scripts/prod-csp-smoke.js` builds standalone, boots it and
+asserts nonce + hydration + zero violations; (b) the nonce mechanism
+requires DYNAMIC rendering (the root layout opts into force-dynamic — the
+per-request cost is a thin shell for a login-gated dashboard); (c) keep
+the CSP in ONE place (proxy.ts + lib/csp.ts) — the P13/H-1 override trap
+applies to any second source.
+
+### A From-Scratch Middleware List Is a Drift Bomb (BE-H1)
+`config/settings/service.py` rebuilt MIDDLEWARE by hand "for performance"
+and silently dropped TenantContextMiddleware + AuditContextMiddleware +
+CSP + WhiteNoise — the Docker/script API path would have served every
+org-scoped request with no org context (403s, RLS NULL) and no audit
+attribution. Derive from base (`MIDDLEWARE = list(base.MIDDLEWARE)`) and
+gate EVERY HTTP-serving settings module on the four entries (a
+parametrised settings-gate test).
+
+### The Fix That Missed Its Wire Twin (BE-H2)
+The P14 instalment fix landed in the SERVICE and the embedded-path
+serializer, but the dedicated `POST /payments/{id}/allocate/` endpoint's
+own serializer kept the stale APPROVED-only literal — the contract tests
+called the service directly and never exercised the wire. When fixing a
+contract, enumerate every entry point that enforces it (service,
+embedded serializer, dedicated serializer, view) — and test through the
+wire, not just the service.
+
+### Query-Key Conventions Are Type Systems (FE-H1)
+The dashboard page keyed its query `["dashboard", orgId]` while every
+mutation invalidated `[orgId, "dashboard"]` — TanStack prefix matching
+requires the key to START with the prefix, so all 10 invalidations were
+silent no-ops. The correct hook existed the whole time with zero
+importers. Lesson: assert the key convention at the consumption site (a
+render test that reads the QueryCache), and grep for zero-importer hooks
+that already encode the right contract.
+
+### Closures Capture The List They Were Built With (FE-H2)
+`useCreateOrganisation.onSuccess` ran `refreshOrganisations()` then
+`switchOrg(org.id)` — but the `switchOrg` in the closure held the
+PRE-creation organisations list (empty for a fresh registrant), so the
+lookup guard silently skipped the selection AND the persist. State
+updates do not rebind variables in already-running closures. Lesson:
+mutation callbacks that depend on post-mutation state need an API that
+takes the id directly (selectOrgById), not one that re-reads state.
+
+### The Frontend Must Not Be Stricter Than The Backend (FE-H3)
+The frontend UEN regex accepted only 2 of the 3 ACRA formats while the
+backend validator accepted all three — an LLP customer failed invoice
+validation for a number the backend itself considers valid. Mirror the
+backend's vocabulary in the shared frontend schema, and delete dead
+duplicates of validators (a second `isValidUEN` carried the same wrong
+regex with zero importers).
+
+### money() Must Reject Non-Finite (BE-M2)
+`Decimal("NaN")` parses cleanly and `quantize()` propagates NaN without
+raising — a NaN box override could be FILED into the statutory record
+through the `{k: Decimal(str(v))}` parse. Every decimal seam needs an
+`is_finite()` gate (and the gate belongs in `money()` itself, plus at the
+parse sites that bypass it).
+
+### Small Honesty Fixes Ride Together (the L-batch)
+The payment-void reversal date is `timezone.localdate()` (UTC dates
+diverge 00:00–07:59 SGT); releasing an InvoiceNow-sent document's last
+allocation restores SENT (evidence-based, not blanket APPROVED — the
+email-only residual is registered); the CSV latin-1 fallback must read
+bytes ONCE (a re-read of a consumed stream returns b"" and "successfully"
+imports 0 rows); a docstring that overstates wiring (period_lock) is a
+defect in the next auditor's model of the system — fix it in the same
+commit as the truth.

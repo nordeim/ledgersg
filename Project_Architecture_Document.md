@@ -1,8 +1,10 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.10.0
+> **Version**: 3.11.0
 > **Last Updated**: 2026-11-26
+> **P16 note**: production truth — the shipped production app could not hydrate under its own static `script-src 'self'` CSP (every page ships non-nonced Next bootstrap scripts); the CSP is now per-request nonce-based via `src/proxy.ts` with the app opted into dynamic rendering, gated by a standalone-build smoke (`scripts/prod-csp-smoke.js`). The Docker/script API entrypoint (`config/settings/service.py`) had silently dropped the tenant/audit/CSP/WhiteNoise middleware — now derived from base and settings-gated. The dedicated allocate endpoint accepts instalments (the shared ALLOCATABLE_STATUSES), the payment row is locked for the cap check, payment create+allocate is one transaction, NaN/Infinity box overrides are refused, the line-total product is bounded to NUMERIC(19,4), the dashboard invalidation key is fixed, org-creation selects the new org (selectOrgById), and the frontend accepts all three ACRA UEN forms. See `docs/REMEDIATION_PLAN_2026-11-26_P16.md`.
+>
 > **P15 note**: tree repair + P14 completion + the runtime-role gate — the corrupted `2bcb43f0` commit (Payment model destroyed, P14 fixes misplaced) repaired; FILED F5 returns immutable (409), the GST period lock blocks back-posting, credit notes require+cap against the original invoice, allocations capped at the outstanding balance, RLS complete on every tenant table (schema v1.2.0 §17 — the audit log is append-only; `audit.log_change` pins search_path), the full onboarding path verified live as the non-superuser `ledgersg_app` role (13/13 smoke steps), honest ACRA/IRAS identity validators, the line-item 400 contract, NRIC PayNow masking (PDPA), Viewer read-only, XXE-hardened XML, zero known dependency advisories (Django 6.0.10 / DRF 3.18.3 / Next 16.4.6), single-flight token refresh; see `docs/REMEDIATION_PLAN_2026-11-26_P15.md`.
 >
 > **P14 note**: the statutory + runtime-role sprint (planned 2026-11-25, completed by P15 after the interrupted commit) — see the P15 note above for the shipped state.
@@ -40,22 +42,22 @@
 
 **LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs. It eliminates the complexity of IRAS compliance through a "SQL-First" design philosophy and a distinctive "Illuminated Carbon" neo-brutalist UI.
 
-### Key Metrics (P13, 2026-11-24)
+### Key Metrics (P16, 2026-11-26)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,406 Tests Passing** | 834 Backend + 532 Frontend unit + 40 e2e (11 always + 29 backend-gated; 40/40 live-green) + the 13-step runtime-role smoke |
+| **Test Coverage** | **1,454 Tests Passing** | 860 Backend + 554 Frontend unit + 40 e2e (11 always + 29 backend-gated; 40/40 live-green) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+") |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
-| **Lint Register** | **ESLint 9 / ruff ~305** | The P13 register — any-casts cleared; deferred classes documented |
+| **Lint Register** | **ESLint 9 / ruff ~1216 whole-tree (~735 production)** | The P13 register — any-casts cleared; deferred classes documented |
 
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 532 | 100% | Vitest + RTL | ✅ Passing |
-| **Backend (pytest)** | 834 passed / 5 skipped (839 collected) | 100% of run | pytest | ✅ Passing |
+| **Frontend Unit** | 554 | 100% | Vitest + RTL | ✅ Passing |
+| **Backend (pytest)** | 860 passed / 5 skipped (865 collected) | 100% of run | pytest | ✅ Passing |
 | **E2E (Playwright)** | 40 (11 always + 29 backend-gated) | 100% live | Playwright | ✅ Passing |
-| **Total Passing** | **1,406** | — | Mixed | ✅ Verified |
+| **Total Passing** | **1,454** | — | Mixed | ✅ Verified |
 
 ---
 
