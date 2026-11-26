@@ -71,7 +71,13 @@ def main():
 
     # 2. create organisation — THE C-1 regression (500 pre-P14 under
     #    ledgersg_app: the CoA seed violated the RLS WITH CHECK)
-    uen = f"TS{date.today().strftime('%y')}{uuid.uuid4().hex[:6].upper()}"
+    # Session-30 fixes (the session-29 findings): the M-1 gate now validates
+    # formats — a real other-entities UEN (T + YY + 2 letters + 4 digits +
+    # check letter) and a real M-form GST number (M + 8 digits + letter).
+    yy = date.today().strftime("%y")
+    digits = str(uuid.uuid4().int)
+    uen = f"T{yy}LL{digits[-4:]}X"
+    gst_no = f"M{digits[3:11]}K"
     r = s.post(
         f"{api}/organisations/",
         json={
@@ -79,7 +85,7 @@ def main():
             "uen": uen,
             "entity_type": "PRIVATE_LIMITED",
             "gst_registered": True,
-            "gst_reg_number": f"M{uuid.uuid4().hex[:8].upper()}",
+            "gst_reg_number": gst_no,
             "gst_reg_date": date.today().isoformat(),
             "fy_start_month": 1,
             "base_currency": "SGD",
@@ -115,11 +121,19 @@ def main():
         return 1
 
     # 5. accounts + tax codes (the CoA/GST seeds must exist — C-1's proof)
+    # Session-30 fix (the session-29 lesson): the bank GL is 1100 — an
+    # is_bank CHILD of the 1000 header — so it needs the is_bank filter
+    # (the list defaults to top-level only; 1200 is Accounts RECEIVABLE,
+    # not a bank account).
     r = s.get(f"{api}/{org_id}/accounts/?is_active=true", headers=h, timeout=15)
     accounts = (r.json().get("results") or [])
     revenue = next((a for a in accounts if a.get("code") == "4100"), None)
-    bank_gl = next((a for a in accounts if a.get("code") == "1200"), None)
-    if not step("seeded CoA exists (4100/1200)", revenue and bank_gl, f"count={len(accounts)}"):
+    r = s.get(f"{api}/{org_id}/accounts/?is_bank=true", headers=h, timeout=15)
+    bank_accounts = (r.json().get("results") or [])
+    bank_gl = next((a for a in bank_accounts if a.get("code") == "1100"), None) or (
+        bank_accounts[0] if bank_accounts else None
+    )
+    if not step("seeded CoA exists (4100 + bank GL)", revenue and bank_gl, f"count={len(accounts)}, bank={len(bank_accounts)}"):
         return 1
 
     r = s.get(f"{api}/{org_id}/gst/tax-codes/?is_active=true", headers=h, timeout=15)
@@ -154,9 +168,9 @@ def main():
         return 1
 
     # 7. approve (posts the journal — RLS-covered writes)
-    r = s.post(f"{api}/{org_id}/invoicing/documents/{doc}/status/", json={"status": "SENT"}, headers=h, timeout=30)
-    step("mark SENT", r.status_code == 200, f"status={r.status_code} {r.text[:100] if r.status_code >= 400 else ''}")
-    r = s.post(f"{api}/{org_id}/invoicing/documents/{doc}/status/", json={"status": "APPROVED"}, headers=h, timeout=30)
+    # Session-30 fix: the canonical approve path is the dedicated endpoint
+    # (DRAFT -> APPROVED — the same path the e2e suite drives).
+    r = s.post(f"{api}/{org_id}/invoicing/documents/{doc}/approve/", json={}, headers=h, timeout=30)
     if not step("approve invoice (journal posts under RLS)", r.status_code == 200, f"status={r.status_code} {r.text[:150] if r.status_code >= 400 else ''}"):
         return 1
 
@@ -168,7 +182,7 @@ def main():
             "bank_name": "Test Bank",
             "account_number": f"00{uuid.uuid4().hex[:8]}",
             "currency": "SGD",
-            "gl_account_id": bank_gl["id"],
+            "gl_account": bank_gl["id"],
             "paynow_type": None,
             "paynow_id": None,
         },

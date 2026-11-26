@@ -524,7 +524,9 @@ cd /app/apps/backend
 cat > .env << ENVEOF
 DJANGO_SETTINGS_MODULE=config.settings.service
 DEBUG=False
-SECRET_KEY=django-secret-key-for-hf-space-$(date +%s)
+# P14/H-9: a strong per-container key (the old fixed-prefix+epoch key was
+# brute-forceable from the container start time). Overridable via env.
+SECRET_KEY=${SECRET_KEY:-$(python -c "import secrets;print(secrets.token_urlsafe(64))")}
 DB_NAME=${DB_NAME}
 DB_USER=${DB_USER}
 DB_PASSWORD=${DB_PASSWORD}

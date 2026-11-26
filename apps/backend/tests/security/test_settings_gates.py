@@ -226,3 +226,57 @@ def test_wrap_response_exceptions_map_to_status_codes():
 
     response = PeppolView.as_view()(APIRequestFactory().post("/x"))
     assert response.status_code == 502, response.data
+
+
+# ── P14/H-9: the service settings module gates its key like production ─────
+
+def _load_service_settings(monkeypatch, secret, hosts=None):
+    """Import config.settings.service with an overridden SECRET_KEY.
+
+    Session-30 ordering lesson: reload BASE first, then import service —
+    importing service first executes it against the stale cached base
+    module and raises before the new env is in effect.
+    """
+    import sys
+    import importlib
+
+    monkeypatch.setenv("SECRET_KEY", secret)
+    if hosts is not None:
+        monkeypatch.setenv("ALLOWED_HOSTS", hosts)
+    for mod in list(sys.modules):
+        if mod.startswith("config.settings") or mod == "config":
+            del sys.modules[mod]
+    import config.settings.base as base
+    importlib.reload(base)
+    import config.settings.service as service
+    importlib.reload(service)
+    return service
+
+
+def test_service_rejects_default_secret_key(monkeypatch):
+    """P14/H-9: the Docker path's service module must enforce the same
+    key-strength gate as production (the Dockerfile previously generated
+    SECRET_KEY=django-secret-key-for-hf-space-$(date +%s) — predictable)."""
+    import pytest
+    from django.core.exceptions import ImproperlyConfigured
+
+    with pytest.raises(ImproperlyConfigured, match="SECRET_KEY"):
+        _load_service_settings(monkeypatch, "django-secret-key-for-hf-space-1760000000")
+
+
+def test_service_rejects_short_secret_key(monkeypatch):
+    """P14/H-9: a short key is brute-forceable for HS256 JWT forging."""
+    import pytest
+    from django.core.exceptions import ImproperlyConfigured
+
+    with pytest.raises(ImproperlyConfigured, match="SECRET_KEY"):
+        _load_service_settings(monkeypatch, "short-service-key")
+
+
+def test_service_boots_with_a_strong_key(monkeypatch):
+    """Control: a strong key boots, and ALLOWED_HOSTS comes from env (the
+    wildcard default is gone — H-9)."""
+    strong = "svc-" + "k" * 80
+    svc = _load_service_settings(monkeypatch, strong, hosts="localhost,127.0.0.1")
+    assert svc.SECRET_KEY == strong
+    assert svc.ALLOWED_HOSTS == ["localhost", "127.0.0.1"]
