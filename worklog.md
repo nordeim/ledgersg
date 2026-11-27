@@ -899,3 +899,68 @@ current producer), the list-envelope `{data}`/`{results}` unification,
 the NULL-context SELECT policies on `core.user_organisation`/`core.role`
 (documented tradeoff), the org-mid-flight dead-letter design beyond the
 terminal classification, the remaining 5 eslint parity warnings.
+
+---
+
+## P19 Remediation — 2026-11-27 (session 38): the remove_line truth gap, the modal semantics debt, the ContactPicker & the route guard
+
+**Base:** `99786f6a` (post-P18, all gates green). **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-27_P19.md` (anchor-validated);
+**report:** `docs/REMEDIATION_2026-11-27_P19_REPORT.md`.
+**Method:** TDD (RED → GREEN → full gate) for every behavioural fix;
+conventional commits on `main`; `skills/` excluded; no DDL (schema
+v1.2.2 carries forward).
+
+### The audits (three parallel, Mode C; every High verified in source)
+
+0 Critical / 3 High / 16 Medium / 22 Low. The headline: the P18 commit
+`51bd46c6` claimed "add_line/remove_line lock the document" — only
+`add_line` got the lock, and the RED run exposed that `remove_line` had
+never worked at all (an `invoice=` filter against the `document` FK —
+FieldError on every call; zero prior test coverage). The frontend
+Highs: the four hand-rolled banking modals (no focus trap/Escape/dialog
+semantics on the payment + reconcile primary flows) and the mouse-only
+transaction-row expander (WCAG 2.1.1 Level A — keyboard users could
+not reach Reconcile).
+
+### What was fixed (TDD — every behavioural fix RED first)
+
+| Task | Fix | Evidence |
+|---|---|---|
+| BE-H1 | `remove_line`: atomic + `select_for_update` + post-lock DRAFT re-check + the real FK (mirrors `add_line`) — the P18 truth gap; the method was also broken end-to-end (FieldError) | lock spy + the Case-B race probe (the approver wins the lock → the locked re-read refuses; APPROVED intact) + the happy path |
+| BE-M batch | `unallocate` lock re-order payment→allocation→document (the AB-BA deadlock vs void/allocate); the archive-gate `cache.delete` (journal postings never invalidated the 5-min cache); `create_entry` account locks (sorted pre-lock — the line order itself was a deadlock risk); the return-periods savepoint (the P18 catch poisoned ATOMIC_REQUESTS); the status-task FULL tenant-context wrap (the RLS write ran outside the P18 block); the journal-list prefetch (31→2 queries); the five `<str:…>` uuid route islands | the P19 concurrency/contract files (order probe, cache-seed probe, savepoint-forced branch, context tracker, query counts, route 404s) |
+| BE deferred pair | journal serializer tolerance `0.001`→`0.0001` (the P13 trigger boundary — the create gate and the `balanced` flag now agree); `display_money` finite gate (NaN rendered as "NaN") | the boundary tests at 0.0005; NaN/Infinity refusals |
+| FE-H1 | the four banking modals → Radix `Dialog` (accessible names; bounded `max-h` internal scroll; the five unlabeled internal X buttons removed) | role=dialog + Escape + labeled close (vitest + the live capture 112) |
+| FE-H2 | the transaction-row header → `<button aria-expanded aria-controls>` (keyboard-operable) | Enter/Space expansion + the Reconcile reach (vitest + the live capture 113) |
+| FE-M2 | **the ContactPicker WAI-ARIA 1.0 combobox (the register's oldest P16 item)**: `aria-controls`/`aria-haspopup`/`aria-autocomplete` + `aria-activedescendant` roving with `aria-selected`, arrows/Enter/Escape/Home/End, options as real list items | the keyboard-interaction matrix (9 picker tests) |
+| FE-M3 | **the in-app unsaved-work route guard (the register's #2 item)**: `UnsavedRouteGuard` — a document-capture click interceptor + confirm dialog while the invoice store is dirty (modified clicks and external hrefs pass through) | 5 guard tests (intercept/confirm/cancel/external/clean) + the live capture 115 |
+| FE-M/L batch | the UEN edit regex (bank-account); the PAID badge unified `bg-success`; `scope="col"` on the invoices tables; the line-editor row-context labels (the orphaned grid roles dropped); the aria batch (back links, form labels, `role="alert"`); the GST checkbox dead token; the contrast gate's `color-warning`; 4 of 5 eslint warnings fixed + the TanStack one documented | the pairing gate enumeration; the getByRole({ name }) matrix; **eslint 0E/0W** |
+| X-M batch | the enforced CSP carries `report-uri` (production violations were invisible); the CSV 5MB/10k-row typed caps (worker OOM); the compose celery-beat removed (its scheduler tables are an intentional §15c omission — a deterministic crash-loop); the PG_BASE fresh-host completion | csp.test.ts; the CSV cap tests; compose config valid; script/doc paths derived |
+| X-L batch | the e2e password fallback (8 chars could never log in); `uuid` dep dropped; ALLOWED_HOSTS via decouple; the ci-summary gate includes security-scan; the P18 report erratum + the ci.yml version | grep sweeps; CI YAML valid |
+| Deliverables | 8 DOM-verified screenshots (`112-119_*_session38.png` — the Radix dialog, the keyboard row, the combobox, the route guard, the unified PAID badge, the overviews); the P19 report; `docs/session_38.md`; this worklog | `scripts/capture-screenshots-session38.js` |
+
+### The named focus (settled live — ninth consecutive settlement)
+
+**Mobile navigation:** 17/17 probe checks PASS on the remediated tree
+(375/800/1280) — **no TailwindCSS v4 bug exists**. The P19 shell/modal
+changes (the Radix-ified banking dialogs) re-probed clean.
+
+### Final gate (all verified, executed)
+
+backend **937P/0F/5S** (+23 P19 tests) · vitest **619/619** (72 files)
+· tsc 0 · whole-tree eslint **0 errors / 0 warnings** · **e2e:full
+40P/0F/0S** (five spec locators adapted to the new modal/a11y
+contracts; one real discovery — the import dialog's unnamed
+bank-account select, labeled) · **rls_smoke 13/13 as `ledgersg_app`**
+· **mobile-nav 17/17** · **prod-CSP 5/5** · schema v1.2.2 (no DDL).
+
+### Deferred (registered, not dropped)
+
+List pagination; the `{data}`/`{results}` envelope unification; the
+audit-log INSERT WITH CHECK policy (needs the schema design); the
+dead-letter design; UEN checksum (needs the official algorithm); the
+NULL-context SELECT tradeoff; H-05b models; the ruff mechanical batch;
+the PaymentsTab same-route prefill (no producer); the TanStack
+React-Compiler incompatibility (documented disable landed); the
+middleware token-parse verification gap (defense-in-depth); the
+journal detail serializer's per-entry source lookup.
