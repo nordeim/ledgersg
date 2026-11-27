@@ -96,32 +96,6 @@ services:
     command: >
       sh -c "celery -A config worker -l info"
 
-  # Celery Beat Scheduler
-  celery-beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: ledgersg_celery_beat
-    environment:
-      DEBUG: "true"
-      SECRET_KEY: "django-insecure-development-key-change-in-production"
-      DB_NAME: ledgersg_dev
-      DB_USER: ledgersg
-      DB_PASSWORD: ledgersg_secret_to_change
-      DB_HOST: db
-      DB_PORT: "5432"
-      REDIS_URL: "redis://redis:6379/0"
-      DJANGO_SETTINGS_MODULE: config.settings.development
-    volumes:
-      - .:/app
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: >
-      sh -c "celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler"
-
 volumes:
   postgres_data:
   redis_data:

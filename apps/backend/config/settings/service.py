@@ -31,11 +31,14 @@ DEBUG = False
 # ALLOWED HOSTS (P14/H-9: env-driven; the hardcoded wildcard is gone)
 # =============================================================================
 
-ALLOWED_HOSTS = [
-    h.strip()
-    for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-    if h.strip()
-]
+# P19/X-L4: decouple (`.env`-aware) — the os.environ-only read gave the
+# service mode split semantics (SECRET_KEY from the same .env WAS
+# honored while ALLOWED_HOSTS silently was not).
+from decouple import Csv, config as _decouple_config
+
+ALLOWED_HOSTS = _decouple_config(
+    "ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv()
+)
 
 # =============================================================================
 # SECRET KEY GATE (P14/H-9 — the production H-06 posture)

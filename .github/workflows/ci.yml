@@ -8,7 +8,7 @@
 # 3. Validating the backend suite (914 tests, P18) against the true production schema
 # 4. Running the always-green no-backend e2e subset (P18/CFG-L1)
 #
-# Version: 1.2.0
+# Version: 1.2.1 (P19: the ci-summary gate now includes security-scan)
 # Last Updated: 2026-11-27
 
 name: LedgerSG Enterprise CI
@@ -330,15 +330,15 @@ jobs:
           echo "E2E Tests: ${{ needs.e2e-tests.result == 'success' && '✅ PASSED' || '❌ FAILED' }}"
           echo "Security Scan: ${{ needs.security-scan.result == 'success' && '✅ PASSED' || '❌ FAILED' }}"
           echo ""
-          echo "Overall Status: ${{ (needs.backend-tests.result == 'success' && needs.frontend-tests.result == 'success' && needs.e2e-tests.result == 'success') && '✅ ALL CHECKS PASSED' || '❌ SOME CHECKS FAILED' }}"
+          echo "Overall Status: ${{ (needs.backend-tests.result == 'success' && needs.frontend-tests.result == 'success' && needs.e2e-tests.result == 'success' && needs.security-scan.result == 'success') && '✅ ALL CHECKS PASSED' || '❌ SOME CHECKS FAILED' }}"
           echo "========================================"
 
       - name: ✅ Mark as Success
-        if: needs.backend-tests.result == 'success' && needs.frontend-tests.result == 'success' && needs.e2e-tests.result == 'success'
+        if: needs.backend-tests.result == 'success' && needs.frontend-tests.result == 'success' && needs.e2e-tests.result == 'success' && needs.security-scan.result == 'success'
         run: echo "All critical tests passed!"
 
       - name: ❌ Mark as Failed
-        if: needs.backend-tests.result != 'success' || needs.frontend-tests.result != 'success' || needs.e2e-tests.result != 'success'
+        if: needs.backend-tests.result != 'success' || needs.frontend-tests.result != 'success' || needs.e2e-tests.result != 'success' || needs.security-scan.result != 'success'
         run: |
           echo "Some tests failed. Please review the logs above."
           exit 1
