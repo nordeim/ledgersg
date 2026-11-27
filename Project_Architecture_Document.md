@@ -1,7 +1,7 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.15.0
+> **Version**: 3.16.0
 > **Last Updated**: 2026-11-27
 > **P21 note**: the list-envelope unification ({results, count} on every list surface — the pagination prerequisite; the vacuous RLS-isolation assert fixed with it), the InvoiceNow invoicenow_sent_at evidence stamp, the on-commit cache truth (the dashboard + balance invalidations wait for the commit; void_document + manual journal entries now invalidate the dashboard), the bank-account default-flag locks, the ValidateBalance typed-400 body, and the banking a11y batch (the Make-Payment Reference name, the keyboard-reachable CSV import, the loader live regions, the payment-card keyboard contract, the reconcile aria-pressed) + the timezone-safe date helpers — see `docs/REMEDIATION_PLAN_2026-11-27_P21.md`. Carries the P20 state forward:
 > **P20 note**: the void/transition/allocate lock completion (void locks its affected documents sorted; transition_status locks + update_fields; allocate pre-locks documents sorted), the CSV import savepoint + magnitude bound, the posting-side balance-cache invalidation, the two a11y Highs (invoice-form Notes/Terms names, the new-page back links), the ContactPicker blur dismissal, the timezone-safe date formatter, the coverage ratchet expanded to the app/providers tiers + raised, the playwright port/locale/timezone/trace pins, and the e2e first-run truth fix (the banking helper is contact-self-sufficient; the one-command §9 bootstrap script ships) — see `docs/REMEDIATION_PLAN_2026-11-27_P20.md`. Carries the P19 state forward:
@@ -49,7 +49,7 @@
 ### Key Metrics (P24, 2026-11-27)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,715 Tests Passing** | 1009 Backend + 664 Frontend unit + 42 e2e (11 always + 31 backend-gated; 42/42 live-green incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
+| **Test Coverage** | **1,750 Tests Passing** | 1021 Backend + 686 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+"); every LIST endpoint returns the unified `{results, count}` envelope (P21) with the additive `?limit=&offset=` pagination + next/previous + total-count (P24) |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
@@ -58,8 +58,8 @@
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 664 (78 files) | 100% | Vitest + RTL (on vitest 4.1.12 — the P23 advisory closure) | ✅ Passing |
-| **Backend (pytest)** | 1009 passed / 5 skipped (1014 collected) | 100% of run | pytest | ✅ Passing |
+| **Frontend Unit** | 686 (80 files) | 100% | Vitest + RTL (on vitest 4.1.12 — the P23 advisory closure) | ✅ Passing |
+| **Backend (pytest)** | 1021 passed / 5 skipped (1026 collected) | 100% of run | pytest | ✅ Passing |
 | **E2E (Playwright)** | 42 (11 always + 31 backend-gated) | 100% live | Playwright | ✅ Passing |
 | **Total Passing** | **1,715** | — | Mixed | ✅ Verified |
 

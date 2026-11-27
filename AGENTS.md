@@ -8,13 +8,27 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 48 / P25):
-- Backend: pytest 1009 passed / 0 failed / 5 skipped (1014 collected)
-  — the P25 hardening file added 14 gates (the int8 offset cap, the
-  offset-requires-limit 400s, the transactions surface in the matrix)
-- Frontend: vitest 664/664 (78 files, on vitest 4.1.12 — the P23
+Current truth (all gates executed and green, session 50 / P26):
+- Backend: pytest 1021 passed / 0 failed / 5 skipped (1026 collected)
+  — the P26 file added 12 gates (the Peppol transmission-log pagination
+  matrix: limit-slice, the tiebreaker, the counters in both modes)
+- Frontend: vitest 686/686 (80 files, on vitest 4.1.12 — the P23
   advisory closure), tsc --noEmit 0 errors, whole-tree
   eslint **0 errors / 0 warnings**
+- P26 headline: the frontend pagination wiring + the Peppol
+  transmission-log contract — every remaining list surface (invoices,
+  contacts, payments, bank-transactions, quotes) now pages server-side
+  at size 20 through the shared TablePagination (the page identity in
+  each hook's queryKey — the cache-paging trap pinned per hook); the
+  invoices search migrated server-side (the client-side filter only
+  ever saw the fetched page); useContacts returns the full envelope
+  (the count was previously discarded); the Peppol transmission log
+  (the last unbounded backend list) joined the ?limit=&offset=
+  contract with the -transmitted_at,-id tiebreaker + one
+  conditional-aggregation counters query (byte-identical unpaginated);
+  the new P26/FE-P1 e2e spec stocks its own fodder through the public
+  API (count-driven DRAFTs, idempotent, zero journal impact) — PROVEN:
+  fresh DB → one bootstrap → the FIRST e2e:full = 43/43, 0 skipped
 - P25 headline: the fresh-substrate first-run truth + the pagination
   contract hardening — the §9 bootstrap's invoice/credit-note steps had
   been silently broken since P14/M-4 made tax_code_id required (the
@@ -61,11 +75,12 @@ Current truth (all gates executed and green, session 48 / P25):
   a11y batch (the Reference name, the keyboard-reachable CSV import,
   the loader live regions, the payment-card keyboard contract, the
   reconcile aria-pressed), the timezone-safe date helpers
-- E2E: 42 specs (11 always-green + 31 backend-gated); live run 42P/0F/0S
-green INCLUDING the fresh-DB first-run proof (session 48 / P25: drop +
-recreate the dev DB → one §9 bootstrap run → the FIRST test:e2e:full
-= 42/42, 0 skipped — the P20-era promise restored after the P24
-pagination spec exposed the substrate gap); CI runs the always-green 11
+- E2E: 43 specs (11 always-green + 32 backend-gated); live run 43P/0F/0S
+green INCLUDING the fresh-DB first-run proof (re-proven session 50 /
+P26: drop + recreate the dev DB → one §9 bootstrap run → the FIRST
+test:e2e:full = 43/43, 0 skipped — the new invoices-pagination spec
+stocks its own fodder through the public API, the P25 lesson applied
+at design time); CI runs the always-green 11
   (P18/CFG-L1)
 - Production-CSP smoke (P16/FE-C1): 5/5 — nonce served, hydration
   happened, zero violations (the gate class the dev suite cannot cover)
@@ -1810,3 +1825,51 @@ Empiricism downgraded the finding from "bug" to "hardening" — and the
 render-time reset (the React prev-state pattern) makes the guarantee
 explicit instead of timing-emergent. Write the real-hook test BEFORE
 concluding a timing-interior bug exists.
+
+## 2026-11-28 P26 Sprint — New Patterns & Lessons (session 50)
+
+### The Page Identity Lives In The QueryKey — Every Paginated Hook, Not Just The Ledger
+The P24 cache-paging trap (a page change resolving the previous page
+from cache) was fixed on `useLedger` and then NOT carried to the next
+surfaces — the invoices/contacts/payments/transactions hooks all gained
+page params this sprint, and each one needed the SAME pin: `limit`/
+`offset` ride the query string AND the queryKey (two pages = two cache
+entries). The trap is per-hook, not per-app: any hook that pages without
+the key identity silently serves stale pages the moment a second
+consumer pages the same list. The corollary: the pin is a test, not a
+comment — the "two renders, two fetches" spec (only the transport
+mocked) proves the key identity better than any code review.
+
+### An Offset Reset In Its Own Effect Double-Fires The Query
+Resetting the page offset in a `useEffect` keyed on the debounced search
+double-counted the hook call: React may render once more before bailing
+out of a same-value setState that originates in an effect, and each
+render calls the (mocked) hook again — the "one search per burst" test
+caught it ('acme' fired twice). The fix batches the reset INTO the state
+transition that causes it: the debounce timeout sets both
+`setDebouncedSearch(v)` and `setOffset(0)` in one tick (one render), and
+the filter buttons reset the offset in their own click handler. A state
+reset that accompanies another state change belongs in the same
+setState call site, never in a watching effect.
+
+### A Self-Sufficient Spec Beats A Substrate Claim
+The P25 lesson (a spec's substrate claim must be pinned in the
+bootstrap) has a stronger form: make the spec stock its own
+preconditions through the public API. The P26 invoices-pagination spec
+counts the org's invoices and creates small DRAFT fodder only while
+count ≤ 20 — idempotent across runs, zero journal lines (the F5 boxes
+and dashboard stay untouched), and no bootstrap contract to drift. The
+fresh-DB proof then verifies the SELF-SUFFICIENCY rather than a
+documented dependency. Reserve bootstrap-pinned substrate for shapes
+the specs cannot create themselves (posted journal history, fiscal
+periods); prefer self-stocking for volume.
+
+### Return The Envelope From List Hooks — Unwrapping Is A Data Lie
+`useContacts` returned `response.results` — the count, next and previous
+were discarded at the hook boundary, so no consumer could ever render a
+truthful total, and pagination was structurally impossible (the page
+would have had to re-fetch outside the hook). When a backend contract
+carries an envelope, the hook returns the envelope; consumers unwrap at
+the point of use (`data?.results ?? []`). The breaking-change cost was
+bounded because a consumer sweep preceded the change (exactly two
+callers); an un-enumerated hook-shape change is where regressions hide.

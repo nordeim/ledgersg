@@ -6,21 +6,22 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-28, session 48 / P25) re-verified the guide against the current
-codebase on a live sandbox REBUILT FROM ZERO (rootless PG 17 + Redis via
-§3/§5, backend 1009P/0F/5S, vitest 664/664 (78 files,
-on vitest 4.1.12 — the P23 advisory closure), typecheck
-0 errors, whole-tree eslint 0 errors / 0 warnings, build:server
-green, the production-CSP smoke 5/5, live e2e 42P/0F/0S (42 specs) —
-INCLUDING the fresh-DB first-run proof: drop/recreate the dev database →
-ONE §9 bootstrap run → the FIRST `test:e2e:full` = 42/42 with 0 skipped
-(the P20-era promise restored by the P25 substrate top-up), the
-runtime-role smoke 13/13 as `ledgersg_app`, the mobile-nav probe 17/17 —
-the eighteenth consecutive settlement, P25; the new headline: the
-fresh-substrate first-run truth + the pagination contract hardening (the
-§9 bootstrap's tax_code_id fix + the fodder top-up; the int8 offset cap +
-the offset-requires-limit typed 400s — see
-`docs/REMEDIATION_2026-11-28_P25_REPORT.md`) —
+(2026-11-28, session 50 / P26) re-verified the guide against the current
+codebase on the live sandbox (rootless PG 17 + Redis per §3/§5, backend
+1021P/0F/5S, vitest 686/686 (80 files, on vitest 4.1.12 — the P23
+advisory closure), typecheck 0 errors, whole-tree eslint 0 errors / 0
+warnings, build:server green, the production-CSP smoke 5/5, live e2e
+43P/0F/0S (43 specs) — INCLUDING the fresh-DB first-run proof, re-run
+this session: drop/recreate the dev database → ONE §9 bootstrap run →
+the FIRST `test:e2e:full` = 43/43 with 0 skipped (the P26 spec stocks
+its own fodder through the public API — the P25 lesson applied at design
+time), the runtime-role smoke 13/13 as `ledgersg_app`, the mobile-nav
+probe 17/17 — the twenty-first consecutive settlement, P26; the new
+headline: the frontend pagination wiring (every list surface — invoices,
+contacts, payments, bank-transactions, quotes — pages server-side at
+size 20 through the shared control) + the Peppol transmission-log
+pagination contract (the last unbounded backend list — see
+`docs/REMEDIATION_2026-11-28_P26_REPORT.md`) —
 carrying the P17 concurrency truth forward (double-reversal / double-void /
 double-reconcile refused under row locks; the 400-contract sweep; the Celery
 tenant context; the `/admin/` gate; the `STORAGES` manifest migration) and
@@ -258,8 +259,8 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-28 P25): 1009 passed, 0 failed, 5 skipped
-# (P25 added the pagination-hardening gates; the P24-era suite was
+# expected (post-2026-11-28 P26): 1021 passed, 0 failed, 5 skipped
+# (P26 added the Peppol transmission-log pagination gates; the P24-era suite was
 #  re-verified 969P on a fresh clone — the role `ledgersg_app` must
 #  still carry the schema's dev default password
 #  `CHANGE_ME_IN_PRODUCTION` for the RLS tests)
@@ -408,10 +409,11 @@ bash scripts/bootstrap_demo_substrate_session40.sh http://127.0.0.1:8000
 # 5) compute an F5 return:  POST /api/v1/{org}/gst/returns/
 #    {"filing_frequency":"MONTHLY","start_date":"<month>-01","periods":1}
 #    then POST /api/v1/{org}/gst/returns/{id}/?force=true
-npm run test:e2e:full       # 42 specs: 11 always + 31 backend-gated
-                           # (42/42 live-green on the FIRST run of a
-                           # fresh DB — re-proven P25 after the substrate
-                           # top-up: 42P/0F/0S)
+npm run test:e2e:full       # 43 specs: 11 always + 32 backend-gated
+                           # (43/43 live-green on the FIRST run of a
+                           # fresh DB — re-proven P26: the new invoices
+                           # pagination spec stocks its own fodder
+                           # through the public API; 43P/0F/0S)
 ```
 
 (P20/X-H1, the truth correction: the old parenthetical claimed "the p11

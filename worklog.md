@@ -1352,3 +1352,82 @@ dependency sprint); the ruff mechanical batch (936 production); the
 audit-log INSERT policy (DDL); BE-L3/BE-L4 locking; the CSV errors[]
 strings; dead-letter design; UEN checksum; the P21/P23/P24 deferred
 registers carried forward unchanged.
+
+## P26 Remediation — 2026-11-28 (session 50): the frontend pagination wiring + the Peppol transmission-log contract
+
+**Base:** `334c2f0e` (post-P25 + the session-49 narration log). **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-28_P26.md` (anchor-validated);
+**report:** `docs/REMEDIATION_2026-11-28_P26_REPORT.md`. **Method:**
+TDD (RED → GREEN → full gate) for every behavioural change;
+conventional commits on `main`; `skills/` excluded; no DDL (schema v1.2.2
+carries forward); no backend model changes. The environment was live
+from the prior session (rootless PG 17, Redis, the daemonized stack) —
+re-probed, not rebuilt.
+
+### The baselines (reproduced before any change — 9 of 9 exact, a first since the P24 spec)
+
+backend **1009P/0F/5S** · vitest **664/664 (78 files)** · tsc 0 ·
+eslint **0E/0W** · live e2e:full **42/42** · rls_smoke **13/13** ·
+mobile-nav **17/17** · prod-CSP **5/5** · npm audit **0 critical**.
+
+### The named focus — settled first (twentieth/twenty-first settlements)
+
+**The mobile navigation menu works as expected; NO remaining
+TailwindCSS v4 bug on that surface.** The dedicated live probe: the
+computed `transitionProperty: "transform, translate, visibility"`; the
+closed drawer `-100%`/hidden; a 120ms mid-flight sample at
+`translate: -40.9622%`; the open drawer a `role="dialog"` at `0px`;
+Escape closes it. The 17/17 audit re-ran on both the remediated tree
+and the fresh DB.
+
+### The audits (Mode C; every finding hand-verified in source)
+
+**0 Critical / 0 High / 4 Medium / 2 Low.** The headline batch (M1-M3):
+the invoices/contacts/payments/transactions/quotes surfaces all loaded
+the UNBOUNDED set — the invoices search filtered client-side over only
+the fetched rows, the contacts hook discarded the envelope (the count
+structurally unrenderable), the payments list carried the P10/L-2
+"Load more was doubly dead" confession. M4: the Peppol transmission log
+— the last unbounded backend list (no tiebreaker, three COUNT queries
+per request). L1: the quotes page (the same hook). L2: the docs truths.
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| FE-M1/M2/M3/L1 | every surface pages server-side at size 20 through the shared `TablePagination`; the page identity in each hook's queryKey (the cache-paging trap pinned per hook); the invoices search migrated server-side (debounced); `useContacts` returns the envelope (the picker adapted); the offset resets batch into the debounce tick / the filter click | the 22 new frontend tests (2 new hook spec files + 6 extended spec files) — RED 10+9 → GREEN 686/686 (80 files) |
+| BE-M4 | the Peppol transmission log joined the `?limit=&offset=` contract: `parse_limit_offset` + the `-transmitted_at, -id` tiebreaker + ONE conditional-aggregation counters query + `page_envelope`'s additive `extra` payload (byte-identical unpaginated) | the 12-gate P26 file (RED 7 → GREEN 12) + the live curl probes (the typed 400s, the counters in both modes) |
+| E2E | the `P26/FE-P1` spec with the **self-stocking fodder helper** (count-driven DRAFT documents through the public API — no journal lines, idempotent) | the live walk (page 1 → Next → page 2 → Previous) + the idempotent re-run |
+| X-docs | the truth pass (README badge 1750 + the P26 milestone, CLAUDE 2.27.0, AGENTS header + 4 new lessons, SKILL 2.13.0, PAD 3.16.0, DEPLOYMENT header/§7/§9, the API guide 3.5.0 + the P26 addendum, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful (no changes) |
+
+### The fresh-DB proof (the acceptance — executed)
+
+drop + recreate `ledgersg_dev` → restart both `--noreload` backends →
+flush Redis → **ONE** bootstrap run (**36 lines / 12 APPROVED** at the
+start — the P25 guarantees hold) → the **FIRST** `test:e2e:full` =
+**43P/0F/0S (2.4m)** — the new spec stocked its own fodder live
+(13 → 21 invoices on the fresh org). The self-sufficiency is the P25
+lesson applied at design time.
+
+### Final gate (all verified, executed)
+
+backend **1021P/0F/5S** (+12; 1026 collected) · vitest **686/686
+(80 files)** (+22) · coverage green at the ratchet — **the whole-suite
+floor RAISED to 72.94/70.32/62.38/73.51** · tsc 0 · whole-tree eslint
+**0 errors / 0 warnings** · **e2e:full 43P/0F/0S** (twice — the
+remediated tree AND the fresh-DB proof) · **rls_smoke 13/13 as
+`ledgersg_app`** · **mobile-nav 17/17** (the twenty-first settlement) ·
+**prod-CSP 5/5** · build:server green · schema v1.2.2 (no DDL). 8
+DOM-verified screenshots (160-167, the paginated invoices page 1/page 2
+the headline pair).
+
+### Deferred (registered, not dropped)
+
+The SQL-level push-down for the five service-driven lists; the
+`/accounts/search/` limit-contract migration; the capped-default flip
+(this sprint moved four more consumers onto explicit limits); the 17
+dev-tier npm-audit findings (the dedicated dependency sprint); the ruff
+mechanical batch (936 production); the audit-log INSERT policy (DDL);
+BE-L3/BE-L4 locking; the CSV errors[] strings; dead-letter design; UEN
+checksum; the P21/P23/P24/P25 deferred registers carried forward
+unchanged.

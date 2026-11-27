@@ -2,8 +2,8 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 3.4.0 (the P25 pagination-contract hardening + the P24 pagination contract + the P23 addendum + the P21 list-envelope unification + the P19 addendum + the P20 route errata)
-> **Last Updated**: 2026-11-28 (P25 — two request-semantics tightenings on the pagination contract: `offset` requires `limit` (the typed 400), the int8 offset cap at 2^63−1 — see the P25 Addendum below; carried forward: the P24 additive `?limit=&offset=` server-side pagination on every core list surface, the P23 presentation/test-tier sprint, the P21 list-envelope unification, the InvoiceNow evidence stamp, the on-commit cache invalidation, the ValidateBalance typed-400 body contract; carried forward: the P20 route errata + the P17 400 contracts)
+> **Version**: 3.5.0 (the P26 transmission-log pagination + the P25 pagination-contract hardening + the P24 pagination contract + the P23 addendum + the P21 list-envelope unification + the P19 addendum + the P20 route errata)
+> **Last Updated**: 2026-11-28 (P26 — the Peppol transmission-log surface joins the pagination contract (limit/offset + the id tiebreaker + the counters in both modes, byte-identical unpaginated) — see the P26 Addendum below; carried forward: P25 — two request-semantics tightenings on the pagination contract: `offset` requires `limit` (the typed 400), the int8 offset cap at 2^63−1 — see the P25 Addendum below; carried forward: the P24 additive `?limit=&offset=` server-side pagination on every core list surface, the P23 presentation/test-tier sprint, the P21 list-envelope unification, the InvoiceNow evidence stamp, the on-commit cache invalidation, the ValidateBalance typed-400 body contract; carried forward: the P20 route errata + the P17 400 contracts)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
 ---
@@ -289,6 +289,50 @@ skipped** (the +14 are the hardening gates) · frontend **664 vitest + 42
 e2e** (42/42 live INCLUDING the fresh-DB first-run proof) · the production
 dependency set clean at 0 advisories. See
 `docs/REMEDIATION_2026-11-28_P25_REPORT.md`.
+
+## P26 Addendum — the Peppol transmission-log pagination (2026-11-28, session 50)
+
+**The last unbounded backend list joins the P24 pagination contract.**
+`GET /api/v1/{org_id}/peppol/transmission-log/` now accepts
+`?limit=&offset=` with exactly the P24/P25 semantics (typed 400s on
+garbage, the offset-requires-limit rule, the int8 cap), gains the
+`-transmitted_at, -id` deterministic order (the tiebreaker — a paginated
+boundary can no longer skip or duplicate tied rows), and computes its
+three status counters in one query:
+
+```bash
+# The paginated mode — next/previous + the TOTAL count + the counters:
+curl -s -H "Authorization: Bearer $TOKEN"   "http://127.0.0.1:8000/api/v1/$ORG/peppol/transmission-log/?limit=2"
+# -> {"results": [ …2 rows… ], "count": 5,
+#     "next": "http://…/transmission-log/?limit=2&offset=2",
+#     "previous": null,
+#     "pending": 2, "failed": 1, "completed": 2}
+
+# No limit — the envelope stays BYTE-IDENTICAL to the pre-P26 shape:
+curl -s -H "Authorization: Bearer $TOKEN"   "http://127.0.0.1:8000/api/v1/$ORG/peppol/transmission-log/"
+# -> {"results": [ …all rows… ], "count": N,
+#     "pending": P, "failed": F, "completed": C}   # no next/previous keys
+```
+
+Notes for CLI consumers: the counters count the FILTERED set when
+`?status=` is supplied (the pre-P26 semantics, now pinned by test); the
+`?status=` filter survives paging (the `next`/`previous` URLs carry it);
+pinned by `tests/integration/test_peppol_pagination_p26.py` (12 gates —
+the forced-tie walk, the counters in both modes, the P25 400 rules on
+this surface).
+
+**Frontend consumers (no API change, documented for completeness):** the
+web app's invoices, contacts, payments, bank-transactions and quotes
+pages now page server-side at page size 20 through this contract with
+the shared TablePagination control; the invoices list search now goes
+server-side through `GET …/invoicing/documents/?type=SALES_INVOICE&search=…`.
+
+Current gate truth (session 50): backend **1021 passed / 0 failed / 5
+skipped** (the +12 are the transmission-log gates) · frontend **686
+vitest + 43 e2e** (43/43 live INCLUDING the fresh-DB first-run proof —
+the new invoices-pagination spec stocks its own fodder) · the production
+dependency set clean at 0 advisories. See
+`docs/REMEDIATION_2026-11-28_P26_REPORT.md`.
 
 ## P23 Addendum — no API-surface change; the gates re-verified (2026-11-27, session 44)
 

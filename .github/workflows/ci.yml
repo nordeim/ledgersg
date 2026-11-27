@@ -5,11 +5,11 @@
 # This pipeline institutionalizes the "SQL-First" mandate by:
 # 1. Manually initializing PostgreSQL with database_schema.sql (not migrations)
 # 2. Running pytest with --no-migrations and --reuse-db flags
-# 3. Validating the backend suite (1009 tests, P25) against the true production schema
+# 3. Validating the backend suite (1021 tests, P26) against the true production schema
 # 4. Running the always-green no-backend e2e subset (P18/CFG-L1)
 #
 # Version: 1.2.1 (P19: the ci-summary gate now includes security-scan)
-# Last Updated: 2026-11-27
+# Last Updated: 2026-11-28
 
 name: LedgerSG Enterprise CI
 
