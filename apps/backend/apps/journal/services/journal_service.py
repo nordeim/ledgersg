@@ -310,6 +310,18 @@ class JournalService:
                     line_number=line_number,
                 )
 
+            # P20/BE-M5: the account_balance cache (5-min TTL, seeded by
+            # balance GETs) was never invalidated by postings — the
+            # balance endpoint served the pre-posting value until TTL
+            # (the P19/BE-M1 fix patched the archive gate only). Delete
+            # the key for every account this entry touched.
+            from django.core.cache import cache as _cache
+
+            for _touched_id in sorted(
+                {str(l.get("account_id")) for l in lines if l.get("account_id")}
+            ):
+                _cache.delete(f"account_balance:{_touched_id}")
+
             return journal_entry
 
     @staticmethod

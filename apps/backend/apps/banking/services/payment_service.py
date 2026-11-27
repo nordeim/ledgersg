@@ -378,11 +378,29 @@ class PaymentService:
 
         # P5/H-2: a voided payment no longer represents money — release its
         # allocations and recompute each document's amount_paid/status.
-        affected_documents = list(
-            InvoiceDocument.objects.filter(
-                paymentallocation__payment_id=payment.id
-            ).distinct()
+        # P20/BE-H1: lock the affected documents FIRST (sorted-id order —
+        # the deterministic sequence that closes the AB-BA class between
+        # two concurrent voids over shared documents) and recompute under
+        # the locks. allocate() and unallocate() (the P19/BE-M3 fix) both
+        # hold the invoicing.document lock for this same recompute; the
+        # unlocked SUM here could silently lose a concurrently-committed
+        # allocation (the P14/H-1 "allocations are the truth" invariant —
+        # amount_paid/status diverge until the next allocation event).
+        affected_ids = sorted(
+            set(
+                InvoiceDocument.objects.filter(
+                    paymentallocation__payment_id=payment.id
+                ).values_list("id", flat=True)
+            ),
+            key=str,
         )
+        affected_documents = []
+        for doc_id in affected_ids:
+            affected_documents.append(
+                InvoiceDocument.objects.select_for_update().get(
+                    id=doc_id, org_id=org_id
+                )
+            )
         PaymentAllocation.objects.filter(payment=payment).delete()
         for document in affected_documents:
             remaining = sum(
@@ -467,16 +485,39 @@ class PaymentService:
                 f"Remaining available: {remaining}"
             )
 
+        # P20/BE-L2: the service seam must gate positive amounts — the DB
+        # CHECK chk_allocated_positive turns zero/negative into an
+        # untyped IntegrityError for non-DRF callers (the serializers
+        # gate it; the seam must too).
+        for alloc in allocations:
+            if money(alloc["allocated_amount"]) <= 0:
+                raise ValidationError(
+                    "Allocated amounts must be positive (greater than zero)."
+                )
+
+        # P20/BE-M1: pre-lock the deduplicated document ids in sorted
+        # order — the user-supplied allocation order is an AB-BA deadlock
+        # vector for two concurrent allocations over overlapping document
+        # sets (PG 40P01 → untyped 500). The create_entry() sorted
+        # account pre-lock (P19/BE-M2) is the pattern.
+        document_ids = sorted(
+            {str(alloc["document_id"]) for alloc in allocations}
+        )
+        locked_documents = {}
+        for doc_id in document_ids:
+            locked_documents[doc_id] = InvoiceDocument.objects.select_for_update().get(
+                id=doc_id, org_id=org_id
+            )
+
         for alloc_data in allocations:
-            document_id = alloc_data["document_id"]
+            document_id = str(alloc_data["document_id"])
             allocated_amount = money(alloc_data["allocated_amount"])
 
             # P14/H-1: lock the document row for the balance check + the
-            # recompute below — without the lock two concurrent allocations
-            # could both pass the outstanding-balance gate and over-settle.
-            document = InvoiceDocument.objects.select_for_update().get(
-                id=document_id, org_id=org_id
-            )
+            # recompute below — the row was pre-locked in sorted order
+            # above (P20/BE-M1); the per-document gates read the locked
+            # instance.
+            document = locked_documents[document_id]
 
             if document.contact.id != payment.contact.id:
                 raise ValidationError(

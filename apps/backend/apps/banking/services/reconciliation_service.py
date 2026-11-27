@@ -210,6 +210,20 @@ class ReconciliationService:
                     skipped += 1
                     continue
 
+                # P20/BE-H2: money() has no magnitude bound while
+                # banking.bank_transaction.amount is NUMERIC(19,4) (15
+                # integer digits) — an oversized CSV amount raised DataError
+                # at INSERT and poisoned the whole import transaction
+                # (untyped 500, the per-row errors[] contract never
+                # delivered). Refuse it as a typed row error instead.
+                if abs(amount) >= Decimal("1E15"):
+                    errors.append(
+                        f"Row {row_num}: Amount out of range '{amount_str}' "
+                        "(the maximum is 999,999,999,999,999.9999)"
+                    )
+                    skipped += 1
+                    continue
+
                 reference = row_lower.get("reference", "").strip()
                 external_id = (
                     row_lower.get("external_id") or row_lower.get("txn_id") or row_lower.get("reference_number") or ""
@@ -242,23 +256,34 @@ class ReconciliationService:
                     except ValueError:
                         pass
 
-                BankTransaction.objects.create(
-                    org_id=org_id,
-                    bank_account=bank_account,
-                    transaction_date=transaction_date_parsed,
-                    value_date=value_date,
-                    description=description[:500],
-                    reference=reference[:100],
-                    amount=amount,
-                    running_balance=running_balance,
-                    is_reconciled=False,
-                    import_batch_id=batch_id,
-                    import_source="CSV",
-                    external_id=external_id[:100],
-                )
-                imported += 1
+                # P20/BE-H2: the per-row savepoint — a DB-level row error
+                # (the exact class the P19/BE-M4 fix closed for
+                # create_return_periods) must land in errors[], never
+                # abort the statement's transaction and 500 the import.
+                try:
+                    with transaction.atomic():
+                        BankTransaction.objects.create(
+                            org_id=org_id,
+                            bank_account=bank_account,
+                            transaction_date=transaction_date_parsed,
+                            value_date=value_date,
+                            description=description[:500],
+                            reference=reference[:100],
+                            amount=amount,
+                            running_balance=running_balance,
+                            is_reconciled=False,
+                            import_batch_id=batch_id,
+                            import_source="CSV",
+                            external_id=external_id[:100],
+                        )
+                    imported += 1
+                except Exception as e:
+                    errors.append(f"Row {row_num}: {str(e)}")
+                    skipped += 1
 
             except Exception as e:
+                # The row-level parse guards land here (the savepoint above
+                # handles the DB-level class).
                 errors.append(f"Row {row_num}: {str(e)}")
                 skipped += 1
 
@@ -411,7 +436,12 @@ class ReconciliationService:
 
         matched_payment = None
         if old_payment_id:
-            matched_payment = Payment.objects.select_for_update().get(id=old_payment_id)
+            # P20/BE-L3: the org filter every sibling lock carries — a
+            # NULL-context read must not lock a cross-org payment row
+            # (defense-in-depth consistency).
+            matched_payment = Payment.objects.select_for_update().get(
+                id=old_payment_id, org_id=org_id
+            )
 
         transaction_obj.is_reconciled = False
         transaction_obj.reconciled_at = None

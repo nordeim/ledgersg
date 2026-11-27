@@ -472,17 +472,27 @@ class DocumentService:
         Returns:
             Updated InvoiceDocument instance
         """
-        document = DocumentService.get_document(org_id, document_id)
-
-        # Validate transition
-        valid_transitions = STATUS_TRANSITIONS.get(document.status, [])
-        if new_status not in valid_transitions:
-            raise ValidationError(
-                f"Cannot transition from '{document.status}' to '{new_status}'. "
-                f"Valid transitions: {', '.join(valid_transitions) or 'none'}"
-            )
-
+        # P20/BE-H3: lock the row and re-validate post-lock — the plain
+        # read + stale full-row save could overwrite a concurrent
+        # approve_document() commit (which holds the lock): the stale
+        # save wrote SENT over an APPROVED, journal-posted document and
+        # clobbered totals with pre-add_line values (the exact TOCTOU
+        # P19/BE-H1 closed for remove_line()).
         with transaction.atomic():
+            try:
+                document = InvoiceDocument.objects.select_for_update().get(
+                    id=document_id, org_id=org_id
+                )
+            except InvoiceDocument.DoesNotExist:
+                raise ResourceNotFound(f"Document {document_id} not found")
+
+            # Validate transition — POST-LOCK against the current status
+            valid_transitions = STATUS_TRANSITIONS.get(document.status, [])
+            if new_status not in valid_transitions:
+                raise ValidationError(
+                    f"Cannot transition from '{document.status}' to '{new_status}'. "
+                    f"Valid transitions: {', '.join(valid_transitions) or 'none'}"
+                )
             old_status = document.status
             document.status = new_status
 
@@ -540,7 +550,14 @@ class DocumentService:
                     org_id, document.id, user=void_user, reason="Voided via status transition"
                 )
 
-            document.save()
+            # P20/BE-H3: update_fields only — the stale full-row save
+            # clobbered concurrently-committed totals (add_line/remove_line
+            # recompute them under the same lock; a full-row save here
+            # reverted them).
+            update_fields = ["status"]
+            if new_status == "APPROVED":
+                update_fields += ["approved_at", "approved_by_id"]
+            document.save(update_fields=update_fields)
 
         return document
 

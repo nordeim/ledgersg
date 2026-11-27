@@ -6,6 +6,9 @@ Contact management and document (invoice/quote) operations.
 
 from typing import Optional
 from datetime import date
+from decimal import Decimal  # P20/BE-L1: module-level — the function-local
+# import below came AFTER a module-scope use (ruff F821, a latent NameError
+# masked only by the serializer's default)
 
 from django.http import FileResponse
 from django.utils import timezone
