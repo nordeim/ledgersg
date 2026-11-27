@@ -26,6 +26,17 @@ export function QuotesClient() {
   const { currentOrg, isLoading: authLoading } = useAuth();
   const orgId = currentOrg?.id ?? null;
   const [offset, setOffset] = React.useState(0);
+
+  // P27/FE-M3: the org-switch reset during render (the P25/FE-L3
+  // ledger contract) — switching org mid-pagination must never
+  // dispatch the new org at the previous offset (a stale-offset fetch
+  // + a garbage cache entry per switch).
+  const [lastOrgId, setLastOrgId] = React.useState(orgId);
+  if (orgId !== lastOrgId) {
+    setLastOrgId(orgId);
+    setOffset(0);
+  }
+
   const { data, isLoading, isError, isFetching } = useInvoices(
     orgId,
     {

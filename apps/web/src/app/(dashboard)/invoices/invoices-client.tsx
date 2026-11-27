@@ -73,17 +73,43 @@ export function InvoicesClient() {
   // P26: the search goes SERVER-SIDE (the hook's `search` filter) —
   // debounced at 300ms, the contacts-page convention. A page-local
   // filter over 20 of N rows is a silent lie (it misses everything
-  // beyond the fetched page). The offset reset batches INTO the debounce
-  // tick (one render — a separate effect would double-render and
-  // double-fire the query).
+  // beyond the fetched page).
+  //
+  // P27/FE-H1: the page restart fires ONLY on a debounced VALUE
+  // CHANGE. The pre-P27 timer body called setOffset(0)
+  // unconditionally — including on the effect's MOUNT-run (~300ms
+  // after mount, doubled under React StrictMode) — so a Next click
+  // inside that window silently reverted to the cached page 1: no
+  // refetch, no feedback, the click simply lost (the serial full-run
+  // e2e lost this race deterministically while the isolated run
+  // passed it). The last-committed-value ref is read and written ONLY
+  // inside the timer callback (an event, never during render — the
+  // react-hooks/refs contract): on mount "" === "", so nothing fires;
+  // the two state sets below batch into ONE render (the P11/M-3
+  // single-call debounce contract).
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const lastDebounced = React.useRef("");
   React.useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(search.trim());
-      setOffset(0); // a new search restarts the paging
+      const next = search.trim();
+      setDebouncedSearch(next);
+      if (next !== lastDebounced.current) {
+        lastDebounced.current = next; // a NEW search restarts the paging
+        setOffset(0);
+      }
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
+
+  // P27/FE-M3: the org-switch reset during render (the P25/FE-L3
+  // ledger contract) — switching org mid-pagination must never
+  // dispatch the new org at the previous offset (a stale-offset fetch
+  // + a garbage cache entry per switch).
+  const [lastOrgId, setLastOrgId] = useState(orgId);
+  if (orgId !== lastOrgId) {
+    setLastOrgId(orgId);
+    setOffset(0);
+  }
 
   const { data, isLoading, isError, error, isFetching } = useInvoices(
     orgId,

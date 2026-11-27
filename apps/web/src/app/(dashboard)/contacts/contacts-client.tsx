@@ -1,7 +1,7 @@
 "use client";
 
 import { optionalUenSchema } from "@/shared/schemas/uen";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -47,7 +47,6 @@ export default function ContactsClient() {
   const orgId = currentOrg?.id ?? "";
 
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [offset, setOffset] = useState(0);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [editing, setEditing] = useState<Contact | null>(null);
@@ -57,15 +56,39 @@ export default function ContactsClient() {
   // "debounce" returned a cleanup that was never invoked (it is the memo
   // VALUE), so every keystroke fired a request, stale intermediate values
   // landed, and timers survived unmount. The ContactPicker pattern.
-  // P26: the offset reset batches INTO the debounce tick (one render —
-  // a separate effect would double-render and double-fire the query).
+  //
+  // P27/FE-H1: the page restart fires ONLY on a debounced VALUE
+  // CHANGE. The pre-P27 timer body called setOffset(0)
+  // unconditionally — including on the effect's MOUNT-run (~300ms
+  // after mount, doubled under React StrictMode) — so a Next click
+  // inside that window silently reverted to the cached page 1: no
+  // refetch, no feedback, the click simply lost. The last-committed-
+  // value ref is read and written ONLY inside the timer callback (an
+  // event, never during render — the react-hooks/refs contract): on
+  // mount "" === "", so nothing fires; the two state sets batch into
+  // ONE render (the P11/M-3 single-call debounce contract).
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const lastDebounced = useRef("");
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(search.trim());
-      setOffset(0); // a new search restarts the paging
+      const next = search.trim();
+      setDebouncedSearch(next);
+      if (next !== lastDebounced.current) {
+        lastDebounced.current = next; // a NEW search restarts the paging
+        setOffset(0);
+      }
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
+
+  // P27/FE-M3: the org-switch reset during render (the P25/FE-L3
+  // ledger contract) — switching org mid-pagination must never
+  // dispatch the new org at the previous offset.
+  const [lastOrgId, setLastOrgId] = useState(orgId);
+  if (orgId !== lastOrgId) {
+    setLastOrgId(orgId);
+    setOffset(0);
+  }
 
   const filters = useMemo(() => {
     const base: Record<string, boolean | string> = {};

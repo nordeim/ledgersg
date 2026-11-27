@@ -29,13 +29,39 @@ interface TransactionListProps {
  * control across every list surface. */
 const TRANSACTIONS_PAGE_SIZE = 20;
 
+/** P27/FE-M2: a STABLE identity for the absent-filters default — the
+ * render-time identity compare below would otherwise see a fresh {}
+ * per render (an infinite reset loop when the prop is omitted). */
+const NO_FILTERS = {};
+
 export function TransactionList({ 
   orgId, 
-  filters = {}, 
+  filters = NO_FILTERS, 
   onTransactionClick,
   onImportClick 
 }: TransactionListProps) {
   const [offset, setOffset] = useState(0);
+
+  // P27/FE-M2: a new FILTER set restarts the paging (the invoices/
+  // contacts convention) — during render, on the filters-prop identity
+  // change (the parent holds the filters in useState, so the identity
+  // changes exactly when the user changes a filter). The guarded
+  // setOffset avoids React's bailout re-render when already on page 1.
+  const [lastFilters, setLastFilters] = useState(filters);
+  if (filters !== lastFilters) {
+    setLastFilters(filters);
+    if (offset !== 0) setOffset(0);
+  }
+
+  // P27/FE-M3: the org-switch reset during render (the P25/FE-L3
+  // ledger contract) — the new org is never fetched at the previous
+  // org's offset.
+  const [lastOrgId, setLastOrgId] = useState(orgId);
+  if (orgId !== lastOrgId) {
+    setLastOrgId(orgId);
+    setOffset(0);
+  }
+
   const { data, isLoading, error, refetch, isFetching } = useBankTransactions(
     orgId,
     filters,
