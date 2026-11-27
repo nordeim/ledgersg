@@ -6,15 +6,16 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-27, session 44 / P23) re-verified the guide against the current
-codebase on a live sandbox (backend 969P/0F/5S, vitest 642/642 (76 files,
+(2026-11-27, session 45 / P24) re-verified the guide against the current
+codebase on a live sandbox (backend 995P/0F/5S, vitest 660/660 (77 files,
 on vitest 4.1.12 — the P23 advisory closure), typecheck
 0 errors, whole-tree eslint 0 errors / 0 warnings, build:server
-green, the production-CSP smoke 5/5, live e2e 41P/0F/0S (41 specs), the
+green, the production-CSP smoke 5/5, live e2e 42P/0F/0S (42 specs), the
 runtime-role smoke 13/13 as `ledgersg_app`, the mobile-nav probe 17/17 —
-the fifteenth consecutive settlement, P23, now with the drawer slide
-animating: the transition list includes v4's standalone `translate`
-property — see `docs/REMEDIATION_2026-11-27_P23_REPORT.md`) —
+the sixteenth consecutive settlement, P24; the new headline: the
+server-side list pagination (the additive `?limit=&offset=` contract on
+the six core list surfaces; the ledger UI pages at 20 rows — see
+`docs/REMEDIATION_2026-11-27_P24_REPORT.md`) —
 carrying the P17 concurrency truth forward (double-reversal / double-void /
 double-reconcile refused under row locks; the 400-contract sweep; the Celery
 tenant context; the `/admin/` gate; the `STORAGES` manifest migration) and
@@ -252,10 +253,11 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-27 P23): 969 passed, 0 failed, 5 skipped
-# (P23 touched no backend code; the suite was re-verified on a fresh
-# clone — the role `ledgersg_app` must still carry the schema's dev
-# default password `CHANGE_ME_IN_PRODUCTION` for the RLS tests)
+# expected (post-2026-11-27 P24): 995 passed, 0 failed, 5 skipped
+# (P24 added the pagination contract gates; the P21-era suite was
+#  re-verified 969P on a fresh clone — the role `ledgersg_app` must
+#  still carry the schema's dev default password
+#  `CHANGE_ME_IN_PRODUCTION` for the RLS tests)
 pytest tests/invariants -q    # 34 passed (conformance, capacity, balances,
                               # filed-return immutability, GST lock, RLS)
 pytest tests/security -q      # 83 passed, 3 skipped (RLS, tokens, cookies,
@@ -341,7 +343,7 @@ Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 642 vitest tests (76 files, on vitest 4.1.12)
+npm test                    # 660 vitest tests (77 files, on vitest 4.1.12)
 npm run test:coverage       # green at the honest measured-floor ratchet
 npm run build:server        # the only build mode
 npm run test:e2e            # green without a backend (gated specs skip)
@@ -390,8 +392,8 @@ bash scripts/bootstrap_demo_substrate_session40.sh http://127.0.0.1:8000
 # 5) compute an F5 return:  POST /api/v1/{org}/gst/returns/
 #    {"filing_frequency":"MONTHLY","start_date":"<month>-01","periods":1}
 #    then POST /api/v1/{org}/gst/returns/{id}/?force=true
-npm run test:e2e:full       # 41 specs: 11 always + 30 backend-gated
-                           # (41/41 live-green, P23)
+npm run test:e2e:full       # 42 specs: 11 always + 31 backend-gated
+                           # (42/42 live-green, P24)
 ```
 
 (P20/X-H1, the truth correction: the old parenthetical claimed "the p11

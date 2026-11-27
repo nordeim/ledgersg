@@ -2,8 +2,8 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 3.2.1 (the P23 addendum + the P21 list-envelope unification + the P19 addendum + the P20 route errata)
-> **Last Updated**: 2026-11-27 (P23 — no API-surface change: the sprint is presentation/test-tier (the mobile-nav drawer transition truth + the vitest advisory closure); every documented contract carries forward unchanged from P21 — the list-envelope unification: every list endpoint returns `{results, count}` incl. `/auth/organisations/` which was a bare array; the InvoiceNow evidence stamp; the on-commit cache invalidation; the ValidateBalance typed-400 body contract; carried forward: the P20 route errata + the P17 400 contracts)
+> **Version**: 3.3.0 (the P24 pagination contract + the P23 addendum + the P21 list-envelope unification + the P19 addendum + the P20 route errata)
+> **Last Updated**: 2026-11-27 (P24 — an API-surface change: the additive `?limit=&offset=` server-side pagination on every core list surface — see the P24 Addendum below; carried forward: the P23 presentation/test-tier sprint, the P21 list-envelope unification, the InvoiceNow evidence stamp, the on-commit cache invalidation, the ValidateBalance typed-400 body contract; carried forward: the P20 route errata + the P17 400 contracts)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
 ---
@@ -16,7 +16,7 @@ Every documented contract below was re-exercised against the running stack
 | Contract | Result |
 |:---|:---|
 | `POST /api/v1/auth/login/` → `{tokens: {access, refresh}}` | ✅ Verified (live curl) |
-| All 9 documented list endpoints → `{results, count}` envelope | ✅ Verified — 9/9 return HTTP 200 with the paginated object (banking×3, contacts, documents, tax-codes, returns, accounts, journal entries) |
+| All 9 documented list endpoints → `{results, count}` envelope | ✅ Verified — 9/9 return HTTP 200 with the paginated object (banking×3, contacts, documents, tax-codes, returns, accounts, journal entries); **P24**: the six core list surfaces additionally accept `?limit=&offset=` (the pagination contract — see the P24 Addendum) |
 | Journal mount: `/journal/entries/` 404 vs `/journal-entries/entries/` 200 | ✅ Verified (both directions) |
 | `POST /documents/{id}/approve/` → posts the GL journal | ✅ Verified (P11 live gate); **credit notes post REVERSED entries** — AR credit, revenue/GST debit (P11/C-1 fix) |
 | F5 computation | ✅ Net of credit notes, posted-types only (P11/H-3) — quotes no longer pollute Box 1 |
@@ -159,6 +159,85 @@ production-CSP smoke **5/5** · the runtime-role smoke **13/13** · the
 mobile-nav probe **17/17**.
 
 ---
+
+## P24 Addendum — the server-side list pagination contract (2026-11-27, session 45)
+
+**The contract change (additive — the default behaviour is unchanged):** every
+core list surface now accepts `?limit=N&offset=M` query params. With `limit`
+ABSENT, the response stays exactly `{results, count}` as documented in the P21
+addendum (every existing recipe below keeps working byte-identically). With
+`limit` PRESENT, the envelope gains `next` / `previous` and `count` reads as
+the TOTAL matching rows:
+
+```json
+{
+  "results": [ /* the N rows of this page */ ],
+  "count": 1234,           /* the TOTAL matching rows (not the page size) */
+  "next": "https://api.example.com/api/v1/{org}/journal-entries/ledger/?limit=50&offset=100",
+  "previous": null           /* null on the first page; an absolute URL otherwise */
+}
+```
+
+The paginated surfaces (the six core lists):
+
+| Route | Notes |
+|:---|:---|
+| `GET /api/v1/{org_id}/journal-entries/ledger/` | the line-level ledger — paginated at the SQL level (`LIMIT`/`OFFSET` pushed into the query; `count` via `COUNT()`) |
+| `GET /api/v1/{org_id}/journal-entries/entries/` | the entries list |
+| `GET /api/v1/{org_id}/invoicing/documents/` | invoices / quotes / credit notes |
+| `GET /api/v1/{org_id}/invoicing/contacts/` | contacts |
+| `GET /api/v1/{org_id}/banking/payments/` | payments |
+| `GET /api/v1/{org_id}/banking/bank-transactions/` | imported bank transactions |
+
+**Rules (typed, tested):**
+
+- `limit` must be an integer in **[1, 1000]** — anything else (garbage, 0,
+  negative, > 1000) is a **400** error envelope naming the param (the P7/F-11
+  convention; a caller's paging bug surfaces rather than silently clamping).
+- `offset` must be a non-negative integer — garbage or negative is a 400.
+- `next` is present only while `offset + limit < count` (null on the last
+  page and beyond); `previous` is present whenever `offset > 0` (clamped to
+  offset 0). Both URLs are absolute and **carry the caller's filter params
+  unchanged** (paging inside a filtered set does not widen it).
+- `offset` beyond the end returns an empty `results` page with the true
+  `count` and a valid `previous`.
+- The orders are deterministic total orders (the ledger by
+  `-entry_date, -entry_number, line_number`; contacts by `name, id`; payments
+  by `-payment_date, -created_at, -id`) — page boundaries cannot skip or
+  duplicate a tied row.
+
+**CLI recipes:**
+
+```bash
+# Page through the general ledger 50 rows at a time
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8000/api/v1/$ORG/journal-entries/ledger/?limit=50&offset=0"
+# -> {"results": [...50 rows...], "count": 1234, "next": "...offset=50", "previous": null}
+
+# Follow the envelope's own URL (jq extracts it verbatim)
+curl -s -H "Authorization: Bearer $TOKEN" "$(curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8000/api/v1/$ORG/journal-entries/ledger/?limit=50&offset=0" \
+  | jq -r '.next')"
+
+# The last partial page: 36 rows at limit 20 -> page 2 = rows 21-36, next=null
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8000/api/v1/$ORG/journal-entries/ledger/?limit=20&offset=20"
+
+# Filters survive into next/previous (page inside the filtered set)
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8000/api/v1/$ORG/journal-entries/ledger/?limit=5&date_from=2026-01-01"
+
+# A typed 400 names the param
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8000/api/v1/$ORG/journal-entries/ledger/?limit=0"
+# -> 400 {"error": {"code": "validation_error", "message": "Invalid 'limit' — must be between 1 and 1000, got '0'."}}
+```
+
+The general-ledger web UI consumes this contract at page size 20 (the shared
+TablePagination control). Current gate truth (session 45): backend **995
+passed / 0 failed / 5 skipped** (the +26 are the pagination contract gates) ·
+frontend **660 vitest + 42 e2e** (42/42 live) · the production dependency set
+clean at 0 advisories. See `docs/REMEDIATION_2026-11-27_P24_REPORT.md`.
 
 ## P23 Addendum — no API-surface change; the gates re-verified (2026-11-27, session 44)
 

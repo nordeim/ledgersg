@@ -1,0 +1,61 @@
+# LedgerSG — Remediation Report (P24 Sprint: The Server-Side List Pagination — The Ledger Line Materialisation First Target)
+
+**Date:** 2026-11-27 (session 45)
+**Base commit:** `05daa36f` (main — post-P23 + the session-45 log)
+**Plan:** `docs/REMEDIATION_PLAN_2026-11-27_P24.md` (validated against the codebase before execution — every surface hand-audited; the ordering-prerequisite audit; the config/fixture conventions probed)
+**Method:** TDD (RED → GREEN → full gate) for every behavioural change; eslint parity on touched files; `skills/` excluded from all checks/tests/compilation; **no schema changes** (v1.2.2 carries forward); no backend model changes.
+
+---
+
+## 1. Verification Ledger (executed evidence)
+
+| Gate | Result | Confidence |
+|---|---|---|
+| Baseline reproduction (pre-change, this tree) | backend **969P/0F/5S** (20.78s) · vitest **642/642 (76 files)** · `tsc` 0 · eslint whole-tree **0E/0W** · live e2e:full **41/41** (2.2m) · rls_smoke **13/13** · mobile-nav **17/17** · prod-CSP **5/5** · `npm audit` **0 critical** (17 dev-tier; `--omit=dev` → 0) — the P23 claims re-Verified | Verified |
+| The named focus — the mobile-nav live re-probe (agent-browser) | closed `translate: -100%` / `visibility: hidden`; **mid-flight sample `translate: -40.963%`** (120ms after the toggle click — the slide interpolates); open `translate: 0px` / `visibility: visible` / `role="dialog"`; computed `transitionProperty: "transform, translate, visibility"` at both viewports; Escape closes it back to `-100%` — **the navigation works as expected; no remaining Tailwind v4 bug on this surface** (the sixteenth settlement) | Verified |
+| RED: `tests/integration/test_pagination_p24.py` on base code | **20 failed** naming exactly the missing contract (`assert 28 == 10` — the limit ignored; `KeyError: 'next'` — the envelope keys absent) + 6 passed (the pre-existing behaviour pins) | Verified |
+| RED: the frontend tier on base code | the component spec fails wholesale (the component absent); `use-ledger` +3 failed (limit/offset not forwarded); the page spec +2 failed (no pagination controls); the e2e `P24/FE-P1` **1 failed** on the missing `navigation "Pagination"` | Verified |
+| GREEN: the backend contract | `test_pagination_p24.py` **26/26** — the ledger unpaginated byte-identical `{results, count}`; limit slices with `count` = the TOTAL; next/previous boundaries (first page `previous: null`; last page `next: null`; offset-beyond-end → empty + valid previous); the no-skip/no-dup page walk; the account-filter surviving into `next`; the typed 400s on garbage limit/offset (abc/0/-5/1001/offset -1); `limit=1000` accepted | Verified |
+| GREEN: the frontend tier | the component spec **13/13** (the summary math incl. the empty set + the partial last page; the boundary disabled states; the offset-math callbacks; the nav landmark + the polite live region) · the hook spec **6/6** (limit/offset forwarded; filters combined; **the cache-paging pin**: two offsets under one QueryClient fetch BOTH URLs with distinct data) · the page spec **7/7** (the controls + summary over real rows; the single-page boundary) | Verified |
+| GREEN: the live e2e | `e2e/ledger.spec.ts` **2/2** — the `P24/FE-P1` spec pages the real substrate: "Showing 1–20 of N rows" → Next → "Showing 21–N of N" with a changed row set → Previous returns to 1–20 | Verified |
+| The live agent-browser re-probe of the paginated ledger | page 1: `summary: "Showing 1–20 of 36 rows"`, Previous disabled, Next enabled; after Next: `page2Summary: "Showing 21–36 of 36 rows"`, the first row `JE-00006` (page 1's was `JE-00014`) | Verified |
+| The SQL-level pagination probe (curl, the live :8000) | `?limit=10&offset=30` → `count: 36`, `results: 6`, `next: null`, `previous: <absolute URL>` — the contract live on the running stack | Verified |
+| The full gate matrix on the remediated tree | backend `pytest` **995P/0F/5S** (+26) · vitest **660/660 (77 files)** (+18) · `test:coverage` exit 0 — **green at the ratchet** (71/60/68/71 + the per-glob floors) · `tsc` 0 · whole-tree `eslint` **0E/0W** · live `test:e2e:full` **42/42** (+1) · `rls_smoke` **13/13** · `mobile-nav-audit.js` **17/17** (the sixteenth settlement) · `prod-csp-smoke.js` **5/5** · `npm audit` **0 critical** (17 dev-tier remainder; the production set 0) | Verified |
+| Screenshots | 8 captures (`144-151_*_session45.png`), md5-unique, non-blank pixel-verified (0.25–0.57 non-uniform ratios); shots 144/145 are the ledger page 1/page 2 pair with the pagination summary + boundary-disabled truths asserted in-DOM | Verified |
+
+**Environment lessons (no code impact, recorded in AGENTS.md):** (1) the `--noreload` dev servers do not pick up code changes — the first live-e2e GREEN attempt silently ran the OLD backend (the pagination keys absent); both instances were restarted via the repo's `scripts/daemonize.py` before the live gates. (2) The restart un-masked a **latent pre-existing settings bug**: `config/settings/base.py:222` has declared `DEFAULT_PAGINATION_CLASS: "common.pagination.StandardPagination"` since "backend phase 0" — a module that never existed. It survived every boot because DRF's pagination check short-circuits on `PAGE_SIZE`... until `PAGE_SIZE: 50` entered the settings, making the check import the class path at every system check; the crash surfaced the moment a real `common/pagination.py` landed without the class. The legacy DRF classes were restored verbatim alongside the new limit/offset helpers (the module now defines both; the classes stay dormant — no LedgerSG view paginates through DRF's generics).
+
+## 2. What changed (1 backend module + 6 views + 3 service order_by pins + the frontend slice, no schema, no models)
+
+1. **`apps/backend/common/pagination.py`** (rewritten, merging the legacy): `parse_limit_offset` (typed 400s via the existing `parse_int_param` conventions; limit ∈ [1, 1000]; offset ≥ 0) + `page_envelope` (the `{results, count, next, previous}` response; DRF LimitOffset semantics; the caller's filters preserved in the absolute URLs) + the four legacy DRF page-number classes kept verbatim (`StandardPagination` is string-referenced by the settings — the latent-crash lesson).
+2. **`apps/backend/apps/journal/views.py`** — `LedgerView` paginates at the SQL level (`queryset.count()` + `queryset[offset:offset+limit]`; the unpaginated path byte-identical); `JournalEntryListCreateView` takes the envelope-level slice.
+3. **`apps/backend/apps/invoicing/views.py`** — `ContactListCreateView` + `InvoiceDocumentListCreateView`: the same envelope-level integration.
+4. **`apps/backend/apps/banking/views.py`** — `PaymentListView` + `BankTransactionListView`: the same.
+5. **The ordering tiebreakers (I1):** `contact_service.py` `order_by("name")` → `("name", "id")`; `payment_service.py` → `("-payment_date", "-created_at", "-id")`; `reconciliation_service.py` → `("-transaction_date", "-created_at", "-id")` — the unique final key closes the cross-page skip/dup hazard (the ledger/entries/documents already carry the schema's UNIQUE keys).
+6. **`apps/web/src/components/ui/table-pagination.tsx`** (new, 13 tests): the shared accessible page control — the `nav[aria-label="Pagination"]` landmark, the "Showing x–y of z rows" summary as a polite live region, real Previous/Next buttons with boundary-disabled states, `onPageChange(offset)` with the clamped offset math.
+7. **`apps/web/src/hooks/use-ledger.ts`**: `limit`/`offset` forwarded as query params AND **into the queryKey** (the cache-paging trap — pinned by its own test); `LedgerResponse` types the optional `next`/`previous`; `placeholderData` keeps the previous page visible mid-flight.
+8. **`apps/web/src/app/(dashboard)/ledger/ledger-client.tsx`**: page state at **page size 20**, the controls rendered with the envelope's `count`, `isFetching` disables during flight, the org change resets the page.
+9. **Tests:** `apps/backend/tests/integration/test_pagination_p24.py` (26 gates, the RED→GREEN record above) · `table-pagination.test.tsx` (13) · `use-ledger.test.tsx` (+3) · `ledger-page.test.tsx` (+2) · `e2e/ledger.spec.ts` (+1, the `P24/FE-P1` spec — backend-gated like its file sibling).
+10. **`scripts/capture-screenshots-session45.js`** (new): the 8-shot capture script (the session-44 pattern), driving the pagination control + the payments tab live.
+
+## 3. The pagination verdict (the task's focus)
+
+**The registered big-ticket deferral is shipped: the additive `?limit=&offset=` contract on the six core list surfaces, the general ledger (the line-level unbounded surface) at the SQL level.** With `limit` absent every response is byte-identical `{results, count}` (the back-compat test pins the exact key set) — every existing consumer (the 42-spec e2e suite, the bootstrap script, rls_smoke, the five frontend hooks) kept working with zero changes (the full matrix re-ran green). With `limit` present the envelope gains `next`/`previous` (absolute URLs carrying limit+offset+the caller's filters) and `count` reads as the TOTAL matching rows. The ordering-correctness prerequisite was audited first: the ledger/entries/documents orders were already total (the schema's UNIQUE keys); the contacts/payments/transactions surfaces gained the `id` tiebreaker with a forced-tie no-skip/no-dup test. The ledger UI is the first consumer (the shared `TablePagination` at page size 20; the live e2e pages the real substrate). The frontend wiring for invoices/contacts/payments registers next; the SQL-level push-down through the five service signatures registers after that; the capped-default flip registers once every consumer passes explicit limits.
+
+## 4. Audit of recent changes (Mode C, static + executed)
+
+- The P23 commits re-verified live this session: the drawer-slide transition contract read live (`transitionProperty: "transform, translate, visibility"`; the mid-flight sample) + the 41/41→42/42 e2e matrix — the P23 claims hold on the current tree.
+- `npm audit`: **0 critical**; 17 dev-tier findings (2 low / 8 moderate / 7 high — the typescript-eslint 8.x stack, vite, undici, brace-expansion chains) need major bumps — a 49-package `audit fix` dry-run was measured and deliberately NOT applied (the dedicated dependency sprint decision re-affirmed; the production dependency set is clean at 0).
+- `vitest.config.ts` + `playwright.config.ts` needed no structural modification (the ratchet, the serial live-suite contract, the locale/timezone pins all correct): the task's "add test suite by modifying the respective config files" is satisfied by the new suites running under the existing configs (the P23 interpretation re-affirmed — this sprint adds 1 vitest spec file + 2 extended spec files + 1 e2e spec under them).
+- The `.env.example`s re-verified truthful variable-by-variable (the config-readers sweep re-run): the 16 backend `config()` vars are all documented; the web tree reads exactly `NEXT_PUBLIC_API_URL` + `NEXT_OUTPUT_MODE` — no new env vars this sprint, no changes required.
+
+## 5. Remaining / deferred (explicit, registered in the plan's §4)
+
+The SQL-level push-down for the five service-driven lists (the payload is bounded now; the DB transfer next); the frontend pagination wiring for invoices / contacts / payments / transactions; the capped-default flip (after every consumer passes explicit limits); the 17 dev-tier npm-audit findings (the dedicated dependency sprint); the ruff mechanical batch (936 production findings); the audit-log INSERT policy (DDL); BE-L3 config-class locking; BE-L4 Peppol log-state locking; CSV errors[] raw strings; dead-letter design; UEN checksum; NULL-context SELECT tradeoff; H-05b models; PaymentsTab prefill; TanStack incompatibility; the membership-cache window; the journal detail N+1; the P20-era FE-M2/M3 designs; CI hardening; the version-story reconciliation — the P21/P23 deferred registers carry forward unchanged.
+
+## 6. Confidence labels
+
+- **Verified:** every row in §1 (executed and observed in this session, on this tree — including the live probes against the restarted stack).
+- **Reasoned:** the no-regression claim for untouched surfaces (the full matrix green; `git status` shows only the intended files).
+- **Assumed:** none material (the production set's zero advisories re-verified via `npm audit --omit=dev`).
+- **Unverifiable here:** none.

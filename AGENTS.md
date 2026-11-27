@@ -2,19 +2,33 @@ LedgerSG Project Status — Comprehensive Summary
 Executive Overview
 LedgerSG is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs with IRAS 2026 compliance. The platform has undergone significant development across multiple phases, achieving enterprise-grade security, comprehensive test coverage, and a complete banking UI.
 ---
-Current Status (2026-11-27 — P23 remediated; see the sprint-patterns sections
-at the bottom of this file for P0–P23 and the README status table for the
+Current Status (2026-11-27 — P24 remediated; see the sprint-patterns sections
+at the bottom of this file for P0–P24 and the README status table for the
 live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 44 / P23):
-- Backend: pytest 969 passed / 0 failed / 5 skipped (974 collected;
-  invariants 34, security 83 passed + 3 skipped) — re-verified on a
-  fresh clone this session (no backend code changed in P23)
-- Frontend: vitest 642/642 (76 files, on vitest 4.1.12 — the P23
+Current truth (all gates executed and green, session 45 / P24):
+- Backend: pytest 995 passed / 0 failed / 5 skipped (1000 collected)
+  — the P24 pagination contract file added 26 gates; the P21-era
+  register's big-ticket deferral (list pagination) is shipped
+- Frontend: vitest 660/660 (77 files, on vitest 4.1.12 — the P23
   advisory closure), tsc --noEmit 0 errors, whole-tree
   eslint **0 errors / 0 warnings**
+- P24 headline: the server-side list pagination — the additive
+  `?limit=&offset=` contract on the six core list surfaces (the
+  general ledger at the SQL level: count() + the queryset slice; the
+  entries, documents, contacts, payments and transactions lists at
+  the envelope level); with `limit` absent the response stays
+  byte-identical {results, count} (every existing consumer keeps
+  working); with it the envelope gains next/previous (absolute URLs
+  carrying limit+offset+the caller's filters) and count reads as the
+  TOTAL matching rows; garbage limit/offset are typed 400s; the
+  ordering tiebreakers (contacts name,id; payments/transactions with
+  the id final key) close the cross-page skip/dup hazard; the shared
+  accessible TablePagination control + the useLedger page identity
+  in the queryKey (the cache-paging trap) drive the general-ledger
+  UI at page size 20
 - P23 headline: the mobile-nav drawer-slide transition truth (the
   one real Tailwind v4 bug the 13 prior functional settlements missed:
   v4 animates translate-x-* through the STANDALONE `translate` CSS
@@ -35,16 +49,19 @@ Current truth (all gates executed and green, session 44 / P23):
   a11y batch (the Reference name, the keyboard-reachable CSV import,
   the loader live regions, the payment-card keyboard contract, the
   reconcile aria-pressed), the timezone-safe date helpers
-- E2E: 41 specs (11 always-green + 30 backend-gated); live run 41P/0F/0S
-green (the P23 transition spec included; the P21 live run 40P/0F/0S was
-green on the FIRST run of a fresh DB — the P20/X-H1 bootstrap fix);
-  CI runs the always-green 11 (P18/CFG-L1)
+- E2E: 42 specs (11 always-green + 31 backend-gated); live run 42P/0F/0S
+green (the P24 ledger-pagination spec included; the P23 transition
+spec + the P21 live runs before it); CI runs the always-green 11
+  (P18/CFG-L1)
 - Production-CSP smoke (P16/FE-C1): 5/5 — nonce served, hydration
   happened, zero violations (the gate class the dev suite cannot cover)
 - Runtime-role smoke: 13/13 steps green as ledgersg_app (C-1/H-7)
 - Mobile-nav live probe: 17/17 at 375/800/1280 — the navigation works,
-  the functional contract green (the fifteenth settlement, session 44 /
-  P23); the ONE real v4-class animation bug (the drawer's transition
+  the functional contract green (the sixteenth settlement, session 45 /
+  P24 — the live agent-browser probe this session re-sampled the slide
+  mid-flight at translate: -40.963% and read the computed
+  transitionProperty "transform, translate, visibility"); the ONE real
+  v4-class animation bug (the drawer's transition
   list omitting the standalone `translate` property — the slide never
   interpolated) was found by the P23 compile proof and FIXED with its
   own compiled-CSS gates (the tailwindcss-animate family that silently
@@ -1669,3 +1686,56 @@ pure environment state. Lesson: on a red suite, FIRST inventory what
 environment state changed since the last green run; role passwords and
 other DB-level state are invisible to `git status`. And when a probe
 changes role state, restore it before the next gate run.
+
+## 2026-11-27 P24 Sprint — New Patterns & Lessons (session 45)
+
+### The Page Identity Must Live In The queryKey
+Adding `offset` to a paginated fetch WITHOUT adding it to the TanStack
+queryKey makes every page resolve the FIRST page's cache — the table
+silently shows the wrong rows with no error anywhere (the exact
+silent-wrong-data class). The behavioral pin: render two different
+offsets under one QueryClient and assert BOTH URLs were fetched and the
+page-2 data differs from page-1. Query-key conventions are type
+systems (the P16/FE-H1 lesson, now with a second concrete instance).
+
+### An Additive Envelope Beats A Flipped Default
+Pagination could have shipped as a capped DEFAULT (every list capped at
+N rows) — one line per view. It would also have changed the contract
+for every existing consumer at once: the e2e specs, the bootstrap
+script, rls_smoke, five frontend hooks. The additive shape — `limit`
+absent → the response byte-identical `{results, count}`; `limit`
+present → `{results, count, next, previous}` with count as the TOTAL —
+cost one extra branch per view and broke nothing (the full matrix
+re-ran green, zero consumer changes). Flip the default only after
+every consumer passes an explicit limit.
+
+### Pagination Requires A Deterministic Total Order
+`order_by("name")` (contacts) and `order_by(-payment_date, -created_at)`
+(payments) carry no unique final key — Postgres tie order is not stable
+across EXECUTIONS, so a page boundary can skip or duplicate a tied row
+(two same-name contacts, two same-instant payments). Every paginated
+surface needs a total order: the schema's UNIQUE keys already carry
+the ledger/entries/documents (`(org_id, entry_number)` + line_number;
+`(org_id, document_number)`); the tiebreaker fix appends `id`. The
+pin: create two same-name rows, page limit=1 across the set, assert
+no skip and no duplicate.
+
+### A Settings String Can Point At A Class Nobody Runs
+`config/settings/base.py` declared `DEFAULT_PAGINATION_CLASS:
+"common.pagination.StandardPagination"` — a module the repo never had.
+It survived every boot because DRF's pagination check short-circuits
+on `PAGE_SIZE`... until `PAGE_SIZE: 50` also appeared, making the check
+import the class path at every system check. The latent crash surfaced
+only when a real `common/pagination.py` landed WITHOUT the class (the
+first restart after the edit). Lesson: string-referenced settings are
+load-bearing contracts — when you CREATE a module a settings path
+points at, grep the settings for its name first, and boot the server
+after module surgery, not just the test suite (pytest never ran the
+check).
+
+### Restart The --noreload Backends After Backend Code Changes
+The dev servers run with `--noreload` (the daemonize pattern) — code
+changes do NOT reach them. The live-probe/e2e loop will silently test
+yesterday's code (the first pagination e2e run failed against the
+old backend that ignored `limit`). After any backend edit: restart
+both instances (:8000 + the :8001 RLS one) before a live gate.

@@ -1190,3 +1190,76 @@ materialisation first); the ruff mechanical batch (936 production);
 the audit-log INSERT policy (DDL); BE-L3/BE-L4 locking; the CSV
 errors[] strings; dead-letter design; UEN checksum; the P21 deferred
 register carried forward unchanged.
+
+## P24 Remediation — 2026-11-27 (session 46): the server-side list pagination (the ledger line materialisation first target)
+
+**Base:** `05daa36f` (post-P23 + the session-45 log). **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-27_P24.md` (anchor-validated);
+**report:** `docs/REMEDIATION_2026-11-27_P24_REPORT.md`. **Method:**
+TDD (RED → GREEN → full gate) for every behavioural change;
+conventional commits on `main`; `skills/` excluded; no DDL (schema
+v1.2.2 carries forward); no backend model changes. The session-44
+environment was still live (the sandbox survived), so the setup phase
+was verification-only: `git pull` to `05daa36f`, the DB/role/substrate
+state probed, the demo login re-verified.
+
+### The baselines (reproduced exactly before any change)
+
+backend **969P/0F/5S** · vitest **642/642 (76 files)** · tsc 0 ·
+eslint **0E/0W** · live e2e:full **41/41** · rls_smoke **13/13** ·
+mobile-nav **17/17** (sixteenth settlement) · prod-CSP **5/5** · npm
+audit **0 critical** (17 dev-tier; the production set 0).
+
+### The named focus — settled first
+
+**The mobile navigation menu works as expected; NO remaining
+TailwindCSS v4 bug on that surface.** The live agent-browser probe
+re-read the P23 fix (the computed `transitionProperty: "transform,
+translate, visibility"`; the closed drawer `-100%`/hidden; a 120ms
+mid-flight sample at `translate: -40.963%` — the slide interpolates;
+the open drawer a `role="dialog"` at `0px`; Escape closes it) + the
+17/17 probe + the 6 e2e specs in the 41/41 run.
+
+### The audits (Mode C; every finding hand-verified)
+
+The registered big-ticket deferral picked as the target: **no list
+endpoint paginates** — the ledger endpoint returns the org's entire
+line-level history in one payload (the P21 envelope was explicitly
+the prerequisite). The ordering-prerequisite audit: the ledger/
+entries/documents orders were already total (the schema's UNIQUE keys
++ line_number); contacts (`name`) and payments
+(`-payment_date, -created_at`) lacked the unique final key — the
+cross-page skip/dup hazard (Postgres tie order is not stable across
+executions). The dormant `DEFAULT_PAGINATION_CLASS` settings path
+(latent — surfaced only at the post-change restart).
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-M1 | the additive `?limit=&offset=` contract: `common/pagination.py` (typed 400s on garbage; limit ∈ [1, 1000]; `next`/`previous` absolute URLs carrying the caller's filters; `count` as the TOTAL) + `LedgerView` at the SQL level (`count()` + the queryset slice) + the five service-driven views at the envelope level (entries, documents, contacts, payments, transactions) + the legacy DRF classes restored verbatim (the settings string-reference lesson) | the 26 contract gates (both envelope modes pinned: byte-identical unpaginated; the paginated boundaries; the no-skip/no-dup walk; the typed 400s) + the live curl probe |
+| I1 (tiebreakers) | contacts `name, id`; payments `-payment_date, -created_at, -id`; transactions `-transaction_date, -created_at, -id` | the forced-tie test (two same-name contacts paginate limit=1 without skip or dup) |
+| FE-M2/L1 | the shared accessible `TablePagination` (nav landmark; the polite "Showing x–y of z" live region; boundary-disabled Previous/Next) + `useLedger` forwarding limit/offset **with the page identity in the queryKey** (the cache-paging trap) + the ledger client at page size 20 (the org change resets the page) | 13 component tests + the 3 hook tests (incl. the cache-paging pin) + the 2 page tests + the live e2e `P24/FE-P1` (Next advances to "Showing 21–36 of 36", Previous returns) |
+| X-env | both `--noreload` backends restarted via the daemonizer before the live gates (the first e2e GREEN attempt had silently run the old backend) | the two AGENTS.md lessons (the restart rule; the latent settings-string crash) |
+| X-docs | the truth pass (README badge 1697 + the P24 milestone, CLAUDE 2.25.0, AGENTS header + the P24 lessons, SKILL 2.11.0, PAD rows, DEPLOYMENT counts + §7/§9, the API guide 3.3.0 + the P24 pagination addendum with CLI recipes, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful (no changes required) |
+
+### Final gate (all verified, executed)
+
+backend **995P/0F/5S** (+26) · vitest **660/660 (77 files)** (+18) ·
+tsc 0 · whole-tree eslint **0 errors / 0 warnings** · **coverage
+green at the ratchet** · **e2e:full 42P/0F/0S** · **rls_smoke 13/13
+as `ledgersg_app`** · **mobile-nav 17/17** · **prod-CSP 5/5** ·
+build:server green · schema v1.2.2 (no DDL). 8 DOM-verified
+screenshots (144-151, the ledger page 1/page 2 headline pair).
+
+### Deferred (registered, not dropped)
+
+The SQL-level push-down for the five service-driven lists; the
+frontend pagination wiring for invoices/contacts/payments/
+transactions; the capped-default flip (after every consumer passes
+explicit limits); the 17 dev-tier npm-audit findings (the dedicated
+dependency sprint — the 49-package `audit fix` dry-run measured and
+deliberately not applied); the ruff mechanical batch (936
+production); the audit-log INSERT policy (DDL); BE-L3/BE-L4 locking;
+the CSV errors[] strings; dead-letter design; UEN checksum; the P21
+deferred register carried forward unchanged.
