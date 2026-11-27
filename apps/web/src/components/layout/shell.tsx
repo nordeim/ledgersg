@@ -277,7 +277,16 @@ export function Shell({ children }: ShellProps) {
           // with it on the transition, closing stays visible through the
           // slide-out and flips to hidden at the end; opening flips
           // visible immediately.
-          "transition-[transform,visibility] duration-300 ease-in-out",
+          //
+          // P23/FE-M1: `translate` MUST be in the list — Tailwind v4
+          // renders translate-x-* through the STANDALONE `translate` CSS
+          // property (not `transform: matrix(...)`), so a transform-only
+          // list compiled to `transition-property: transform,visibility`
+          // and the 300ms slide snapped (open/close still worked — the
+          // animation was dead config; Trap 5(b) in
+          // docs/Tailwind-V4-Validation-Report.md). `transform` stays for
+          // matrix-engine robustness, `visibility` for the discrete hide.
+          "transition-[transform,translate,visibility] duration-300 ease-in-out",
           sidebarOpen
             ? "translate-x-0"
             : "-translate-x-full md:translate-x-0 invisible md:visible"

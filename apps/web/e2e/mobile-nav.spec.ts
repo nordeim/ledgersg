@@ -168,4 +168,43 @@ test.describe("Mobile navigation (P12/A-1 + A-2)", () => {
     );
     expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
   });
+
+  // -------------------------------------------------------------------------
+  // P23/FE-M1: the drawer-slide transition contract. Tailwind v4 renders
+  // translate-x-* through the STANDALONE `translate` CSS property — the
+  // aside's transition list must include `translate` or the 300ms slide
+  // never interpolates (the drawer snapped pre-P23 while every functional
+  // probe stayed green: the state/visibility/focus contracts were correct,
+  // the animation was dead config). Asserts the COMPUTED style in a real
+  // browser: transitionProperty must contain BOTH `translate` (the v4
+  // slide property) AND `visibility` (the P13/H-2 discrete hide), and the
+  // duration budget must be live.
+  // -------------------------------------------------------------------------
+
+  test("P23/FE-M1: the drawer slide transitions the v4 `translate` property (the compiled contract)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await loginViaUi(page);
+
+    const toggle = getToggle(page);
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    const aside = page.locator("aside");
+    const transitionProperty = await aside.evaluate(
+      (el) => getComputedStyle(el).transitionProperty
+    );
+    // v4 compiles -translate-x-full to the standalone `translate`
+    // property: without it in the list, the slide snaps.
+    expect(transitionProperty).toContain("translate");
+    // The P13/H-2 discrete visibility hide stays transitioned.
+    expect(transitionProperty).toContain("visibility");
+
+    // The animation budget is live (duration-300): a duration of 0s
+    // would mean nothing interpolates even with the right property.
+    const transitionDuration = await aside.evaluate(
+      (el) => getComputedStyle(el).transitionDuration
+    );
+    expect(transitionDuration).not.toBe("0s");
+  });
 });
