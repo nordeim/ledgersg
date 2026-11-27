@@ -131,6 +131,64 @@ describe("LedgerClient (real data)", () => {
 
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
   });
+
+  // P24/FE-M2: the ledger pages through the backend contract — the
+  // controls render with the page summary, and the boundaries disable.
+  it("renders the pagination controls with the page summary over real rows (P24)", async () => {
+    vi.mocked(ledgerHooks.useLedger).mockReturnValue({
+      data: {
+        results: [
+          mockLine(),
+          mockLine({
+            id: "line-2",
+            line_number: 2,
+            account_code: "4100",
+            account_name: "Sales Revenue",
+            debit: "0.0000",
+            credit: "5000.0000",
+          }),
+        ],
+        count: 51,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof ledgerHooks.useLedger>);
+
+    renderPage();
+
+    expect(await screen.findByText("1200")).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Pagination" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–20 of 51 rows")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /previous page/i })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /next page/i })
+    ).not.toBeDisabled();
+  });
+
+  it("hides the pagination controls for an unpaginated single-page ledger", async () => {
+    // count <= page size — the controls stay (Next disabled), the summary
+    // reads the full set. Pinned: no crash on the equal boundary.
+    vi.mocked(ledgerHooks.useLedger).mockReturnValue({
+      data: {
+        results: [mockLine()],
+        count: 1,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof ledgerHooks.useLedger>);
+
+    renderPage();
+
+    expect(await screen.findByText("1200")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–1 of 1 rows")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /next page/i })).toBeDisabled();
+  });
 });
 
 describe("LedgerClient — no-organisation state (P7/F-12)", () => {

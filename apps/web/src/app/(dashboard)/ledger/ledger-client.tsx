@@ -3,6 +3,7 @@
 import * as React from "react";
 import { AlertTriangle, Loader2, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { LedgerTable } from "@/components/ledger/ledger-table";
 import { useAuth } from "@/providers/auth-provider";
 import { useLedger } from "@/hooks/use-ledger";
@@ -10,13 +11,33 @@ import { useLedger } from "@/hooks/use-ledger";
 /**
  * Real general ledger (P6/C-5 — replaced the mockData fixture). Rows come
  * from the backend ledger endpoint (one row per journal line).
+ *
+ * P24/FE-M2: the surface pages server-side — page size 50 rows via the
+ * `?limit=&offset=` contract; the shared TablePagination drives the
+ * offset (page identity lives in the hook's queryKey, so pages never
+ * serve each other's cache).
  */
+
+/** The page size — a dense financial table at a conventional 20 rows
+ * per page; the §9 demo substrate (36 lines) exercises the controls
+ * live at 2 pages. */
+const LEDGER_PAGE_SIZE = 20;
 
 export function LedgerClient() {
   const { currentOrg, isLoading: authLoading } = useAuth();
   const orgId = currentOrg?.id ?? null;
 
-  const { data, isLoading, isError } = useLedger(orgId);
+  const [offset, setOffset] = React.useState(0);
+
+  const { data, isLoading, isError, isFetching } = useLedger(orgId, undefined, {
+    limit: LEDGER_PAGE_SIZE,
+    offset,
+  });
+
+  // A new organisation resets the pagination (offsets belong to their set).
+  React.useEffect(() => {
+    setOffset(0);
+  }, [orgId]);
 
   // P7/F-12: an authenticated user with no organisation is not an error —
   // a disabled query reports isLoading=false and would fall through to the
@@ -84,5 +105,16 @@ export function LedgerClient() {
     );
   }
 
-  return <LedgerTable data={lines} />;
+  return (
+    <div className="flex flex-col gap-4">
+      <LedgerTable data={lines} />
+      <TablePagination
+        offset={offset}
+        limit={LEDGER_PAGE_SIZE}
+        count={data?.count ?? lines.length}
+        onPageChange={setOffset}
+        disabled={isFetching}
+      />
+    </div>
+  );
 }

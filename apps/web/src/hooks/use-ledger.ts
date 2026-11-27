@@ -3,6 +3,11 @@
  *
  * P6/C-5: the flat line-level general-ledger contract
  * (GET /api/v1/{org_id}/journal-entries/ledger/).
+ *
+ * P24/FE-M2: the pagination contract — limit/offset ride the query
+ * string AND the queryKey (the page identity): without the key a page
+ * change would resolve the previous page from cache and the table
+ * would silently show the wrong rows.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -29,6 +34,9 @@ export interface LedgerLine {
 export interface LedgerResponse {
   results: LedgerLine[];
   count: number;
+  /** P24/BE-M1: present only in the paginated mode (limit provided). */
+  next?: string | null;
+  previous?: string | null;
 }
 
 export interface LedgerFilters {
@@ -38,19 +46,33 @@ export interface LedgerFilters {
   source_type?: string;
 }
 
+/** P24/FE-M2: the page request (limit/offset over the backend contract). */
+export interface LedgerPage {
+  limit: number;
+  offset: number;
+}
+
 export function useLedger(
   orgId: string | null | undefined,
-  filters?: LedgerFilters
+  filters?: LedgerFilters,
+  page?: LedgerPage
 ) {
-  const queryString = filters
-    ? "?" +
-      new URLSearchParams(
-        Object.entries(filters).filter(([, v]) => v)
-      ).toString()
-    : "";
+  const params = new URLSearchParams();
+  if (filters) {
+    for (const [key, value] of Object.entries(filters)) {
+      if (value) params.set(key, value);
+    }
+  }
+  if (page) {
+    params.set("limit", String(page.limit));
+    params.set("offset", String(page.offset));
+  }
+  const queryString = params.toString() ? `?${params.toString()}` : "";
 
   return useQuery({
-    queryKey: [orgId, "ledger", filters],
+    // The page identity MUST live in the key (P24/FE-L1) — pages are
+    // distinct cache entries, never served from each other's cache.
+    queryKey: [orgId, "ledger", filters ?? null, page ?? null],
     queryFn: async () => {
       const response = await api.get<LedgerResponse>(
         endpoints.journal(orgId as string).ledger + queryString
@@ -58,5 +80,6 @@ export function useLedger(
       return response;
     },
     enabled: !!orgId,
+    placeholderData: (previous) => previous,
   });
 }

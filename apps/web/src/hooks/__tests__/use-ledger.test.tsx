@@ -114,4 +114,85 @@ describe("useLedger", () => {
       "/api/v1/org-123/journal-entries/ledger/?date_from=2026-01-01"
     );
   });
+
+  // P24/FE-L1: the pagination contract + the queryKey page identity.
+  describe("pagination (P24)", () => {
+    it("passes limit/offset through as query parameters", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockLedgerResponse);
+
+      const { result } = renderHook(
+        () => useLedger("org-123", undefined, { limit: 50, offset: 50 }),
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => expect(result.current.data).toBeDefined());
+
+      expect(api.get).toHaveBeenCalledWith(
+        "/api/v1/org-123/journal-entries/ledger/?limit=50&offset=50"
+      );
+    });
+
+    it("combines filters with limit/offset in the query string", async () => {
+      vi.mocked(api.get).mockResolvedValue(mockLedgerResponse);
+
+      const { result } = renderHook(
+        () =>
+          useLedger("org-123", { date_from: "2026-01-01" }, { limit: 50, offset: 0 }),
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => expect(result.current.data).toBeDefined());
+
+      expect(api.get).toHaveBeenCalledWith(
+        "/api/v1/org-123/journal-entries/ledger/?date_from=2026-01-01&limit=50&offset=0"
+      );
+    });
+
+    it("keys the cache per page — a new offset re-fetches, never serves page 1's cache (P24/FE-L1)", async () => {
+      // The stale-cache trap: if offset is not in the queryKey, the
+      // second render resolves page 1's cached data without a fetch —
+      // the table silently shows the wrong rows.
+      vi.mocked(api.get).mockClear();
+      vi.mocked(api.get).mockResolvedValueOnce({
+        ...mockLedgerResponse,
+        results: mockLedgerResponse.results.slice(0, 1),
+        count: 51,
+      });
+
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const Wrapper = ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      // Page 1
+      const first = renderHook(
+        () => useLedger("org-123", undefined, { limit: 1, offset: 0 }),
+        { wrapper: Wrapper }
+      );
+      await waitFor(() => expect(first.result.current.data).toBeDefined());
+
+      // Page 2 under the SAME client — must fetch its own page
+      vi.mocked(api.get).mockResolvedValueOnce({
+        ...mockLedgerResponse,
+        results: mockLedgerResponse.results.slice(1, 2),
+        count: 51,
+      });
+      const second = renderHook(
+        () => useLedger("org-123", undefined, { limit: 1, offset: 1 }),
+        { wrapper: Wrapper }
+      );
+      await waitFor(() => expect(second.result.current.data).toBeDefined());
+
+      const calls = vi.mocked(api.get).mock.calls.map(
+        (call) => (call[0] as string).toString()
+      );
+      expect(calls).toContain("/api/v1/org-123/journal-entries/ledger/?limit=1&offset=1");
+      expect(calls).toContain("/api/v1/org-123/journal-entries/ledger/?limit=1&offset=0");
+      expect(
+        second.result.current.data?.results[0]?.id
+      ).not.toBe(first.result.current.data?.results[0]?.id);
+    });
+  });
 });
