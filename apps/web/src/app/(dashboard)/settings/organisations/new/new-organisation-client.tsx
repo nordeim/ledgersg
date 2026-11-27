@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { uenRegex } from "@/shared/schemas/uen";
+import { uenSchema } from "@/shared/schemas/uen";
 import { ArrowLeft, Building, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,13 +75,16 @@ export function NewOrganisationClient() {
   const validate = (): boolean => {
     const next: Record<string, string> = {};
     if (!form.name.trim()) next.name = "The organisation name is required.";
-    // P17/FE-L6: client-side ACRA validation (the shared uen contract) —
-    // before, an invalid form only surfaced as a generic backend toast.
-    if (form.uen.trim() && !uenRegex.test(form.uen.trim().toUpperCase())) {
-      next.uen =
-        "UEN must match an ACRA format: 8 digits + letter (business), " +
-        "9 digits + letter (local company), or T/S + YY + 2 letters + " +
-        "4 digits + letter (other entities).";
+    // P17/FE-L6 + P18/FE-M4: client-side ACRA validation THROUGH the
+    // shared schema (one source — the message lives in uen.ts, not
+    // duplicated here; the schema normalizes trim/uppercase exactly
+    // like the backend's normalize-then-validate). Empty stays valid
+    // (UEN is optional at creation, as the backend's validate() allows).
+    const uenResult = form.uen.trim()
+      ? uenSchema.safeParse(form.uen)
+      : { success: true as const };
+    if (!uenResult.success) {
+      next.uen = uenResult.error.issues[0]?.message ?? "The UEN is not a valid ACRA format.";
     }
     if (form.gst_registered && !form.gst_reg_number.trim()) {
       next.gst_reg_number = "A GST registration number is required when GST-registered is on.";

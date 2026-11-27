@@ -52,3 +52,48 @@ describe("uenSchema (P17/FE-L6)", () => {
     );
   });
 });
+
+describe("the shared schema is actually CONSUMED (P18/FE-M4)", () => {
+  it("the invoice customer schema normalizes like the shared module (lowercase UENs accepted)", async () => {
+    const { customerSchema } = await import("../invoice");
+    const result = customerSchema.safeParse({
+      id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      name: "Acme Pte Ltd",
+      uen: "t08ll1234a",
+    });
+    expect(result.success, "a lowercase UEN the backend accepts (it normalizes) must not be a client-side false rejection").toBe(true);
+    expect(result.success && result.data.uen).toBe("T08LL1234A");
+  });
+
+  it("the org-creation form validates through the shared schema (one error-message source)", async () => {
+    // The form module must import the shared schema (not hand-roll the
+    // regex + a duplicated message) — the parity contract P17/FE-L6
+    // claimed. Source-level: the module imports uenSchema.
+    const formSource = (await import("node:fs")).readFileSync(
+      (await import("node:path")).resolve(
+        __dirname,
+        "../../../../src/app/(dashboard)/settings/organisations/new/new-organisation-client.tsx"
+      ),
+      "utf-8"
+    );
+    expect(formSource).toMatch(/uenSchema/);
+    expect(formSource).not.toMatch(/Invalid UEN format/);
+  });
+
+  it("the bank PayNow field reuses the shared module's normalization", async () => {
+    const { bankAccountInputSchema } = await import("../bank-account");
+    const result = bankAccountInputSchema.safeParse({
+      account_name: "Operating",
+      bank_name: "Test Bank",
+      account_number: "0012345678",
+      currency: "SGD",
+      gl_account: "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+      paynow_type: "UEN",
+      paynow_id: " t08ll1234a ",
+    });
+    expect(
+      result.success,
+      "the PayNow UEN check normalizes (trim/uppercase) exactly like the shared schema"
+    ).toBe(true);
+  });
+});

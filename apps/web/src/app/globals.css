@@ -1,9 +1,16 @@
 @import "tailwindcss";
+/* P18/FE-L1: the v4-native replacement for the tailwindcss-animate v3
+   plugin vocabulary — without it, the animate-in/out, fade-in-0,
+   zoom-in-95 and slide-in/out-* classes on the Radix primitives
+   (dialog, select, toast) silently compiled to nothing (a real
+   Tailwind v4 migration bug class: the v3 plugin's utilities die
+   quietly in v4). */
+@import "tw-animate-css";
 
 /*
  * LEDGERSG DESIGN TOKENS — MILESTONE 1
  * Aesthetic: Illuminated Carbon (Neo-Brutalist Fintech)
- * Compliance: WCAG AAA Contrast
+ * Compliance: WCAG AA (token pairs verified >= 4.5:1)
  */
 
 @theme {
@@ -37,7 +44,7 @@
 
   --color-text-primary: #FFFFFF;
   --color-text-secondary: #A0A0A0;
-  --color-text-muted: #666666;
+  --color-text-muted: #8A8A8A;
 
   /*
    * TYPOGRAPHY

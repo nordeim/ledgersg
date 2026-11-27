@@ -103,7 +103,7 @@ function InvoiceNowForm({
             InvoiceNow / Peppol
           </CardTitle>
           {settings.is_configured ? (
-            <Badge className="bg-success text-white rounded-sm">Configured</Badge>
+            <Badge className="bg-success text-void rounded-sm">Configured</Badge>
           ) : (
             <Badge variant="outline" className="rounded-sm text-text-muted">
               Not configured

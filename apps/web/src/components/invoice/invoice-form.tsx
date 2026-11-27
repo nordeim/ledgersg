@@ -204,6 +204,10 @@ export function InvoiceForm({
         setError("The server response did not include the created document id.");
         return;
       }
+      // P18/FE-L3: the work is saved — the unsaved-changes signal must
+      // not outlive the save (a stale true between unmount and the next
+      // mount reads as a lie to any guard consumer).
+      setHasUnsavedChanges(false);
       onSuccess?.(document.id);
     } catch (err) {
       setError(

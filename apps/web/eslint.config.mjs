@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // P18: generated test artifacts (coverage/ from `npm run
+    // test:coverage`, test-results/ + playwright-report/ from Playwright
+    // runs) — all gitignored build outputs; eslint must not scan them
+    // (a leftover coverage/block-navigation.js surfaced as a phantom
+    // 6th warning against the documented 5-warning parity).
+    "coverage/**",
+    "test-results/**",
+    "playwright-report/**",
   ]),
 ]);
 

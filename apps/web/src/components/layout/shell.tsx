@@ -106,6 +106,12 @@ export function Shell({ children }: ShellProps) {
     if (!sidebarOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // P18/FE-M1: the org menu lives inside the drawer — when it is
+        // open, IT consumes the first Escape (closing itself and
+        // returning focus to the trigger, still visible). Handling it
+        // here too would close the drawer AND strand focus on the
+        // trigger inside the now-invisible drawer in one keystroke.
+        if (orgSelectorOpen) return;
         e.preventDefault();
         setSidebarOpen(false);
         return;
@@ -139,7 +145,7 @@ export function Shell({ children }: ShellProps) {
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [sidebarOpen]);
+  }, [sidebarOpen, orgSelectorOpen]);
 
   // Focus returns to the trigger when the overlay closes (P12/A-1).
   useEffect(() => {

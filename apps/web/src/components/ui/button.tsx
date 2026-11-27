@@ -19,7 +19,7 @@ const buttonVariants = cva(
         default:
           "bg-accent-primary text-void hover:bg-accent-primary-dim border-accent-primary rounded-sm",
         destructive:
-          "bg-alert text-white hover:bg-red-700 border-alert rounded-sm",
+          "bg-alert text-void hover:bg-alert/90 border-alert rounded-sm",
         outline:
           "bg-void text-text-primary border-border hover:bg-surface hover:text-accent-primary hover:border-accent-primary rounded-sm",
         secondary:

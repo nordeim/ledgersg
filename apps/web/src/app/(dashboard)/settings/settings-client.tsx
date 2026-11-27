@@ -213,7 +213,7 @@ export function SettingsClient() {
               GST Registration
             </CardTitle>
             {org.gst_registered ? (
-              <Badge className="bg-success text-white">Registered</Badge>
+              <Badge className="bg-success text-void">Registered</Badge>
             ) : (
               <Badge className="bg-surface text-text-secondary border border-border">
                 Not Registered

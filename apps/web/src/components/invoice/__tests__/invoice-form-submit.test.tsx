@@ -290,3 +290,32 @@ function renderForm(props: { onSuccess?: (id: string) => void } = {}) {
   const initialData = createEmptyInvoice() as InvoiceInput;
   return render(<InvoiceForm initialData={initialData} onSuccess={props.onSuccess} />);
 }
+
+describe("InvoiceForm submit — the unsaved-changes reset (P18/FE-L3)", () => {
+  it("clears hasUnsavedChanges on submit success", async () => {
+    // The guard's writer sets the flag from isDirty; the SUCCESS path
+    // must reset it — otherwise the store holds a stale true between
+    // unmount and the next form mount (the next mount's writer effect
+    // would clear it, but any guard consumer in between sees a lie).
+    const { useInvoiceStore } = await import("@/stores/invoice-store");
+    useInvoiceStore.getState().setHasUnsavedChanges(false);
+
+    const onSuccess = vi.fn();
+    renderForm({ onSuccess });
+
+    const user = userEvent.setup();
+    await fillValidForm(user); // dirties the form (isDirty -> the store)
+
+    await waitFor(() =>
+      expect(useInvoiceStore.getState().hasUnsavedChanges).toBe(true)
+    );
+
+    createContactMock.mockResolvedValueOnce({ id: "contact-uuid-9" });
+    createInvoiceMock.mockResolvedValueOnce({ id: "doc-uuid-9", status: "DRAFT" });
+
+    await user.click(screen.getByRole("button", { name: /send invoice/i }));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith("doc-uuid-9"));
+
+    expect(useInvoiceStore.getState().hasUnsavedChanges).toBe(false);
+  });
+});

@@ -156,3 +156,37 @@ describe("Shell org-selector menu (P17/FE-L4)", () => {
     expect(mockSwitchOrg).toHaveBeenCalledWith("org-3");
   });
 });
+
+describe("Shell nested Escape (P18/FE-M1)", () => {
+  beforeEach(() => {
+    mockSwitchOrg.mockClear();
+  });
+
+  it("with drawer + org menu open, the first Escape closes only the menu; the second closes the drawer", async () => {
+    const user = userEvent.setup();
+    render(
+      <Shell>
+        <div>content</div>
+      </Shell>
+    );
+
+    // Open the mobile drawer (the nav toggle is md:hidden).
+    const navToggle = screen.getByRole("button", { name: /open navigation/i });
+    await user.click(navToggle);
+
+    // Open the org menu inside the drawer.
+    await user.click(getTrigger());
+    expect(getTrigger()).toHaveAttribute("aria-expanded", "true");
+
+    // First Escape: the menu consumes it — the drawer stays open and
+    // focus returns to the (still visible) trigger.
+    await user.keyboard("{Escape}");
+    expect(getTrigger()).toHaveAttribute("aria-expanded", "false");
+    expect(navToggle).toHaveAttribute("aria-expanded", "true");
+    expect(document.activeElement).toBe(getTrigger());
+
+    // Second Escape: the drawer closes.
+    await user.keyboard("{Escape}");
+    expect(navToggle).toHaveAttribute("aria-expanded", "false");
+  });
+});

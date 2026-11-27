@@ -357,7 +357,7 @@ function DeactivateAccountButton({
   return (
     <Button
       type="button"
-      className="rounded-sm bg-alert text-white hover:bg-alert/90"
+      className="rounded-sm bg-alert text-void hover:bg-alert/90"
       disabled={deactivate.isPending}
       onClick={() => {
         deactivate.mutateAsync().then(onDone).catch((err) => {

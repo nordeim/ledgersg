@@ -15,7 +15,7 @@ import { z } from "zod";
 // the backend accepts and the product's own data model supports).
 // P17/FE-L6: the pattern is the SHARED uen module's — one source across
 // invoice customers, PayNow bank accounts and org creation.
-import { uenRegex } from "./uen";
+import { optionalUenSchema } from "./uen";
 
 // Tax Codes per IRAS
 export const TAX_CODES = ["SR", "ZR", "ES", "OS", "TX", "BL", "RS"] as const;
@@ -57,11 +57,12 @@ export const invoiceLineSchema = z.object({
 export const customerSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1, "Customer name required").max(200),
-  uen: z
-    .string()
-    .regex(uenRegex, "Invalid UEN format")
-    .optional()
-    .or(z.literal("")),
+  // P18/FE-M4: the SHARED normalizing schema — a lowercase/whitespace
+  // UEN is accepted (and normalized) exactly like the org form and the
+  // backend's normalize-then-validate, instead of a bare regex that
+  // false-rejected values the backend would accept. .optional() keeps
+  // the KEY optional (B2C customers without a UEN).
+  uen: optionalUenSchema.optional(),
   gst_registration_no: z.string().optional().or(z.literal("")),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   address: z.string().max(500).optional().or(z.literal("")),

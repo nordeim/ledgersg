@@ -48,7 +48,7 @@ import {
 function getStatusBadgeClass(status: string) {
   switch (status) {
     case "PAID":
-      return "bg-success text-white";
+      return "bg-success text-void";
     case "SENT":
     case "APPROVED":
       return "bg-accent-secondary text-void";
@@ -57,7 +57,7 @@ function getStatusBadgeClass(status: string) {
     case "DRAFT":
       return "bg-surface text-text-secondary border border-border";
     case "OVERDUE":
-      return "bg-alert text-white";
+      return "bg-alert text-void";
     case "VOID":
       return "bg-surface text-text-muted line-through";
     default:
