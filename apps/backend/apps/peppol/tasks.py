@@ -107,15 +107,24 @@ def transmit_peppol_invoice_task(self, transmission_log_id: str, org_id: str) ->
 
 
 @shared_task(bind=True, max_retries=3)
-def retry_failed_transmission_task(self, transmission_log_id: str) -> dict:
+def retry_failed_transmission_task(self, transmission_log_id: str, org_id: str) -> dict:
     """
     Async task to retry a failed Peppol transmission.
 
     Manually triggered for failed transmissions. Increments attempt
     counter and re-executes the transmission workflow.
 
+    P18/BE-M1: the org is a REQUIRED argument (the transmit task's
+    pattern) — a Celery worker has no middleware, the strict
+    `org_id = core.current_org_id()` policies on
+    gst.peppol_transmission_log block a NULL-GUC worker from resolving
+    the org FROM the log row (it sees 0 rows), so the caller must hand
+    it over explicitly and the body opens the RLS tenant context
+    (P17/BE-H3 helper).
+
     Args:
         transmission_log_id: UUID of the failed transmission log
+        org_id: UUID of the owning organisation (the RLS tenant)
 
     Returns:
         Dict with retry result
@@ -127,18 +136,21 @@ def retry_failed_transmission_task(self, transmission_log_id: str) -> dict:
     Example:
         # Retry a failed transmission
         task = retry_failed_transmission_task.delay(
-            "550e8400-e29b-41d4-a716-446655440000"
+            "550e8400-e29b-41d4-a716-446655440000",
+            "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
         )
     """
     from apps.peppol.services.transmission_service import TransmissionService
+    from common.tenant_context import tenant_context
 
     logger.info(
         f"Retrying Peppol transmission {transmission_log_id}, attempt {self.request.retries + 1}"
     )
 
     try:
-        service = TransmissionService()
-        log = service.retry_transmission(transmission_log_id)
+        with tenant_context(org_id):
+            service = TransmissionService()
+            log = service.retry_transmission(transmission_log_id)
 
         result = {
             "success": log.status == "DELIVERED",
@@ -162,7 +174,9 @@ def retry_failed_transmission_task(self, transmission_log_id: str) -> dict:
         return result
 
     except ValueError as e:
-        # Non-retryable error (max retries exceeded)
+        # Non-retryable error (log missing / max retries exceeded) — the
+        # permanent-failure classification (P18/BE-L3): a deleted log is
+        # never going to appear by retrying.
         logger.error(f"Retry not possible: {e}")
         return {"success": False, "message_id": None, "status": "FAILED", "error": str(e)}
 
@@ -177,7 +191,7 @@ def retry_failed_transmission_task(self, transmission_log_id: str) -> dict:
 
 
 @shared_task
-def check_transmission_status_task(message_id: str) -> Optional[dict]:
+def check_transmission_status_task(message_id: str, org_id: str) -> Optional[dict]:
     """
     Check status of an in-flight Peppol transmission.
 
@@ -185,8 +199,15 @@ def check_transmission_status_task(message_id: str) -> Optional[dict]:
     the matching PeppolTransmissionLog with the result. Used for status
     monitoring and notifications.
 
+    P18/BE-M1: the org is a REQUIRED argument — the log LOOKUP itself is
+    RLS-scoped (strict `org_id = core.current_org_id()` policies), so a
+    NULL-GUC worker cannot even find the row to learn its org; the body
+    opens the RLS tenant context (P17/BE-H3 helper) for the lookup and
+    the status write.
+
     Args:
         message_id: Peppol message ID from transmission
+        org_id: UUID of the owning organisation (the RLS tenant)
 
     Returns:
         Dict with status information or None if no log matches the message id:
@@ -203,17 +224,19 @@ def check_transmission_status_task(message_id: str) -> Optional[dict]:
     """
     from apps.peppol.models import PeppolTransmissionLog
     from apps.peppol.services.transmission_service import TransmissionService
+    from common.tenant_context import tenant_context
 
     logger.info(f"Checking status for Peppol message {message_id}")
 
-    log = (
-        PeppolTransmissionLog.objects.filter(peppol_message_id=message_id)
-        .order_by("-response_at", "-transmitted_at", "-id")
-        .first()
-    )
-    if log is None:
-        logger.warning(f"No transmission log found for message {message_id}")
-        return None
+    with tenant_context(org_id):
+        log = (
+            PeppolTransmissionLog.objects.filter(peppol_message_id=message_id)
+            .order_by("-response_at", "-transmitted_at", "-id")
+            .first()
+        )
+        if log is None:
+            logger.warning(f"No transmission log found for message {message_id}")
+            return None
 
     try:
         service = TransmissionService()
@@ -248,7 +271,7 @@ def check_transmission_status_task(message_id: str) -> Optional[dict]:
 
 
 @shared_task
-def cleanup_old_transmission_logs_task(days: int = 90) -> int:
+def cleanup_old_transmission_logs_task(days: int = 90, org_id: str | None = None) -> int:
     """
     Clean up stale in-flight transmission logs.
 
@@ -259,29 +282,50 @@ def cleanup_old_transmission_logs_task(days: int = 90) -> int:
     FAILED) older than the horizon are removed — stale in-flight rows with
     no audit value that would otherwise accumulate forever.
 
+    P18/BE-M1 contract: the transmission logs are RLS-scoped
+    (`org_id = core.current_org_id()`), so this task runs EITHER
+    per-org (pass org_id — the body opens the RLS tenant context) or as
+    a privileged maintenance runtime (the migration/ops role, e.g. a
+    cron under `ledgersg`). Called with no org_id under the RLS-bound
+    app role it would see zero rows and silently "succeed" — so the
+    unscoped call now refuses loudly (WARNING + 0) instead.
+
     Args:
         days: Age (in days) beyond which stale non-final logs are removed
             (default: 90)
+        org_id: optional organisation UUID — the RLS tenant for a
+            per-org dispatch (the documented app-role path)
 
     Returns:
         Number of stale logs deleted
 
     Example:
-        # Cleanup stale in-flight logs older than 90 days
-        deleted_count = cleanup_old_transmission_logs_task.delay(90).get()
+        # Per-org cleanup (the app-role path)
+        deleted_count = cleanup_old_transmission_logs_task.delay(90, str(org.id)).get()
     """
     from datetime import datetime, timedelta
     from apps.peppol.models import PeppolTransmissionLog
+    from common.tenant_context import tenant_context
+
+    if org_id is None:
+        logger.warning(
+            "cleanup_old_transmission_logs_task called WITHOUT an org_id: "
+            "the transmission logs are RLS-scoped, so under the app role "
+            "(ledgersg_app) this deletes nothing. Dispatch per-org "
+            "(org_id=...) or run as the privileged maintenance role."
+        )
+        return 0
 
     cutoff_date = timezone.now() - timedelta(days=days)
 
-    stale_logs = PeppolTransmissionLog.objects.filter(
-        transmitted_at__lt=cutoff_date,
-        status__in=["PENDING", "TRANSMITTING", "FAILED"],
-    )
+    with tenant_context(org_id):
+        stale_logs = PeppolTransmissionLog.objects.filter(
+            transmitted_at__lt=cutoff_date,
+            status__in=["PENDING", "TRANSMITTING", "FAILED"],
+        )
 
-    count = stale_logs.count()
-    stale_logs.delete()
+        count = stale_logs.count()
+        stale_logs.delete()
 
     logger.info(f"Cleaned up {count} stale non-final transmission logs")
 

@@ -9,6 +9,7 @@ from celery import shared_task
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 
 from apps.core.models import Organisation, InvoiceDocument
 from apps.invoicing.services import DocumentService
@@ -38,6 +39,21 @@ def send_invoice_email_task(
     try:
         with tenant_context(org_id):
             return _send_invoice_email(org_id, document_id, recipients, cc, bcc)
+    except ObjectDoesNotExist as exc:
+        # P18/BE-L3: the org/document vanishing mid-flight is a PERMANENT
+        # failure — retrying 3x60s cannot make a deleted row reappear,
+        # and the API already answered {"sent": true} when the task was
+        # queued. Terminal result, no retry.
+        logger.error(
+            "Invoice email task: org or document no longer exists "
+            f"(org={org_id}, document={document_id}) — terminal, not retried"
+        )
+        return {
+            "success": False,
+            "sent": False,
+            "error": f"Resource no longer exists: {exc}",
+            "terminal": True,
+        }
     except Exception as exc:
         logger.error(f"Error sending invoice email {document_id}: {exc}")
         raise self.retry(exc=exc, countdown=60)

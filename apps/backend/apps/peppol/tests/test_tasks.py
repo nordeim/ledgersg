@@ -106,19 +106,27 @@ class TestRetryFailedTransmissionTask:
 
         assert retry_failed_transmission_task is not None
 
+    @pytest.mark.django_db
     def test_retry_task_calls_service(self):
-        """Test that task calls TransmissionService.retry_transmission."""
+        """Test that task calls TransmissionService.retry_transmission.
+
+        P18/BE-M1: the task signature now carries the org (the RLS
+        tenant) — a NULL-GUC worker cannot resolve it from the
+        RLS-blocked log row, so the caller hands it over explicitly.
+        The db mark: the body opens the tenant context (transaction).
+        """
         from apps.peppol.tasks import retry_failed_transmission_task
         from apps.peppol.services.transmission_service import TransmissionService
 
         with patch.object(TransmissionService, "retry_transmission") as mock_retry:
             transmission_log_id = str(uuid4())
+            org_id = str(uuid4())
 
             mock_log = Mock()
             mock_log.status = "DELIVERED"
             mock_retry.return_value = mock_log
 
-            result = retry_failed_transmission_task(transmission_log_id)
+            result = retry_failed_transmission_task(transmission_log_id, org_id)
 
             mock_retry.assert_called_once_with(transmission_log_id)
 
@@ -134,10 +142,14 @@ class TestCheckTransmissionStatusTask:
 
     @pytest.mark.django_db
     def test_status_check_task_returns_result(self):
-        """Unknown message id -> None (the documented contract, P5/C-2)."""
+        """Unknown message id -> None (the documented contract, P5/C-2).
+
+        P18/BE-M1: the task signature now carries the org (the RLS
+        tenant) — the log lookup itself is RLS-scoped.
+        """
         from apps.peppol.tasks import check_transmission_status_task
 
-        result = check_transmission_status_task(str(uuid4()))
+        result = check_transmission_status_task(str(uuid4()), str(uuid4()))
 
         # No log matches this message id
         assert result is None

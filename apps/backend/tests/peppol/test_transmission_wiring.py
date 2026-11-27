@@ -293,7 +293,9 @@ class TestRetentionSafeCleanup:
             transmitted_at=old
         )
 
-        deleted = cleanup_old_transmission_logs_task(days=90)
+        # P18/BE-M1: per-org dispatch — the logs are RLS-scoped, so the
+        # cleanup carries the org whose tenant context it must open.
+        deleted = cleanup_old_transmission_logs_task(days=90, org_id=str(test_organisation.id))
 
         assert deleted == 1
         assert not PeppolTransmissionLog.objects.filter(id=stale.id).exists()
