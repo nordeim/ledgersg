@@ -23,7 +23,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
-    "test:all": "vitest run && tsc --noEmit && playwright test",
+    "test:all": "vitest run --coverage && tsc --noEmit && playwright test",
     "================ UTILITY ======================================": "",
     "clean": "rm -rf .next dist",
     "clean:all": "rm -rf .next dist node_modules package-lock.json",

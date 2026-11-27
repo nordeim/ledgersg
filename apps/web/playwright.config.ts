@@ -62,8 +62,12 @@ export default defineConfig({
     /* Base URL to use in actions like `await page.goto('/')` */
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000",
 
-    /* Collect trace when retrying the failed test */
-    trace: "on-first-retry",
+    /* Collect trace when retrying the failed test — and retain it on
+       failure. P20/FE-M6: local runs have retries: 0, so
+       on-first-retry produced NO trace for local failures (only the
+       screenshot); retain-on-failure is Playwright's recommended policy
+       for exactly this setup. */
+    trace: "retain-on-failure",
 
     /* Screenshot on failure */
     screenshot: "only-on-failure",
@@ -73,6 +77,14 @@ export default defineConfig({
 
     /* Viewport */
     viewport: { width: 1280, height: 720 },
+
+    /* P20/FE-M6: pin the locale + timezone — the app renders dates via
+       toLocaleDateString("en-SG") and date-only strings parse as UTC
+       midnight; an unpinned runner timezone makes date assertions
+       runner-dependent (and masked the off-by-one the P20/FE-M7 fix
+       closed). Asia/Singapore is the user base. */
+    locale: "en-SG",
+    timezoneId: "Asia/Singapore",
 
     /* Action timeout */
     actionTimeout: 15000,
@@ -117,6 +129,11 @@ export default defineConfig({
   /* Run local dev server before starting the tests */
   webServer: {
     command: "npm run dev",
+    /* P20/FE-M6 note: Playwright has no strictPort knob and rejects
+       port+url together — the url stays the readiness probe. Residual
+       caveat (documented, not fixable at this level): under
+       reuseExistingServer a pre-existing server on :3000 is still reused
+       by design (CI does not reuse). */
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

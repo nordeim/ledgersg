@@ -43,12 +43,26 @@ export default defineConfig({
       // comment. gst-engine itself sits at 100/96.77/100/100; the glob
       // ratchet is set at the directory's measured floor so the whole
       // lib tier cannot regress below today's level.
+      //
+      // P20/FE-M5: the measured surface now INCLUDES src/app/** and
+      // src/providers/** (the blind spots the P20 audit flagged — the
+      // route clients carry most of the money-flow UI and sat outside
+      // the ratchet). Measured with the app+providers tiers included:
+      // statements 71.92 / functions 61.39 / branches 68.96 / lines
+      // 72.5 — including them RAISES the whole-suite floor, so the
+      // ratchet rises with the surface. Per-glob floors for the app,
+      // components, and providers tiers sit at their measured values.
+      // src/stores/** stays excluded (documented): the single zustand
+      // store is exercised through the guard/form suites but is not a
+      // meaningful standalone coverage unit — registering it needs its
+      // own suite.
       thresholds: {
-        // whole-suite floor (the P10 ratchet, unchanged)
-        lines: 63,
-        functions: 51,
-        branches: 52,
-        statements: 62,
+        // whole-suite floor (P20/FE-M5: raised 62/51/52/63 → 71/60/68/71
+        // with the app+providers tiers now measured)
+        lines: 71,
+        functions: 60,
+        branches: 68,
+        statements: 71,
         // the lib tier floor (measured 71.23 / 74.8 / 52.32 / 73.2)
         "src/lib/**": {
           lines: 73,
@@ -68,6 +82,28 @@ export default defineConfig({
           branches: 36,
           statements: 52,
         },
+        // P20/FE-M5: the app tier floor (the route clients — measured
+        // 74/65/72/74 statements/functions/branches/lines).
+        "src/app/**": {
+          lines: 73,
+          functions: 64,
+          branches: 71,
+          statements: 73,
+        },
+        // P20/FE-M5: the components tier floor (measured 83/75/69/84).
+        "src/components/**": {
+          lines: 83,
+          functions: 74,
+          branches: 68,
+          statements: 82,
+        },
+        // P20/FE-M5: the providers tier floor (measured 62/62/59/61).
+        "src/providers/**": {
+          lines: 60,
+          functions: 60,
+          branches: 58,
+          statements: 61,
+        },
       },
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
@@ -76,8 +112,12 @@ export default defineConfig({
         "**/*.config.*",
         "**/_*.{ts,tsx}",
         "**/types/**",
-        "src/app/**",
-        "src/providers/**",
+        // P20/FE-M5: the test helper (src/__tests__/utils.tsx) is test
+        // infrastructure, not production surface — it was silently
+        // counted in the whole-suite numbers.
+        "**/__tests__/**",
+        // documented exclusion (see the thresholds comment): the single
+        // zustand store has no standalone coverage unit.
         "src/stores/**",
       ],
     },
