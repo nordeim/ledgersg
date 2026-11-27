@@ -43,10 +43,28 @@ interface ContactInput {
   currency?: string;
 }
 
+/** The list envelope (P26: the hook returns the FULL envelope — the
+ * pre-P26 hook unwrapped `results` and threw the count away, so no
+ * consumer could render a truthful total or paginate). */
+export interface ContactListResponse {
+  results: Contact[];
+  count: number;
+  next?: string | null;
+  previous?: string | null;
+}
+
+/** P26: the page request (limit/offset over the P24 backend contract). */
+export interface ContactPage {
+  limit: number;
+  offset: number;
+}
+
 // List contacts with optional filters.
 // P9/K-5: the filter keys are the backend's actual query params
 // (invoicing ContactListView reads is_customer / is_supplier / is_active /
 // search). The old `contact_type` key was silently ignored.
+// P26: the optional `page` paginates server-side (the picker keeps the
+// unpaginated shape — its search-bounded fetch needs no page).
 export function useContacts(
   orgId: string,
   filters?: {
@@ -54,27 +72,29 @@ export function useContacts(
     is_supplier?: boolean;
     is_active?: boolean;
     search?: string;
-  }
+  },
+  page?: ContactPage
 ) {
-  const queryString = filters
-    ? "?" +
-      new URLSearchParams(
-        Object.entries(filters)
-          .filter(([, v]) => v !== undefined)
-          .map(([k, v]) => [k, String(v)]) as [string, string][]
-      ).toString()
-    : "";
+  const params = new URLSearchParams(
+    Object.entries(filters ?? {})
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [k, String(v)]) as [string, string][]
+  );
+  if (page) {
+    params.set("limit", String(page.limit));
+    params.set("offset", String(page.offset));
+  }
+  const queryString = params.toString() ? `?${params.toString()}` : "";
 
   return useQuery({
-    queryKey: [orgId, "contacts", filters],
+    // P26: the page identity MUST live in the key (the P24/FE-L1
+    // cache-paging trap) — pages are distinct cache entries.
+    queryKey: [orgId, "contacts", filters ?? null, page ?? null],
     queryFn: async () => {
-      const response = await api.get<{
-        results: Contact[];
-        count: number;
-        next?: string;
-        previous?: string;
-      }>(endpoints.contacts(orgId).list + queryString);
-      return response.results;
+      const response = await api.get<ContactListResponse>(
+        endpoints.contacts(orgId).list + queryString
+      );
+      return response;
     },
     enabled: !!orgId,
   });

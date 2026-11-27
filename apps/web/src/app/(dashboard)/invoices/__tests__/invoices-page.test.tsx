@@ -7,7 +7,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { InvoicesClient } from "../invoices-client";
 import * as invoiceHooks from "@/hooks/use-invoices";
@@ -84,7 +85,9 @@ describe("InvoicesClient (real data)", () => {
     // the backend lists EVERY document (quotes and bills as invoices).
     expect(invoiceHooks.useInvoices).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ type: "SALES_INVOICE" })
+      expect.objectContaining({ type: "SALES_INVOICE" }),
+      undefined,
+      expect.objectContaining({ limit: 20, offset: 0 })
     );
   });
 
@@ -140,6 +143,118 @@ describe("InvoicesClient (real data)", () => {
     expect(
       await screen.findByText(/failed to load invoices/i)
     ).toBeInTheDocument();
+  });
+
+  // ------------------------------------------------------------------
+  // P26: the frontend pagination wiring — the shared TablePagination on
+  // the invoices surface + the server-side search migration.
+  // ------------------------------------------------------------------
+
+  it("renders the shared TablePagination with the truthful summary (P26)", async () => {
+    vi.mocked(invoiceHooks.useInvoices).mockReturnValue({
+      data: {
+        results: [mockInvoice(), mockInvoice({ id: "doc-2", document_number: "INV-000043" })],
+        count: 25,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      isFetching: false,
+    } as unknown as ReturnType<typeof invoiceHooks.useInvoices>);
+
+    renderPage();
+
+    // The nav landmark + the truthful page-math summary: the "of 25"
+    // TOTAL (the pre-P26 page showed only the fetched rows' count).
+    const pagination = screen.getByRole("navigation", { name: "Pagination" });
+    expect(pagination).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–20 of 25 rows")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Previous page" })
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled();
+  });
+
+  it("drives the search server-side through the hook's search filter (P26)", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(invoiceHooks.useInvoices).mockReturnValue({
+        data: { results: [], count: 0 },
+        isLoading: false,
+        isError: false,
+        error: null,
+        isFetching: false,
+      } as unknown as ReturnType<typeof invoiceHooks.useInvoices>);
+
+      renderPage();
+
+      const searchBox = screen.getByLabelText(
+        "Search invoices by number or customer"
+      );
+      fireEvent.change(searchBox, { target: { value: "INV-000042" } });
+
+      // Before the 300ms debounce elapses the search has NOT been sent.
+      expect(invoiceHooks.useInvoices).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ search: "INV-000042" }),
+        expect.anything(),
+        expect.anything()
+      );
+
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+
+      // The search rides the hook's filters — the SERVER filters the
+      // set (the client-side filter only ever saw the fetched page).
+      expect(invoiceHooks.useInvoices).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ type: "SALES_INVOICE", search: "INV-000042" }),
+        undefined,
+        expect.objectContaining({ limit: 20, offset: 0 })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the pagination controls on a page beyond the end (P26, the P25 pattern)", async () => {
+    // The mock shrinks the set once the reader walks past offset 40
+    // (the realistic sequence: rows deleted server-side between
+    // fetches) — count 40, an empty page at offset 40.
+    vi.mocked(invoiceHooks.useInvoices).mockImplementation(
+      ((
+        _orgId: unknown,
+        _filters: unknown,
+        _options: unknown,
+        page: { offset: number } | undefined
+      ) => ({
+        data:
+          (page?.offset ?? 0) >= 40
+            ? { results: [], count: 40 }
+            : { results: [mockInvoice()], count: 60 },
+        isLoading: false,
+        isError: false,
+        error: null,
+        isFetching: false,
+      })) as unknown as typeof invoiceHooks.useInvoices
+    );
+
+    renderPage();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /next page/i }));
+    await user.click(screen.getByRole("button", { name: /next page/i }));
+
+    // count > 0 with an empty page: the controls stay (the way back),
+    // never the false "No invoices yet".
+    expect(
+      await screen.findByText("Showing 0–0 of 40 rows")
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/no invoices yet/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /previous page/i })
+    ).not.toBeDisabled();
   });
 
   it("shows a loading state while fetching", () => {

@@ -50,8 +50,9 @@ const updateMock = vi.fn().mockResolvedValue({});
 const deactivateMock = vi.fn().mockResolvedValue({});
 
 vi.mock("@/hooks/use-contacts", () => ({
+  // P26: the hook returns the full envelope — the factory mock follows.
   useContacts: vi.fn(() => ({
-    data: [contactFixture],
+    data: { results: [contactFixture], count: 1 },
     isLoading: false,
     isError: false,
   })),
@@ -114,14 +115,15 @@ describe("ContactsClient — list", () => {
         expect.objectContaining({
           search: "Marina",
           is_customer: true,
-        })
+        }),
+        expect.objectContaining({ limit: 20, offset: 0 })
       );
     });
   });
 
   it("shows the empty state when there are no contacts", () => {
     vi.mocked(useContacts).mockReturnValueOnce({
-      data: [],
+      data: { results: [], count: 0 },
       isLoading: false,
       isError: false,
     } as never);
@@ -154,6 +156,46 @@ describe("ContactsClient — edit", () => {
     expect(updateMock).toHaveBeenCalledWith(
       expect.objectContaining({ peppol_id: "0209-201912345A-9999" })
     );
+  });
+});
+
+describe("ContactsClient — pagination (P26)", () => {
+  it("consumes the list envelope and renders the shared TablePagination", () => {
+    // The hook now returns {results, count} (the pre-P26 hook unwrapped
+    // results and threw the count away) — the page renders the shared
+    // control with the truthful total.
+    vi.mocked(useContacts).mockReturnValueOnce({
+      data: {
+        results: [contactFixture],
+        count: 25,
+      },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useContacts>);
+
+    render(<ContactsClient />);
+
+    expect(screen.getByText(contactFixture.name)).toBeInTheDocument();
+    const pagination = screen.getByRole("navigation", { name: "Pagination" });
+    expect(pagination).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–20 of 25 rows")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled();
+  });
+
+  it("keeps the truthful empty state when the count is zero", () => {
+    vi.mocked(useContacts).mockReturnValueOnce({
+      data: { results: [], count: 0 },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useContacts>);
+
+    render(<ContactsClient />);
+
+    expect(screen.getByText(/no contacts yet/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("navigation", { name: "Pagination" })
+    ).not.toBeInTheDocument();
   });
 });
 

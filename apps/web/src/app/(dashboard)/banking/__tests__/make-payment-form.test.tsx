@@ -60,7 +60,7 @@ describe("MakePaymentForm (P9/B-5)", () => {
       isLoading: false,
       error: null,
     });
-    mockContacts.mockReturnValue({ data: [SUPPLIER], isLoading: false });
+    mockContacts.mockReturnValue({ data: { results: [SUPPLIER], count: 1 }, isLoading: false });
   });
 
   it("renders with a supplier picker (not a raw UUID input)", () => {

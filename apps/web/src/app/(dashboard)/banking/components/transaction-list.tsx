@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, Upload, RefreshCw } from "lucide-react";
 import { useBankTransactions } from "@/hooks/use-banking";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { TransactionRow } from "./transaction-row";
 import { useUnreconcileTransaction } from "@/hooks/use-banking";
 import type { BankTransaction } from "@/shared/schemas";
@@ -23,13 +25,22 @@ interface TransactionListProps {
   onImportClick?: () => void;
 }
 
+/** P26: the page size — the ledger's convention (P24), one consistent
+ * control across every list surface. */
+const TRANSACTIONS_PAGE_SIZE = 20;
+
 export function TransactionList({ 
   orgId, 
   filters = {}, 
   onTransactionClick,
   onImportClick 
 }: TransactionListProps) {
-  const { data, isLoading, error, refetch } = useBankTransactions(orgId, filters);
+  const [offset, setOffset] = useState(0);
+  const { data, isLoading, error, refetch, isFetching } = useBankTransactions(
+    orgId,
+    filters,
+    { limit: TRANSACTIONS_PAGE_SIZE, offset }
+  );
 
   if (isLoading) {
     return (
@@ -99,14 +110,16 @@ export function TransactionList({
 
   return (
     <div className="space-y-4" data-testid="transactions-list">
-      <div className="flex items-center justify-between text-sm text-text-muted">
-        {/* P10/L-2: the "Load more" button was doubly dead (no onClick,
-            and the backend never sends next). The truthful count line
-            stays; pagination remains registered debt. */}
-        <span>
-          {data.count} transactions
-        </span>
-      </div>
+      {/* P26: the registered P10/L-2 debt retired — the shared page
+          control with the truthful page-math summary replaces the bare
+          count line (the "Load more" button had been doubly dead). */}
+      <TablePagination
+        offset={offset}
+        limit={TRANSACTIONS_PAGE_SIZE}
+        count={data.count}
+        onPageChange={setOffset}
+        disabled={isFetching}
+      />
       
       <div className="space-y-3">
         {data.results.map((transaction) => (

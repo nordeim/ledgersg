@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/providers/auth-provider";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { useInvoices, useConvertQuote } from "@/hooks/use-invoices";
 
 /**
@@ -17,12 +18,22 @@ import { useInvoices, useConvertQuote } from "@/hooks/use-invoices";
 
 const CONVERTIBLE = new Set(["DRAFT", "SENT"]);
 
+/** P26: the page size — the ledger's convention (P24), one consistent
+ * control across every list surface. */
+const QUOTES_PAGE_SIZE = 20;
+
 export function QuotesClient() {
   const { currentOrg, isLoading: authLoading } = useAuth();
   const orgId = currentOrg?.id ?? null;
-  const { data, isLoading, isError } = useInvoices(orgId, {
-    type: "SALES_QUOTE",
-  });
+  const [offset, setOffset] = React.useState(0);
+  const { data, isLoading, isError, isFetching } = useInvoices(
+    orgId,
+    {
+      type: "SALES_QUOTE",
+    },
+    undefined,
+    { limit: QUOTES_PAGE_SIZE, offset }
+  );
   const convertQuote = useConvertQuote(orgId ?? "");
 
   if (authLoading) {
@@ -96,7 +107,7 @@ export function QuotesClient() {
 
       <Card className="border-border bg-carbon">
         <CardContent className="pt-6">
-          {quotes.length === 0 ? (
+          {(data?.count ?? 0) === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16">
               <p className="font-medium text-text-primary">No quotes yet</p>
               <p className="text-sm text-text-secondary">
@@ -177,6 +188,18 @@ export function QuotesClient() {
           )}
         </CardContent>
       </Card>
+
+      {/* P26: the shared page control — the truthful total + the
+          boundary-disabled buttons. */}
+      {data && data.count > 0 && (
+        <TablePagination
+          offset={offset}
+          limit={QUOTES_PAGE_SIZE}
+          count={data.count}
+          onPageChange={setOffset}
+          disabled={isFetching}
+        />
+      )}
     </div>
   );
 }

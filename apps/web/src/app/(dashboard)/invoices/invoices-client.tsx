@@ -14,11 +14,18 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/providers/auth-provider";
 import { useInvoices } from "@/hooks/use-invoices";
+import { TablePagination } from "@/components/ui/table-pagination";
 
 /**
  * Real invoices list (P5/C-5 part 1 — replaced the hardcoded mockInvoices
  * fixture). Rows come from the backend list endpoint
  * ({results, count} contract, InvoiceDocumentListSerializer shape).
+ *
+ * P26: the surface pages server-side — page size 20 rows through the
+ * `?limit=&offset=` contract, the shared TablePagination driving the
+ * offset, and the search migrated SERVER-SIDE (the hook's `search`
+ * filter, debounced): a client-side filter only ever saw the fetched
+ * page, silently missing everything beyond it.
  */
 
 function getStatusBadgeClass(status: string) {
@@ -53,29 +60,46 @@ function formatAmount(value: string) {
   });
 }
 
+/** The page size — the ledger's convention (P24): a dense financial
+ * table at a conventional 20 rows per page. */
+const INVOICES_PAGE_SIZE = 20;
+
 export function InvoicesClient() {
   const { currentOrg, isLoading: authLoading } = useAuth();
   const orgId = currentOrg?.id ?? null;
   const [search, setSearch] = useState("");
+  const [offset, setOffset] = useState(0);
 
-  const { data, isLoading, isError, error } = useInvoices(orgId, {
-    // P9/C-2: this page is the invoices list — without the type filter the
-    // backend returns EVERY document (quotes and bills rendered as
-    // invoices, opening at /invoices/{id} labelled INVOICE with a
-    // fabricated Amount Due). The quotes page sends its own filter.
-    type: "SALES_INVOICE",
-  });
+  // P26: the search goes SERVER-SIDE (the hook's `search` filter) —
+  // debounced at 300ms, the contacts-page convention. A page-local
+  // filter over 20 of N rows is a silent lie (it misses everything
+  // beyond the fetched page). The offset reset batches INTO the debounce
+  // tick (one render — a separate effect would double-render and
+  // double-fire the query).
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setOffset(0); // a new search restarts the paging
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const filtered = useMemo(() => {
-    const invoices = data?.results ?? [];
-    const q = search.trim().toLowerCase();
-    if (!q) return invoices;
-    return invoices.filter(
-      (inv) =>
-        inv.document_number.toLowerCase().includes(q) ||
-        inv.contact_name.toLowerCase().includes(q)
-    );
-  }, [data, search]);
+  const { data, isLoading, isError, error, isFetching } = useInvoices(
+    orgId,
+    {
+      // P9/C-2: this page is the invoices list — without the type filter the
+      // backend returns EVERY document (quotes and bills rendered as
+      // invoices, opening at /invoices/{id} labelled INVOICE with a
+      // fabricated Amount Due). The quotes page sends its own filter.
+      type: "SALES_INVOICE",
+      ...(debouncedSearch ? { search: debouncedSearch } : {}),
+    },
+    undefined,
+    { limit: INVOICES_PAGE_SIZE, offset }
+  );
+
+  const invoices = useMemo(() => data?.results ?? [], [data]);
 
   if (authLoading) {
     return (
@@ -123,8 +147,7 @@ export function InvoicesClient() {
         </div>
         {data ? (
           <span className="text-xs text-text-muted tabular-nums">
-            {filtered.length} of {data.count} document
-            {data.count === 1 ? "" : "s"}
+            {data.count} document{data.count === 1 ? "" : "s"}
           </span>
         ) : null}
       </div>
@@ -160,7 +183,7 @@ export function InvoicesClient() {
             </div>
           </CardContent>
         </Card>
-      ) : filtered.length === 0 ? (
+      ) : (data?.count ?? 0) === 0 ? (
         <Card className="border-border bg-carbon rounded-sm">
           <CardContent className="py-12">
             <div className="flex flex-col items-center gap-3 text-center">
@@ -221,7 +244,7 @@ export function InvoicesClient() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filtered.map((invoice) => (
+                  {invoices.map((invoice) => (
                     <tr
                       key={invoice.id}
                       className="hover:bg-surface/50 transition-colors"
@@ -281,6 +304,18 @@ export function InvoicesClient() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* P26: the shared page control — offset math, the truthful
+          "Showing x–y of z" live region, boundary-disabled buttons. */}
+      {data && data.count > 0 && (
+        <TablePagination
+          offset={offset}
+          limit={INVOICES_PAGE_SIZE}
+          count={data.count}
+          onPageChange={setOffset}
+          disabled={isFetching}
+        />
       )}
     </div>
   );

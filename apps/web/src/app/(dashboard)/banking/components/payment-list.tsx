@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, ChevronDown, CreditCard, RefreshCw } from "lucide-react";
 import { usePayments, usePayment, useVoidPayment } from "@/hooks/use-banking";
 import { PaymentCard } from "./payment-card";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/shared/format";
 import type { Payment } from "@/shared/schemas";
@@ -23,8 +24,16 @@ interface PaymentListProps {
   onPaymentClick?: (payment: Payment) => void;
 }
 
+/** P26: the page size — the ledger's convention (P24), one consistent
+ * control across every list surface. */
+const PAYMENTS_PAGE_SIZE = 20;
+
 export function PaymentList({ orgId, filters = {}, onPaymentClick }: PaymentListProps) {
-  const { data, isLoading, error, refetch } = usePayments(orgId, filters);
+  const [offset, setOffset] = useState(0);
+  const { data, isLoading, error, refetch, isFetching } = usePayments(orgId, filters, {
+    limit: PAYMENTS_PAGE_SIZE,
+    offset,
+  });
   const [, setSelectedPaymentId] = useState<string | null>(null);
 
   if (isLoading) {
@@ -92,15 +101,17 @@ export function PaymentList({ orgId, filters = {}, onPaymentClick }: PaymentList
 
   return (
     <div className="space-y-3" data-testid="payments-list">
-      <div className="flex items-center justify-between text-sm text-text-muted mb-2">
-        {/* P10/L-2: the "Load more" button was doubly dead (no onClick,
-            and the backend never sends next). The truthful count line
-            stays; pagination remains registered debt. */}
-        <span>
-          Showing {data.results.length} of {data.count} payments
-        </span>
-      </div>
-      
+      {/* P26: the registered P10/L-2 debt retired — the shared page
+          control with the truthful page-math summary replaces the bare
+          count line (the "Load more" button had been doubly dead). */}
+      <TablePagination
+        offset={offset}
+        limit={PAYMENTS_PAGE_SIZE}
+        count={data.count}
+        onPageChange={setOffset}
+        disabled={isFetching}
+      />
+
       {data.results.map((payment) => (
         <PaymentRow
           key={payment.id}

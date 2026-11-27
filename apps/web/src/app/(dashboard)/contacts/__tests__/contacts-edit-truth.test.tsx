@@ -62,8 +62,9 @@ const updateMock = vi.fn().mockResolvedValue({});
 const deactivateMock = vi.fn().mockResolvedValue({});
 
 vi.mock("@/hooks/use-contacts", () => ({
+  // P26: useContacts returns the full envelope ({results, count}).
   useContacts: vi.fn(() => ({
-    data: [listRow],
+    data: { results: [listRow], count: 1 },
     isLoading: false,
     isError: false,
   })),
@@ -168,7 +169,8 @@ describe("P11/M-3 — the search debounce settles to the last value", () => {
     await waitFor(() => {
       expect(useContacts).toHaveBeenLastCalledWith(
         "org-1",
-        expect.objectContaining({ search: "acme" })
+        expect.objectContaining({ search: "acme" }),
+        expect.objectContaining({ limit: 20, offset: 0 })
       );
     });
 
@@ -193,7 +195,8 @@ describe("P11/M-3 — the search debounce settles to the last value", () => {
     await waitFor(() => {
       expect(useContacts).toHaveBeenLastCalledWith(
         "org-1",
-        expect.objectContaining({ search: "bayan" })
+        expect.objectContaining({ search: "bayan" }),
+        expect.objectContaining({ limit: 20, offset: 0 })
       );
     });
 

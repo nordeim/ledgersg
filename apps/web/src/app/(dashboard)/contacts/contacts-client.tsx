@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Pencil, Search, UserX, Users } from "lucide-react";
 import { useAuth } from "@/providers/auth-provider";
@@ -37,12 +38,17 @@ import {
 
 type TypeFilter = "all" | "customers" | "suppliers";
 
+/** P26: the page size — the ledger's convention (P24), one consistent
+ * control across every list surface. */
+const CONTACTS_PAGE_SIZE = 20;
+
 export default function ContactsClient() {
   const { currentOrg } = useAuth();
   const orgId = currentOrg?.id ?? "";
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [offset, setOffset] = useState(0);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [editing, setEditing] = useState<Contact | null>(null);
   const [deactivating, setDeactivating] = useState<Contact | null>(null);
@@ -51,8 +57,13 @@ export default function ContactsClient() {
   // "debounce" returned a cleanup that was never invoked (it is the memo
   // VALUE), so every keystroke fired a request, stale intermediate values
   // landed, and timers survived unmount. The ContactPicker pattern.
+  // P26: the offset reset batches INTO the debounce tick (one render —
+  // a separate effect would double-render and double-fire the query).
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setOffset(0); // a new search restarts the paging
+    }, 300);
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -64,7 +75,17 @@ export default function ContactsClient() {
     return base;
   }, [debouncedSearch, typeFilter]);
 
-  const { data: contacts, isLoading, isError } = useContacts(orgId, filters);
+  // P26: the envelope ({results, count}) + the page param — the page
+  // renders the shared control with the truthful total (the pre-P26
+  // hook unwrapped results and the count was unavailable). A new search
+  // or filter restarts the paging (batched into the debounce tick / the
+  // filter click — never a separate effect).
+  const { data, isLoading, isError } = useContacts(orgId, filters, {
+    limit: CONTACTS_PAGE_SIZE,
+    offset,
+  });
+  const contacts = data?.results ?? [];
+  const contactCount = data?.count ?? 0;
 
   return (
     <div className="space-y-4" data-testid="contacts-client">
@@ -96,7 +117,10 @@ export default function ContactsClient() {
                   ? "rounded-sm bg-surface text-accent-primary h-8"
                   : "rounded-sm text-text-secondary h-8"
               }
-              onClick={() => setTypeFilter(t)}
+              onClick={() => {
+                setTypeFilter(t);
+                setOffset(0); // a new filter restarts the paging
+              }}
             >
               {t === "all" ? "All" : t === "customers" ? "Customers only" : "Suppliers only"}
             </Button>
@@ -138,6 +162,17 @@ export default function ContactsClient() {
             />
           ))}
         </div>
+      )}
+
+      {/* P26: the shared page control (only when there is something to
+          page — the empty state shows no controls). */}
+      {contactCount > 0 && (
+        <TablePagination
+          offset={offset}
+          limit={CONTACTS_PAGE_SIZE}
+          count={contactCount}
+          onPageChange={setOffset}
+        />
       )}
 
       {/* P11/H-1: the edit dialog prefills from the DETAIL payload — the

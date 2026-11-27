@@ -180,6 +180,13 @@ export function useDeactivateBankAccount(orgId: string, accountId: string) {
 /**
  * List payments with optional filters
  */
+/** P26: the page request (limit/offset over the P24 backend contract) —
+ * the shape every paginated hook shares (the ledger set it, P24). */
+export interface BankingPage {
+  limit: number;
+  offset: number;
+}
+
 export function usePayments(
   orgId: string | null,
   filters?: {
@@ -190,16 +197,24 @@ export function usePayments(
     date_to?: string;
     is_reconciled?: boolean | null;
     is_voided?: boolean;
-  }
+  },
+  page?: BankingPage
 ) {
-  const queryString = filters
-    ? "?" + new URLSearchParams(
-        Object.entries(filters).filter(([, v]) => v !== undefined && v !== null) as [string, string][]
-      ).toString()
-    : "";
+  const params = new URLSearchParams(
+    Object.entries(filters ?? {}).filter(
+      ([, v]) => v !== undefined && v !== null
+    ) as [string, string][]
+  );
+  if (page) {
+    params.set("limit", String(page.limit));
+    params.set("offset", String(page.offset));
+  }
+  const queryString = params.toString() ? `?${params.toString()}` : "";
 
   return useQuery({
-    queryKey: [orgId, "payments", filters],
+    // P26: the page identity MUST live in the key (the P24/FE-L1
+    // cache-paging trap) — pages are distinct cache entries.
+    queryKey: [orgId, "payments", filters ?? null, page ?? null],
     queryFn: async () => {
       const response = await api.get<{
         results: Payment[];
@@ -402,16 +417,24 @@ export function useBankTransactions(
     date_to?: string;
     is_reconciled?: boolean | null;
     unreconciled_only?: boolean;
-  }
+  },
+  page?: BankingPage
 ) {
-  const queryString = filters
-    ? "?" + new URLSearchParams(
-        Object.entries(filters).filter(([, v]) => v !== undefined && v !== null) as [string, string][]
-      ).toString()
-    : "";
+  const params = new URLSearchParams(
+    Object.entries(filters ?? {}).filter(
+      ([, v]) => v !== undefined && v !== null
+    ) as [string, string][]
+  );
+  if (page) {
+    params.set("limit", String(page.limit));
+    params.set("offset", String(page.offset));
+  }
+  const queryString = params.toString() ? `?${params.toString()}` : "";
 
   return useQuery({
-    queryKey: [orgId, "bank-transactions", filters],
+    // P26: the page identity MUST live in the key (the P24/FE-L1
+    // cache-paging trap) — pages are distinct cache entries.
+    queryKey: [orgId, "bank-transactions", filters ?? null, page ?? null],
     queryFn: async () => {
       const response = await api.get<{
         results: BankTransaction[];

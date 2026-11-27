@@ -115,8 +115,31 @@ describe("PaymentList", () => {
     render(<PaymentList orgId={orgId} />);
 
     expect(screen.getByTestId("payments-list")).toBeInTheDocument();
-    expect(screen.getByText("Showing 2 of 2 payments")).toBeInTheDocument();
+    // P26: the shared control's page-math summary replaces the bare count line.
+    expect(screen.getByText("Showing 1–2 of 2 rows")).toBeInTheDocument();
     expect(screen.getAllByTestId("payment-card")).toHaveLength(2);
+  });
+
+  // P26: the frontend pagination wiring — the shared control replaces
+  // the bare count line (the P10/L-2 registered debt retired).
+  test("renders the shared TablePagination with the truthful total (P26)", () => {
+    const payments = [createMockPayment("1"), createMockPayment("2")];
+
+    mockUsePayments.mockReturnValue({
+      data: { results: payments, count: 25, next: null, previous: null },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      isFetching: false,
+    });
+
+    render(<PaymentList orgId={orgId} />);
+
+    const pagination = screen.getByRole("navigation", { name: "Pagination" });
+    expect(pagination).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–20 of 25 rows")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled();
   });
 
   test("handles payment click", () => {
@@ -155,7 +178,12 @@ describe("PaymentList", () => {
 
     render(<PaymentList orgId={orgId} filters={filters} />);
 
-    expect(mockUsePayments).toHaveBeenCalledWith(orgId, filters);
+    // P26: the filters ride with the page param (limit 20, offset 0).
+    expect(mockUsePayments).toHaveBeenCalledWith(
+      orgId,
+      filters,
+      expect.objectContaining({ limit: 20, offset: 0 })
+    );
   });
 
   test("shows empty state with RECEIVED filter message", () => {

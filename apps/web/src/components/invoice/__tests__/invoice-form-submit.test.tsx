@@ -22,17 +22,21 @@ vi.mock("@/hooks/use-contacts", () => ({
   useCreateContact: () => ({
     mutateAsync: createContactMock,
   }),
+  // P26: useContacts returns the full envelope ({results, count}).
   useContacts: () => ({
-    data: [
-      {
-        id: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-        name: "Marina Consulting Group Pte Ltd",
-        email: "billing@marina.example.sg",
-        is_customer: true,
-        is_supplier: false,
-        is_active: true,
-      },
-    ],
+    data: {
+      results: [
+        {
+          id: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+          name: "Marina Consulting Group Pte Ltd",
+          email: "billing@marina.example.sg",
+          is_customer: true,
+          is_supplier: false,
+          is_active: true,
+        },
+      ],
+      count: 1,
+    },
     isLoading: false,
     isError: false,
   }),

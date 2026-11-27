@@ -83,13 +83,16 @@ export function ContactPicker({
     return () => document.removeEventListener("mousedown", onClickAway);
   }, []);
 
-  const { data: contacts, isLoading } = useContacts(orgId, {
+  // P26: useContacts returns the full envelope ({results, count}) —
+  // the picker keeps the unpaginated shape (its search-bounded fetch
+  // needs no page) and reads the results key.
+  const { data, isLoading } = useContacts(orgId, {
     search: debounced || undefined,
     ...(type === "customer" ? { is_customer: true } : { is_supplier: true }),
     is_active: true,
   });
 
-  const results = useMemo(() => contacts ?? [], [contacts]);
+  const results = useMemo(() => data?.results ?? [], [data]);
 
   // A controlled value (e.g. a prefilled deep link, P9/B-3b) must display
   // its contact even before the user searches: derive it from the loaded

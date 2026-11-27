@@ -493,6 +493,62 @@ describe("Banking Hooks", () => {
       );
     });
 
+    // P26: the frontend pagination wiring — the page param rides the
+    // query string AND the queryKey (the P24/FE-L1 cache-paging trap).
+    it("should send limit and offset on the query string (P26 page param)", async () => {
+      vi.mocked(apiClient.api.get).mockResolvedValueOnce({ results: [], count: 25 });
+
+      renderHook(
+        () => usePayments(validOrgId, { payment_type: "RECEIVED" }, { limit: 20, offset: 20 }),
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => expect(apiClient.api.get).toHaveBeenCalled());
+
+      const url = vi.mocked(apiClient.api.get).mock.calls[0][0] as string;
+      expect(url).toContain("payment_type=RECEIVED");
+      expect(url).toContain("limit=20");
+      expect(url).toContain("offset=20");
+    });
+
+    it("should give each page its own cache entry (the cache-paging trap)", async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const wrapper = createWrapper(queryClient);
+
+      vi.mocked(apiClient.api.get).mockResolvedValue({ results: [], count: 25 });
+
+      const page1 = renderHook(
+        () => usePayments(validOrgId, undefined, { limit: 20, offset: 0 }),
+        { wrapper }
+      );
+      await waitFor(() => expect(page1.result.current.isSuccess).toBe(true));
+      expect(apiClient.api.get).toHaveBeenCalledTimes(1);
+
+      const page2 = renderHook(
+        () => usePayments(validOrgId, undefined, { limit: 20, offset: 20 }),
+        { wrapper }
+      );
+      await waitFor(() => expect(page2.result.current.isSuccess).toBe(true));
+
+      expect(apiClient.api.get).toHaveBeenCalledTimes(2);
+      const secondUrl = vi.mocked(apiClient.api.get).mock.calls[1][0] as string;
+      expect(secondUrl).toContain("offset=20");
+    });
+
+    it("should keep the unpaginated shape when no page is passed", async () => {
+      vi.mocked(apiClient.api.get).mockResolvedValueOnce({ results: [], count: 0 });
+
+      renderHook(() => usePayments(validOrgId), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(apiClient.api.get).toHaveBeenCalled());
+
+      const url = vi.mocked(apiClient.api.get).mock.calls[0][0] as string;
+      expect(url).not.toContain("limit=");
+      expect(url).not.toContain("offset=");
+    });
+
     it("should filter by date range", async () => {
       vi.mocked(apiClient.api.get).mockResolvedValueOnce({ results: [], count: 0 });
 
@@ -852,6 +908,50 @@ describe("Banking Hooks", () => {
       expect(apiClient.api.get).toHaveBeenCalledWith(
         expect.stringContaining("bank_account_id=")
       );
+    });
+
+    // P26: the frontend pagination wiring — the page param rides the
+    // query string AND the queryKey (the P24/FE-L1 cache-paging trap).
+    it("should send limit and offset on the query string (P26 page param)", async () => {
+      vi.mocked(apiClient.api.get).mockResolvedValueOnce({ results: [], count: 25 });
+
+      renderHook(
+        () => useBankTransactions(validOrgId, { unreconciled_only: true }, { limit: 20, offset: 20 }),
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => expect(apiClient.api.get).toHaveBeenCalled());
+
+      const url = vi.mocked(apiClient.api.get).mock.calls[0][0] as string;
+      expect(url).toContain("unreconciled_only=true");
+      expect(url).toContain("limit=20");
+      expect(url).toContain("offset=20");
+    });
+
+    it("should give each page its own cache entry (the cache-paging trap)", async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const wrapper = createWrapper(queryClient);
+
+      vi.mocked(apiClient.api.get).mockResolvedValue({ results: [], count: 25 });
+
+      const page1 = renderHook(
+        () => useBankTransactions(validOrgId, undefined, { limit: 20, offset: 0 }),
+        { wrapper }
+      );
+      await waitFor(() => expect(page1.result.current.isSuccess).toBe(true));
+      expect(apiClient.api.get).toHaveBeenCalledTimes(1);
+
+      const page2 = renderHook(
+        () => useBankTransactions(validOrgId, undefined, { limit: 20, offset: 20 }),
+        { wrapper }
+      );
+      await waitFor(() => expect(page2.result.current.isSuccess).toBe(true));
+
+      expect(apiClient.api.get).toHaveBeenCalledTimes(2);
+      const secondUrl = vi.mocked(apiClient.api.get).mock.calls[1][0] as string;
+      expect(secondUrl).toContain("offset=20");
     });
 
     it("should filter unreconciled_only", async () => {

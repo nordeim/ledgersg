@@ -64,9 +64,12 @@ describe("QuotesClient (P8/Q-4)", () => {
 
     renderPage();
 
+    // P26: the page param rides with the type filter (limit 20, offset 0).
     expect(invoiceHooks.useInvoices).toHaveBeenCalledWith(
       "org-1",
-      { type: "SALES_QUOTE" }
+      { type: "SALES_QUOTE" },
+      undefined,
+      expect.objectContaining({ limit: 20, offset: 0 })
     );
   });
 
@@ -157,6 +160,37 @@ describe("QuotesClient (P8/Q-4)", () => {
       await screen.findByRole("button", { name: /convert/i })
     );
     expect(mutate).toHaveBeenCalledWith("q1");
+  });
+
+  // P26: the frontend pagination wiring — the quotes surface rides the
+  // same useInvoices page param and renders the shared control.
+  it("renders the shared TablePagination with the truthful total (P26)", () => {
+    vi.mocked(invoiceHooks.useInvoices).mockReturnValue({
+      data: {
+        results: [
+          {
+            id: "q1",
+            document_number: "QT-00001",
+            contact_name: "Acme",
+            issue_date: "2024-03-01",
+            due_date: "2024-04-01",
+            status: "SENT",
+            total_incl: "109.0000",
+          },
+        ],
+        count: 25,
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    } as any);
+
+    renderPage();
+
+    const pagination = screen.getByRole("navigation", { name: "Pagination" });
+    expect(pagination).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–20 of 25 rows")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled();
   });
 
   it("shows the no-org state, never a fake failure", () => {

@@ -118,6 +118,15 @@ export interface InvoiceDetail {
 // `type` — the param the backend reads (invoicing/views.py:153); the old
 // `document_type` key was silently ignored, so a quotes page reusing this
 // hook would have listed EVERY document.
+/**
+ * P26: the page request (limit/offset over the P24 backend contract) —
+ * the same shape useLedger set (the documents surface's mirror).
+ */
+export interface InvoicePage {
+  limit: number;
+  offset: number;
+}
+
 export function useInvoices(
   orgId: string | null | undefined,
   filters?: {
@@ -136,14 +145,23 @@ export function useInvoices(
      * fetch on every form mount (an empty-string contact_id was filtered
      * out of the query, so the fetch was unscoped). */
     enabled?: boolean;
-  }
+  },
+  page?: InvoicePage
 ) {
-  const queryString = filters
-    ? "?" + new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString()
-    : "";
+  const params = new URLSearchParams(
+    Object.entries(filters ?? {}).filter(([, v]) => v) as [string, string][]
+  );
+  if (page) {
+    params.set("limit", String(page.limit));
+    params.set("offset", String(page.offset));
+  }
+  const queryString = params.toString() ? `?${params.toString()}` : "";
 
   return useQuery({
-    queryKey: [orgId, "invoices", filters],
+    // P26: the page identity MUST live in the key (the P24/FE-L1
+    // cache-paging trap the ledger hook pinned) — pages are distinct
+    // cache entries, never served from each other's cache.
+    queryKey: [orgId, "invoices", filters ?? null, page ?? null],
     queryFn: async () => {
       const response = await api.get<InvoiceListResponse>(
         endpoints.invoices(orgId as string).list + queryString

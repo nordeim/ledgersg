@@ -40,8 +40,9 @@ const CUSTOMERS = [
 describe("ContactPicker (P9/B-3)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // P26: the hook returns the full envelope — the mocks follow.
     vi.mocked(useContacts).mockReturnValue({
-      data: CUSTOMERS,
+      data: { results: CUSTOMERS, count: CUSTOMERS.length },
       isLoading: false,
     } as unknown as ReturnType<typeof useContacts>);
   });
@@ -133,8 +134,9 @@ describe("ContactPicker (P9/B-3)", () => {
 describe("ContactPicker WAI-ARIA combobox (P19/FE-M2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // P26: the hook returns the full envelope — the mocks follow.
     vi.mocked(useContacts).mockReturnValue({
-      data: CUSTOMERS,
+      data: { results: CUSTOMERS, count: CUSTOMERS.length },
       isLoading: false,
     } as unknown as ReturnType<typeof useContacts>);
   });
@@ -225,8 +227,9 @@ describe("ContactPicker WAI-ARIA combobox (P19/FE-M2)", () => {
 describe("ContactPicker blur dismissal (P20/FE-M1)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // P26: the hook returns the full envelope — the mocks follow.
     vi.mocked(useContacts).mockReturnValue({
-      data: CUSTOMERS,
+      data: { results: CUSTOMERS, count: CUSTOMERS.length },
       isLoading: false,
     } as unknown as ReturnType<typeof useContacts>);
   });
@@ -266,5 +269,32 @@ describe("ContactPicker blur dismissal (P20/FE-M1)", () => {
     fireEvent.mouseDown(option);
     expect(onChange).toHaveBeenCalledWith("c-11111111-1111-4111-8111-111111111111");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+});
+
+// P26: useContacts returns the full envelope ({results, count}) — the
+// picker must consume data?.results, never the bare array.
+describe("ContactPicker envelope consumption (P26)", () => {
+  it("renders options from the envelope's results key", async () => {
+    // Sticky: every render of this test sees the envelope (a one-shot
+    // would fall back to the beforeEach's bare-array mock after the
+    // first re-render and the test would pass for the wrong reason).
+    vi.mocked(useContacts).mockReturnValue({
+      data: { results: CUSTOMERS, count: CUSTOMERS.length },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useContacts>);
+
+    const user = userEvent.setup();
+    render(
+      <ContactPicker orgId="org-1" type="customer" value="" onChange={vi.fn()} />
+    );
+
+    const input = screen.getByRole("combobox", { name: /search customer/i });
+    await user.type(input, "ABC");
+
+    await waitFor(() => {
+      expect(screen.getByRole("listbox", { name: /customer results/i })).toBeInTheDocument();
+    });
+    expect(await screen.findAllByRole("option")).toHaveLength(CUSTOMERS.length);
   });
 });

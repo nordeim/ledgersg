@@ -128,7 +128,8 @@ describe("TransactionList", () => {
 
     render(<TransactionList orgId={orgId} />);
 
-    expect(screen.getByText(/25 transactions/)).toBeInTheDocument();
+    // P26: the shared control's page-math summary replaces the bare count line.
+    expect(screen.getByText("Showing 1–20 of 25 rows")).toBeInTheDocument();
   });
 
   test("6. Passes onTransactionClick to TransactionRow", () => {
@@ -155,6 +156,26 @@ describe("TransactionList", () => {
     expect(screen.getByText("Unreconciled")).toBeInTheDocument();
   });
 
+  // P26: the frontend pagination wiring — the shared control replaces
+  // the bare count line (the P10/L-2 registered debt retired).
+  test("renders the shared TablePagination with the truthful total (P26)", () => {
+    mockUseBankTransactions.mockReturnValue({
+      data: { results: [createMockTransaction("1"), createMockTransaction("2")], count: 25, next: null, previous: null },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+      isFetching: false,
+    });
+
+    render(<TransactionList orgId={orgId} />);
+
+    const pagination = screen.getByRole("navigation", { name: "Pagination" });
+    expect(pagination).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–20 of 25 rows")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled();
+  });
+
   test("7. No load-more button — it was doubly dead (P10/L-2)", () => {
     mockUseBankTransactions.mockReturnValue({
       data: { results: [], count: 100, next: "?page=2", previous: null },
@@ -166,12 +187,15 @@ describe("TransactionList", () => {
     render(<TransactionList orgId={orgId} />);
 
     // No onClick AND the backend never sends next — the button was pure
-    // decoration. The truthful count line stays; pagination is
-    // registered debt.
+    // decoration. P26: the registered debt is retired — the real shared
+    // control (Previous/Next) carries the paging now.
     expect(
       screen.queryByRole("button", { name: /load more/i })
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/100 transactions/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Pagination" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–20 of 100 rows")).toBeInTheDocument();
   });
 
   test("8. Applies filters correctly", () => {
@@ -185,7 +209,12 @@ describe("TransactionList", () => {
     const filters = { bank_account_id: "acc-1", is_reconciled: false };
     render(<TransactionList orgId={orgId} filters={filters} />);
 
-    expect(mockUseBankTransactions).toHaveBeenCalledWith(orgId, filters);
+    // P26: the filters ride with the page param (limit 20, offset 0).
+    expect(mockUseBankTransactions).toHaveBeenCalledWith(
+      orgId,
+      filters,
+      expect.objectContaining({ limit: 20, offset: 0 })
+    );
   });
 
   test("9. Distinguishes reconciled vs unreconciled", () => {
