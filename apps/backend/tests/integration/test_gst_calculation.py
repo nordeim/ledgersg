@@ -129,10 +129,12 @@ def test_gst_tax_code_info(auth_client, test_organisation):
     response = auth_client.get(url)
 
     assert response.status_code == status.HTTP_200_OK
-    assert "data" in response.data
+    # P21/BE-M6: the unified list envelope — `results` carries the IRAS
+    # tax-code map.
+    assert "results" in response.data
 
     # Should have SR code info
-    codes = response.data["data"]
+    codes = response.data["results"]
     assert "SR" in codes
     assert codes["SR"]["rate"] == "0.09"
     assert codes["SR"]["box_mapping"] == "box1"

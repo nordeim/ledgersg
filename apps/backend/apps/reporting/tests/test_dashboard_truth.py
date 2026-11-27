@@ -205,7 +205,8 @@ class TestDashboardCacheInvalidation:
     """P5/H-3: mutations must invalidate the 5-minute dashboard cache."""
 
     def test_document_mutation_invalidates_cache(
-        self, org, user, customer, accounts, tax_code
+        self, org, user, customer, accounts, tax_code,
+        django_capture_on_commit_callbacks,
     ):
         cache.delete(f"dashboard:{org.id}")
         service = DashboardService()
@@ -214,7 +215,11 @@ class TestDashboardCacheInvalidation:
         service.get_dashboard_data(str(org.id))
         assert cache.get(f"dashboard:{org.id}") is not None
 
-        # Any document mutation (approve) must invalidate it
+        # Any document mutation (approve) must invalidate it. P21/BE-M3:
+        # the invalidation is registered on COMMIT (a delete inside the
+        # transaction re-seeds the stale value in the delete->commit
+        # window) — the probe executes the callbacks the way a real
+        # commit would.
         document = DocumentService.create_document(
             org_id=org.id,
             document_type="SALES_INVOICE",
@@ -230,7 +235,8 @@ class TestDashboardCacheInvalidation:
             unit_price=Decimal("100.00"),
             tax_code_id=tax_code.id,
         )
-        DocumentService.approve_document(org.id, document.id, user)
+        with django_capture_on_commit_callbacks(execute=True):
+            DocumentService.approve_document(org.id, document.id, user)
 
         assert cache.get(f"dashboard:{org.id}") is None, (
             "approving a document must invalidate the dashboard cache — "
@@ -238,7 +244,8 @@ class TestDashboardCacheInvalidation:
         )
 
     def test_invalidation_survives_recompute_cycle(
-        self, org, user, customer, accounts, tax_code
+        self, org, user, customer, accounts, tax_code,
+        django_capture_on_commit_callbacks,
     ):
         """get -> mutate -> get returns fresh data (not the pre-mutation row)."""
         cache.delete(f"dashboard:{org.id}")
@@ -260,7 +267,10 @@ class TestDashboardCacheInvalidation:
             unit_price=Decimal("100.00"),
             tax_code_id=tax_code.id,
         )
-        DocumentService.approve_document(org.id, document.id, user)
+        # P21/BE-M3: the invalidation is registered on commit — execute
+        # the callbacks the way a real commit would.
+        with django_capture_on_commit_callbacks(execute=True):
+            DocumentService.approve_document(org.id, document.id, user)
         second = service.get_dashboard_data(str(org.id))
 
         assert second is not first

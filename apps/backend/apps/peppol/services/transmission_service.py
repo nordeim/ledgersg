@@ -284,6 +284,19 @@ class TransmissionService:
             log.status = "DELIVERED"
             log.peppol_message_id = result.message_id
             log.response_code = "201"
+            # P21/BE-M4: stamp the evidence column the void/unallocate
+            # restore reads ("SENT" if document.invoicenow_sent_at else
+            # "APPROVED" — the P16/L2 design). Nothing ever wrote it, so
+            # the branch was dead code. Stamp-once semantics via the
+            # isnull filter; the document status is deliberately NOT
+            # touched (APPROVED stays — the evidence column is consulted
+            # only at restore time).
+            from apps.core.models import InvoiceDocument
+
+            InvoiceDocument.objects.filter(
+                id=log.document_id,
+                invoicenow_sent_at__isnull=True,
+            ).update(invoicenow_sent_at=timezone.now())
         else:
             log.status = result.status.value
             log.error_code = result.error_code

@@ -19,12 +19,13 @@ def test_list_organisations_success(auth_client, test_user, test_organisation):
     response = auth_client.get(url)
 
     assert response.status_code == status.HTTP_200_OK
-    assert "data" in response.data
-    assert len(response.data["data"]) >= 1
+    # P21/BE-M6: the unified list envelope ({results, count}).
+    assert "results" in response.data
+    assert len(response.data["results"]) >= 1
     assert response.data["count"] >= 1
 
     # Check the test org is in the list
-    org_ids = [org["id"] for org in response.data["data"]]
+    org_ids = [org["id"] for org in response.data["results"]]
     assert str(test_organisation.id) in org_ids
 
 
@@ -182,8 +183,9 @@ def test_list_fiscal_years_success(auth_client, test_organisation, test_fiscal_p
     response = auth_client.get(url)
 
     assert response.status_code == status.HTTP_200_OK
-    assert "data" in response.data
-    assert len(response.data["data"]) >= 1
+    # P21/BE-M6: the unified list envelope ({results, count}).
+    assert "results" in response.data
+    assert len(response.data["results"]) >= 1
 
 
 @pytest.mark.django_db

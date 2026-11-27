@@ -165,6 +165,19 @@ class BankAccountService:
             raise ResourceNotFound(f"Bank account {account_id} not found")
 
     @staticmethod
+    def _get_locked(org_id: UUID, account_id: UUID) -> BankAccount:
+        """P21/BE-M1: the locked read for mutation paths — the update/
+        deactivate/set_default services previously raced concurrent
+        writers with unlocked reads + full-row saves (last-write-wins
+        clobbers, the duplicate-default TOCTOU)."""
+        try:
+            return BankAccount.objects.select_for_update().get(
+                id=account_id, org_id=org_id
+            )
+        except BankAccount.DoesNotExist:
+            raise ResourceNotFound(f"Bank account {account_id} not found")
+
+    @staticmethod
     @transaction.atomic()
     def update(
         org_id: UUID,
@@ -188,7 +201,7 @@ class BankAccountService:
             ResourceNotFound: If not found
             ValidationError: If validation fails
         """
-        bank_account = BankAccountService.get(org_id, account_id)
+        bank_account = BankAccountService._get_locked(org_id, account_id)
 
         old_data = {
             "account_name": bank_account.account_name,
@@ -217,7 +230,11 @@ class BankAccountService:
             if field in data:
                 setattr(bank_account, field, data[field])
 
-        bank_account.save()
+        # P21/BE-M1: scoped write — the full-row save clobbered
+        # concurrently-committed fields the caller never sent.
+        changed_fields = [field for field in allowed_fields if field in data]
+        if changed_fields:
+            bank_account.save(update_fields=changed_fields)
 
         AuditEventLog.objects.create(
             org_id=org_id,
@@ -259,7 +276,7 @@ class BankAccountService:
             ResourceNotFound: If not found
             ValidationError: If account is the only active one
         """
-        bank_account = BankAccountService.get(org_id, account_id)
+        bank_account = BankAccountService._get_locked(org_id, account_id)
 
         active_count = BankAccount.objects.filter(org_id=org_id, is_active=True).count()
         if active_count == 1 and bank_account.is_active:
@@ -268,9 +285,11 @@ class BankAccountService:
                 "Please create another bank account first."
             )
 
+        old_is_default = bank_account.is_default
         bank_account.is_active = False
         bank_account.is_default = False
-        bank_account.save()
+        # P21/BE-M1: scoped write under the row lock.
+        bank_account.save(update_fields=["is_active", "is_default"])
 
         AuditEventLog.objects.create(
             org_id=org_id,
@@ -279,7 +298,10 @@ class BankAccountService:
             entity_schema="banking",
             entity_table="bank_account",
             entity_id=bank_account.id,
-            old_data={"is_active": True, "is_default": bank_account.is_default},
+            # P21: the old_data snapshot previously read the ALREADY-MUTATED
+            # is_default (False) — record the pre-mutation value captured
+            # before the write.
+            old_data={"is_active": True, "is_default": old_is_default},
             new_data={"is_active": False, "is_default": False},
         )
 
@@ -303,15 +325,28 @@ class BankAccountService:
         Returns:
             Updated BankAccount instance
         """
-        bank_account = BankAccountService.get(org_id, account_id)
+        bank_account = BankAccountService._get_locked(org_id, account_id)
 
         if not bank_account.is_active:
             raise ValidationError("Cannot set inactive bank account as default.")
 
+        # P21/BE-M1: the one-default invariant is org-wide — lock the
+        # org's account set (sorted, the create_entry pattern) so two
+        # concurrent set_default calls serialize instead of leaving
+        # two defaults behind unlocked interleavings.
+        list(
+            BankAccount.objects.filter(org_id=org_id)
+            .select_for_update()
+            .order_by("id")
+            .values_list("id", flat=True)
+        )
+
         BankAccount.objects.filter(org_id=org_id, is_default=True).update(is_default=False)
 
         bank_account.is_default = True
-        bank_account.save()
+        # P21/BE-M1: scoped write — the full-row save clobbered
+        # concurrently-committed opening_balance edits.
+        bank_account.save(update_fields=["is_default"])
 
         AuditEventLog.objects.create(
             org_id=org_id,

@@ -118,7 +118,8 @@ class TestMyOrganisationsView:
         response = authenticated_client.get("/api/v1/auth/organisations/")
 
         assert response.status_code == 200
-        assert response.data == []
+        # P21/BE-M6: the unified list envelope ({results, count}).
+        assert response.data == {"results": [], "count": 0}
 
     def test_returns_user_organisations_with_is_default(
         self, authenticated_client, test_user, test_org_1, test_role_1
@@ -136,12 +137,13 @@ class TestMyOrganisationsView:
         response = authenticated_client.get("/api/v1/auth/organisations/")
 
         assert response.status_code == 200
-        assert len(response.data) == 1
+        # P21/BE-M6: the unified list envelope ({results, count}).
+        assert response.data["count"] == 1
         # Documented contract (AGENTS.md): { id, org: {...}, role: {...} }
-        assert response.data[0]["org"]["id"] == str(test_org_1.id)
-        assert "Test Org" in response.data[0]["org"]["name"]
-        assert response.data[0]["is_default"] is True
-        assert "role" in response.data[0]
+        assert response.data["results"][0]["org"]["id"] == str(test_org_1.id)
+        assert "Test Org" in response.data["results"][0]["org"]["name"]
+        assert response.data["results"][0]["is_default"] is True
+        assert "role" in response.data["results"][0]
 
     def test_returns_multiple_orgs_sorted_by_is_default(
         self, authenticated_client, test_user, test_org_1, test_org_2, test_role_1, test_role_2
@@ -169,9 +171,10 @@ class TestMyOrganisationsView:
         response = authenticated_client.get("/api/v1/auth/organisations/")
 
         assert response.status_code == 200
-        assert len(response.data) == 2
+        # P21/BE-M6: the unified list envelope ({results, count}).
+        assert response.data["count"] == 2
         # Default org should be first (sorted by -is_default in service)
-        assert response.data[0]["is_default"] is True
+        assert response.data["results"][0]["is_default"] is True
 
     def test_excludes_pending_invitations(
         self, authenticated_client, test_user, test_org_1, test_role_1
@@ -188,7 +191,8 @@ class TestMyOrganisationsView:
         response = authenticated_client.get("/api/v1/auth/organisations/")
 
         assert response.status_code == 200
-        assert len(response.data) == 0
+        # P21/BE-M6: the unified list envelope ({results, count}).
+        assert response.data["count"] == 0
 
     def test_requires_authentication(self, api_client):
         """Test that unauthenticated requests are rejected."""

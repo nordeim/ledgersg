@@ -36,11 +36,21 @@ def _invalidate_dashboard_cache(org_id) -> None:
     payment / filing left the dashboard serving stale KPIs until TTL.
     Local import: reporting must not be a hard dependency of the
     transactional services.
+
+    P21/BE-M3: the invalidation is registered on COMMIT — running it
+    inside the open transaction re-seeds the stale value in the
+    delete->commit window (a concurrent read re-populates the cache from
+    the still-pre-commit DB and it survives to TTL). In autocommit
+    contexts on_commit fires immediately, so non-transactional callers
+    keep the old behavior.
     """
     try:
         from apps.reporting.services.dashboard_service import DashboardService
 
-        DashboardService().invalidate_dashboard_cache(str(org_id))
+        def _invalidate() -> None:
+            DashboardService().invalidate_dashboard_cache(str(org_id))
+
+        transaction.on_commit(_invalidate)
     except Exception:  # noqa: BLE001 — cache invalidation must never fail a mutation
         import logging
 

@@ -479,7 +479,6 @@ class DocumentSummaryView(APIView):
     def get(self, request, org_id: str) -> Response:
         """Get document summary."""
         from uuid import UUID
-        from decimal import Decimal
 
         # Get counts by status
         status_counts = {}

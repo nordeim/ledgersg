@@ -310,17 +310,46 @@ class JournalService:
                     line_number=line_number,
                 )
 
-            # P20/BE-M5: the account_balance cache (5-min TTL, seeded by
-            # balance GETs) was never invalidated by postings — the
-            # balance endpoint served the pre-posting value until TTL
-            # (the P19/BE-M1 fix patched the archive gate only). Delete
-            # the key for every account this entry touched.
+            # P20/BE-M5 + P21/BE-M3: the account_balance cache (5-min TTL,
+            # seeded by balance GETs) is invalidated by postings — but the
+            # delete must run on COMMIT, not inside the transaction: a
+            # balance read in the delete->commit window re-seeds the
+            # pre-posting value from the (still pre-commit) DB and it then
+            # survives to TTL. In autocommit contexts on_commit fires
+            # immediately.
             from django.core.cache import cache as _cache
 
-            for _touched_id in sorted(
+            _touched_ids = sorted(
                 {str(l.get("account_id")) for l in lines if l.get("account_id")}
-            ):
-                _cache.delete(f"account_balance:{_touched_id}")
+            )
+
+            def _invalidate_balance_cache(touched=_touched_ids) -> None:
+                for _touched_id in touched:
+                    _cache.delete(f"account_balance:{_touched_id}")
+
+            transaction.on_commit(_invalidate_balance_cache)
+
+            # P21/BE-M2: manual journal entries shift the revenue/expense
+            # totals the dashboard reads — the mutation contract (P5/H-3)
+            # requires the dashboard invalidation here (approve/payments/
+            # filings had it; manual entries did not). Registered on
+            # commit (BE-M3); exception-guarded so a reporting import
+            # failure can never fail a posting.
+            def _invalidate_dashboard(org_id_arg=org_id) -> None:
+                try:
+                    from apps.reporting.services.dashboard_service import (
+                        DashboardService,
+                    )
+
+                    DashboardService().invalidate_dashboard_cache(str(org_id_arg))
+                except Exception:  # noqa: BLE001 — never fail a posting
+                    import logging
+
+                    logging.getLogger(__name__).exception(
+                        "dashboard cache invalidation failed for org %s", org_id_arg
+                    )
+
+            transaction.on_commit(_invalidate_dashboard)
 
             return journal_entry
 

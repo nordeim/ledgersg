@@ -331,7 +331,10 @@ def my_organisations_view(request: Request) -> Response:
             }
         )
 
-    return Response(data)
+    # P21/BE-M6: the list-envelope unification — the raw array becomes
+    # {results, count} like every other list surface (the frontend's
+    # org-selector + the bootstrap script read one key).
+    return Response({"results": data, "count": len(data)})
 
 
 @api_view(["POST"])

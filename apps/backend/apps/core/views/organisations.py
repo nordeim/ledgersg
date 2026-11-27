@@ -52,7 +52,10 @@ class OrganisationListCreateView(APIView):
         orgs = Organisation.objects.filter(user_memberships__user=request.user).distinct()
 
         serializer = OrganisationSerializer(orgs, many=True)
-        return Response({"data": serializer.data, "count": len(serializer.data)})
+        # P21/BE-M6: the list-envelope unification — every list surface
+        # speaks {results, count} (reports keep their {data: {...}}
+        # payloads); the frontend + API guide read one key.
+        return Response({"results": serializer.data, "count": len(serializer.data)})
 
     @wrap_response
     def post(self, request) -> Response:
@@ -213,7 +216,8 @@ class FiscalYearListView(APIView):
         fiscal_years = FiscalYear.objects.filter(org_id=org_id).order_by("-start_date")
 
         serializer = FiscalYearSerializer(fiscal_years, many=True)
-        return Response({"data": serializer.data, "count": len(serializer.data)})
+        # P21/BE-M6: the list-envelope unification ({results, count}).
+        return Response({"results": serializer.data, "count": len(serializer.data)})
 
 
 class OrganisationSummaryView(APIView):

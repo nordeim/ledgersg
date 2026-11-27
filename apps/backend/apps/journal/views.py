@@ -5,8 +5,9 @@ Journal entry management and trial balance reporting.
 """
 
 from datetime import date
-from django.utils import timezone
+from decimal import InvalidOperation
 
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -24,6 +25,7 @@ from apps.journal.serializers import (
 from apps.journal.services import SOURCE_TYPES, JournalService
 from common.decimal_utils import Decimal
 from common.exceptions import ResourceNotFound
+from common.exceptions import ValidationError as ServiceValidationError
 from common.views import wrap_response
 
 
@@ -199,7 +201,8 @@ class TrialBalanceView(APIView):
 
         return Response(
             {
-                "data": entries,
+                # P21/BE-M6: the list-envelope unification ({results, count}).
+                "results": entries,
                 "count": len(entries),
                 "totals": {
                     "total_debits": str(total_debits),
@@ -264,7 +267,8 @@ class EntryTypesView(APIView):
         """Get entry types."""
         types = [{"code": code, "name": name} for code, name in SOURCE_TYPES.items()]
 
-        return Response({"data": types, "count": len(types)})
+        # P21/BE-M6: the list-envelope unification ({results, count}).
+        return Response({"results": types, "count": len(types)})
 
 class JournalEntrySummaryView(APIView):
     """
@@ -319,11 +323,35 @@ class ValidateBalanceView(APIView):
 
         lines = request.data.get("lines", [])
 
+        # P21/BE-M5: the body is untrusted input — the P7/F-11 typed-400
+        # pattern, applied to the body this view missed. A non-list
+        # `lines` (dict/string) or a non-numeric debit/credit used to
+        # surface as AttributeError/InvalidOperation 500s.
+        if not isinstance(lines, list):
+            raise ServiceValidationError("'lines' must be a list of line objects")
+
         if len(lines) < 2:
             return Response({"valid": False, "error": "Entry must have at least 2 lines"})
 
-        total_debits = sum(Decimal(str(line.get("debit", 0))) for line in lines)
-        total_credits = sum(Decimal(str(line.get("credit", 0))) for line in lines)
+        parsed_totals = []
+        for line in lines:
+            if not isinstance(line, dict):
+                raise ServiceValidationError(
+                    "each entry in 'lines' must be an object with debit/credit fields"
+                )
+            row = []
+            for field in ("debit", "credit"):
+                raw_value = line.get(field, 0)
+                try:
+                    row.append(Decimal(str(raw_value)))
+                except (InvalidOperation, TypeError, ValueError):
+                    raise ServiceValidationError(
+                        f"'lines.{field}' must be a decimal amount, got {raw_value!r}"
+                    ) from None
+            parsed_totals.append(row)
+
+        total_debits = sum(row[0] for row in parsed_totals)
+        total_credits = sum(row[1] for row in parsed_totals)
 
         difference = abs(total_debits - total_credits)
         is_valid = difference < Decimal("0.001")

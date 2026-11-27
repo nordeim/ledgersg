@@ -221,7 +221,8 @@ def test_trial_balance(
     response = auth_client.get(url)
 
     assert response.status_code == status.HTTP_200_OK
-    assert "data" in response.data
+    # P21/BE-M6: the unified list envelope — results + totals survive.
+    assert "results" in response.data
     assert "totals" in response.data
     assert response.data["totals"]["balanced"] is True
 
@@ -275,9 +276,10 @@ def test_journal_entry_types(auth_client, test_organisation):
     response = auth_client.get(url)
 
     assert response.status_code == status.HTTP_200_OK
-    assert "data" in response.data
+    # P21/BE-M6: the unified list envelope ({results, count}).
+    assert "results" in response.data
 
-    types = [t["code"] for t in response.data["data"]]
+    types = [t["code"] for t in response.data["results"]]
     assert "MANUAL" in types
     assert "SALES_INVOICE" in types
 

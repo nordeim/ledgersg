@@ -199,7 +199,9 @@ class TaxCodeIrasInfoView(APIView):
     def get(self, request, org_id: str) -> Response:
         """Get IRAS tax code definitions."""
         info = TaxCodeService.get_iras_tax_codes_info()
-        return Response({"data": info, "count": len(info)})
+        # P21/BE-M6: the list-envelope unification ({results, count}) —
+        # `results` carries the IRAS tax-code map.
+        return Response({"results": info, "count": len(info)})
 
 
 class GSTCalculateView(APIView):
@@ -336,7 +338,8 @@ class GSTReturnListCreateView(APIView):
             {
                 "message": f"Created {len(created)} return periods",
                 "count": len(created),
-                "data": GSTReturnListSerializer(created, many=True).data,
+                # P21/BE-M6: the list-envelope unification ({results, count}).
+                "results": GSTReturnListSerializer(created, many=True).data,
             },
             status=status.HTTP_201_CREATED,
         )

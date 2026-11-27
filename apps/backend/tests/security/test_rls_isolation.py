@@ -56,7 +56,11 @@ def test_rls_accounts_isolation(auth_client, test_organisation, test_user):
     assert response.status_code == status.HTTP_200_OK
 
     # Check that other account is not in the list
-    account_codes = [acc["code"] for acc in response.data.get("data", [])]
+    # P21: this previously read response.data.get("data", []) — the
+    # accounts list speaks {results, count}, so the fallback ALWAYS
+    # produced [] and the assertion was vacuous (it passed even if
+    # isolation broke). Read the real envelope.
+    account_codes = [acc["code"] for acc in response.data.get("results", [])]
     assert "9999" not in account_codes
 
 

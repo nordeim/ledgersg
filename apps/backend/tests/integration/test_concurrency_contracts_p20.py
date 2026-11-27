@@ -437,12 +437,17 @@ class TestCreateEntryInvalidatesBalanceCacheP20:
     @pytest.mark.django_db
     def test_create_entry_invalidates_the_account_balance_cache(
         self, test_organisation, test_user, test_accounts, test_tax_codes,
-        test_fiscal_period,
+        test_fiscal_period, django_capture_on_commit_callbacks,
     ):
         """BE-M5: create_entry() must delete the account_balance:{id}
         cache key for every account it touches — the 5-minute cache
         otherwise serves a pre-posting balance on the user-facing
-        balance endpoint (the P19 fix patched the archive gate only)."""
+        balance endpoint (the P19 fix patched the archive gate only).
+
+        P21/BE-M3 update: the delete is registered on COMMIT (a delete
+        inside the transaction re-seeds the stale value in the
+        delete->commit window) — the probe executes the callbacks the
+        way a real commit would."""
         from apps.coa.services import AccountService
         from apps.journal.services import JournalService
 
@@ -453,17 +458,18 @@ class TestCreateEntryInvalidatesBalanceCacheP20:
         pre = AccountService.get_account_balance(org.id, account.id)
         assert pre == Decimal("0.00")
 
-        JournalService.create_entry(
-            org_id=org.id,
-            entry_date=date(2024, 1, 15),
-            source_type="MANUAL",
-            narration="P20 cache-invalidation probe",
-            lines=[
-                {"account_id": account.id, "debit": Decimal("100.00"), "credit": Decimal("0")},
-                {"account_id": test_accounts["1200"].id, "debit": Decimal("0"), "credit": Decimal("100.00")},
-            ],
-            user_id=test_user.id,
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            JournalService.create_entry(
+                org_id=org.id,
+                entry_date=date(2024, 1, 15),
+                source_type="MANUAL",
+                narration="P20 cache-invalidation probe",
+                lines=[
+                    {"account_id": account.id, "debit": Decimal("100.00"), "credit": Decimal("0")},
+                    {"account_id": test_accounts["1200"].id, "debit": Decimal("0"), "credit": Decimal("100.00")},
+                ],
+                user_id=test_user.id,
+            )
 
         post = AccountService.get_account_balance(org.id, account.id)
         assert post == Decimal("100.00"), (
