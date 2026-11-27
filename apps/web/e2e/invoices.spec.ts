@@ -329,3 +329,173 @@ test.describe("Invoice detail — void flow (P7/F-1)", () => {
     await expect(reasonField).toHaveCount(0);
   });
 });
+
+/** UI login to the dashboard (the session is memory-only — a page.goto
+ * mid-flow would drop it; the ledger spec's helper shape). */
+async function loginViaUi(page: import("@playwright/test").Page) {
+  await page.goto("/login");
+  await page.locator("input[type='email']").fill(
+    process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
+  );
+  await page.locator("input[type='password']").fill(
+    process.env.E2E_DEMO_PASSWORD ?? "demo1234pass"
+  );
+  await page.getByRole("button", { name: /sign in/i }).click();
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });
+}
+
+// ---------------------------------------------------------------------------
+// P26: the invoices list pages server-side (the frontend pagination wiring)
+// ---------------------------------------------------------------------------
+
+test.describe("Invoices list pagination (P26/FE-P1 — the server-side pages)", () => {
+  /**
+   * The self-stocking fodder helper (the P25 lesson applied at design
+   * time): the spec's precondition — more than one 20-row page of
+   * SALES_INVOICE documents — is stocked through the public API,
+   * count-driven and idempotent (a re-run at target creates nothing).
+   * The fodder is DRAFT: it posts no journal lines, so the F5 boxes and
+   * the dashboard stay untouched.
+   */
+  async function ensureInvoiceFodder(page: import("@playwright/test").Page) {
+    const token = await apiLoginToken(page);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    const orgsResponse = await page.request.get(`${apiUrl}/api/v1/auth/organisations/`, {
+      headers: auth,
+    });
+    test.expect(orgsResponse.ok()).toBeTruthy();
+    const orgs = (await orgsResponse.json()) as {
+      results: Array<{ org: { id: string } }>;
+    };
+    const orgId = orgs.results[0]?.org.id;
+    test.expect(orgId).toBeTruthy();
+
+    // The line needs a REVENUE account and the SR tax code (P14/M-4).
+    await ensureRevenueAccount(page, token);
+    const accounts = (await (
+      await page.request.get(`${apiUrl}/api/v1/${orgId}/accounts/?account_type=REVENUE`, {
+        headers: auth,
+      })
+    ).json()) as { results: Array<{ id: string }> };
+    const revenueId = accounts.results[0]?.id;
+
+    const taxCodes = (await (
+      await page.request.get(`${apiUrl}/api/v1/${orgId}/gst/tax-codes/?is_active=true`, {
+        headers: auth,
+      })
+    ).json()) as { results: Array<{ id: string; code: string }> };
+    const sr = taxCodes.results.find((t) => t.code === "SR");
+    test.expect(sr).toBeTruthy();
+    if (!sr) throw new Error("no SR tax code on the demo org");
+
+    // Count-driven top-up: while the invoice count is <= 20 (a single
+    // page), create one small DRAFT fodder invoice at a time (max 30 —
+    // the defensive bound; each iteration re-queries the count).
+    for (let i = 0; i < 30; i++) {
+      const list = (await (
+        await page.request.get(
+          `${apiUrl}/api/v1/${orgId}/invoicing/documents/?type=SALES_INVOICE`,
+          { headers: auth }
+        )
+      ).json()) as { count: number };
+      if (list.count > 20) return;
+
+      const issueDate = new Date().toISOString().slice(0, 10);
+      const created = await page.request.post(
+        `${apiUrl}/api/v1/${orgId}/invoicing/documents/`,
+        {
+          headers: { ...auth, "Content-Type": "application/json" },
+          data: {
+            document_type: "SALES_INVOICE",
+            contact_id: await firstContactId(page, auth, orgId),
+            issue_date: issueDate,
+            due_date: issueDate,
+            currency: "SGD",
+            reference: `E2E-PAGE-FODDER-${i}`,
+            lines: [
+              {
+                account_id: revenueId,
+                description: "e2e pagination fodder",
+                quantity: 1,
+                unit_price: "10.00",
+                tax_code_id: sr.id,
+              },
+            ],
+          },
+        }
+      );
+      test.expect(created.ok()).toBeTruthy();
+    }
+  }
+
+  async function firstContactId(
+    page: import("@playwright/test").Page,
+    auth: Record<string, string>,
+    orgId: string
+  ): Promise<string> {
+    const contacts = (await (
+      await page.request.get(`${apiUrl}/api/v1/${orgId}/invoicing/contacts/`, {
+        headers: auth,
+      })
+    ).json()) as { results: Array<{ id: string }> };
+    test.expect(contacts.results[0]?.id).toBeTruthy();
+    return contacts.results[0].id;
+  }
+
+  test("the pagination controls page the invoices live — Next advances, Previous returns (P26/FE-P1)", async ({ page }) => {
+    await ensureInvoiceFodder(page);
+    await loginViaUi(page);
+
+    await page.getByRole("link", { name: /^Invoices$/ }).click();
+    await expect(page).toHaveURL(/\/invoices\/?$/);
+
+    // The fodder guarantees > 20 rows: page 1 at size 20 is a full page.
+    const pagination = page.getByRole("navigation", { name: "Pagination" });
+    await expect(pagination).toBeVisible({ timeout: 30000 });
+
+    const summary = page.getByText(/Showing 1–20 of \d+ rows/);
+    await expect(summary).toBeVisible();
+    const next = page.getByRole("button", { name: /next page/i });
+    const previous = page.getByRole("button", { name: /previous page/i });
+    await expect(previous).toBeDisabled();
+    await expect(next).toBeEnabled();
+
+    // Page 1's first row (the newest document by the list's order).
+    const firstRowBefore = await page
+      .getByRole("row")
+      .nth(1)
+      .locator("td")
+      .first()
+      .innerText();
+
+    await next.click();
+
+    // Page 2: the offset summary + different rows (never page 1's cache).
+    await expect(page.getByText(/Showing 21–\d+ of \d+ rows/)).toBeVisible({
+      timeout: 30000,
+    });
+    await expect(previous).toBeEnabled();
+    const firstRowAfterNext = await page
+      .getByRole("row")
+      .nth(1)
+      .locator("td")
+      .first()
+      .innerText();
+    test.expect(firstRowAfterNext).not.toBe(firstRowBefore);
+
+    // Previous returns to page 1 (the same first row comes back).
+    await previous.click();
+    await expect(page.getByText(/Showing 1–20 of \d+ rows/)).toBeVisible({
+      timeout: 30000,
+    });
+    const firstRowAfterBack = await page
+      .getByRole("row")
+      .nth(1)
+      .locator("td")
+      .first()
+      .innerText();
+    test.expect(firstRowAfterBack).toBe(firstRowBefore);
+    await expect(previous).toBeDisabled();
+  });
+});
