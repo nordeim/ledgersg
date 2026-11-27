@@ -61,13 +61,36 @@ async function ensureOutstandingInvoice(page: import("@playwright/test").Page) {
   ).json()) as Array<{ org: { id: string } }>;
   const orgId = orgs[0].org.id;
 
+  // P20/X-H1: this helper must be SELF-SUFFICIENT for the contact too —
+  // it runs in the SECOND spec file (alphabetical order), and on a fresh
+  // DB nothing before it creates a contact (p10's picker helper runs
+  // 7th). The old `contacts.results[0]?.id` assert made the first full
+  // run against a fresh database fail exactly here (red run 1, green run
+  // 2 — the flake-by-ordering the cross-cutting audit diagnosed).
+  // Idempotent + run-unique, exactly like the invoice below.
+  let contactId = undefined as string | undefined;
   const contacts = (await (
     await page.request.get(`${apiUrl}/api/v1/${orgId}/invoicing/contacts/`, {
       headers: auth,
     })
-  ).json()) as { results: Array<{ id: string }> };
-  const contactId = contacts.results[0]?.id;
-  test.expect(contactId).toBeTruthy();
+  ).json()) as { results: Array<{ id: string; name: string }> };
+  contactId = contacts.results[0]?.id;
+  if (!contactId) {
+    const suffix = Date.now().toString(36);
+    const created = await page.request.post(
+      `${apiUrl}/api/v1/${orgId}/invoicing/contacts/`,
+      {
+        headers: { ...auth, "Content-Type": "application/json" },
+        data: {
+          name: `E2E Banking Customer ${suffix}`,
+          contact_type: "CUSTOMER",
+          email: `e2e-banking-${suffix}@example.com`,
+        },
+      }
+    );
+    test.expect(created.ok()).toBeTruthy();
+    contactId = ((await created.json()) as { id: string }).id;
+  }
 
   const accounts = (await (
     await page.request.get(`${apiUrl}/api/v1/${orgId}/accounts/?is_active=true`, {

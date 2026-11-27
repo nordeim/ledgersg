@@ -6,11 +6,12 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-27, session 36 / P18) re-verified the guide against the current
-codebase on a live sandbox (backend 914P/0F/5S, vitest 601/601, typecheck
-0 errors, whole-tree eslint 0 errors / 5 parity warnings, build:server
+(2026-11-27, session 40 / P20) re-verified the guide against the current
+codebase on a live sandbox (backend 950P/0F/5S, vitest 627/627, typecheck
+0 errors, whole-tree eslint 0 errors / 0 warnings, build:server
 green, the production-CSP smoke 5/5, live e2e 40P/0F/0S (40 specs), the
-runtime-role smoke 13/13 as `ledgersg_app`, the mobile-nav probe 17/17) —
+runtime-role smoke 13/13 as `ledgersg_app`, the mobile-nav probe 17/17 —
+the eleventh consecutive settlement, P20) —
 carrying the P17 concurrency truth forward (double-reversal / double-void /
 double-reconcile refused under row locks; the 400-contract sweep; the Celery
 tenant context; the `/admin/` gate; the `STORAGES` manifest migration) and
@@ -116,9 +117,14 @@ required because the schema CREATEs ROLEs in DO blocks):
 
 ```bash
 # PGBIN derives from PG_BASE (P18/DOC-M9 + P19/X-M4 — the hardcoded
-# sandbox path broke the fresh-host story on any other prefix); the
-# major is whatever §3 resolved above (17 at the time of writing).
-PGBIN="${PG_BASE:-/home/z/my-project/pg}/root/usr/lib/postgresql/${PG_MAJOR:-17}/bin"
+# sandbox path broke the fresh-host story on any other prefix). NOTE
+# (P20/X-L4): the resolved MAJOR is printed by setup_pg_z.sh ("[pg]
+# resolved major: 17"); export PG_MAJOR to match it — the shell cannot
+# see the script's internal variable, so the :-17 fallback below is a
+# default, not a probe.
+export PG_BASE="${PG_BASE:-/home/z/my-project/pg}"   # adjust to your host
+export PG_MAJOR=17                                    # = the major §3 printed
+PGBIN="${PG_BASE}/root/usr/lib/postgresql/${PG_MAJOR}/bin"
 "$PGBIN/psql" -h 127.0.0.1 -U postgres -d postgres -c \
   "CREATE ROLE ledgersg WITH LOGIN PASSWORD 'ledgersg_secret_to_change' SUPERUSER;"
 for db in ledgersg_dev test_ledgersg_dev; do
@@ -129,10 +135,12 @@ done
 (When prompted, the postgres role's password is `postgres`. On a system
 PostgreSQL, use its superuser for these two commands instead.)
 
-Lifecycle (logs under `/home/z/my-project/pg/log/`):
+Lifecycle (P20/X-M1: every path below derives from `$PG_BASE` — the
+hardcoded sandbox paths broke stop/status on any other prefix; the logs
+live under `${PG_BASE}/log/`):
 
 ```bash
-"$PGBIN/pg_ctl" -D /home/z/my-project/pg/data status
+"$PGBIN/pg_ctl" -D "${PG_BASE}/data" status
 # stop / restart: same command with "stop" / "restart"
 ```
 
@@ -241,7 +249,7 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-27 P18): 914 passed, 0 failed, 5 skipped
+# expected (post-2026-11-27 P20): 950 passed, 0 failed, 5 skipped
 pytest tests/invariants -q    # 34 passed (conformance, capacity, balances,
                               # filed-return immutability, GST lock, RLS)
 pytest tests/security -q      # 83 passed, 3 skipped (RLS, tokens, cookies,
@@ -327,7 +335,7 @@ Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 601 vitest tests
+npm test                    # 627 vitest tests
 npm run test:coverage       # green at the honest measured-floor ratchet
 npm run build:server        # the only build mode
 npm run test:e2e            # green without a backend (gated specs skip)
@@ -345,6 +353,15 @@ the suite serially:
 ```bash
 export E2E_API_URL=http://127.0.0.1:8000 E2E_DEMO_EMAIL=demo@ledgersg.sg \
        E2E_DEMO_PASSWORD=demo1234pass
+
+# P20/X-H1: the ONE command bootstrap — scripts/bootstrap_demo_substrate_
+# session40.sh performs §9 steps 1-5 below idempotently against the live
+# stack (register/login, org, contact + profile PATCH, the invoice +
+# linked credit note + approvals, the F5 compute). Run it once on a fresh
+# database:
+bash scripts/bootstrap_demo_substrate_session40.sh http://127.0.0.1:8000
+
+# The equivalent manual steps (what the script does):
 # 1) register/login the demo user:  POST /api/v1/auth/register/
 #    {"full_name":"Demo User","email":"demo@ledgersg.sg","password":"demo1234pass"}
 #    (201 with tokens; 200 login if the user already exists)
@@ -371,8 +388,15 @@ npm run test:e2e:full       # 40 specs: 11 always + 29 backend-gated
                            # (40/40 live-green, P13)
 ```
 
-(The p11 spec's `ensureDemoActivity` performs steps 3–5 idempotently itself
-— a fresh DB self-bootstraps on the first run.)
+(P20/X-H1, the truth correction: the old parenthetical claimed "the p11
+spec's `ensureDemoActivity` performs steps 3–5 idempotently itself — a
+fresh DB self-bootstraps on the first run". That was FALSE —
+`ensureDemoActivity` REQUIRES a contact (it PATCHes one, never creates
+it), and the banking spec (alphabetically second) consumes
+`contacts.results[0]` before any contact-creating spec runs — a fresh DB
+was deterministically red on run 1, green on run 2. The P20 fix makes the
+banking helper self-sufficient AND ships this script; the suite is now
+green on the FIRST run of a fresh database.)
 
 ## 10. (Optional) Celery worker — async tasks
 
