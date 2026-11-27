@@ -8,8 +8,10 @@ import path from "path";
  * Purpose: Unit and integration testing for components and utilities
  * Coverage Targets:
  * - lib/gst-engine.ts: 100% (critical for IRAS compliance)
- * - Components: 90%
- * - Hooks: 85%
+ * - Components: 90% (aspirational — the enforced floor is the
+ *   whole-suite ratchet below)
+ * - Hooks: 85% (aspirational — the ENFORCED hooks-tier floor sits at
+ *   the measured value; raise it as coverage improves)
  */
 
 export default defineConfig({
@@ -53,6 +55,18 @@ export default defineConfig({
           functions: 52,
           branches: 74,
           statements: 71,
+        },
+        // P18/CFG-L2: the hooks tier floor, set at the measured value
+        // (52.81 / 47.34 / 36.15 statements/functions/branches) — the
+        // header's aspirational "Hooks: 85%" was never enforced, and 5 of
+        // 13 hooks measured 0-20%. Same ratchet philosophy as the P10
+        // whole-suite floor: a REAL gate at today's level, raised over
+        // time — never lowered.
+        "src/hooks/**": {
+          lines: 52,
+          functions: 47,
+          branches: 36,
+          statements: 52,
         },
       },
       include: ["src/**/*.{ts,tsx}"],
