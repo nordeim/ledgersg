@@ -3,7 +3,7 @@
 > **Single Source of Truth for Developers and Coding Agents**
 > **Version**: 3.12.0
 > **Last Updated**: 2026-11-27
-> **P17 note**: concurrency truth + the Celery tenant context — double-reversal / double-void / double-reconcile refused under row locks; tasks dispatch on-commit and real workers run inside the RLS tenant context (`common/tenant_context.py`); the 400-contract sweep (typed GST boxes, allocation UUIDs, UEN normalize-then-validate, tax-rate range, 6-dp exchange_rate); `/admin/` gated off outside DEBUG; the Django 6 `STORAGES` manifest migration; `--color-success` token + the org-selector Radix menu contract + the shared `uenSchema` + eslint 0 errors; schema **v1.2.1** (§15c Django framework tables for the pytest transactional teardowns); 882 backend / 582 vitest / e2e 40P live — see `docs/REMEDIATION_PLAN_2026-11-27_P17.md`
+> **P18 note**: statutory-record locking + the contrast debt + the Celery coverage completion — generate_f5/review_return locked with file_return; unallocate/unreconcile/convert/credit-cap/add_line locked; header/archived account posting refused; the three remaining Peppol task bodies under the RLS tenant context + the on-commit dispatch covered + terminal classification for deleted-org tasks; the email status gate (APPROVED invoices only); the bg-success/bg-alert contrast fixes at WCAG AA; `tw-animate-css` imported (the Radix animate utilities that silently compiled to nothing in v4); the genuinely-shared `uenSchema`; schema **v1.2.2** (§15c completion: the ENABLE_ADMIN opt-in tables); 914 backend / 601 vitest / e2e 40P live — see `docs/REMEDIATION_PLAN_2026-11-27_P18.md`. Carries the P17 state forward: double-reversal / double-void / double-reconcile refused under row locks; tasks dispatch on-commit; the 400-contract sweep; `/admin/` gated; the `STORAGES` manifest migration; the `--color-success` token — see `docs/REMEDIATION_PLAN_2026-11-27_P17.md`
 >
 > **P16 note**: production truth — the shipped production app could not hydrate under its own static `script-src 'self'` CSP (every page ships non-nonced Next bootstrap scripts); the CSP is now per-request nonce-based via `src/proxy.ts` with the app opted into dynamic rendering, gated by a standalone-build smoke (`scripts/prod-csp-smoke.js`). The Docker/script API entrypoint (`config/settings/service.py`) had silently dropped the tenant/audit/CSP/WhiteNoise middleware — now derived from base and settings-gated. The dedicated allocate endpoint accepts instalments (the shared ALLOCATABLE_STATUSES), the payment row is locked for the cap check, payment create+allocate is one transaction, NaN/Infinity box overrides are refused, the line-total product is bounded to NUMERIC(19,4), the dashboard invalidation key is fixed, org-creation selects the new org (selectOrgById), and the frontend accepts all three ACRA UEN forms. See `docs/REMEDIATION_PLAN_2026-11-26_P16.md`.
 >
@@ -47,7 +47,7 @@
 ### Key Metrics (P17, 2026-11-27)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,504 Tests Passing** | 882 Backend + 582 Frontend unit + 40 e2e (11 always + 29 backend-gated; 40/40 live-green) + the 13-step runtime-role smoke |
+| **Test Coverage** | **1,555 Tests Passing** | 914 Backend + 601 Frontend unit + 40 e2e (11 always + 29 backend-gated; 40/40 live-green) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+") |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
@@ -56,8 +56,8 @@
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 582 | 100% | Vitest + RTL | ✅ Passing |
-| **Backend (pytest)** | 882 passed / 5 skipped (887 collected) | 100% of run | pytest | ✅ Passing |
+| **Frontend Unit** | 601 | 100% | Vitest + RTL | ✅ Passing |
+| **Backend (pytest)** | 914 passed / 5 skipped (919 collected) | 100% of run | pytest | ✅ Passing |
 | **E2E (Playwright)** | 40 (11 always + 29 backend-gated) | 100% live | Playwright | ✅ Passing |
 | **Total Passing** | **1,504** | — | Mixed | ✅ Verified |
 
@@ -192,7 +192,7 @@ ledgersg/   (repo root — clone anywhere; the P13-era absolute path is retired)
 │   │   ├── config/               # Settings (Base, Dev, Prod)
 │   │   ├── database_schema.sql   # ★ SOURCE OF TRUTH ★
 │   │   └── manage.py
-│   └── web/                      # Next.js 16.1.6 Project
+│   └── web/                      # Next.js 16.4.6 Project
 │       ├── src/
 │       │   ├── app/              # App Router (Pages & Layouts)
 │       │   ├── components/       # Shadcn/Radix UI Components
@@ -201,13 +201,12 @@ ledgersg/   (repo root — clone anywhere; the P13-era absolute path is retired)
 │ │ │ ├── api-client.ts # Typed API Client (client-side)
 │ │ │ ├── gst-engine.ts # GST calculation engine
 │ │ │ ├── utils.ts # Utility functions
-│ │ │ └── server/ # Server-side utilities
-│ │ │ └── api-client.ts # Server-side API Client (zero JWT exposure)
 │ │ ├── providers/ # Context Providers (Auth, Theme)
 │       │   └── shared/           # Zod Schemas & Types
 │       ├── public/
 │       ├── next.config.ts
-│       └── middleware.ts         # CSP & Security Headers
+│       └── proxy.ts              # Per-request nonce CSP (Next 16 proxy,
+                                    # ex-middleware; static headers in next.config.ts)
 ├── docker/                       # Container Configuration
 ├── docs/                         # Documentation
 ├── ACCOMPLISHMENTS.md            # Progress Tracker
@@ -219,7 +218,7 @@ ledgersg/   (repo root — clone anywhere; the P13-era absolute path is retired)
 
 ## Frontend Architecture
 
-**Stack**: Next.js 16.1.6 (App Router), React 19, Tailwind 4, Shadcn/Radix UI.
+**Stack**: Next.js 16.4.6 (App Router), React 19, Tailwind 4, Shadcn/Radix UI.
 
 ### Authentication Flow
 1.  **Initial Load**: `AuthProvider` calls `/api/v1/auth/me/`.

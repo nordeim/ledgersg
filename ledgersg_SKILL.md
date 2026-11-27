@@ -3,7 +3,7 @@ name: ledgersg
 description: "Engineering skill for the LedgerSG codebase — a SQL-First, double-entry accounting platform for Singapore SMBs (Django 6 + DRF + Next.js 16 + PostgreSQL 16 RLS). Captures the architecture, the hard lessons of the 2026-11-21 P0+P1+P2+P3+P4 remediations, testing prerequisites and gates, and the debugging guide a future agent needs before touching financial code."
 version: 2.6.0
 last_updated: 2026-11-27
-project_state: "P17 remediated; all gates green — 882 backend tests (0 failed, 5 skipped; invariants 34, security 78P/3S), frontend 582 vitest + 40 e2e (40/40 live), typecheck 0, whole-tree eslint 0 errors (5 warnings, parity), the production-CSP smoke 5/5 (nonce + hydration + zero violations), the runtime-role smoke 13/13 as ledgersg_app, the mobile-nav probe 17/17 (the navigation works; no Tailwind v4 bug — re-settled on the P17 tree), schema v1.2.1 (§17 RLS complete + §15c Django framework tables for the pytest transactional teardowns), zero known dependency advisories; P17 headline: the concurrency guards (double-reversal 409 / double-void / double-reconcile typed 400, all under row locks — BE-H1/H2/M5), the Celery tenant context (on-commit dispatch + the worker-side RLS context via common/tenant_context.py — BE-H3), the 400-contract sweep (typed GST box parsing, bulk-allocation UUID field errors, UEN normalize-then-validate on org PATCH, tax-rate range, 6-dp exchange_rate), /admin/ gated off outside DEBUG + the Django 6 STORAGES manifest migration, select_related on the three list services, no negative-membership cache poisoning, the --color-success token + the unsaved-changes beforeunload guard + the org-selector Radix menu contract + the shared uenSchema + redirect-carry + the dead CSP origins dropped; P16: the nonce-based CSP via src/proxy.ts + src/lib/csp.ts with force-dynamic (FE-C1), the service-path middleware restored from base + settings-gated (BE-H1), the allocate endpoint accepts instalments (BE-H2), the dashboard invalidation key fixed (FE-H1), org-creation selects the new org via selectOrgById (FE-H2), all three ACRA UEN forms accepted (FE-H3), the payment-row lock + atomic create+allocate + NaN/Infinity box rejection + the line-total bound + system-tax-code read-only + UEN normalization (the M-batch), the open-redirect guard + scroll-lock release + dialog semantics + the e2e serial contract (the FE batch); P15: the tree repaired after the corrupted 2bcb43f0, P14 complete (FILED immutability, GST lock, linked CNs, allocation cap, honest validators, line-item 400s, NRIC masking, Viewer read-only, XXE hardening, tax-code dedupe, single-flight refresh); P12: the mobile nav verified working (the v4 setup is clean), the open menu is a modal overlay (now with role=dialog — P16); P11: credit notes post REVERSED GL entries and NET in the F5 computation"
+project_state: "P18 remediated; all gates green — 914 backend tests (0 failed, 5 skipped; invariants 34, security 83P/3S), frontend 601 vitest + 40 e2e (40/40 live), typecheck 0, whole-tree eslint 0 errors (5 warnings, parity), the production-CSP smoke 5/5 (nonce + hydration + zero violations), the runtime-role smoke 13/13 as ledgersg_app, the mobile-nav probe 17/17 (the navigation works; no Tailwind v4 bug — re-settled on the P18 tree; the tailwindcss-animate family that silently compiled to nothing in v4 was fixed with tw-animate-css), schema v1.2.2 (§17 RLS complete + §15c Django framework tables incl. the ENABLE_ADMIN opt-in set), zero known dependency advisories; P18 headline: the statutory-record locks (generate_f5/review_return under the row lock), the concurrency completion (unallocate/unreconcile/convert/credit-cap/add_line locks + the header/archived posting gate), the Celery coverage completion (the three remaining Peppol task bodies under the RLS tenant context, the on-commit dispatch covered, terminal classification for deleted-org tasks), the email status gate (APPROVED invoices only), the contrast debt closed (bg-success/bg-alert/text-muted at WCAG AA with pairing gates), the genuinely-shared uenSchema; P17 headline: the concurrency guards (double-reversal typed 400 / double-void / double-reconcile typed 400, all under row locks — BE-H1/H2/M5), the Celery tenant context (on-commit dispatch + the worker-side RLS context via common/tenant_context.py — BE-H3), the 400-contract sweep (typed GST box parsing, bulk-allocation UUID field errors, UEN normalize-then-validate on org PATCH, tax-rate range, 6-dp exchange_rate), /admin/ gated off outside DEBUG + the Django 6 STORAGES manifest migration, select_related on the three list services, no negative-membership cache poisoning, the --color-success token + the unsaved-changes beforeunload guard + the org-selector Radix menu contract + the shared uenSchema + redirect-carry + the dead CSP origins dropped; P16: the nonce-based CSP via src/proxy.ts + src/lib/csp.ts with force-dynamic (FE-C1), the service-path middleware restored from base + settings-gated (BE-H1), the allocate endpoint accepts instalments (BE-H2), the dashboard invalidation key fixed (FE-H1), org-creation selects the new org via selectOrgById (FE-H2), all three ACRA UEN forms accepted (FE-H3), the payment-row lock + atomic create+allocate + NaN/Infinity box rejection + the line-total bound + system-tax-code read-only + UEN normalization (the M-batch), the open-redirect guard + scroll-lock release + dialog semantics + the e2e serial contract (the FE batch); P15: the tree repaired after the corrupted 2bcb43f0, P14 complete (FILED immutability, GST lock, linked CNs, allocation cap, honest validators, line-item 400s, NRIC masking, Viewer read-only, XXE hardening, tax-code dedupe, single-flight refresh); P12: the mobile nav verified working (the v4 setup is clean), the open menu is a modal overlay (now with role=dialog — P16); P11: credit notes post REVERSED GL entries and NET in the F5 computation"
 ---
 
 # LedgerSG — Engineering Skill
@@ -77,21 +77,21 @@ cd apps/backend
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# Current state (2026-11-27, post-P17): 0 failed, 882 passed, 5 skipped — SUITE GREEN
+# Current state (2026-11-27, post-P18): 0 failed, 914 passed, 5 skipped — SUITE GREEN
 pytest tests/invariants -q   # 34 gates: atomic rollback (+ the P13 handler-layer
                              # rollback + reversal-atomicity + sub-mil tolerance
                              # gates), void net-zero, F5 tie-out, schema
                              # conformance (incl. numeric precision), journal
                              # balances, CoA trial balance, monetary capacity,
                              # immutability contract, naive-today gate
-pytest tests/security -q     # 78 passed + 3 skipped: RLS transaction isolation,
+pytest tests/security -q     # 83 passed + 3 skipped: RLS transaction isolation,
                              # token lifecycle, settings gates (incl. the
                              # P6/E-1 throttle-posture gates + the P13
                              # copy-on-write gates), refresh-cookie +
                              # session_hint contracts
 ```
 
-Frontend gates (`apps/web`): `npm test` (582 vitest), `npm run typecheck` (tsc, 0
+Frontend gates (`apps/web`): `npm test` (601 vitest), `npm run typecheck` (tsc, 0
 errors), `npm run test:e2e` (playwright; 11 tests green without a backend —
 29 backend-gated specs skip with reasons), `npm run test:e2e:full` (all 40 —
 needs the Django backend on :8000 + Redis AND the E2E_DEMO_* trio exported
@@ -208,7 +208,7 @@ APPROVED, SENT, PARTIALLY_PAID, PAID, OVERDUE. Excluded: DRAFT, VOID, BCRS lines
     must await the auth-redirect chain (`toHaveURL(/login/)`) before `.analyze()`.
 21. **Money width is a business-model contract** — `NUMERIC(10,4)` capped at
     S$999,999.9999, below the S$1M GST registration threshold (P3/C-1). All
-    money is `NUMERIC(19,4)` since schema v1.2.0; the conformance gate asserts
+    money is `NUMERIC(19,4)` since schema v1.1.0; the conformance gate asserts
     DecimalField precision against `information_schema` (it caught
     `JournalLine.exchange_rate` over-declaring 19,6 vs the real 12,6 on its
     first run — schema is truth; align the model DOWN).
@@ -743,7 +743,7 @@ delete dead duplicate validators.
 | Env templates | root `.env.example` (combined index) → `apps/backend/.env.example` + `apps/web/.env.example`; `.gitignore` lists `.env*` — the local dev `.env` / `.env.local` are UNTRACKED (`git ls-files` shows only the three `.env.example`s; never commit them) |
 | Session cookies | login/register/refresh set + rotate; logout/change-password/failed-cookie-refresh expire — `apps/backend/apps/core/views/_refresh_cookie.py`; gate = `tests/security/test_refresh_cookie.py` |
 | Rate resolution | `TaxCodeService.get_tax_code_by_code(org, code, as_of)` / `is_effective(tc, date)` — `apps/gst/services/tax_code_service.py` |
-| Money capacity | All money `NUMERIC(19,4)` since schema v1.2.0; §16 = in-place widening migration; gate = `tests/invariants/test_numeric_capacity.py` |
+| Money capacity | All money `NUMERIC(19,4)` since schema v1.1.0; §16 = in-place widening migration; gate = `tests/invariants/test_numeric_capacity.py` |
 | Invoice form adapter | `src/lib/invoice-submit.ts` (form state → contact+document payloads) — `src/hooks/use-tax-codes.ts`, `src/hooks/use-accounts.ts` |
 | Authed e2e pattern | UI login → sidebar Links (client-side only); `E2E_API_URL` gating — `apps/web/e2e/invoices.spec.ts`; session persistence (reload survival) — `apps/web/e2e/session.spec.ts` |
 | Deployment guide | `docs/DEPLOYMENT.md` (fresh-host, rootless PG + §16 migration + Redis + gates) |

@@ -5,15 +5,20 @@
 # (same adaptation as Tasks 114-121 — matches drizzle.config.json)
 set -euo pipefail
 
-PG_ROOT="/home/z/my-project/pg/root"
-PG_DATA="/home/z/my-project/pg/data"
-PG_LOG_DIR="/home/z/my-project/pg/log"
+# P18/DOC-M9: the prefix is overridable — the default is the sandbox
+# layout this script was born in; on any other host export
+# PG_BASE="$HOME/pg" (or any prefix you own) before running. Everything
+# below derives from PG_BASE.
+PG_BASE="${PG_BASE:-/home/z/my-project/pg}"
+PG_ROOT="${PG_BASE}/root"
+PG_DATA="${PG_BASE}/data"
+PG_LOG_DIR="${PG_BASE}/log"
 PG_PORT="5432"
 PG_ROLE="postgres"
 PG_SECRET="postgres"
 PG_DB="app_db"
 
-mkdir -p "$PG_ROOT" "$PG_DATA" "$PG_LOG_DIR" /home/z/my-project/pg/deb
+mkdir -p "$PG_ROOT" "$PG_DATA" "$PG_LOG_DIR" "${PG_BASE}/deb"
 
 # Resolve major dynamically (trixie ships 17)
 PG_MAJOR=$(apt-cache search --names-only '^postgresql-[0-9]+$' | grep -oE '[0-9]+' | sort -n | tail -1)
@@ -21,7 +26,7 @@ PG_MAJOR=$(apt-cache search --names-only '^postgresql-[0-9]+$' | grep -oE '[0-9]
 echo "[pg] resolved major: $PG_MAJOR"
 
 if [ ! -x "/home/z/my-project/pg/root/usr/lib/postgresql/${PG_MAJOR}/bin/initdb" ]; then
-  cd /home/z/my-project/pg/deb
+  cd "${PG_BASE}/deb"
   apt-get download "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}" postgresql-common libpq5
   for f in *.deb; do dpkg-deb -x "$f" "$PG_ROOT/"; done
 fi

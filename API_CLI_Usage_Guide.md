@@ -2,7 +2,7 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 2.8.0
+> **Version**: 2.9.0 (P18 addendum)
 > **Last Updated**: 2026-11-27 (P17 — NEW 400 contracts: double-reversal / double-void / double-reconcile refusals under row locks; typed GST box parsing; allocation UUID field errors; UEN normalize-then-validate on org PATCH; tax-rate range; on-commit task dispatch + the worker RLS context)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
@@ -106,7 +106,8 @@ the runtime-role smoke **13/13**.
 
 The P17 sprint (session 34) closed the money-mutation concurrency races and
 the 400-contract gaps (all pinned by `tests/integration/test_concurrency_
-contracts_p17.py` + `tests/integration/test_api_contract_p17.py`):
+contracts_p17.py` + `tests/integration/test_api_contract_p17.py` +
+`tests/integration/test_journal_workflow.py` for the double-reversal):
 
 | Contract | P17 delta |
 |:---|:---|
@@ -115,7 +116,7 @@ contracts_p17.py` + `tests/integration/test_api_contract_p17.py`):
 | `POST /banking/bank-transactions/{id}/reconcile/` | Reconciling the **same payment twice is refused (400)**; the payment and transaction rows are locked for the match. The two routes now use `<uuid:transaction_id>` converters — a malformed id is a **404 at the routing layer** (was a UUID() 500) |
 | `POST /gst/returns/{id}/file/` (box overrides) | Box values are **type-checked before parsing** — `null`, objects, and non-numeric strings are a 400 field error (was a TypeError 500); NaN/Infinity stay 400 (P16) |
 | `POST /banking/payments/{id}/allocate/` (bulk) | A non-UUID `document_id` ("abc") is a **400 field error** (was an unhandled UUID 500); valid UUIDs unchanged |
-| `PATCH /api/v1/organisations/{id}/` (uen) | The UEN is **normalized (trim + upper) then validated** on update — lowercase/whitespace input is accepted and stored normalized; an invalid ACRA form is a 400; the case-dodge UNIQUE collision (update "abc123d" against existing "ABC123D") is refused |
+| `PATCH /api/v1/{org_id}/` (uen) | The UEN is **normalized (trim + upper) then validated** on update — lowercase/whitespace input is accepted and stored normalized; an invalid ACRA form is a 400; the case-dodge UNIQUE collision (update "abc123d" against existing "ABC123D") is refused. **URL: the org-scoped root** (`PATCH /api/v1/{org_id}/` — `PATCH /api/v1/organisations/{id}/` 404s; `POST /api/v1/organisations/` remains the create route) |
 | `PATCH /gst/tax-codes/{id}/` (rate) | The rate is range-checked on update — 9 (a percent) and negative values are 400; `0.09` unchanged |
 | `POST /banking/payments/receive/` (exchange_rate) | FX rates round-trip at their wire precision — a 6-dp rate (0.876543) is stored and used exactly (the money() quantize no longer truncates it to 4 dp); monetary amounts stay 4-dp |
 | InvoiceNow/PDF/email tasks | Dispatched **on commit** — a rolled-back transaction no longer queues phantom tasks; a real Celery worker runs the task inside the tenant RLS context (`app.current_org_id` SET LOCAL — `common/tenant_context.py`). Eager mode (dev default) is bit-identical |
@@ -127,6 +128,34 @@ skipped** (887 collected; invariants 34, security 78+3 skipped) · frontend
 vitest **582/582** (69 files) · e2e 11 always-green + 29 backend-gated,
 **40/40 live** under `test:e2e:full` · the production-CSP smoke **5/5** ·
 the runtime-role smoke **13/13** · the mobile-nav probe **17/17**.
+
+### 2026-11-27 P18 verification addendum
+
+The P18 sprint (session 36) closed the statutory-record TOCTOU, the
+residual concurrency seams, and the task-contract gaps (all pinned by
+`tests/integration/test_concurrency_contracts_p18.py` +
+`test_celery_tenant_context_p18.py` + `test_api_contract_p18.py` +
+`tests/security/test_schema_gates_p18.py`):
+
+| Contract | P18 delta |
+|:---|:---|
+| `POST /gst/returns/{id}/generate/` + `POST /gst/returns/{id}/review/` | The return row is **locked for the whole recompute/review** (`select_for_update` inside an atomic block, the `file_return` pattern) — a recompute can no longer interleave with a filing and regress a FILED statutory record to COMPUTED while `filed_at` stays populated |
+| `DELETE`-class `POST /banking/payments/allocations/{id}/` (unallocate) + `POST /banking/bank-transactions/{id}/unreconcile/` | The same row locks their siblings take (payment→document; transaction→payment) — `amount_paid`/status recomputes and the reconcile-flag writes are serialized against `allocate()`/`reconcile()` |
+| `POST /invoicing/quotes/{id}/convert/` | The quote row is **locked with a post-lock status re-check** — two concurrent converts no longer create two invoices from one quote |
+| `POST /invoicing/documents/{id}/lines/` (add_line) | The document row is locked for the line-number read+insert; a residual `uq_docline_doc_lineno` race surfaces as a **typed 400** ("the document changed while the line was being added — reload and retry"), never an IntegrityError 500 |
+| Credit notes (`POST /invoicing/documents/` with `related_document_id`) | The ORIGINAL document row is locked for the cumulative-cap check, and the check runs inside the create transaction — racing credit notes can no longer jointly exceed the original total |
+| `POST /journal-entries/entries/` (manual entries) | Lines posting to a **header** account or an **archived** (`is_active=false`) account are refused with a typed 400 — the trial balance (which filters active accounts) can no longer diverge from the ledger |
+| `GET /banking/bank-transactions/{id}/suggest-matches/` | Malformed transaction ids are a **routing 404** (the `<uuid:transaction_id>` converter — the same contract as reconcile/unreconcile) |
+| `POST /invoicing/documents/{id}/send/` (email) | Only **APPROVED (or settled) SALES_INVOICEs** can be emailed — the emailed PDF is a rendered TAX INVOICE (the same gate `send_invoicenow` carries); VOID/DRAFT/quotes are a 400 |
+| Peppol task contracts | `retry_failed_transmission_task` / `check_transmission_status_task` take the **org_id argument** (the RLS-scoped log row cannot be read to learn it) and open the RLS tenant context; `cleanup_old_transmission_logs_task` runs per-org (`org_id` argument) or refuses loudly without one; a deleted org/document mid-task is a **terminal** result, not a 3x60s retry cycle |
+| `create_return_periods` | The UNIQUE(org, type, period) race is typed — the loser skips cleanly (never an IntegrityError 500) |
+| Service seam (`_validated_exchange_rate`) | A garbage rate from a direct (non-DRF) caller is a typed 400, not an InvalidOperation 500 |
+
+**Current test metrics (post-P18)**: backend **914 passed / 0 failed / 5
+skipped** (invariants 34, security 83+3 skipped) · frontend vitest
+**601/601** (70 files) · e2e 11 always-green + 29 backend-gated, **40/40
+live** under `test:e2e:full` · the production-CSP smoke **5/5** · the
+runtime-role smoke **13/13** · the mobile-nav probe **17/17**.
 
 ---
 

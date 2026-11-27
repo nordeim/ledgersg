@@ -2,28 +2,41 @@ LedgerSG Project Status — Comprehensive Summary
 Executive Overview
 LedgerSG is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs with IRAS 2026 compliance. The platform has undergone significant development across multiple phases, achieving enterprise-grade security, comprehensive test coverage, and a complete banking UI.
 ---
-Current Status (2026-11-27 — P17 remediated; see the sprint-patterns sections
-at the bottom of this file for P0–P17 and the README status table for the
+Current Status (2026-11-27 — P18 remediated; see the sprint-patterns sections
+at the bottom of this file for P0–P18 and the README status table for the
 live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 34):
-- Backend: pytest 882 passed / 0 failed / 5 skipped (887 collected;
-  invariants 34, security 78 passed + 3 skipped)
-- Frontend: vitest 582/582 (69 files), tsc --noEmit 0 errors, whole-tree
+Current truth (all gates executed and green, session 36):
+- Backend: pytest 914 passed / 0 failed / 5 skipped (919 collected;
+  invariants 34, security 83 passed + 3 skipped)
+- Frontend: vitest 601/601 (70 files), tsc --noEmit 0 errors, whole-tree
   eslint **0 errors** (5 warnings — the documented deferred register,
   parity maintained)
-- E2E: 40 specs (11 always-green + 29 backend-gated); live run 40P/0F/0S
+- E2E: 40 specs (11 always-green + 29 backend-gated); live run 40P/0F/0S;
+  CI now runs the always-green 11 (P18/CFG-L1)
 - Production-CSP smoke (P16/FE-C1): 5/5 — nonce served, hydration
   happened, zero violations (the gate class the dev suite cannot cover)
 - Runtime-role smoke: 13/13 steps green as ledgersg_app (C-1/H-7)
 - Mobile-nav live probe: 17/17 at 375/800/1280 — the navigation works,
-  no Tailwind v4 bug (the P12–P16 verdicts re-settled on the P17 tree)
-- Coverage: green at the ratchet (whole-suite + src/lib per-glob);
-  build:server green; schema v1.2.1 (§17 RLS complete + §15c framework
-  tables for the pytest transactional teardowns)
+  no Tailwind v4 bug (the P12–P17 verdicts re-settled on the P18 tree;
+  the only real v4-class bug found — the tailwindcss-animate family
+  silently compiling to nothing — was fixed in P18 with tw-animate-css)
+- Coverage: green at the ratchet (whole-suite + src/lib + src/hooks
+  per-glob floors, the hooks tier added P18/CFG-L2); build:server green;
+  schema v1.2.2 (§17 RLS complete + §15c framework tables incl. the
+  ENABLE_ADMIN opt-in set)
 - npm audit / pip-audit: zero known advisories on the production sets
+- P18 headline: the statutory-record locks (generate_f5/review_return
+  join file_return under the row lock), the concurrency completion
+  (unallocate/unreconcile/convert/credit-cap/add_line + the
+  header/archived posting gate), the Celery coverage completion (the
+  three remaining Peppol task bodies under the RLS tenant context +
+  the on-commit dispatch covered + terminal classification), the email
+  status gate, the contrast debt (bg-success/bg-alert/text-muted at AA
+  + pairing gates), tw-animate-css, the genuinely-shared uenSchema, the
+  nested-Escape fix
 - P17 headline: the concurrency guards (double-reversal / double-void /
   double-reconcile refused under row locks), the Celery tenant context
   (on-commit dispatch + worker-side RLS), the 400-contract sweep, the
@@ -193,7 +206,7 @@ Without Org
 File Structure
 apps/
 ├── backend/           # Django 6.0.10
-│   ├── apps/          # core, coa, gst, journal, invoicing, banking, reporting
+│   ├── apps/          # core, coa, gst, journal, invoicing, banking, peppol, reporting
 │   ├── common/        # BaseModel, TenantModel, decimal_utils
 │   ├── config/        # settings, celery, urls
 │   └── tests/         # integration, security, TDD
@@ -246,8 +259,8 @@ Summary: The LedgerSG platform is production-ready with comprehensive test cover
 **LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore Small and Medium Businesses (SMBs). Its primary mission is to transform IRAS 2026 compliance from a regulatory burden into a seamless, automated experience. The platform combines enterprise-grade financial integrity with a distinctive "Illuminated Carbon" neo-brutalist user interface.
 
 **Current Status:** ✅ **Production Ready**
-- **Frontend:** v0.3.4 (Next.js 16.4.6, 16 pages, 69 test files, **582 tests passing**)
-- **Backend:** v0.6.4 (Django 6.0.10, 90+ API endpoints, **882 tests passing, 0 failed**)
+- **Frontend:** v0.3.4 (Next.js 16.4.6, 16 pages, 70 test files, **601 tests passing**)
+- **Backend:** v0.6.4 (Django 6.0.10, 90+ API endpoints, **914 tests passing, 0 failed**)
 - **Database:** v1.2.1 (PostgreSQL 16+, 7 schemas, 29 domain tables + 1 view + §15c framework tables, RLS complete on every tenant table §17)
 - **Dashboard:** v1.0.0 (Real Data Integration, 36 TDD tests, 100% coverage)
 - **Integration Gaps:** Phase 3 Complete (GAP-3: 20 tests, GAP-4: 13 tests)

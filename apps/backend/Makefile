@@ -30,12 +30,13 @@ install:
 dev:
 	python manage.py runserver
 
-# Testing
+# Testing (the canonical invocation — DEPLOYMENT.md §7; bare pytest
+# prompts against the dev DB)
 test:
-	pytest
+	pytest --reuse-db --no-migrations
 
 test-cov:
-	pytest --cov=apps --cov=common --cov-report=html --cov-report=term
+	pytest --reuse-db --no-migrations --cov=apps --cov=common --cov-report=html --cov-report=term
 
 # Linting and formatting
 lint:

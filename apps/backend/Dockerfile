@@ -49,6 +49,16 @@ WORKDIR /app
 COPY . /app
 RUN pip install --upgrade pip && pip install -e .
 
+# P18/DOC-M1: collect static files into the image — production uses
+# WhiteNoise's CompressedManifestStaticFilesStorage (P17/BE-L4) and the
+# first request would raise "Missing staticfiles manifest entry" without
+# this. The build-time collect uses the production settings with a
+# build-only SECRET_KEY (the runtime key comes from the environment /
+# compose; the fail-fast gate only checks length + the known default).
+RUN DJANGO_SETTINGS_MODULE=config.settings.production \
+    SECRET_KEY=build-time-placeholder-secret-key-not-used-at-runtime-0123456789 \
+    python manage.py collectstatic --noinput
+
 # Non-root runtime user; the LOG_DIR the production settings' file handler
 # writes to (P11/C-2: the deployer's mkdir step, built into the image).
 RUN groupadd -g 1000 ledgersg \

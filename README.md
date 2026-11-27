@@ -1,6 +1,6 @@
 # LedgerSG — Enterprise Accounting Platform for Singapore SMBs
 
-[![Tests](https://img.shields.io/badge/tests-1504%20passing-success)]()
+[![Tests](https://img.shields.io/badge/tests-1555%20passing-success)]()
 [![Security](https://img.shields.io/badge/security-100%25-brightgreen)]()
 [![IRAS](https://img.shields.io/badge/IRAS-2026%20Compliant-red)]()
 [![WCAG](https://img.shields.io/badge/WCAG-AAA-success)]()
@@ -101,23 +101,36 @@ SQL-First • Service-Oriented • RLS-Enforced • Illuminated Carbon UI • IR
 
 | Component | Version | Status | Key Metrics |
 |-----------|---------|--------|-------------|
-| **Frontend** | v0.3.4 | ✅ Production Ready | 16 pages, **582 unit tests + 40 e2e** (11 always + 29 backend-gated), typecheck clean, whole-tree eslint 0 errors, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9), registration + contacts management + the invoice-form contact picker + the full GST F5 lifecycle + bank-account edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11), the mobile-nav overlay a11y floor (P12), the closed-drawer visibility fix + X hit-target fix + axe-scanned overlay (P13), single-flight token refresh (P15), the nonce-CSP proxy + mobile-nav probe green (P16), the `--color-success` token + unsaved-changes guard + org-selector Radix menu contract + shared UEN schema + lint-error zero (P17) |
-| **Backend** | v0.6.4 | ✅ Suite Fully Green | 90+ endpoints, **882 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8), InvoiceNow invoice-only gate, nullable-PayNow bank-account contract, as-at-bounded aged reports, seeded account_type backfill + is_bank filter (P9), GST F5 review/amend + fiscal-period open + UEN uniqueness + rate-limit 429 truth + org-create duplicate-UEN 400s (P10), credit notes posting reversed GL entries + netting in F5, production settings that boot (builtin Redis cache, LOG_DIR knob), typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission (P11), FILED immutability + the GST period lock (P14), serializer contract fixes (P16), the concurrency guards (double-reversal / double-void / double-reconcile refused under row locks) + the 400-contract sweep + the Celery tenant context + the admin/STORAGES gates (P17) |
-| **Database** | v1.2.1 | ✅ Complete | 7 schemas + token blacklist, **RLS complete on every tenant table (§17)**, 29 domain tables + 1 view + §15c Django framework tables, **NUMERIC(19,4) money** |
+| **Frontend** | v0.3.4 | ✅ Production Ready | 16 pages, **601 unit tests + 40 e2e** (11 always + 29 backend-gated), typecheck clean, whole-tree eslint 0 errors, WCAG axe-clean login flow, cross-reload session persistence, real invoices list/detail + ledger + settings pages (P5/P6), working void-reason dialog + real error messages + PDF/InvoiceNow actions (P7), real reports page (statements, GST F5, aged AR/AP) + real quotes pages with convert flow (P8), organisation creation + the full payment workflow (bank accounts, contact picking, allocations, import, reconciliation, corrections) + a truthful dashboard (P9), registration + contacts management + the invoice-form contact picker + the full GST F5 lifecycle + bank-account edit/deactivate + fiscal open + change password + InvoiceNow settings (P10), the truthful edit dialog prefill + F5 box labels + dashboard GST/chart/prefix truth + permission-gated row actions + dev-only CSP unsafe (P11), the mobile-nav overlay a11y floor (P12), the closed-drawer visibility fix + X hit-target fix + axe-scanned overlay (P13), single-flight token refresh (P15), the nonce-CSP proxy + mobile-nav probe green (P16), the `--color-success` token + unsaved-changes guard + org-selector Radix menu contract + shared UEN schema + lint-error zero (P17), the contrast-pairing/token gates + the genuinely-shared uenSchema + nested-Escape fix + tw-animate-css restore (P18) |
+| **Backend** | v0.6.4 | ✅ Suite Fully Green | 90+ endpoints, **914 tests passing** (0 failed), SQL-First, RLS transaction-scoped, HttpOnly refresh-cookie auth, real InvoiceNow wiring + accounting truth, per-status transition permissions + active custom exception handler (P7), real financial reports (TB/P&L/BS with retained earnings), aged AR/AP endpoint, quote lifecycle with persisted conversion links + QT numbering (P8), InvoiceNow invoice-only gate, nullable-PayNow bank-account contract, as-at-bounded aged reports, seeded account_type backfill + is_bank filter (P9), GST F5 review/amend + fiscal-period open + UEN uniqueness + rate-limit 429 truth + org-create duplicate-UEN 400s (P10), credit notes posting reversed GL entries + netting in F5, production settings that boot (builtin Redis cache, LOG_DIR knob), typed org-settings PATCH, routing-layer UUID 404s, audit-trail request context + LOGIN/LOGOUT emission (P11), FILED immutability + the GST period lock (P14), serializer contract fixes (P16), the concurrency guards (double-reversal / double-void / double-reconcile refused under row locks) + the 400-contract sweep + the Celery tenant context + the admin/STORAGES gates (P17), the statutory-record locks (generate/review F5) + the unallocate/unreconcile/convert/credit-cap row locks + the header/archived posting gate + the full Celery tenant-context coverage + the email status gate (P18) |
+| **Database** | v1.2.2 | ✅ Complete | 7 schemas + token blacklist, **RLS complete on every tenant table (§17)**, 29 domain tables + 1 view + §15c Django framework tables (incl. the ENABLE_ADMIN opt-in set), **NUMERIC(19,4) money** |
 | **Accounting Engine** | v1.0.0 | ✅ Verified | 3/3 E2E Workflows (Lakshmi, ABC, Meridian) |
 | **Banking UI** | v1.3.0 | ✅ Phase 5.5 Complete | 73 TDD tests, all 3 tabs live, reconciliation |
 | **Dashboard** | v1.1.0 | ✅ Phase 4 Complete | 36 TDD tests, Redis caching; payables include PARTIALLY_PAID bills (P7/F-9) |
 | **InvoiceNow** | v0.6.0 | ✅ Real transmission path (P5/C-2) | send-invoicenow creates a real transmission log + queues the Celery task; status reports real log rows; retention-safe cleanup (never deletes DELIVERED/REJECTED); the detail page exposes Send-via-InvoiceNow + status badge (P7) |
 | **Security** | v1.3.0 | ✅ P0 Hardened + P4 Cookie Auth + P7 API gates | Token rotation + blacklist, SECRET_KEY gate, rate limiting default-on, HttpOnly refresh cookie + `session_hint` evidence gate, per-status document permissions, manager-gated settings PATCHes, typed query params (400 not 500) |
-| **Overall** | — | 🟢 **P0–P17 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P9_REPORT.md`, `docs/REMEDIATION_2026-11-22_P10_REPORT.md`, `docs/REMEDIATION_2026-11-23_P11_REPORT.md`, `docs/REMEDIATION_2026-11-23_P12_REPORT.md`, `docs/REMEDIATION_2026-11-24_P13_REPORT.md` and `docs/ledgersg-audit-report.md` |
+| **Overall** | — | 🟢 **P0–P18 Remediated; all gates green** | See `docs/REMEDIATION_2026-11-21_REPORT.md`, `_P1…_P9_REPORT.md`, `docs/REMEDIATION_2026-11-22_P10_REPORT.md`, `docs/REMEDIATION_2026-11-23_P11_REPORT.md`, `docs/REMEDIATION_2026-11-23_P12_REPORT.md`, `docs/REMEDIATION_2026-11-24_P13_REPORT.md` and `docs/ledgersg-audit-report.md` |
 
 ### Latest Milestone
 
-#### 🎉 P17 Sprint: Concurrency Truth, the 400-Contract Sweep & the Celery Tenant Context — 2026-11-27 (session 34)
+#### 🎉 P18 Sprint: Statutory-Record Locking, the Contrast Debt, the Celery Coverage Completion & the Fresh-Host Truth — 2026-11-27 (session 36)
+
+Source: `docs/REMEDIATION_PLAN_2026-11-27_P18.md` (validated against the codebase before execution; every fix TDD — RED first).
+
+- ✅ **Statutory-record locking (the High)**: `generate_f5`/`review_return` now take the same row lock `file_return` carries — a concurrent recompute can no longer regress a FILED return to COMPUTED while `filed_at` stays populated (the P14/C-2 regression shape, reopened through a race)
+- ✅ **The concurrency completion**: `unallocate`/`unreconcile` locked (same lock order as their siblings), `convert_quote_to_invoice` locked (double-convert refused), `add_line`'s line-number race closed + typed 400 on the residual constraint hit, the credit-note cumulative cap locked, header/archived accounts refused at `create_entry` (the TB/ledger divergence closed), `archive_account` locked
+- ✅ **The Celery coverage completion**: the three remaining Peppol task bodies open the RLS tenant context (org passed explicitly — the RLS-scoped log row cannot be read to learn it); the production-only `on_commit` dispatch branch now test-covered; deleted-org/document tasks classify as terminal instead of retry-to-death
+- ✅ **The contrast debt (the frontend High)**: the three `bg-success text-white` badges (1.33:1!) fixed to `text-void` (15.27:1), the `bg-alert` trio likewise, `--color-text-muted` raised to AA, the header's AAA claim corrected — all pinned by new pairing/ratio regression gates
+- ✅ **The real Tailwind v4 fix**: `tw-animate-css` imported — the `animate-in`/`fade-in-0`/`zoom-in-95`/`slide-in-*` family on the Radix primitives compiled to NOTHING in v4 (the v3 plugin's vocabulary silently dead); a compiled-CSS gate now pins the utilities
+- ✅ **The genuinely-shared uenSchema**: the invoice customer field normalizes like the org form and the backend (lowercase UENs no longer false-rejected); the org form validates through the shared schema (one message source)
+- ✅ **Schema v1.2.2 (§15c completion)**: `django_session` + `django_admin_log` — the `ENABLE_ADMIN` opt-in no longer 500s on a schema-only host
+- ✅ **The gate**: backend **914P/0F/5S** (+32) · vitest **601/601** (+19) · tsc 0 · eslint 0 errors / 5 parity warnings · coverage ratchet green (new hooks-tier floor) · build:server green · CI gains the no-backend e2e job
+
+#### P17 Sprint: Concurrency Truth, the 400-Contract Sweep & the Celery Tenant Context — 2026-11-27 (session 34)
 
 Source: `docs/REMEDIATION_PLAN_2026-11-27_P17.md` (validated against the codebase before execution; every fix TDD — RED first).
 
-- ✅ **Concurrency guards (the Highs)**: double journal-entry reversals refused (409-class, row lock + re-check), double payment void refused under `select_for_update`, reconcile double-match refused (typed 400) — the three money-mutation races closed
+- ✅ **Concurrency guards (the Highs)**: double journal-entry reversals refused (typed 400, row lock + re-check), double payment void refused under `select_for_update`, reconcile double-match refused (typed 400) — the three money-mutation races closed
 - ✅ **The Celery tenant context (H-3)**: tasks dispatched `on_commit` (never inside the request transaction) and the worker wraps each task body in the RLS tenant context (`app.current_org_id` SET LOCAL) — eager mode stays bit-identical for dev/test
 - ✅ **The 400-contract sweep**: typed GST box parsing (None/dict/"garbage" → 400), bulk-allocation UUID field errors, UEN normalize-then-validate on org PATCH (case-dodge duplicates refused), tax-rate range on update, exchange_rate stored at its true 6-dp wire precision
 - ✅ **Settings/ops gates**: `/admin/` 404s outside DEBUG (settings-gate tested), the Django 6 `STORAGES` manifest migration (WhiteNoise compressed-manifest storage actually active), `select_related` on the three list services (O(1) FK queries, query-count gated), no negative-membership cache poisoning
@@ -355,14 +368,14 @@ Source: the independent audit (`docs/ledgersg-audit-report.md`, every Critical/H
 
 ## 🧪 Test Suites & Execution
 
-LedgerSG employs comprehensive testing across multiple layers with **1,504 tests passing** (882 backend + 582 frontend unit + 40 e2e: 11 always + 29 backend-gated).
+LedgerSG employs comprehensive testing across multiple layers with **1,555 tests passing** (914 backend + 601 frontend unit + 40 e2e: 11 always + 29 backend-gated).
 
 ### Test Suite Breakdown
 
 | Suite | Count | Framework | Coverage | Status |
 |-------|-------|-----------|----------|--------|
-| **Backend Suite** | 887 collected — 882 passing, 5 skipped | pytest-django | Core, domain, integration, invariants, security | ✅ 100% pass (5 intentional skips) |
-| **Frontend Unit Tests** | 582 passing | Vitest + RTL | Components, hooks, pages, providers | ✅ 100% pass |
+| **Backend Suite** | 919 collected — 914 passing, 5 skipped | pytest-django | Core, domain, integration, invariants, security | ✅ 100% pass (5 intentional skips) |
+| **Frontend Unit Tests** | 601 passing | Vitest + RTL | Components, hooks, pages, providers | ✅ 100% pass |
 | **Frontend Typecheck** | 0 errors | tsc --noEmit | All src + e2e + configs | ✅ Green |
 | **Frontend Coverage Gate** | thresholds at the measured floor | vitest --coverage | The honest ratchet (P10/M-13: the old 85% thresholds had never passed) | ✅ Green |
 | **E2E Specs** | 40 specs (11 always + 29 backend-gated) | Playwright | Auth, navigation, register self-serve loop, contacts, invoice picker, banking workflow, ledger, quotes, reports, session, settings, invoices, P11 accounting truth (F5 boxes, contacts round-trip, dashboard GST), P12 mobile-nav overlay contract (Escape/auto-close/desktop), P13 mobile-nav a11y (closed-drawer visibility, X hit-target, axe scan) | ✅ 40/40 live-green |
@@ -388,7 +401,7 @@ psql -h localhost -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 # 3. Run tests with reuse flags (ALWAYS these two)
 pytest --reuse-db --no-migrations -v
 
-# Expected output (post 2026-11-27 P17 remediation): 882 passed, 0 failed, 5 skipped
+# Expected output (post 2026-11-27 P18 remediation): 914 passed, 0 failed, 5 skipped
 ```
 
 **Note:** The backend suite has been fully green since the 2026-11-21 P1 sprint (`docs/REMEDIATION_2026-11-21_P1_REPORT.md`): the historical 26 `tests/test_api_endpoints.py` fixture-isolation failures were fixed (org fixture `accepted_at`, valid `entity_type`/`gst_reg_date` payloads), and three real endpoint bugs they masked were remediated (document summary, CoA trial balance, status transitions). The P2 sprint (`docs/REMEDIATION_2026-11-21_P2_REPORT.md`) added rate-effectiveness regression tests and the custom tax-code create fix. The P3 sprint (`docs/REMEDIATION_2026-11-21_P3_REPORT.md`) widened all monetary columns to NUMERIC(19,4) (schema v1.1.0, §16 in-place migration) and made `add_line` apply `discount_pct` server-side. The P4 sprint (`docs/REMEDIATION_2026-11-21_P4_REPORT.md`) shipped the HttpOnly refresh-cookie session flow with the `session_hint` evidence gate (14 cookie-contract tests). Invariant gates live in `tests/invariants/` (atomic rollback, void reversal net-zero, F5 tie-out, schema–model conformance **incl. numeric precision**, balance queries, **monetary capacity**) and security gates in `tests/security/` (RLS transaction isolation, token lifecycle, settings gates).
@@ -397,7 +410,7 @@ pytest --reuse-db --no-migrations -v
 
 ```bash
 cd apps/web
-npm test                    # Vitest unit suite (582 tests)
+npm test                    # Vitest unit suite (601 tests)
 npm run typecheck           # tsc --noEmit (0 errors)
 npm run test:coverage       # With coverage report (the CI ratchet gate)
 npm run test:e2e            # Playwright e2e — 11 tests green without a backend
@@ -629,7 +642,7 @@ Ledger-SG/
 │       │   ├── 📂 lib/
 │       │   │    └── api-client.ts     # Typed API client
 │       │   └── 📂 providers/         # Context providers (Auth, Theme)
-│       ├── proxy.ts               # Per-request nonce CSP (Next 16 proxy, ex-middleware; P16)
+│       │   ├── proxy.ts               # Per-request nonce CSP (Next 16 proxy, ex-middleware; P16)
 │       └── next.config.ts            # Next.js Configuration (static security headers)
 │
 │       📌 The tree above is abridged — the authoritative layout lives in
@@ -659,7 +672,7 @@ Ledger-SG/
 | `apps/backend/common/decimal_utils.py` | Financial precision utilities | Use `money()` function |
 | `apps/web/src/lib/api-client.ts` | Typed API client | Server-side auth |
 | `apps/web/src/providers/auth-provider.tsx` | Authentication context | 3-layer defense |
-| `apps/web/middleware.ts` | Next.js middleware | CSP headers |
+| `apps/web/src/proxy.ts` + `apps/web/src/lib/csp.ts` | Next 16 proxy (ex-middleware) | Per-request nonce CSP |
 
 ---
 
@@ -669,7 +682,7 @@ Ledger-SG/
 
 | Layer | Technology | Version | Purpose |
 |-------|------------|---------|---------|
-| Framework | Next.js (App Router) | 16.1.6 | SSR, SSG, API routes |
+| Framework | Next.js (App Router) | 16.4.6 | SSR, SSG, API routes |
 | UI Library | React | 19.2.3 | Component architecture |
 | Styling | Tailwind CSS | 4.0 | CSS-first theming |
 | UI Primitives | Shadcn/Radix | Latest | Accessible components |
@@ -677,18 +690,18 @@ Ledger-SG/
 | Server State | TanStack Query | 5.90.21 | API caching |
 | Testing | Vitest + RTL | 4.0.18 | Unit tests |
 | E2E Testing | Playwright | 1.58.2 | End-to-end tests |
-| Validation | Zod | 4.3.6 | Schema validation |
+| Validation | Zod | 4.6.7 | Schema validation |
 
 ### Backend
 
 | Layer | Technology | Version | Purpose |
 |-------|------------|---------|---------|
-| Framework | Django | 6.0.2 | Web framework |
-| API | Django REST Framework | 3.16.1 | REST endpoints |
+| Framework | Django | 6.0.10 | Web framework |
+| API | Django REST Framework | 3.18.3 | REST endpoints |
 | Auth | djangorestframework-simplejwt | 5.5.1 | JWT authentication |
 | Database | PostgreSQL | 16+ | Primary data store |
 | Task Queue | Celery + Redis | 5.6.2 / 6.4.0 | Async processing |
-| PDF Engine | WeasyPrint | 68.1 | Document generation |
+| PDF Engine | WeasyPrint | 70.0 | Document generation |
 | Testing | pytest-django | 4.12.0 | Unit/integration tests |
 | Security | django-csp | 4.0 | Content Security Policy |
 | Rate Limiting | django-ratelimit | 4.1.0 | Auth endpoint protection |
@@ -712,7 +725,7 @@ Ledger-SG/
 - Python 3.12+ with virtual environment
 - Node.js 20+ with npm
 - PostgreSQL 16+ running locally
-- Redis 6.4+ for Celery (optional for development)
+- Redis 7.x/8.x server on :6379 (REQUIRED — the Django cache backs the tenant-membership cache; the 6.4 pin in pyproject is the Python client)
 
 ### 1. Clone Repository
 
@@ -728,8 +741,8 @@ cd ledgersg
 cd apps/backend
 
 # Create and activate virtual environment
-python3 -m venv /opt/venv
-source /opt/venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 
 # Install dependencies
 pip install -e ".[dev]"
@@ -785,7 +798,7 @@ Nothing reads env files from the repo root — each app owns its own
 root `.env.example` is a combined index of both). **There is no
 `DATABASE_URL`**: the backend reads five discrete `DB_*` variables.
 
-#### Backend (`apps/backend/.env`) — 16 settings-read variables
+#### Backend (`apps/backend/.env`) — 17 settings-read variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
@@ -805,6 +818,7 @@ root `.env.example` is a combined index of both). **There is no
 | `CELERY_ALWAYS_EAGER` | ❌ | true (dev) | Run Celery tasks inline (development only) |
 | `SENTRY_DSN` | ❌ | — | Optional error-reporting DSN |
 | `ADMIN_EMAIL` | ❌ | — | Health-check/admin recipient |
+| `ENABLE_ADMIN` | ❌ | true (dev) / false (prod) | Mounts the Django `/admin/` (P17/BE-L3 gate; needs the schema v1.2.2 §15c tables — enable only on a private ops network) |
 | `LOG_DIR` | ❌ | /var/log/ledgersg | Production file-handler log directory (must exist before the production boot — P11/C-2) |
 
 #### Frontend (`apps/web/.env.local`) — 2 live variables
@@ -964,8 +978,21 @@ root `.env.example` is a combined index of both). **There is no
 
 ### Docker Deployment
 
+Two Docker paths exist — pick deliberately:
+
+- **Backend-only compose (the DEPLOYMENT.md path, §12 Optional)**:
+  `apps/backend/Dockerfile` + `docker-compose.yml` — builds YOUR local
+  tree (PostgreSQL + Redis as compose services; run the Next.js frontend
+  separately). The backend image collects static files at build time
+  (P18/DOC-M1) and boots gunicorn.
+- **The root `docker/Dockerfile` (the HuggingFace-Space artifact)**:
+  a kitchen-sink single-container image that CLONES GitHub HEAD **inside
+  the build** — the running image is whatever is on `main` at build
+  time, NOT your local checkout. Use it only when you deliberately want
+  a GitHub-HEAD demo container:
+
 ```bash
-# Build the image
+# Build the HF-Space-style image (from GitHub HEAD, not the local tree)
 docker build -f docker/Dockerfile -t ledgersg:latest docker/
 
 # Run with all services

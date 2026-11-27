@@ -6,21 +6,24 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-27, session 34 / P17) re-verified every command against the current
-codebase on a live sandbox (backend 882P/0F/5S, vitest 582/582, typecheck
-0 errors, whole-tree eslint 0 errors, build:server green, the production-CSP
-smoke 5/5, live e2e 40P/0F/0S (40 specs), the runtime-role smoke 13/13 as
-`ledgersg_app`, the mobile-nav probe 17/17) — including the P17 concurrency
-truth (double-reversal / double-void / double-reconcile refused under row
-locks), the 400-contract sweep (typed GST box parsing, bulk-allocation UUID
-validation, UEN normalize-then-validate on PATCH), the Celery tenant context
-(on-commit dispatch + the worker-side RLS context), the `/admin/` gate, the
-Django 6 `STORAGES` manifest migration, and the org-selector keyboard/a11y
-contract — on schema **v1.2.1** (v1.2.0 + the §15c Django framework tables
-the pytest suite needs for transactional teardown).
+(2026-11-27, session 36 / P18) re-verified the guide against the current
+codebase on a live sandbox (backend 914P/0F/5S, vitest 601/601, typecheck
+0 errors, whole-tree eslint 0 errors / 5 parity warnings, build:server
+green, the production-CSP smoke 5/5, live e2e 40P/0F/0S (40 specs), the
+runtime-role smoke 13/13 as `ledgersg_app`, the mobile-nav probe 17/17) —
+carrying the P17 concurrency truth forward (double-reversal / double-void /
+double-reconcile refused under row locks; the 400-contract sweep; the Celery
+tenant context; the `/admin/` gate; the `STORAGES` manifest migration) and
+adding the P18 batch: the statutory-record locks on generate/review F5, the
+unallocate/unreconcile/convert/credit-cap row locks, the header/archived
+account posting gate, the remaining three Peppol task bodies under the RLS
+tenant context, the on-commit dispatch coverage, the §15c completion
+(admin opt-in tables) — on schema **v1.2.2** (v1.2.1 + django_session +
+django_admin_log for the ENABLE_ADMIN opt-in; the API itself never touches
+them).
 
 Verified truths this guide is built on: the schema file
-`apps/backend/database_schema.sql` (v1.2.1) CREATEs ROLEs inside DO blocks
+`apps/backend/database_schema.sql` (v1.2.2) CREATEs ROLEs inside DO blocks
 so the loader must connect as a SUPERUSER; the backend suite requires
 `--reuse-db --no-migrations` against a pre-initialised `test_ledgersg_dev`;
 Redis on `:6379` is a hard prerequisite even for dev (the tenant middleware
@@ -55,18 +58,18 @@ migration for databases created on ≤ v1.0.2).
 
 ## 1. Prerequisites
 
-- **Python 3.12+** with `venv`. The canonical manifest is
+- **Python 3.12+** with `venv` (on Debian/Ubuntu: `sudo apt-get install python3.12 python3.12-venv` — the bare `python3` may lack ensurepip). The canonical manifest is
   `apps/backend/pyproject.toml` (`pip install -e ".[dev]"`). The root
   `requirements.txt` is a stale second manifest — do not use it.
 - **Node.js 20+** with npm. `apps/web/package-lock.json` is the lockfile.
 - **A reachable PostgreSQL 16+**. The **rootless install in §3 is the
   documented and verified method** and needs no root. Any other PostgreSQL —
   system service, Docker, or a managed instance — works identically; the
-  application only ever sees `DB_*` variables. One caveat: the schema file's
+  application only ever sees `DB_*` variables. The §3 script defaults its install prefix to the sandbox layout `/home/z/my-project/pg` — export `PG_BASE="$HOME/pg"` first on any other host (P18/DOC-M9; everything derives from it). One caveat: the schema file's
   DO blocks CREATE ROLEs, so the **loading role must be SUPERUSER** (the dev
   role `ledgersg` is created SUPERUSER for exactly this reason; the runtime
   application role is `ledgersg_app`, which the schema grants and RLS binds).
-- **A reachable Redis 7.x** on `:6379` (or set `REDIS_URL`; the 6.4.0 pin in pyproject is the Python client, not the server). Rootless
+- **A reachable Redis 7.x or 8.x** on `:6379` (or set `REDIS_URL`; the 6.4.0 pin in pyproject is the Python client, not the server — both server majors are verified). Rootless
   method in §5.
 - `git`, `curl`, and on Debian/Ubuntu `apt-get` (for the rootless
   PostgreSQL/Redis package extraction).
@@ -81,7 +84,7 @@ cd ledgersg
 ```
 
 Nothing is read from the repo root `.env` — each app has its own audited
-template (backend: 16 settings-read vars, all listed — LOG_DIR included; web: live vars +
+template (backend: 17 settings-read vars, all listed — ENABLE_ADMIN and LOG_DIR included; web: live vars +
 a clearly-marked reserved section):
 
 ```bash
@@ -148,15 +151,17 @@ psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev     -f database_schema.sql
 psql -h 127.0.0.1 -U ledgersg -d test_ledgersg_dev -f database_schema.sql
 ```
 
-Verify (29 domain tables + 1 view + 2 token-blacklist tables + the 10
-Django framework tables of §15c — all in the seven domain schemas;
-`auth_permission`/`django_content_type`/`django_migrations` land in
-`public`; money at 19,4):
+Verify (a fresh v1.2.2 load carries 29 domain tables + 1 view in the
+seven domain schemas this query counts = 30; the token-blacklist (§15b)
+and Django framework tables (§15c) live in `public` and are NOT counted
+here — the count is 30 on any schema-load-only host. A database that
+ever ran `manage.py migrate` historically carries extra legacy rows in
+`core` and counts higher; only the 30 are required. Money at 19,4):
 
 ```bash
 psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -tAc \
   "SELECT count(*) FROM information_schema.tables WHERE table_schema IN ('core','coa','gst','journal','invoicing','banking','audit');"
-# 40
+# 30
 psql -h 127.0.0.1 -U ledgersg -d ledgersg_dev -tAc \
   "SELECT count(*) FROM information_schema.columns WHERE table_schema IN ('core','coa','gst','journal','invoicing','banking','audit') AND data_type='numeric' AND numeric_precision=19 AND numeric_scale=4;"
 # 47
@@ -233,10 +238,10 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-27 P17): 882 passed, 0 failed, 5 skipped
+# expected (post-2026-11-27 P18): 914 passed, 0 failed, 5 skipped
 pytest tests/invariants -q    # 34 passed (conformance, capacity, balances,
                               # filed-return immutability, GST lock, RLS)
-pytest tests/security -q      # 78 passed, 3 skipped (RLS, tokens, cookies,
+pytest tests/security -q      # 83 passed, 3 skipped (RLS, tokens, cookies,
                               # posture gates incl. the service-key gate)
 ```
 
@@ -256,14 +261,23 @@ curl http://127.0.0.1:8000/api/v1/health/
 # {"status": "healthy", "database": "connected", "version": "1.0.0"}
 ```
 
-Production serves with Gunicorn (the `production` settings module). Two
-P11/C-2 requirements: the **`LOG_DIR` directory must exist and be writable by
+Production serves with Gunicorn (the `production` settings module). Three
+requirements: the **`LOG_DIR` directory must exist and be writable by
 the service user** before the boot (the file handler logs there — see
-`apps/backend/.env.example`), and `SECRET_KEY` must be real (§12):
+`apps/backend/.env.example`), `SECRET_KEY` must be real (§12), and
+**static files must be collected before the first boot** — production
+uses WhiteNoise's `CompressedManifestStaticFilesStorage` (P17/BE-L4),
+which requires the `staticfiles/` manifest; without `collectstatic`
+every static URL 404s and HTML surfaces that reference `{% static %}`
+(the browsable API, `/admin/` under `ENABLE_ADMIN`) raise
+"Missing staticfiles manifest entry":
 
 ```bash
 sudo mkdir -p /var/log/ledgersg && sudo chown $SERVICE_USER /var/log/ledgersg
 # or set LOG_DIR in .env to a directory you own
+# Collect static files (idempotent; safe to re-run after upgrades):
+DJANGO_SETTINGS_MODULE=config.settings.production \
+python manage.py collectstatic --noinput
 DJANGO_SETTINGS_MODULE=config.settings.production \
 gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3
 ```
@@ -274,6 +288,8 @@ gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3
 cd apps/web
 npm install
 npx playwright install chromium   # once per environment (e2e suites)
+# (on a bare Debian/Ubuntu host: npx playwright install --with-deps chromium
+#  installs the system libraries headless chromium needs)
 ```
 
 Development server (hot reload; expects the backend on :8000):
@@ -308,7 +324,7 @@ Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 582 vitest tests
+npm test                    # 601 vitest tests
 npm run test:coverage       # green at the honest measured-floor ratchet
 npm run build:server        # the only build mode
 npm run test:e2e            # green without a backend (gated specs skip)
@@ -373,7 +389,9 @@ curl http://127.0.0.1:8000/api/v1/health/
 # {"status": "healthy", "database": "connected", ...}
 
 # 2. Frontend up
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/login   # 200
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/login/  # 200 (the canonical URL —
+# next.config.ts sets trailingSlash: true, so /login 308-redirects to /login/;
+# curl without -L would print 308)
 
 # 3. Login sets BOTH cookies (P4 flow) — refresh works via the cookie alone
 curl -s -c /tmp/cj.txt -X POST http://127.0.0.1:8000/api/v1/auth/login/ \
@@ -553,6 +571,9 @@ After=network.target postgresql.service redis.service
 User=ledgersg
 WorkingDirectory=/opt/ledgersg/apps/backend
 EnvironmentFile=/opt/ledgersg/apps/backend/.env
+# The manifest storage needs staticfiles/ present before every boot
+# (idempotent; P18/DOC-M1 — mirrors the §8 manual step):
+ExecStartPre=/opt/ledgersg/apps/backend/.venv/bin/python manage.py collectstatic --noinput
 ExecStart=/opt/ledgersg/apps/backend/.venv/bin/gunicorn config.wsgi:application \
     --bind 127.0.0.1:8000 --workers 3 --timeout 60
 Restart=always
@@ -673,6 +694,9 @@ cd apps/backend && source .venv/bin/activate && pip install -e ".[dev]"
 #   ≤ v1.0.2 → apply §16 (the NUMERIC(19,4) widening)
 #   v1.1.0   → apply §17 (the RLS completion, v1.2.0)
 #   v1.2.0   → apply §15c (the Django framework tables, v1.2.1)
+#   v1.2.1   → apply the §15c v1.2.2 completion (django_session +
+#              django_admin_log — only needed if you plan to enable
+#              /admin/ via ENABLE_ADMIN; the API never touches them)
 cd ../web && npm install
 npm run build:server       # cold build for production
 node ../../scripts/prod-csp-smoke.js   # P16: the CSP/hydration smoke gate
@@ -709,8 +733,11 @@ GitHub Actions CI (`.github/workflows/ci.yml`) runs the backend suite
 against a schema-initialized PostgreSQL 16 service container and the
 frontend typecheck/test/build — the DB password is generated per run
 (no credential is committed; `config/settings/testing.py` reads `DB_*`
-from the environment). Still run the local §7/§11 gate before pushing: CI
-does not run the e2e suite. Commit to `main` (no feature branches), then
+from the environment) plus the always-green no-backend e2e subset
+(P18/CFG-L1 — the webServer self-boots the frontend; chromium only).
+Still run the local §7/§11 gates and the LIVE e2e suite (`npm run
+test:e2e:full`) before pushing: CI cannot run the backend-gated 29
+specs (they mutate shared backend state). Commit to `main` (no feature branches), then
 push with the SSH wrapper so the deploy key never touches the tree:
 
 ```bash
