@@ -791,7 +791,7 @@ exact seams).
 | BE-H3 | The Celery tenant context: NEW `common/tenant_context.py` (the middleware's SET LOCAL semantics, reusable); the invoicing/peppol task bodies wrap in it; the three dispatch seams dispatch **on commit** — real workers run inside the RLS tenant GUC, eager mode bit-identical | the GUC asserted mid-flight + a real RLS-enforced probe as `ledgersg_app` (a vacuous first test caught: the test connection ran as superuser) |
 | BE-M batch | Typed GST box parse (None/dict/"garbage" → 400); bulk-allocation UUID field errors; UEN normalize-then-validate on org PATCH (case-dodge UNIQUE refused); tax-rate range on update; reconcile double-match typed 400 + payment/transaction locks; uuid route converters (404 not 500); `select_related` on the three list services; the negative-membership cache fix | each RED → GREEN (9-file API-contract batch + the concurrency batch) |
 | BE-L batch | `/admin/` gated off outside DEBUG; the Django 6 `STORAGES` manifest migration (the legacy `STATICFILES_STORAGE` was a silent no-op — WhiteNoise compressed-manifest storage is actually active); `exchange_rate` at its true 6-dp wire precision | 2 settings-gate tests; the 6-dp round-trip test |
-| Schema §15c (v1.2.1) | The Django framework tables, SQL-First, idempotent — the fresh-host pytest gap: transactional teardowns flush `django_session`/`django_admin_log`/`django_content_type`, absent from a schema-only v1.2.0 load | both DBs re-verified (40 tables / 47 numeric(19,4) columns); header bumped |
+| Schema §15c (v1.2.1) | The Django framework tables, SQL-First, idempotent — the fresh-host pytest gap: transactional teardowns flush `django_session`/`django_admin_log`/`django_content_type`, absent from a schema-only v1.2.0 load | both DBs re-verified (30 domain tables / 47 numeric(19,4) columns — the fresh-load count; the dev DB's test twin carried 10 legacy migrate leftovers inflating earlier counts); header bumped |
 | FE-M1 | The `--color-success: #00FF94` token — 14 dead `text-success`/`bg-success` usages across 10 files now compile (the PAID badge, reconcile forms, match scores, fiscal/InvoiceNow cards) | design-token gates + **2 live token elements on the Payments tab screenshot** |
 | FE-M2 | The 6 eslint errors cleared with real refactors (the `mounted` trio → `useSyncExternalStore`/derive-during-render; the immutability pair → a hoisted capture; prefer-const) — no rule weakening | whole-tree **0 errors / 5 parity warnings**; the CI lint gate added (`--max-warnings 5`) |
 | FE-M3/M4 | The proxy nonce-CSP orchestration unit-gated (request CSP + x-nonce + response CSP + rotation); the unsaved-changes `beforeunload` guard wired (the store's write side finally has a reader) | 4 + 6 tests |
@@ -827,3 +827,75 @@ invoice work; BE-L5 (CSV size cap/dedup); the CSP report-endpoint log
 bound; `display_money`/`round_half_up` consistency; journal serializer
 tolerance; lines `max_length`; `get_allocations` org-filter
 defense-in-depth; the 5 documented eslint warnings.
+
+## 2026-11-27 — P18 Sprint: Statutory-Record Locking, the Contrast Debt, the Celery Coverage Completion & the Fresh-Host Truth (session 36)
+
+**Base:** `56f8f835` · **Plan:** `docs/REMEDIATION_PLAN_2026-11-27_P18.md` ·
+**Report:** `docs/REMEDIATION_2026-11-27_P18_REPORT.md` · **Session log:**
+`docs/session_36.md`
+
+Executed across two context windows (the audits, the plan, Phases 1–5
+and most gates in window 1; the live e2e completion, the screenshots,
+the deliverable docs and the push in window 2 — the workspace, PG data,
+Redis and the double-forked dev stack persisted, zero loss). The P17
+baselines reproduced green on the carried-forward workspace (882P/0F/5S
+· vitest 582/582 · tsc 0 · eslint 0E/5W · mobile-nav 17/17). Three
+parallel deep audits → 0 Critical / 3 High / 20 Medium / 20 Low; every
+High hand-verified in source before planning. The window-2 incident
+register: the dev backend restarted in window 1 was tool-call-tied and
+died mid-e2e (the daemonize lesson re-learned — both backends ran
+daemonized for the final gates); the fresh-schema e2e bootstrap contract
+settled (user → org → contact per DEPLOYMENT §9 steps 1–3, then the p11
+self-bootstrap; a killed first run can strand the demo UEN on the
+incidental contact — surgically reset, the guard verified
+self-excluding).
+
+### What was fixed (TDD — every behavioural fix RED first)
+
+| Task | Fix | Evidence |
+|---|---|---|
+| BE-H1 | The statutory-record locking: `generate_f5` + `review_return` wrap in `transaction.atomic()` + `select_for_update()` + post-lock status re-check (mirroring `file_return`) — pre-P18 a FILED F5 could be raced and overwritten with recomputeds while `filed_at` stayed populated (the P14/C-2 regression shape reopened through a TOCTOU) | file-then-recalculate race simulation → refused, FILED intact; review-after-file refused |
+| BE-M batch (concurrency) | `unallocate`/`unreconcile` locks (the allocate/reconcile lock orders, `ResourceNotFound` preserved via `select_related`); `convert_quote_to_invoice` quote lock + re-check; `add_line`/`remove_line` document lock + typed IntegrityError; the credit-note cap read under the original's row lock inside `create_document`'s atomic; `create_entry` header/archived-account gate + `archive_account` lock | the P18 concurrency contract file (interleavings each RED → GREEN) |
+| BE-M1/M7 (Celery) | the three Peppol task bodies wrap in `tenant_context` (org from the log row/task arg); `queue_task` under `ALWAYS_EAGER=False` fires `.delay` only after commit, never on rollback | the GUC asserted mid-flight (`django_capture_on_commit_callbacks` — the TestCase outer-transaction trap caught and fixed) |
+| BE-L batch | email task terminal classification (no retry on `DoesNotExist`/`ResourceNotFound`); `send_email` gated to APPROVED SALES_INVOICE; `_validated_exchange_rate` typed 400 on garbage input; `<uuid:transaction_id>` route converters; `create_return_periods` UNIQUE catch → clean refusal | the API-contract RED file + 5 stale-contract tests updated with documentation |
+| Schema §15c (v1.2.2) | `django_session` + `django_admin_log` completed into §15c (idempotent, SQL-First; the beat tables stay a documented opt-in); the reload exposed and fixed a real portability bug — index names can't be schema-qualified in `CREATE INDEX` | 5 schema-gate tests; both DBs re-loaded, fresh-load count re-verified (30 domain tables) |
+| FE-H1/M2/M3 (the contrast debt) | the three `bg-success text-white` badges → `text-void` (PAID, Registered, Configured) + the badge/button-destructive/OVERDUE sweep; `--color-text-muted` → `#8A8A8A`; the header claim corrected to WCAG AA (pairs verified ≥4.5:1) — the P17 token fix had made white-on-neon-green compile at 1.33:1 | NEW permanent regression wall `contrast-pairings.test.ts` (every `bg-success`/`bg-alert` pairing enumerated, `text-white` fails) + the computed WCAG-ratio token test; **live: the PAID badge capture pairs `bg-success text-void`** |
+| FE-M1/M4/L3 | the drawer Escape defers to the open org menu (nested close order); the customer UEN → shared normalizing `optionalUenSchema` + the org form `uenSchema.safeParse` (empty-UEN semantics preserved); `hasUnsavedChanges` reset on submit success | nested-state test; the ACRA parity tests; the guard-hook extension |
+| FE-L1 (the real Tailwind v4 bug) | `tw-animate-css@1.4.0` (v4-native) + `@import` in globals.css — the `animate-in`/`fade-in-0`/`zoom-in-95`/`slide-in-*` families on the Radix primitives compile again (the v3 `tailwindcss-animate` plugin had silently died in v4 — all dialog/select/toast animations were missing) | the compiled-CSS design-token gate (built through the repo's own postcss pipeline); **live: the open dialog computes `animation: enter 0.2s`** |
+| CFG batch | the CI `e2e` job (the 11 always-green no-backend specs, chromium-only); the coverage ratchet's measured `src/hooks/**` floor (the honest ratchet); `@types/uuid` removed (uuid@13 ships its own types) | ci.yml lint+schema valid; the ratchet green; install parity |
+| Docs truth pass | DEPLOYMENT.md §4 count 30 + the collectstatic step (§8/§12 + the Dockerfile) + the `PG_BASE` parametrization + the fresh-host completeness pass; both `.env.example`s gain `ENABLE_ADMIN` (the full var list re-audited — the user's named deliverable); README/PAD/SKILL/CLAUDE/AGENTS/Makefile anchor fixes; the API guide corrections + the P18 addendum | the audit's findings row by row; §1–§15 re-walked as the from-`git clone` path |
+| Deliverables | 8 DOM-verified screenshots (`docs/screenshots/104-111_*_session36.png`, md5-unique, non-blank pixel-verified) incl. the P18 proofs (the PAID badge pairing, the settings badges, the animate-restored dialog); `docs/session_36.md`; this worklog | `scripts/capture-screenshots-session36.js` |
+
+### The named focuses (settled live)
+
+**Mobile navigation:** 17/17 probe checks PASS on the remediated tree
+(375/800/1280) — **no TailwindCSS v4 bug exists** (seventh consecutive
+live settlement; the P18 shell changes re-probed for regression).
+**The real Tailwind v4 class of bug:** the v3 animate plugin's utilities
+silently compiling to nothing in v4 — fixed via the v4-native
+`tw-animate-css`, gated by the compiled-CSS test + the live dialog
+capture.
+
+### Final gate (all verified, executed)
+
+backend **914P/0F/5S** (invariants 34P; security 83P/3S) · vitest
+**601/601** (70 files) · tsc 0 · whole-tree eslint **0 errors / 5
+parity warnings** · build:server green · prod-CSP smoke **5/5** ·
+**live e2e:full 40P/0F/0S** · **rls_smoke 13/13 as `ledgersg_app`** ·
+**mobile-nav 17/17** · 8 verified screenshots (104-111_session36) ·
+schema **v1.2.2** (§15c completed).
+
+### Deferred (registered, not dropped)
+
+The full P16/P17 register carries forward (ContactPicker WAI-ARIA
+combobox, in-app unsaved-work route guard, list pagination, the
+audit-log INSERT WITH CHECK surface, the ruff ~1216 mechanical
+register, UEN checksum, H-3 DB-trigger layer, H-05b attachment model,
+CSV size cap/dedup, CSP report-endpoint bound, positive
+membership-cache invalidation, journal serializer tolerance, lines
+max_length, display_money consistency, email-restore lifecycle
+evidence) plus: the PaymentsTab same-route prefill re-trigger (no
+current producer), the list-envelope `{data}`/`{results}` unification,
+the NULL-context SELECT policies on `core.user_organisation`/`core.role`
+(documented tradeoff), the org-mid-flight dead-letter design beyond the
+terminal classification, the remaining 5 eslint parity warnings.
