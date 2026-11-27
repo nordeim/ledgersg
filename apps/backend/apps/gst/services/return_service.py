@@ -17,6 +17,7 @@ from typing import Any
 from uuid import UUID
 
 from django.db import transaction
+from django.db.utils import IntegrityError
 from django.utils import timezone
 
 from apps.core.models import GSTReturn
@@ -170,13 +171,20 @@ class GSTReturnService:
             ).exists():
                 continue
 
-            gst_return = GSTReturn.objects.create(
-                org_id=org_id,
-                period_start=period_start,
-                period_end=period_end,
-                filing_due_date=due_date,
-                status="DRAFT",
-            )
+            try:
+                gst_return = GSTReturn.objects.create(
+                    org_id=org_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    filing_due_date=due_date,
+                    status="DRAFT",
+                )
+            except IntegrityError:
+                # P18/BE-L4: a concurrent create won the UNIQUE(org, type,
+                # period_start, period_end) race between our .exists()
+                # pre-check and this insert — the period exists; treat it
+                # as created-by-the-other-worker and skip cleanly.
+                continue
             created.append(gst_return)
 
         return created
@@ -198,53 +206,63 @@ class GSTReturnService:
         Returns:
             Updated GSTReturn instance
         """
-        gst_return = GSTReturnService.get_return(org_id, return_id)
-
-        # P14/C-2: FILED/AMENDED returns are the statutory record of what
-        # was submitted to IRAS — they are immutable. `force_recalculate`
-        # may only refresh a pre-filing state (DRAFT/COMPUTED/REVIEWED);
-        # the pre-P14 guard's `and not force_recalculate` let force bypass
-        # EVERY status, regressing a FILED return to COMPUTED while
-        # filed_at stayed populated. Corrections go through the amendment
-        # flow (/amend/ creates a new linked version), never a silent
-        # recompute of the filed row.
-        if gst_return.status in ("FILED", "AMENDED"):
-            raise ValidationError(
-                f"Cannot recalculate F5 for status '{gst_return.status}': the "
-                "filed return is the statutory record and is immutable. "
-                "Use the amendment flow to correct it."
+        # P18/BE-H1: lock the return row for the whole recompute — the
+        # pre-P18 shape (plain get_return + status gate + unconditional
+        # save) was a TOCTOU against the locked file_return()/amend_return():
+        # a concurrent filing could commit FILED between the gate and the
+        # save, and the recompute would then regress the statutory record
+        # to COMPUTED while filed_at stayed populated (the P14/C-2
+        # regression shape, reopened through a race).
+        with transaction.atomic():
+            gst_return = GSTReturn.objects.select_for_update().get(
+                org_id=org_id, id=return_id
             )
 
-        # Only recalculate if in DRAFT status or forced
-        if gst_return.status not in ("DRAFT", "COMPUTED") and not force_recalculate:
-            raise ValidationError(
-                f"Cannot recalculate F5 for status '{gst_return.status}'. "
-                "Use force_recalculate=true to override."
+            # P14/C-2: FILED/AMENDED returns are the statutory record of what
+            # was submitted to IRAS — they are immutable. `force_recalculate`
+            # may only refresh a pre-filing state (DRAFT/COMPUTED/REVIEWED);
+            # the pre-P14 guard's `and not force_recalculate` let force bypass
+            # EVERY status, regressing a FILED return to COMPUTED while
+            # filed_at stayed populated. Corrections go through the amendment
+            # flow (/amend/ creates a new linked version), never a silent
+            # recompute of the filed row.
+            if gst_return.status in ("FILED", "AMENDED"):
+                raise ValidationError(
+                    f"Cannot recalculate F5 for status '{gst_return.status}': the "
+                    "filed return is the statutory record and is immutable. "
+                    "Use the amendment flow to correct it."
+                )
+
+            # Only recalculate if in DRAFT status or forced
+            if gst_return.status not in ("DRAFT", "COMPUTED") and not force_recalculate:
+                raise ValidationError(
+                    f"Cannot recalculate F5 for status '{gst_return.status}'. "
+                    "Use force_recalculate=true to override."
+                )
+
+            # Get box amounts
+            boxes = GSTCalculationService.get_f5_box_amounts(
+                org_id=org_id,
+                period_start=gst_return.period_start.isoformat(),
+                period_end=gst_return.period_end.isoformat()
             )
 
-        # Get box amounts
-        boxes = GSTCalculationService.get_f5_box_amounts(
-            org_id=org_id,
-            period_start=gst_return.period_start.isoformat(),
-            period_end=gst_return.period_end.isoformat()
-        )
+            # Explicit field assignment to the REAL model columns (C-01d: the
+            # old code wrote phantom attributes that save() silently discarded).
+            gst_return.box1_std_rated_supplies = Decimal(boxes["box1"])
+            gst_return.box2_zero_rated_supplies = Decimal(boxes["box2"])
+            gst_return.box3_exempt_supplies = Decimal(boxes["box3"])
+            gst_return.box4_total_supplies = Decimal(boxes["box4"])
+            gst_return.box5_total_taxable_purchases = Decimal(boxes["box5"])
+            gst_return.box6_output_tax = Decimal(boxes["box6"])
+            gst_return.box7_input_tax_claimable = Decimal(boxes["box7"])
+            gst_return.box8_net_gst = Decimal(boxes["box8"])
+            gst_return.box13_total_revenue = Decimal(boxes["box13"])
+            gst_return.box14_reverse_charge_supplies = Decimal(boxes["box14"])
 
-        # Explicit field assignment to the REAL model columns (C-01d: the
-        # old code wrote phantom attributes that save() silently discarded).
-        gst_return.box1_std_rated_supplies = Decimal(boxes["box1"])
-        gst_return.box2_zero_rated_supplies = Decimal(boxes["box2"])
-        gst_return.box3_exempt_supplies = Decimal(boxes["box3"])
-        gst_return.box4_total_supplies = Decimal(boxes["box4"])
-        gst_return.box5_total_taxable_purchases = Decimal(boxes["box5"])
-        gst_return.box6_output_tax = Decimal(boxes["box6"])
-        gst_return.box7_input_tax_claimable = Decimal(boxes["box7"])
-        gst_return.box8_net_gst = Decimal(boxes["box8"])
-        gst_return.box13_total_revenue = Decimal(boxes["box13"])
-        gst_return.box14_reverse_charge_supplies = Decimal(boxes["box14"])
-
-        gst_return.status = "COMPUTED"
-        gst_return.computed_at = timezone.now()
-        gst_return.save()
+            gst_return.status = "COMPUTED"
+            gst_return.computed_at = timezone.now()
+            gst_return.save()
 
         return gst_return
 
@@ -257,18 +275,24 @@ class GSTReturnService:
         """
         Mark a computed return as reviewed (COMPUTED -> REVIEWED).
         """
-        gst_return = GSTReturnService.get_return(org_id, return_id)
-
-        if gst_return.status != "COMPUTED":
-            raise ValidationError(
-                f"Cannot review return with status '{gst_return.status}'. "
-                "Only COMPUTED returns can be reviewed."
+        # P18/BE-H1: same TOCTOU shape as generate_f5 — the COMPUTED gate
+        # + save must hold the row lock, else a concurrent file_return()
+        # commit lands between them and the review save overwrites FILED.
+        with transaction.atomic():
+            gst_return = GSTReturn.objects.select_for_update().get(
+                org_id=org_id, id=return_id
             )
 
-        gst_return.status = "REVIEWED"
-        gst_return.reviewed_at = timezone.now()
-        gst_return.reviewed_by_id = reviewed_by_id
-        gst_return.save()
+            if gst_return.status != "COMPUTED":
+                raise ValidationError(
+                    f"Cannot review return with status '{gst_return.status}'. "
+                    "Only COMPUTED returns can be reviewed."
+                )
+
+            gst_return.status = "REVIEWED"
+            gst_return.reviewed_at = timezone.now()
+            gst_return.reviewed_by_id = reviewed_by_id
+            gst_return.save()
 
         return gst_return
 

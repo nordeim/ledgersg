@@ -15,7 +15,7 @@ from typing import Any
 from uuid import UUID
 
 from django.core.cache import cache
-from django.db import connection
+from django.db import connection, transaction
 
 from apps.core.models import Account
 from common.decimal_utils import money
@@ -363,27 +363,35 @@ class AccountService:
         Returns:
             Archived Account instance
         """
-        account = AccountService.get_account(org_id, account_id)
+        # P18/BE-M3: lock the account row for the archive gate — the
+        # balance check is otherwise a TOCTOU (a concurrent create_entry
+        # posting can slip in between the zero-balance read and the
+        # is_active=False save; create_entry now refuses archived accounts
+        # post-lock, so the pair is closed).
+        with transaction.atomic():
+            account = Account.objects.select_for_update().get(id=account_id, org_id=org_id)
 
-        # Cannot archive system accounts
-        if account.is_system:
-            raise ValidationError("System accounts cannot be archived.")
+            # Cannot archive system accounts
+            if account.is_system:
+                raise ValidationError("System accounts cannot be archived.")
 
-        # Check for children
-        if Account.objects.filter(parent=account).exists():
-            raise ValidationError("Cannot archive account with sub-accounts. Archive sub-accounts first.")
+            # Check for children
+            if Account.objects.filter(parent=account).exists():
+                raise ValidationError(
+                    "Cannot archive account with sub-accounts. Archive sub-accounts first."
+                )
 
-        # Check for transactions (balance must be zero)
-        balance = AccountService.get_account_balance(org_id, account_id)
-        if balance != Decimal("0.0000"):
-            raise ValidationError(
-                f"Cannot archive account with non-zero balance ({balance}). "
-                "Transfer balance to another account first."
-            )
+            # Check for transactions (balance must be zero)
+            balance = AccountService.get_account_balance(org_id, account_id)
+            if balance != Decimal("0.0000"):
+                raise ValidationError(
+                    f"Cannot archive account with non-zero balance ({balance}). "
+                    "Transfer balance to another account first."
+                )
 
-        # Soft delete
-        account.is_active = False
-        account.save()
+            # Soft delete
+            account.is_active = False
+            account.save(update_fields=["is_active"])
 
         return account
 

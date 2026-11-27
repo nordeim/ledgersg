@@ -286,7 +286,15 @@ class PaymentService:
         """
         if value is None:
             return Decimal("1.000000")
-        rate = Decimal(str(value))
+        # P18/BE-L6: the service seam must be typed like every other
+        # entry point — a garbage string from a direct (non-DRF) caller
+        # is a 400-class ValidationError, not an InvalidOperation 500.
+        try:
+            rate = Decimal(str(value))
+        except (ArithmeticError, TypeError, ValueError) as exc:
+            raise ValidationError(
+                f"Exchange rate must be a valid decimal number (got {value!r})."
+            ) from exc
         if not rate.is_finite():
             raise ValidationError("Exchange rate must be a finite number.")
         if rate <= 0:
@@ -638,13 +646,23 @@ class PaymentService:
             ResourceNotFound: If allocation not found
             ValidationError: If allocation belongs to different org
         """
+        # P18/BE-M2: take the same locks allocate() takes, in the same
+        # order (payment, then document) — the pre-P18 shape deleted the
+        # allocation and recomputed amount_paid/status from a stale
+        # allocation set while a concurrent (locked) allocate() on the
+        # same payment/document pair could interleave, breaking the P5/H-1
+        # invariant "the allocations table is the truth".
         try:
-            allocation = PaymentAllocation.objects.get(id=allocation_id, org_id=org_id)
+            allocation = PaymentAllocation.objects.select_for_update().get(
+                id=allocation_id, org_id=org_id
+            )
         except PaymentAllocation.DoesNotExist:
             raise ResourceNotFound(f"Allocation {allocation_id} not found")
 
-        payment = allocation.payment
-        document = allocation.document
+        payment = Payment.objects.select_for_update().get(id=allocation.payment_id)
+        document = InvoiceDocument.objects.select_for_update().get(
+            id=allocation.document_id
+        )
 
         # Store old values for audit
         old_amount = allocation.allocated_amount

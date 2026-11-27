@@ -16,6 +16,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from django.db import connection, transaction
+from django.db.utils import IntegrityError
 from django.template.loader import render_to_string
 from django.utils import timezone
 from weasyprint import HTML
@@ -202,20 +203,6 @@ class DocumentService:
                 org, issue_date, lines
             )
 
-        # P14/H-4: a credit note is the CORRECTION of an original tax
-        # invoice (IRAS: "A credit note must show the number and date of
-        # the original tax invoice") — the reference is required, the
-        # contact must match, and the cumulative credit may not exceed
-        # the original total (incl. GST).
-        if document_type in ("SALES_CREDIT_NOTE", "PURCHASE_CREDIT_NOTE"):
-            DocumentService._validate_credit_note_reference(
-                org_id=org_id,
-                document_type=document_type,
-                contact_id=contact_id,
-                lines=lines or [],
-                related_document_id=related_document_id,
-            )
-
         # Calculate due date if not provided
         if due_date is None:
             due_date = issue_date + timedelta(days=contact.payment_terms_days)
@@ -224,6 +211,23 @@ class DocumentService:
         document_number = DocumentService._get_next_document_number(org_id, document_type)
 
         with transaction.atomic():
+            # P14/H-4: a credit note is the CORRECTION of an original tax
+            # invoice (IRAS: "A credit note must show the number and date of
+            # the original tax invoice") — the reference is required, the
+            # contact must match, and the cumulative credit may not exceed
+            # the original total (incl. GST).
+            # P18/BE-M6: the call runs INSIDE this atomic block so the
+            # original-row lock the validation takes is held until the
+            # credit note itself is inserted and committed (a nested atomic
+            # is a savepoint; row locks survive savepoint release).
+            if document_type in ("SALES_CREDIT_NOTE", "PURCHASE_CREDIT_NOTE"):
+                DocumentService._validate_credit_note_reference(
+                    org_id=org_id,
+                    document_type=document_type,
+                    contact_id=contact_id,
+                    lines=lines or [],
+                    related_document_id=related_document_id,
+                )
             # Create document
             document = InvoiceDocument.objects.create(
                 org_id=org_id,
@@ -306,90 +310,110 @@ class DocumentService:
         Returns:
             Created InvoiceLine instance
         """
-        document = DocumentService.get_document(org_id, document_id)
+        # P18/BE-M5: the line-number read (order_by('-line_number').first())
+        # and the insert must run under the document row lock — two
+        # concurrent adds on the same DRAFT computed the same line_number
+        # and the loser hit uq_docline_doc_lineno as an untyped 500. The
+        # lock serializes the numbering; any residual constraint violation
+        # surfaces as a typed ValidationError.
+        with transaction.atomic():
+            try:
+                document = InvoiceDocument.objects.select_for_update().get(
+                    id=document_id, org_id=org_id
+                )
+            except InvoiceDocument.DoesNotExist:
+                raise ResourceNotFound(f"Document {document_id} not found")
 
-        if document.status != "DRAFT":
-            raise ValidationError("Can only add lines to DRAFT documents.")
+            if document.status != "DRAFT":
+                raise ValidationError("Can only add lines to DRAFT documents.")
 
-        # Validate account
-        try:
-            account = Account.objects.get(id=account_id, org_id=org_id)
-        except Account.DoesNotExist:
-            raise ResourceNotFound(f"Account {account_id} not found")
+            # Validate account
+            try:
+                account = Account.objects.get(id=account_id, org_id=org_id)
+            except Account.DoesNotExist:
+                raise ResourceNotFound(f"Account {account_id} not found")
 
-        # Get next line number
-        last_line = document.lines.order_by("-line_number").first()
-        line_number = (last_line.line_number + 1) if last_line else 1
+            # Get next line number
+            last_line = document.lines.order_by("-line_number").first()
+            line_number = (last_line.line_number + 1) if last_line else 1
 
-        # Calculate line totals
-        quantity = Decimal(str(quantity))
-        unit_price = money(unit_price)
+            # Calculate line totals
+            quantity = Decimal(str(quantity))
+            unit_price = money(unit_price)
 
-        # Apply the line discount server-side (P3: the client preview always
-        # discounted; the persisted line must match — the server is the
-        # authoritative calculator). discount_amount is 4dp; the GST base is
-        # the discounted net amount.
-        discount_pct = (
-            money(discount_pct) if discount_pct is not None else Decimal("0.0000")
-        )
-        if discount_pct < 0 or discount_pct > 100:
-            raise ValidationError(
-                f"discount_pct must be between 0 and 100 (got {discount_pct})."
+            # Apply the line discount server-side (P3: the client preview always
+            # discounted; the persisted line must match — the server is the
+            # authoritative calculator). discount_amount is 4dp; the GST base is
+            # the discounted net amount.
+            discount_pct = (
+                money(discount_pct) if discount_pct is not None else Decimal("0.0000")
             )
-        gross_amount = quantity * unit_price
-        discount_amount = (gross_amount * discount_pct / Decimal("100")).quantize(
-            Decimal("0.0001")
-        )
-        amount = (gross_amount - discount_amount).quantize(Decimal("0.01"))
+            if discount_pct < 0 or discount_pct > 100:
+                raise ValidationError(
+                    f"discount_pct must be between 0 and 100 (got {discount_pct})."
+                )
+            gross_amount = quantity * unit_price
+            discount_amount = (gross_amount * discount_pct / Decimal("100")).quantize(
+                Decimal("0.0001")
+            )
+            amount = (gross_amount - discount_amount).quantize(Decimal("0.01"))
 
-        # Get tax code and calculate GST
-        tax_code = TaxCodeService.get_tax_code(org_id, tax_code_id)
+            # Get tax code and calculate GST
+            tax_code = TaxCodeService.get_tax_code(org_id, tax_code_id)
 
-        # Fail closed on stale rate rows: the snapshot must reflect a code in
-        # force on the document's own date (B-3/H-04).
-        if not TaxCodeService.is_effective(tax_code, document.issue_date):
-            raise ValidationError(
-                f"Tax code {tax_code.code} is not effective on the document "
-                f"date {document.issue_date.isoformat()}; use the rate row in "
-                "force on that date."
+            # Fail closed on stale rate rows: the snapshot must reflect a code in
+            # force on the document's own date (B-3/H-04).
+            if not TaxCodeService.is_effective(tax_code, document.issue_date):
+                raise ValidationError(
+                    f"Tax code {tax_code.code} is not effective on the document "
+                    f"date {document.issue_date.isoformat()}; use the rate row in "
+                    "force on that date."
+                )
+
+            gst_result = GSTCalculationService.calculate_line_gst(
+                amount=amount, rate=tax_code.rate or Decimal("0.00"), is_bcrs_deposit=is_bcrs_deposit
             )
 
-        gst_result = GSTCalculationService.calculate_line_gst(
-            amount=amount, rate=tax_code.rate or Decimal("0.00"), is_bcrs_deposit=is_bcrs_deposit
-        )
+            # Calculate line amounts (P5/H-5): the stored subtotal is the SAME
+            # 2dp number the GST was calculated on, and the total reconciles to
+            # the cent — the pre-P5 code stored a 4dp line_amount (gross -
+            # discount) next to a 2dp GST base, so printed subtotals and totals
+            # could disagree with the GST by fractions of a cent.
+            line_amount = amount
+            gst_amount = gst_result["gst_amount"]
+            total_amount = (line_amount + gst_amount).quantize(Decimal("0.01"))
 
-        # Calculate line amounts (P5/H-5): the stored subtotal is the SAME
-        # 2dp number the GST was calculated on, and the total reconciles to
-        # the cent — the pre-P5 code stored a 4dp line_amount (gross -
-        # discount) next to a 2dp GST base, so printed subtotals and totals
-        # could disagree with the GST by fractions of a cent.
-        line_amount = amount
-        gst_amount = gst_result["gst_amount"]
-        total_amount = (line_amount + gst_amount).quantize(Decimal("0.01"))
+            try:
+                line = InvoiceLine.objects.create(
+                    org_id=org_id,
+                    document=document,
+                    line_number=line_number,
+                account=account,
+                description=description.strip(),
+                quantity=quantity,
+                unit_price=unit_price,
+                discount_pct=discount_pct,
+                discount_amount=discount_amount,
+                line_amount=line_amount,
+                gst_amount=gst_amount,
+                total_amount=total_amount,
+                tax_code=tax_code,
+                tax_rate=tax_code.rate or Decimal("0.00"),
+                    is_bcrs_deposit=is_bcrs_deposit,
+                    **kwargs,
+                )
+            except IntegrityError:
+                # An interleaved write beat us to the computed line_number —
+                # the typed contract, never an untyped 500.
+                raise ValidationError(
+                    "The document changed while the line was being added "
+                    "(concurrent line numbering) — reload and retry."
+                )
 
-        line = InvoiceLine.objects.create(
-            org_id=org_id,
-            document=document,
-            line_number=line_number,
-            account=account,
-            description=description.strip(),
-            quantity=quantity,
-            unit_price=unit_price,
-            discount_pct=discount_pct,
-            discount_amount=discount_amount,
-            line_amount=line_amount,
-            gst_amount=gst_amount,
-            total_amount=total_amount,
-            tax_code=tax_code,
-            tax_rate=tax_code.rate or Decimal("0.00"),
-            is_bcrs_deposit=is_bcrs_deposit,
-            **kwargs,
-        )
+            # Recalculate document totals
+            DocumentService._recalculate_totals(document)
 
-        # Recalculate document totals
-        DocumentService._recalculate_totals(document)
-
-        return line
+            return line
 
     @staticmethod
     def remove_line(org_id: UUID, document_id: UUID, line_id: UUID) -> None:
@@ -518,15 +542,24 @@ class DocumentService:
         Returns:
             Created InvoiceDocument instance
         """
-        quote = DocumentService.get_document(org_id, quote_id)
-
-        if quote.document_type != "SALES_QUOTE":
-            raise ValidationError("Only quotes can be converted to invoices.")
-
-        if quote.status not in ["DRAFT", "SENT"]:
-            raise ValidationError(f"Cannot convert quote in status '{quote.status}'.")
-
+        # P18/BE-M4: the status gate + the conversion must run under the
+        # quote row lock — the pre-P18 shape checked DRAFT/SENT before and
+        # outside any transaction, so two concurrent converts both passed
+        # the gate and created two invoices (double journal postings once
+        # both are approved). The lock + post-lock re-check mirror
+        # approve_document.
         with transaction.atomic():
+            quote = InvoiceDocument.objects.select_for_update().get(
+                id=quote_id, org_id=org_id
+            )
+
+            if quote.document_type != "SALES_QUOTE":
+                raise ValidationError("Only quotes can be converted to invoices.")
+
+            if quote.status not in ["DRAFT", "SENT"]:
+                raise ValidationError(
+                    f"Cannot convert quote in status '{quote.status}'."
+                )
             # Get lines from quote
             lines = []
             for line in quote.lines.all():
@@ -655,63 +688,75 @@ class DocumentService:
                 "corrects (related_document_id)."
             )
 
-        try:
-            original = InvoiceDocument.objects.get(id=related_document_id, org_id=org_id)
-        except InvoiceDocument.DoesNotExist:
-            raise ResourceNotFound(
-                f"Original document {related_document_id} not found in this organisation."
+        # P18/BE-M2/M6: the whole check+cap read must run under the
+        # ORIGINAL document row lock — the pre-P18 shape read the original
+        # and summed existing credits with no lock, so two concurrent credit
+        # notes each saw the same headroom and jointly exceeded the cap
+        # (P14/H-4 defeated by racing). create_document calls this INSIDE its
+        # own atomic block, so the lock holds until the note is inserted and
+        # committed; the self-wrapped atomic keeps standalone calls valid
+        # (a nested atomic becomes a savepoint; row locks survive savepoint
+        # release until the outer commit).
+        with transaction.atomic():
+            try:
+                original = InvoiceDocument.objects.select_for_update().get(
+                    id=related_document_id, org_id=org_id
+                )
+            except InvoiceDocument.DoesNotExist:
+                raise ResourceNotFound(
+                    f"Original document {related_document_id} not found in this organisation."
+                )
+
+            original_prefix = "SALES" if document_type == "SALES_CREDIT_NOTE" else "PURCHASE"
+            if not original.document_type.startswith(original_prefix):
+                raise ValidationError(
+                    f"A {document_type} must reference a {original_prefix} document "
+                    f"(got {original.document_type})."
+                )
+
+            if str(original.contact_id) != str(contact_id):
+                raise ValidationError(
+                    "The credit note contact must match the original invoice's contact."
+                )
+
+            if original.status == "VOID":
+                raise ValidationError(
+                    "Cannot issue a credit note against a VOID document."
+                )
+
+            # Cumulative cap: existing approved-or-better credit notes against
+            # the original + this one's gross total (incl. GST).
+            existing_credits = InvoiceDocument.objects.filter(
+                org_id=org_id,
+                related_document_id=related_document_id,
+                document_type=document_type,
+            ).exclude(status="VOID")
+            already_credited = sum(
+                (d.total_incl or Decimal("0") for d in existing_credits),
+                Decimal("0"),
             )
 
-        original_prefix = "SALES" if document_type == "SALES_CREDIT_NOTE" else "PURCHASE"
-        if not original.document_type.startswith(original_prefix):
-            raise ValidationError(
-                f"A {document_type} must reference a {original_prefix} document "
-                f"(got {original.document_type})."
-            )
+            # This note's total: compute from the line payloads (the same
+            # arithmetic _add_lines will apply) — quantity × unit_price, GST
+            # at the line's tax rate.
+            this_total = Decimal("0")
+            for line_data in lines:
+                quantity = Decimal(str(line_data.get("quantity", 1)))
+                unit_price = money(line_data.get("unit_price", 0))
+                line_amount = quantity * unit_price
+                tax_code_id = line_data.get("tax_code_id")
+                rate = Decimal("0")
+                if tax_code_id:
+                    tax_code = TaxCode.objects.filter(id=tax_code_id).first()
+                    if tax_code and tax_code.rate:
+                        rate = tax_code.rate
+                this_total += line_amount * (Decimal("1") + rate)
 
-        if str(original.contact_id) != str(contact_id):
-            raise ValidationError(
-                "The credit note contact must match the original invoice's contact."
-            )
-
-        if original.status == "VOID":
-            raise ValidationError(
-                "Cannot issue a credit note against a VOID document."
-            )
-
-        # Cumulative cap: existing approved-or-better credit notes against
-        # the original + this one's gross total (incl. GST).
-        existing_credits = InvoiceDocument.objects.filter(
-            org_id=org_id,
-            related_document_id=related_document_id,
-            document_type=document_type,
-        ).exclude(status="VOID")
-        already_credited = sum(
-            (d.total_incl or Decimal("0") for d in existing_credits),
-            Decimal("0"),
-        )
-
-        # This note's total: compute from the line payloads (the same
-        # arithmetic _add_lines will apply) — quantity × unit_price, GST
-        # at the line's tax rate.
-        this_total = Decimal("0")
-        for line_data in lines:
-            quantity = Decimal(str(line_data.get("quantity", 1)))
-            unit_price = money(line_data.get("unit_price", 0))
-            line_amount = quantity * unit_price
-            tax_code_id = line_data.get("tax_code_id")
-            rate = Decimal("0")
-            if tax_code_id:
-                tax_code = TaxCode.objects.filter(id=tax_code_id).first()
-                if tax_code and tax_code.rate:
-                    rate = tax_code.rate
-            this_total += line_amount * (Decimal("1") + rate)
-
-        if already_credited + this_total > (original.total_incl or Decimal("0")):
-            raise ValidationError(
-                f"Cumulative credit ({already_credited + this_total}) exceeds the "
-                f"original invoice total ({original.total_incl})."
-            )
+            if already_credited + this_total > (original.total_incl or Decimal("0")):
+                raise ValidationError(
+                    f"Cumulative credit ({already_credited + this_total}) exceeds the "
+                    f"original invoice total ({original.total_incl})."
+                )
 
     @staticmethod
     def _add_lines(org_id: UUID, document: InvoiceDocument, lines: list[dict[str, Any]]) -> None:
@@ -1023,6 +1068,22 @@ class DocumentService:
         from common.tenant_context import queue_task
 
         document = DocumentService.get_document(org_id, document_id)
+
+        # P18/BE-L5: the emailed PDF is a rendered TAX INVOICE (IRAS
+        # labelling is status-bound) — the same gate send_invoicenow
+        # carries. VOID/DRAFT/quote documents must not reach a customer's
+        # inbox as an invoice.
+        if document.document_type != "SALES_INVOICE":
+            raise ValidationError(
+                f"Cannot email document. Document type is "
+                f"'{document.document_type}'. Only SALES_INVOICE documents "
+                "can be emailed as tax invoices."
+            )
+        if document.status not in ("APPROVED", "PARTIALLY_PAID", "PAID"):
+            raise ValidationError(
+                f"Cannot email document. Document status is '{document.status}'. "
+                "Only APPROVED (or settled) documents can be emailed."
+            )
 
         # Validate recipients
         to_emails = email_data.get("to", [])

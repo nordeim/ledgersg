@@ -249,6 +249,24 @@ class JournalService:
                 except Account.DoesNotExist:
                     raise ResourceNotFound(f"Account {account_id} not found")
 
+                # P18/BE-M3: header accounts are groupings, not posting
+                # targets (the schema's documented intent — "cannot post
+                # to directly"); archived accounts vanish from the trial
+                # balance (is_active=True filter) while their ledger lines
+                # remain, silently unbalancing the TB/ledger reconciliation.
+                if account.is_header:
+                    raise ValidationError(
+                        f"Account {account.code} ({account.name}) is a header "
+                        "account — lines cannot be posted to it directly. "
+                        "Post to one of its active child accounts."
+                    )
+                if not account.is_active:
+                    raise ValidationError(
+                        f"Account {account.code} ({account.name}) is inactive "
+                        "(archived) — lines cannot be posted to it. Reactivate "
+                        "the account or post to an active account."
+                    )
+
                 debit = money(line_data.get("debit", 0))
                 credit = money(line_data.get("credit", 0))
 

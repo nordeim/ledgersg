@@ -372,20 +372,36 @@ class ReconciliationService:
         Returns:
             Updated BankTransaction instance
         """
-        transaction_obj = ReconciliationService.get_transaction(org_id, transaction_id)
+        # P18/BE-M2: lock the transaction then the matched payment (the
+        # same order reconcile() takes) — the pre-P18 shape read the txn,
+        # flipped flags, and bulk-updated the payment with no locks, so a
+        # concurrent reconcile() could re-set is_reconciled=True between
+        # the read and the bulk update, leaving the flags contradictory.
+        transaction_obj = (
+            BankTransaction.objects.select_for_update()
+            .filter(org_id=org_id, id=transaction_id)
+            .first()
+        )
+        if transaction_obj is None:
+            raise ResourceNotFound(f"Bank transaction {transaction_id} not found")
 
         if not transaction_obj.is_reconciled:
             raise ValidationError("Transaction is not reconciled.")
 
         old_payment_id = transaction_obj.matched_payment_id
 
+        matched_payment = None
+        if old_payment_id:
+            matched_payment = Payment.objects.select_for_update().get(id=old_payment_id)
+
         transaction_obj.is_reconciled = False
         transaction_obj.reconciled_at = None
         transaction_obj.matched_payment = None
         transaction_obj.save()
 
-        if old_payment_id:
-            Payment.objects.filter(id=old_payment_id).update(is_reconciled=False)
+        if matched_payment:
+            matched_payment.is_reconciled = False
+            matched_payment.save(update_fields=["is_reconciled"])
 
         AuditEventLog.objects.create(
             org_id=org_id,

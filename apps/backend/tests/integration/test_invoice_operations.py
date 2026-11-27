@@ -209,6 +209,11 @@ class TestInvoiceOperationsBusinessLogic:
         """
         from unittest.mock import patch
         org_id = test_organisation.id
+        # P18/BE-L5: only APPROVED (or settled) invoices may be emailed —
+        # the emailed PDF is a rendered TAX INVOICE (IRAS labelling is
+        # status-bound; the pre-P18 gate let VOID/DRAFT documents out).
+        test_invoice.status = "APPROVED"
+        test_invoice.save(update_fields=["status"])
         invoice_id = test_invoice.id
 
         url = f"/api/v1/{org_id}/invoicing/documents/{invoice_id}/send/"
