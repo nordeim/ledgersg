@@ -16,7 +16,13 @@ history in one response). The additive contract this module implements:
 Typed 400s follow the P7/F-11 garbage-param convention: limit must be
 an integer in [1, 1000] (explicit beats silent clamping — a caller's
 paging bug must surface, not silently clamp), offset a non-negative
-integer. Postgres tie order is not stable across executions, so
+integer capped at the Postgres bigint bound (2**63 - 1 — P25/BE-M2:
+an offset above int8 cannot round-trip through OFFSET, so it is
+garbage at the parse layer, never a DataError 500 at the SQL layer).
+P25/BE-L4: `offset` requires `limit` — a well-formed offset without a
+limit is a caller paging bug (the pre-P25 behaviour silently returned
+the FULL set with the offset unused); it surfaces as the typed 400.
+Postgres tie order is not stable across executions, so
 paginated surfaces need a deterministic total order (the schema's
 UNIQUE keys carry the ledger, entries and documents; the contacts and
 payments `id` tiebreakers landed with this module).
@@ -98,6 +104,12 @@ class SmallResultPagination(PageNumberPagination):
 #: The documented max page size — a typed 400 above it.
 MAX_PAGE_LIMIT = 1000
 
+#: The offset ceiling — the Postgres bigint bound (int8 parity). An
+#: offset above it cannot survive the SQL `OFFSET` clause (DataError:
+#: bigint out of range), so it is rejected at the parse layer with the
+#: typed 400 (P25/BE-M2).
+MAX_PAGE_OFFSET = 2**63 - 1
+
 
 def parse_limit_offset(request: Request) -> tuple[int | None, int]:
     """Parse the `limit`/`offset` query params.
@@ -105,7 +117,9 @@ def parse_limit_offset(request: Request) -> tuple[int | None, int]:
     Returns ``(limit, offset)`` — ``limit`` is None when the param is
     absent (the unpaginated back-compat mode). Garbage or out-of-range
     values raise the typed ValidationError that wrap_response maps to
-    the 400 error envelope.
+    the 400 error envelope. ``offset`` without ``limit`` is the typed
+    400 (P25/BE-L4 — the offset is meaningless unpaginated; the
+    pre-P25 behaviour silently ignored it and returned the full set).
     """
     raw_limit = request.query_params.get("limit")
     raw_offset = request.query_params.get("offset")
@@ -121,7 +135,15 @@ def parse_limit_offset(request: Request) -> tuple[int | None, int]:
 
     offset = 0
     if raw_offset is not None and raw_offset != "":
-        offset = parse_int_param(raw_offset, "offset", min_value=0)
+        if limit is None:
+            raise ValidationError(
+                "Invalid 'offset' — 'limit' is required when 'offset' is "
+                "present (the unpaginated response returns the full set; "
+                "an offset alone is a paging bug, not a page request)."
+            )
+        offset = parse_int_param(
+            raw_offset, "offset", min_value=0, max_value=MAX_PAGE_OFFSET
+        )
 
     return limit, offset
 

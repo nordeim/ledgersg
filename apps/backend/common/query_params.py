@@ -31,12 +31,22 @@ def parse_uuid_param(value: str, param: str) -> UUID:
         ) from err
 
 
-def parse_int_param(value: str, param: str, *, min_value: int | None = None) -> int:
+def parse_int_param(
+    value: str,
+    param: str,
+    *,
+    min_value: int | None = None,
+    max_value: int | None = None,
+) -> int:
     """Parse an integer query param; 400 with the param name on garbage.
 
     P8/G-2: `min_value` rejects semantically-invalid integers (e.g. a
     negative slice limit) that parse fine but blow up (or misbehave)
     downstream — an out-of-range int is as malformed as a non-int.
+    P25/BE-M2: `max_value` is the upper mirror — a validly-typed but
+    astronomically large value (e.g. an offset above the Postgres
+    bigint bound) must surface as the typed 400, not as a DataError 500
+    at the SQL layer or a silent misbehaviour downstream.
     """
     try:
         parsed = int(value)
@@ -47,5 +57,9 @@ def parse_int_param(value: str, param: str, *, min_value: int | None = None) -> 
     if min_value is not None and parsed < min_value:
         raise ValidationError(
             f"Invalid '{param}' — must be >= {min_value}, got {parsed}."
+        )
+    if max_value is not None and parsed > max_value:
+        raise ValidationError(
+            f"Invalid '{param}' — must be <= {max_value}, got {parsed}."
         )
     return parsed
