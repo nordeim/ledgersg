@@ -37,10 +37,6 @@ class TestQueryParamValidation:
         ("invoicing documents date_from", lambda org: f"/api/v1/{org.id}/invoicing/documents/?date_from=not-a-date"),
         ("invoicing documents date_to", lambda org: f"/api/v1/{org.id}/invoicing/documents/?date_to=not-a-date"),
         (
-            "banking suggest-matches transaction_id",
-            lambda org: f"/api/v1/{org.id}/banking/bank-transactions/not-a-uuid/suggest-matches/",
-        ),
-        (
             "banking suggest-matches tolerance",
             lambda org: f"/api/v1/{org.id}/banking/bank-transactions/00000000-0000-0000-0000-000000000000/suggest-matches/?tolerance=abc",
         ),
@@ -62,3 +58,19 @@ class TestQueryParamValidation:
         url = f"/api/v1/{test_organisation.id}/journal-entries/entries/?date_from=2024-01-01"
         response = auth_client.get(url)
         assert response.status_code == status.HTTP_200_OK, response.data
+
+
+class TestSuggestMatchesRoute404P18:
+    """P18/BE-L2: suggest-matches moved from <str> to the uuid route
+    converter (the P17 sibling parity) — a malformed transaction_id is
+    now a ROUTING 404, not a view-level 400. The case was removed from
+    the 400 sweep above; its contract lives here."""
+
+    @pytest.mark.django_db
+    def test_malformed_transaction_id_is_route_404(self, auth_client, test_organisation):
+        url = f"/api/v1/{test_organisation.id}/banking/bank-transactions/not-a-uuid/suggest-matches/"
+        response = auth_client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND, (
+            response.status_code,
+            getattr(response, "data", None),
+        )
