@@ -46,8 +46,11 @@ async function ensureRevenueAccount(page: import("@playwright/test").Page, token
     headers: auth,
   });
   test.expect(orgsResponse.ok()).toBeTruthy();
-  const orgs = (await orgsResponse.json()) as Array<{ org: { id: string } }>;
-  const orgId = orgs[0]?.org.id;
+  // P21/BE-M6: the unified list envelope ({results, count}).
+  const orgs = (await orgsResponse.json()) as {
+    results: Array<{ org: { id: string } }>;
+  };
+  const orgId = orgs.results[0]?.org.id;
   test.expect(orgId).toBeTruthy();
 
   const list = await page.request.get(
@@ -203,8 +206,11 @@ test.describe("Invoice detail page (P6/C-5 — real data)", () => {
       headers: auth,
     });
     test.expect(orgsResponse.ok()).toBeTruthy();
-    const orgs = (await orgsResponse.json()) as Array<{ org: { id: string } }>;
-    const orgId = orgs[0]?.org.id;
+    // P21/BE-M6: the unified list envelope ({results, count}).
+  const orgs = (await orgsResponse.json()) as {
+    results: Array<{ org: { id: string } }>;
+  };
+    const orgId = orgs.results[0]?.org.id;
     test.expect(orgId).toBeTruthy();
 
     const listResponse = await page.request.get(
@@ -261,8 +267,11 @@ test.describe("Invoice detail — void flow (P7/F-1)", () => {
       headers: auth,
     });
     test.expect(orgsResponse.ok()).toBeTruthy();
-    const orgs = (await orgsResponse.json()) as Array<{ org: { id: string } }>;
-    const orgId = orgs[0]?.org.id;
+    // P21/BE-M6: the unified list envelope ({results, count}).
+  const orgs = (await orgsResponse.json()) as {
+    results: Array<{ org: { id: string } }>;
+  };
+    const orgId = orgs.results[0]?.org.id;
     test.expect(orgId).toBeTruthy();
 
     const listResponse = await page.request.get(

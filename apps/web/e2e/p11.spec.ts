@@ -46,9 +46,12 @@ async function defaultOrgId(page: import("@playwright/test").Page, token: string
     headers: { Authorization: `Bearer ${token}` },
   });
   test.expect(response.ok()).toBeTruthy();
-  const orgs = (await response.json()) as Array<{ org: { id: string } }>;
-  test.expect(orgs[0]?.org.id).toBeTruthy();
-  return orgs[0].org.id;
+  // P21/BE-M6: the unified list envelope ({results, count}).
+  const orgs = (await response.json()) as {
+    results: Array<{ org: { id: string } }>;
+  };
+  test.expect(orgs.results[0]?.org.id).toBeTruthy();
+  return orgs.results[0].org.id;
 }
 
 /** Real UI login (the in-memory session convention — see invoices.spec.ts). */

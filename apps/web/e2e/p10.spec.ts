@@ -40,9 +40,12 @@ async function defaultOrgId(page: import("@playwright/test").Page, token: string
     headers: { Authorization: `Bearer ${token}` },
   });
   test.expect(response.ok()).toBeTruthy();
-  const orgs = (await response.json()) as Array<{ org: { id: string } }>;
-  test.expect(orgs[0]?.org.id).toBeTruthy();
-  return orgs[0].org.id;
+  // P21/BE-M6: the unified list envelope ({results, count}).
+  const orgs = (await response.json()) as {
+    results: Array<{ org: { id: string } }>;
+  };
+  test.expect(orgs.results[0]?.org.id).toBeTruthy();
+  return orgs.results[0].org.id;
 }
 
 /** Idempotent: ensure a known customer row exists for the picker test. */
@@ -193,7 +196,9 @@ test.describe("New Invoice customer picker (P10/H-1, live)", () => {
       timeout: 15_000,
     });
 
-    const picker = page.getByRole("combobox", { name: /search customer/i });
+    // P21/FE-L2: the picker's accessible name is now the visible "Customer"
+    // label (aria-labelledby outranks the built-in aria-label).
+    const picker = page.getByRole("combobox", { name: "Customer" });
     await picker.click();
     await picker.fill("E2E Picked");
     await page.getByRole("option", { name: /E2E Picked Customer/i }).first().click();

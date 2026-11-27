@@ -54,12 +54,13 @@ async function ensureOutstandingInvoice(page: import("@playwright/test").Page) {
     .access;
   const auth = { Authorization: `Bearer ${token}` };
 
+  // P21/BE-M6: the unified list envelope ({results, count}).
   const orgs = (await (
     await page.request.get(`${apiUrl}/api/v1/auth/organisations/`, {
       headers: auth,
     })
-  ).json()) as Array<{ org: { id: string } }>;
-  const orgId = orgs[0].org.id;
+  ).json()) as { results: Array<{ org: { id: string } }> };
+  const orgId = orgs.results[0].org.id;
 
   // P20/X-H1: this helper must be SELF-SUFFICIENT for the contact too —
   // it runs in the SECOND spec file (alphabetical order), and on a fresh

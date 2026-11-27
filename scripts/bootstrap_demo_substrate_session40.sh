@@ -33,10 +33,10 @@ fi
 echo "[substrate] step 1 — user OK"
 
 # ---- Step 2: the demo org (reuse if exists; seeds CoA + fiscal + tax) --
-# NOTE: the organisations list uses the {data} envelope (the documented
-# {data}/{results} inconsistency — the P20 deferred register) — handle both.
+# P21/BE-M6: the list envelope is unified — every list speaks
+# {results, count} (the dual-shape fallback is retired).
 ORGS=$(curl -s "$BASE/api/v1/organisations/" -H "Authorization: Bearer $TOKEN")
-ORG_ID=$(jsonget "$ORGS" '((d.get("data") or d.get("results") or [{}])[0].get("id", ""))')
+ORG_ID=$(jsonget "$ORGS" '((d.get("results") or [{}])[0].get("id", ""))')
 if [ -z "$ORG_ID" ] || [ "$ORG_ID" = "None" ]; then
   ORG_ID=$(jsonget "$(curl -s -X POST "$BASE/api/v1/organisations/" \
     -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
