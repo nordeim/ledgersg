@@ -129,7 +129,7 @@ const SHOTS = [
     // P24: page 2 — drive the pagination control live (the exact user
     // path the e2e gates) and wait for the page to settle.
     if (shot.clickNext) {
-      await page.getByRole("button", { name: /go to next page/i }).click();
+      await page.getByRole("button", { name: "Next page" }).click();
       await page.waitForTimeout(1500);
     }
 
@@ -143,7 +143,7 @@ const SHOTS = [
     // P24: the Previous button's disabled state — the boundary contract
     // (disabled on page 1, enabled past it).
     if (shot.prevDisabled !== undefined) {
-      const prev = page.getByRole("button", { name: /go to previous page/i });
+      const prev = page.getByRole("button", { name: "Previous page" });
       const isDisabled = await prev.isDisabled();
       if (isDisabled !== shot.prevDisabled) {
         truthsOk = false;
