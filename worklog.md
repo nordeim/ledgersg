@@ -964,3 +964,77 @@ the PaymentsTab same-route prefill (no producer); the TanStack
 React-Compiler incompatibility (documented disable landed); the
 middleware token-parse verification gap (defense-in-depth); the
 journal detail serializer's per-entry source lookup.
+
+## P20 Remediation — 2026-11-27 (session 40): the void/transition lock completion, the CSV transaction poisoning, the e2e first-run truth & the test-config ratchet
+
+**Base:** `6ca32a96` (post-P19, all gates green). **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-27_P20.md` (anchor-validated);
+**report:** `docs/REMEDIATION_2026-11-27_P20_REPORT.md`.
+**Method:** TDD (RED → GREEN → full gate) for every behavioural fix;
+conventional commits on `main`; `skills/` excluded; no DDL (schema
+v1.2.2 carries forward). The environment was rebuilt from scratch this
+session (fresh clone; rootless PG 17 + Redis 8 + the schema + the venv +
+the dev stack + the demo substrate — the fresh-host story exercised
+end-to-end before the audit).
+
+### The audits (three parallel, Mode C; every High verified in source)
+
+0 Critical / 6 High / 23 Medium / 17 Low. The headline: `void()`
+recomputes and saves the affected documents WITHOUT the document row
+lock (allocate/unallocate both hold it — a concurrently-committed
+allocation is silently lost from `amount_paid`), the CSV import loop has
+no savepoint (one DB-level row error poisons the transaction → untyped
+500, the per-row `errors[]` contract never delivered), and
+`transition_status()` still carries the unlocked gate + stale full-row
+save that P19/BE-H1 fixed for `remove_line`. Frontend: the invoice
+form's Notes/Terms textareas and the two icon-only back links are
+unnamed (WCAG Level A on the money flows). Cross-cutting: the live e2e
+suite is red-by-construction on the first run against a fresh DB
+(banking runs 2nd, its helper requires a contact, the only contact
+creator runs 7th) while DEPLOYMENT §9 claims self-bootstrapping.
+
+### What was fixed (TDD — every behavioural fix RED first)
+
+| Task | Fix | Evidence |
+|---|---|---|
+| BE-H1 (+M2) | `void()`: the affected documents `select_for_update()`-locked in sorted-id order BEFORE the allocation deletes; the recompute under the locks | the lock spy + the order-recording probe + the interleaving probe (T2's committed 50.00 allocation survives the void — `amount_paid` 50.00, never the stale 0.00) |
+| BE-H2 | the CSV per-row savepoint + the `1E15` magnitude bound (typed row errors) | the poison-row test (the two valid rows import, the poison row lands in `errors[]`) + the Python-parse regression guards |
+| BE-H3 | `transition_status()`: locked + post-lock re-validation + `save(update_fields=…)` | the lock spy + the Case-B probe (the stale DRAFT→SENT refused post-lock) + the no-clobber probe (the racing totals survive) |
+| BE-M1/M5/L1/L2/L3 | the `allocate()` sorted document pre-lock; the `create_entry()` balance-cache invalidation; the module-level `Decimal` import (ruff F821); the allocate positive-amount guard; the unreconcile org filter | the order probe; the cache-seed probe; ruff clean on the touched file; the typed-refusal test; the captured-kwargs contract test |
+| FE-H1/H2 | the invoice-form Notes/Terms `id`+`htmlFor` association; the named back links on both new pages | the by-role-name + association tests; the live captures 120/121 (`notes-by-label:1 terms-by-label:1 for-attrs:2`, `back-link-by-name:1`) |
+| FE-M1/M4/M7/L2/L3 | the ContactPicker blur dismissal (rAF-deferred, mousedown wins); the gst-f5-chart valid ARIA row; `formatDateOnly` with `timeZone: "UTC"`; the brand `<h1>` → `<p>`; the loading live regions | the blur tests (Tab closes the box, mousedown still selects); the owned-structure assertion; the date-identity tests; the live captures 122/123/124 |
+| CFG batch (the owner's named task) | vitest: `src/app/**`+`src/providers/**` measured + per-glob floors (app 73/64/71/73, components 82/74/68/83, providers 61/60/58/60), the whole-suite floor RAISED 62/51/52/63 → 71/60/68/71, `**/__tests__/**` excluded, the `src/stores/**` exclusion documented; playwright: `retain-on-failure` traces, `locale: "en-SG"` + `timezoneId: "Asia/Singapore"`; `test:all` gains `--coverage` | the coverage run green at the RAISED ratchet; the suite green under the pinned locale/timezone; schema-valid configs (the `strictPort` plan item shipped as an honest documented caveat — Playwright 1.58 has no such option) |
+| X-H1 | the banking helper is contact-self-sufficient (idempotent create) + `scripts/bootstrap_demo_substrate_session40.sh` completes §9 steps 1-5 (idempotent, double-run verified) + the §9 false claim corrected | the fresh-DB first run green (the live gate); the script executed twice green |
+| X-docs | DEPLOYMENT §3 `$PG_BASE` lifecycle + the `PG_MAJOR` honesty; the stale counts in DEPLOYMENT/AGENTS/PAD/ci.yml; the four wrong API-guide routes (errata in place) + the metrics row; the backend `.env.example` decouple caveat | doc review + the audit's variable-by-variable verification table |
+
+### The named focus (settled live — eleventh consecutive settlement)
+
+**Mobile navigation:** 17/17 probe checks PASS on the remediated tree
+(375/800/1280) — **no TailwindCSS v4 bug exists**. The P20 a11y/config
+changes (the `<p>` brand, the playwright pins) re-probed clean; the
+Tailwind v4 hygiene sweep is CLEAN (the P18 tw-animate-css fix held; no
+dead-token `-[var(--…)]` classes remain).
+
+### Final gate (all verified, executed)
+
+backend **950P/0F/5S** (+13 P20 tests) · vitest **627/627** (73 files)
+· tsc 0 · whole-tree eslint **0 errors / 0 warnings** · **coverage
+green at the RAISED ratchet (71/60/68/71, app+providers measured)** ·
+**e2e:full 40P/0F/0S — green on the FIRST run of a fresh database** ·
+**rls_smoke 13/13 as `ledgersg_app`** · **mobile-nav 17/17** ·
+**prod-CSP 5/5** · build:server green · schema v1.2.2 (no DDL).
+
+### Deferred (registered, not dropped)
+
+List pagination; the `{data}`/`{results}` envelope unification
+(re-measured ~20 + 6 + 1); the ruff mechanical batch (1299/788 — this
+sprint cleared its one real latent bug); the audit-log INSERT policy;
+the dead-letter design; UEN checksum; the NULL-context SELECT tradeoff;
+H-05b models; the PaymentsTab prefill (no producer); the TanStack
+incompatibility; the middleware register entry CORRECTED (simplejwt
+5.5.1 verifies by default; the real residual is the membership-cache
+window); the journal detail N+1; the fiscal close race (BE-M3); the
+reconcile FX comparator (BE-M4); the CSV dedupe backstop (BE-M6, DDL);
+the route-guard history design (FE-M2); the drawer×dialog trap (FE-M3);
+the small FE batch (L1/L4/L5/L6/L8); the CI hardening batch (X-L2/I1/I2);
+the version-story reconciliation (X-M8).

@@ -8,14 +8,14 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 36):
-- Backend: pytest 914 passed / 0 failed / 5 skipped (919 collected;
+Current truth (all gates executed and green, session 40 / P20):
+- Backend: pytest 950 passed / 0 failed / 5 skipped (955 collected;
   invariants 34, security 83 passed + 3 skipped)
-- Frontend: vitest 601/601 (70 files), tsc --noEmit 0 errors, whole-tree
-  eslint **0 errors** (5 warnings — the documented deferred register,
-  parity maintained)
-- E2E: 40 specs (11 always-green + 29 backend-gated); live run 40P/0F/0S;
-  CI now runs the always-green 11 (P18/CFG-L1)
+- Frontend: vitest 627/627 (73 files), tsc --noEmit 0 errors, whole-tree
+  eslint **0 errors / 0 warnings**
+- E2E: 40 specs (11 always-green + 29 backend-gated); live run 40P/0F/0S
+  green on the FIRST run of a fresh DB (the P20/X-H1 bootstrap fix);
+  CI runs the always-green 11 (P18/CFG-L1)
 - Production-CSP smoke (P16/FE-C1): 5/5 — nonce served, hydration
   happened, zero violations (the gate class the dev suite cannot cover)
 - Runtime-role smoke: 13/13 steps green as ledgersg_app (C-1/H-7)
@@ -259,8 +259,8 @@ Summary: The LedgerSG platform is production-ready with comprehensive test cover
 **LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore Small and Medium Businesses (SMBs). Its primary mission is to transform IRAS 2026 compliance from a regulatory burden into a seamless, automated experience. The platform combines enterprise-grade financial integrity with a distinctive "Illuminated Carbon" neo-brutalist user interface.
 
 **Current Status:** ✅ **Production Ready**
-- **Frontend:** v0.3.4 (Next.js 16.4.6, 16 pages, 70 test files, **601 tests passing**)
-- **Backend:** v0.6.4 (Django 6.0.10, 90+ API endpoints, **914 tests passing, 0 failed**)
+- **Frontend:** v0.3.5 (Next.js 16.4.6, 16 pages, 73 test files, **627 tests passing**)
+- **Backend:** v0.6.5 (Django 6.0.10, 90+ API endpoints, **950 tests passing, 0 failed**)
 - **Database:** v1.2.1 (PostgreSQL 16+, 7 schemas, 29 domain tables + 1 view + §15c framework tables, RLS complete on every tenant table §17)
 - **Dashboard:** v1.0.0 (Real Data Integration, 36 TDD tests, 100% coverage)
 - **Integration Gaps:** Phase 3 Complete (GAP-3: 20 tests, GAP-4: 13 tests)

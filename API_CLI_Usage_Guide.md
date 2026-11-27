@@ -2,7 +2,7 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 3.0.0 (P19 addendum)
+> **Version**: 3.1.0 (P19 addendum + the P20 route errata)
 > **Last Updated**: 2026-11-27 (P17 — NEW 400 contracts: double-reversal / double-void / double-reconcile refusals under row locks; typed GST box parsing; allocation UUID field errors; UEN normalize-then-validate on org PATCH; tax-rate range; on-commit task dispatch + the worker RLS context)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
@@ -139,9 +139,9 @@ residual concurrency seams, and the task-contract gaps (all pinned by
 
 | Contract | P18 delta |
 |:---|:---|
-| `POST /gst/returns/{id}/generate/` + `POST /gst/returns/{id}/review/` | The return row is **locked for the whole recompute/review** (`select_for_update` inside an atomic block, the `file_return` pattern) — a recompute can no longer interleave with a filing and regress a FILED statutory record to COMPUTED while `filed_at` stays populated |
-| `DELETE`-class `POST /banking/payments/allocations/{id}/` (unallocate) + `POST /banking/bank-transactions/{id}/unreconcile/` | The same row locks their siblings take (payment→document; transaction→payment) — `amount_paid`/status recomputes and the reconcile-flag writes are serialized against `allocate()`/`reconcile()` |
-| `POST /invoicing/quotes/{id}/convert/` | The quote row is **locked with a post-lock status re-check** — two concurrent converts no longer create two invoices from one quote |
+| `POST /gst/returns/{id}/?force=true` (recompute) + `POST /gst/returns/{id}/review/` | The return row is **locked for the whole recompute/review** (`select_for_update` inside an atomic block, the `file_return` pattern) — a recompute can no longer interleave with a filing and regress a FILED statutory record to COMPUTED while `filed_at` stays populated. (P20/X-M5 erratum: the P18 addendum originally documented a nonexistent `POST /gst/returns/{id}/generate/` route — the recompute has always been the force-recompute POST the P14 row documents.) |
+| `POST /banking/bank-transactions/{id}/unreconcile/` | The transaction→payment lock order matches its siblings — `amount_paid`/status recomputes and the reconcile-flag writes are serialized against `allocate()`/`reconcile()`. (P20/X-M6 erratum: the P18 addendum originally documented a `POST /banking/payments/allocations/{id}/` unallocate route — no such HTTP route exists; `unallocate` is a SERVICE-level operation with no view. The documented contract is unreconcile only.) |
+| `POST /invoicing/quotes/convert/` (the quote id in the request body: `{"quote_id": "<uuid>"}`) | The quote row is **locked with a post-lock status re-check** — two concurrent converts no longer create two invoices from one quote. (P20/X-M7 erratum: the P18 addendum originally documented `POST /invoicing/quotes/{id}/convert/` — the route is body-parameterised, no path id.) |
 | `POST /invoicing/documents/{id}/lines/` (add_line) | The document row is locked for the line-number read+insert; a residual `uq_docline_doc_lineno` race surfaces as a **typed 400** ("the document changed while the line was being added — reload and retry"), never an IntegrityError 500 |
 | Credit notes (`POST /invoicing/documents/` with `related_document_id`) | The ORIGINAL document row is locked for the cumulative-cap check, and the check runs inside the create transaction — racing credit notes can no longer jointly exceed the original total |
 | `POST /journal-entries/entries/` (manual entries) | Lines posting to a **header** account or an **archived** (`is_active=false`) account are refused with a typed 400 — the trial balance (which filters active accounts) can no longer diverge from the ledger |
@@ -151,9 +151,9 @@ residual concurrency seams, and the task-contract gaps (all pinned by
 | `create_return_periods` | The UNIQUE(org, type, period) race is typed — the loser skips cleanly (never an IntegrityError 500) |
 | Service seam (`_validated_exchange_rate`) | A garbage rate from a direct (non-DRF) caller is a typed 400, not an InvalidOperation 500 |
 
-**Current test metrics (post-P18)**: backend **914 passed / 0 failed / 5
+**Current test metrics (post-P20)**: backend **950 passed / 0 failed / 5
 skipped** (invariants 34, security 83+3 skipped) · frontend vitest
-**601/601** (70 files) · e2e 11 always-green + 29 backend-gated, **40/40
+**627/627** (73 files) · e2e 11 always-green + 29 backend-gated, **40/40
 live** under `test:e2e:full` · the production-CSP smoke **5/5** · the
 runtime-role smoke **13/13** · the mobile-nav probe **17/17**.
 
@@ -314,10 +314,17 @@ is a **404 at the routing layer** (identical to every sibling route;
 previously an untyped 500).
 
 **The bank-statement import caps (X-M2):** `POST
-/api/v1/{orgId}/banking/bank-accounts/{accountId}/import-csv/` now
-refuses with a typed 400 before any row processing when the upload is
-over **5 MB** or carries more than **10,000 rows** ("split the export
-and import it in parts"). At-limit files import exactly as before.
+/api/v1/{orgId}/banking/bank-transactions/import/` (multipart: the CSV
+file + `bank_account_id` as form fields — the account is NOT a path
+segment; P20/X-M4 erratum: the P19 addendum originally documented a
+nonexistent `bank-accounts/{accountId}/import-csv/` route, contradicting
+the P16 row above) now refuses with a typed 400 before any row
+processing when the upload is over **5 MB** or carries more than
+**10,000 rows** ("split the export and import it in parts"). At-limit
+files import exactly as before — and since P20 one DB-level poison row
+(a NUMERIC(19,4) overflow amount) is a **typed row error in the
+`errors[]` array** while the surrounding rows import (never an
+abort-everything 500).
 
 **The document-line seam (BE-H1):** `DELETE
 /api/v1/{orgId}/invoicing/documents/{documentId}/lines/{lineId}/` is

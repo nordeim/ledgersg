@@ -1,9 +1,10 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.12.0
+> **Version**: 3.14.0
 > **Last Updated**: 2026-11-27
-> **P18 note**: statutory-record locking + the contrast debt + the Celery coverage completion — generate_f5/review_return locked with file_return; unallocate/unreconcile/convert/credit-cap/add_line locked; header/archived account posting refused; the three remaining Peppol task bodies under the RLS tenant context + the on-commit dispatch covered + terminal classification for deleted-org tasks; the email status gate (APPROVED invoices only); the bg-success/bg-alert contrast fixes at WCAG AA; `tw-animate-css` imported (the Radix animate utilities that silently compiled to nothing in v4); the genuinely-shared `uenSchema`; schema **v1.2.2** (§15c completion: the ENABLE_ADMIN opt-in tables); 914 backend / 601 vitest / e2e 40P live — see `docs/REMEDIATION_PLAN_2026-11-27_P18.md`. Carries the P17 state forward: double-reversal / double-void / double-reconcile refused under row locks; tasks dispatch on-commit; the 400-contract sweep; `/admin/` gated; the `STORAGES` manifest migration; the `--color-success` token — see `docs/REMEDIATION_PLAN_2026-11-27_P17.md`
+> **P20 note**: the void/transition/allocate lock completion (void locks its affected documents sorted; transition_status locks + update_fields; allocate pre-locks documents sorted), the CSV import savepoint + magnitude bound, the posting-side balance-cache invalidation, the two a11y Highs (invoice-form Notes/Terms names, the new-page back links), the ContactPicker blur dismissal, the timezone-safe date formatter, the coverage ratchet expanded to the app/providers tiers + raised, the playwright port/locale/timezone/trace pins, and the e2e first-run truth fix (the banking helper is contact-self-sufficient; the one-command §9 bootstrap script ships) — see `docs/REMEDIATION_PLAN_2026-11-27_P20.md`. Carries the P19 state forward:
+> **P19 note**: the remove_line truth-gap fix + the contrast debt + the Celery coverage completion — generate_f5/review_return locked with file_return; unallocate/unreconcile/convert/credit-cap/add_line locked; header/archived account posting refused; the three remaining Peppol task bodies under the RLS tenant context + the on-commit dispatch covered + terminal classification for deleted-org tasks; the email status gate (APPROVED invoices only); the bg-success/bg-alert contrast fixes at WCAG AA; `tw-animate-css` imported (the Radix animate utilities that silently compiled to nothing in v4); the genuinely-shared `uenSchema`; schema **v1.2.2** (§15c completion: the ENABLE_ADMIN opt-in tables) — see `docs/REMEDIATION_PLAN_2026-11-27_P19.md`. Carries the P17 state forward: double-reversal / double-void / double-reconcile refused under row locks; tasks dispatch on-commit; the 400-contract sweep; `/admin/` gated; the `STORAGES` manifest migration; the `--color-success` token — see `docs/REMEDIATION_PLAN_2026-11-27_P17.md`
 >
 > **P16 note**: production truth — the shipped production app could not hydrate under its own static `script-src 'self'` CSP (every page ships non-nonced Next bootstrap scripts); the CSP is now per-request nonce-based via `src/proxy.ts` with the app opted into dynamic rendering, gated by a standalone-build smoke (`scripts/prod-csp-smoke.js`). The Docker/script API entrypoint (`config/settings/service.py`) had silently dropped the tenant/audit/CSP/WhiteNoise middleware — now derived from base and settings-gated. The dedicated allocate endpoint accepts instalments (the shared ALLOCATABLE_STATUSES), the payment row is locked for the cap check, payment create+allocate is one transaction, NaN/Infinity box overrides are refused, the line-total product is bounded to NUMERIC(19,4), the dashboard invalidation key is fixed, org-creation selects the new org (selectOrgById), and the frontend accepts all three ACRA UEN forms. See `docs/REMEDIATION_PLAN_2026-11-26_P16.md`.
 >
@@ -44,10 +45,10 @@
 
 **LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs. It eliminates the complexity of IRAS compliance through a "SQL-First" design philosophy and a distinctive "Illuminated Carbon" neo-brutalist UI.
 
-### Key Metrics (P17, 2026-11-27)
+### Key Metrics (P20, 2026-11-27)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,555 Tests Passing** | 914 Backend + 601 Frontend unit + 40 e2e (11 always + 29 backend-gated; 40/40 live-green) + the 13-step runtime-role smoke |
+| **Test Coverage** | **1,617 Tests Passing** | 950 Backend + 627 Frontend unit + 40 e2e (11 always + 29 backend-gated; 40/40 live-green on the first run of a fresh DB) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+") |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
@@ -56,10 +57,10 @@
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 601 | 100% | Vitest + RTL | ✅ Passing |
-| **Backend (pytest)** | 914 passed / 5 skipped (919 collected) | 100% of run | pytest | ✅ Passing |
+| **Frontend Unit** | 627 | 100% | Vitest + RTL | ✅ Passing |
+| **Backend (pytest)** | 950 passed / 5 skipped (955 collected) | 100% of run | pytest | ✅ Passing |
 | **E2E (Playwright)** | 40 (11 always + 29 backend-gated) | 100% live | Playwright | ✅ Passing |
-| **Total Passing** | **1,504** | — | Mixed | ✅ Verified |
+| **Total Passing** | **1,617** | — | Mixed | ✅ Verified |
 
 ---
 
