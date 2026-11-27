@@ -19,6 +19,17 @@ class PeppolTransmissionLogView(APIView):
     GET: Peppol transmission log.
 
     Returns transmission history for InvoiceNow/Peppol documents.
+
+    P26/BE-M4: the additive `?limit=&offset=` pagination contract (the
+    P24 surface rule — this was the last unbounded backend list). With
+    `limit` absent the envelope stays byte-identical
+    {results, count, pending, failed, completed}; with it the envelope
+    gains next/previous (absolute URLs carrying the caller's filters)
+    and count reads as the TOTAL matching rows. The order gains the
+    `id` tiebreaker (Postgres tie order is not stable across
+    executions — the cross-page skip/dup hazard the P24 tiebreaker rule
+    closes), and the three status counters are computed in ONE
+    conditional-aggregation query instead of three COUNTs.
     """
 
     authentication_classes = [JWTAuthentication]
@@ -27,7 +38,10 @@ class PeppolTransmissionLogView(APIView):
     @wrap_response
     def get(self, request, org_id: str) -> Response:
         """Get Peppol transmission log with real data from database."""
+        from django.db.models import Count, Q
+
         from apps.peppol.models import PeppolTransmissionLog
+        from common.pagination import page_envelope, parse_limit_offset
 
         queryset = PeppolTransmissionLog.objects.filter(org_id=org_id)
 
@@ -36,7 +50,25 @@ class PeppolTransmissionLogView(APIView):
         if status_filter:
             queryset = queryset.filter(status=status_filter)
 
-        # Serialize and return
+        # The P24 tiebreaker rule: a deterministic total order (the id
+        # final key) so pages never skip or dup on equal transmitted_at.
+        queryset = queryset.order_by("-transmitted_at", "-id")
+
+        # One conditional-aggregation query for the status counters
+        # (the current semantics preserved: they count the FILTERED set).
+        counters = queryset.aggregate(
+            pending=Count("id", filter=Q(status="PENDING")),
+            failed=Count("id", filter=Q(status="FAILED")),
+            completed=Count("id", filter=Q(status="DELIVERED")),
+        )
+
+        # The additive pagination contract (P24/BE-M1 shape, P26 on this
+        # surface): typed 400s on garbage, the SQL-level slice, the
+        # envelope with the counters riding in both modes.
+        limit, offset = parse_limit_offset(request)
+        total = queryset.count()
+        page_qs = queryset if limit is None else queryset[offset : offset + limit]
+
         transmissions = [
             {
                 "id": str(t.id),
@@ -48,17 +80,31 @@ class PeppolTransmissionLogView(APIView):
                 "transmitted_at": t.transmitted_at.isoformat() if t.transmitted_at else None,
                 "access_point_provider": t.access_point_provider,
             }
-            for t in queryset.order_by("-transmitted_at")
+            for t in page_qs
         ]
 
-        return Response(
-            {
-                "results": transmissions,
-                "count": len(transmissions),
-                "pending": queryset.filter(status="PENDING").count(),
-                "failed": queryset.filter(status="FAILED").count(),
-                "completed": queryset.filter(status="DELIVERED").count(),
-            }
+        if limit is None:
+            # Byte-identical back-compat: the plain envelope + counters.
+            return Response(
+                {
+                    "results": transmissions,
+                    "count": total,
+                    "pending": counters["pending"],
+                    "failed": counters["failed"],
+                    "completed": counters["completed"],
+                }
+            )
+        return page_envelope(
+            request,
+            limit,
+            offset,
+            transmissions,
+            total,
+            extra={
+                "pending": counters["pending"],
+                "failed": counters["failed"],
+                "completed": counters["completed"],
+            },
         )
 
 

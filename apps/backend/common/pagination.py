@@ -154,12 +154,17 @@ def page_envelope(
     offset: int,
     results: list,
     total: int,
+    extra: dict | None = None,
 ) -> Response:
     """The paginated response: `{results, count, next, previous}`.
 
     DRF LimitOffset semantics: `next` while offset+limit < total (the
     URL carries the caller's filters — paging within a filtered set
     must not widen it), `previous` when offset > 0, clamped at 0.
+
+    P26/BE-M4: `extra` merges additional envelope keys AFTER the
+    standard four (e.g. the Peppol transmission log's status counters)
+    — additive; every existing caller is byte-identical without it.
     """
     next_url = (
         _page_url(request, limit, offset + limit)
@@ -169,14 +174,15 @@ def page_envelope(
     previous_url = (
         _page_url(request, limit, max(0, offset - limit)) if offset > 0 else None
     )
-    return Response(
-        {
-            "results": results,
-            "count": total,
-            "next": next_url,
-            "previous": previous_url,
-        }
-    )
+    payload: dict = {
+        "results": results,
+        "count": total,
+        "next": next_url,
+        "previous": previous_url,
+    }
+    if extra:
+        payload.update(extra)
+    return Response(payload)
 
 
 def _page_url(request: Request, limit: int, offset: int) -> str:
