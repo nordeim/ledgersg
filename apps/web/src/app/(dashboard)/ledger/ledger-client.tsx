@@ -12,7 +12,7 @@ import { useLedger } from "@/hooks/use-ledger";
  * Real general ledger (P6/C-5 — replaced the mockData fixture). Rows come
  * from the backend ledger endpoint (one row per journal line).
  *
- * P24/FE-M2: the surface pages server-side — page size 50 rows via the
+ * P24/FE-M2: the surface pages server-side — page size 20 rows via the
  * `?limit=&offset=` contract; the shared TablePagination drives the
  * offset (page identity lives in the hook's queryKey, so pages never
  * serve each other's cache).
@@ -28,16 +28,20 @@ export function LedgerClient() {
   const orgId = currentOrg?.id ?? null;
 
   const [offset, setOffset] = React.useState(0);
+  // P25/FE-L3: the org reset happens DURING render (the React-endorsed
+  // prev-state pattern) — a useEffect reset fired one fetch too late:
+  // the first render for the new org dispatched the old page's offset
+  // against it (a stale-offset fetch + a garbage cache entry per switch).
+  const [lastOrgId, setLastOrgId] = React.useState(orgId);
+  if (orgId !== lastOrgId) {
+    setLastOrgId(orgId);
+    setOffset(0);
+  }
 
   const { data, isLoading, isError, isFetching } = useLedger(orgId, undefined, {
     limit: LEDGER_PAGE_SIZE,
     offset,
   });
-
-  // A new organisation resets the pagination (offsets belong to their set).
-  React.useEffect(() => {
-    setOffset(0);
-  }, [orgId]);
 
   // P7/F-12: an authenticated user with no organisation is not an error —
   // a disabled query reports isLoading=false and would fall through to the
@@ -89,8 +93,13 @@ export function LedgerClient() {
   }
 
   const lines = data?.results ?? [];
+  const count = data?.count ?? 0;
 
-  if (lines.length === 0) {
+  // The empty state is the TRUTHFUL empty ledger (count === 0) — never
+  // the beyond-end page (P25/FE-L2: rows shrank server-side between
+  // fetches; count > 0 with an empty page keeps the controls, the only
+  // way back, instead of a false "No journal entries yet").
+  if (count === 0) {
     return (
       <Card className="border-border bg-carbon">
         <CardContent className="flex flex-col items-center gap-3 py-16">
@@ -107,11 +116,11 @@ export function LedgerClient() {
 
   return (
     <div className="flex flex-col gap-4">
-      <LedgerTable data={lines} />
+      {lines.length > 0 && <LedgerTable data={lines} />}
       <TablePagination
         offset={offset}
         limit={LEDGER_PAGE_SIZE}
-        count={data?.count ?? lines.length}
+        count={count}
         onPageChange={setOffset}
         disabled={isFetching}
       />

@@ -35,8 +35,12 @@ export function TablePagination({
   disabled = false,
   className,
 }: TablePaginationProps) {
-  const start = count === 0 ? 0 : offset + 1;
-  const end = Math.min(offset + limit, count);
+  // P25/FE-L2: a page beyond the end (the set shrank server-side
+  // between fetches) renders no rows — the truthful summary is 0–0,
+  // never a nonsensical "41–40 of 40" range.
+  const beyondEnd = offset >= count;
+  const start = beyondEnd ? 0 : offset + 1;
+  const end = beyondEnd ? 0 : Math.min(offset + limit, count);
   const onFirstPage = offset <= 0;
   const onLastPage = offset + limit >= count;
 
@@ -51,7 +55,7 @@ export function TablePagination({
           size="sm"
           onClick={() => onPageChange(Math.max(0, offset - limit))}
           disabled={disabled || onFirstPage}
-          aria-label="Go to previous page"
+          aria-label="Previous page"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           <span>Previous</span>
@@ -61,7 +65,7 @@ export function TablePagination({
           size="sm"
           onClick={() => onPageChange(offset + limit)}
           disabled={disabled || onLastPage}
-          aria-label="Go to next page"
+          aria-label="Next page"
         >
           <span>Next</span>
           <ChevronRight className="h-4 w-4" aria-hidden="true" />

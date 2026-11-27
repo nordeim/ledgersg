@@ -49,6 +49,19 @@ describe("TablePagination", () => {
       ).toBeInTheDocument();
     });
 
+    // P25/FE-L2: a page beyond the end (the set shrank server-side
+    // between fetches) must not render a nonsensical "41–40" range —
+    // the truthful summary is 0–0 with the controls as the way back.
+    it("renders the beyond-end page summary 'Showing 0–0 of N' (never 41–40)", () => {
+      setup({ offset: 40, limit: 20, count: 40 });
+      expect(
+        screen.getByText("Showing 0–0 of 40 rows")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /previous page/i })
+      ).not.toBeDisabled();
+    });
+
     it("the summary is a polite live region (page changes announce)", () => {
       setup({ offset: 0, limit: 50, count: 51 });
       const summary = screen.getByText("Showing 1–50 of 51 rows");
@@ -119,6 +132,20 @@ describe("TablePagination", () => {
       setup({ offset: 0, limit: 50, count: 51 });
       expect(
         screen.getByRole("navigation", { name: "Pagination" })
+      ).toBeInTheDocument();
+    });
+
+    // P25/FE-L1: WCAG 2.5.3 Label in Name — the accessible name must
+    // CONTAIN the visible text ("Previous"/"Next"), or speech-input users
+    // saying "click Previous" get no match. The exact-string query pins
+    // the whole accessible name (a "Go to previous page" label fails it).
+    it("the accessible names contain the visible text (WCAG 2.5.3 Label in Name)", () => {
+      setup({ offset: 0, limit: 50, count: 51 });
+      expect(
+        screen.getByRole("button", { name: "Previous page" })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Next page" })
       ).toBeInTheDocument();
     });
   });

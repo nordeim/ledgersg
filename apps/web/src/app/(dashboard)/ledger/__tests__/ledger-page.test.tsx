@@ -8,6 +8,7 @@
 
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LedgerClient } from "../ledger-client";
 import * as ledgerHooks from "@/hooks/use-ledger";
@@ -170,7 +171,42 @@ describe("LedgerClient (real data)", () => {
     ).not.toBeDisabled();
   });
 
-  it("hides the pagination controls for an unpaginated single-page ledger", async () => {
+  // P25/FE-L2: the page beyond the end (rows shrank server-side between
+  // fetches) keeps the controls — the only way back — and never claims
+  // the ledger is empty when count > 0. The mock returns the shrunken
+  // set once the reader walks past offset 40 (the realistic sequence).
+  it("renders the controls (not a false empty state) when the page is beyond the end (P25)", async () => {
+    vi.mocked(ledgerHooks.useLedger).mockImplementation(
+      ((_orgId: string, _filters: unknown, page: { offset: number } | undefined) => ({
+        data:
+          (page?.offset ?? 0) >= 40
+            ? { results: [], count: 40 }
+            : { results: [mockLine()], count: 60 },
+        isLoading: false,
+        isError: false,
+        error: null,
+        isFetching: false,
+      })) as unknown as typeof ledgerHooks.useLedger
+    );
+
+    renderPage();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /next page/i }));
+    await user.click(screen.getByRole("button", { name: /next page/i }));
+
+    expect(
+      await screen.findByText("Showing 0–0 of 40 rows")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/no journal entries yet/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /previous page/i })
+    ).not.toBeDisabled();
+  });
+
+  it("keeps the pagination controls for a single-page ledger (Next disabled)", async () => {
     // count <= page size — the controls stay (Next disabled), the summary
     // reads the full set. Pinned: no crash on the equal boundary.
     vi.mocked(ledgerHooks.useLedger).mockReturnValue({
