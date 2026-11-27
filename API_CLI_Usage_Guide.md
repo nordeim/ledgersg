@@ -2,8 +2,8 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 3.2.0 (the P21 list-envelope unification + the P19 addendum + the P20 route errata)
-> **Last Updated**: 2026-11-27 (P21 — the list-envelope unification: every list endpoint now returns `{results, count}` incl. `/auth/organisations/` which was a bare array; the InvoiceNow evidence stamp; the on-commit cache invalidation; the ValidateBalance typed-400 body contract; carried forward: the P20 route errata + the P17 400 contracts)
+> **Version**: 3.2.1 (the P23 addendum + the P21 list-envelope unification + the P19 addendum + the P20 route errata)
+> **Last Updated**: 2026-11-27 (P23 — no API-surface change: the sprint is presentation/test-tier (the mobile-nav drawer transition truth + the vitest advisory closure); every documented contract carries forward unchanged from P21 — the list-envelope unification: every list endpoint returns `{results, count}` incl. `/auth/organisations/` which was a bare array; the InvoiceNow evidence stamp; the on-commit cache invalidation; the ValidateBalance typed-400 body contract; carried forward: the P20 route errata + the P17 400 contracts)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
 ---
@@ -159,6 +159,23 @@ production-CSP smoke **5/5** · the runtime-role smoke **13/13** · the
 mobile-nav probe **17/17**.
 
 ---
+
+## P23 Addendum — no API-surface change; the gates re-verified (2026-11-27, session 44)
+
+**The P23 sprint touched no backend application code and no request/response
+contract.** The changes: the frontend drawer's transition token
+(`transition-[transform,translate,visibility]` — presentation-only), one
+vitest spec + one e2e spec (test-tier), and the vitest devDependency bump
+(^4.0.18 → ^4.1.12, tooling-only). Every contract below carries forward
+unchanged from P21.
+
+Current gate truth (re-verified on a fresh clone, session 44): backend
+**969 passed / 0 failed / 5 skipped** · frontend **642 vitest + 41 e2e**
+(41/41 live) · typecheck 0 · eslint 0E/0W · `npm audit` **0 critical** (the
+17 residual findings are dev-tier; the production dependency set is clean).
+The environment lesson for CLI operators: the `ledgersg_app` role carries
+the schema's dev default password `CHANGE_ME_IN_PRODUCTION` — the RLS tests
+rely on it (see `docs/REMEDIATION_2026-11-27_P23_REPORT.md`).
 
 ## P21 Addendum — the list-envelope unification (2026-11-27, session 42)
 

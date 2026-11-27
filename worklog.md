@@ -1109,3 +1109,84 @@ design; UEN checksum; NULL-context SELECT; H-05b models; PaymentsTab
 prefill; TanStack incompatibility; the membership-cache window; the
 journal detail N+1; the P20-era FE-M2/M3 designs; CI hardening; the
 version-story reconciliation.
+
+## P23 Remediation — 2026-11-27 (session 44): the mobile-nav drawer slide truth + the vitest advisory closure
+
+**Base:** `080ccc0b` (post-P21 + the P22B dry-run docs). **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-27_P23.md` (anchor-validated);
+**report:** `docs/REMEDIATION_2026-11-27_P23_REPORT.md`. **Method:**
+TDD (RED → GREEN → full gate) for the behavioural fix; conventional
+commits on `main`; `skills/` excluded; no DDL (schema v1.2.2 carries
+forward); no backend application code changes. The sandbox was
+recycled — the environment was rebuilt from zero (rootless PG 17 via
+`docs/setup_pg_z.sh` — the skill's §2 probes all passed natively this
+time, no sudo fallback; Redis 8.0.2 on :6379 rootless; the venv;
+`npm install`; `npx playwright install chromium`).
+
+### The baselines (reproduced exactly before any change — the P22B
+report's "Unverifiable here" rows resolved)
+
+backend **969P/0F/5S** · vitest **641/641 (75 files)** · tsc 0 ·
+eslint **0E/0W** · live e2e:full **40/40** · rls_smoke **13/13** ·
+mobile-nav **17/17** (fourteenth) · prod-CSP **5/5** · the demo
+substrate bootstrapped via the §9 script (idempotent double-run).
+
+### The audits (Mode C; every finding hand-verified live)
+
+The named focus settled: the mobile-nav functional contract is green
+(12/12 + 7/7 + 17/17) — but **the one real Tailwind v4 bug is the
+drawer's dead animation** (the P22B dry-run finding, still unfixed at
+base): compile proof — `.-translate-x-full` compiles to the standalone
+`translate` property while `transition-[transform,visibility]` omits
+it; live proof (agent-browser, available this session) — the computed
+`transitionProperty` reads `"transform, visibility"` with
+`duration 0.3s` and `transform: none`: the 300ms slide never
+interpolated. Plus: the vitest 4.0.18 criticals (2) with the fix
+release 4.1.12 proven viable in-session; the docs second-tier surfaces
+on P21 numbers; `.env.example` ×3 verified truthful (no changes).
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| FE-M1 | `shell.tsx` transition list → `transition-[transform,translate,visibility]` (+ the Trap 5(b) rationale comment) | the RED→GREEN pair (the new vitest spec failed naming the missing token; the new e2e spec failed on `"transform, visibility"`); the compile proof (`transition-property: transform,translate,visibility`); the live re-probe (16 intermediate translate values sampled mid-flight) |
+| FE-L1 | the animation-contract gates: `shell-drawer-transition.test.tsx` (the token + positioning contract) + the e2e `P23/FE-M1` (the computed style at 375px) | both RED→GREEN documented; the compiled-CSS gate the 13 prior settlements lacked |
+| CFG-M2 | the vitest advisory closure: ^4.0.18 → **^4.1.12** (package.json + lockfile; the fixed 4.x line inside the caret range) | full suite green on it (642/642); `npm audit` **0 critical** (20 → 17 findings, all residual dev-tier; the production set clean) |
+| X-docs | the second-tier truth pass (README badge/status/milestone, CLAUDE v2.24.0 + the stale backend row, AGENTS header + the P23 lessons, SKILL v2.10.0 quick-ref, PAD counts, DEPLOYMENT header/§7/§9, the API guide 3.2.1 P23 addendum, ci.yml) | each count re-measured against the executed gates |
+
+### The named focus (settled live — fifteenth consecutive settlement)
+
+**Mobile navigation:** 17/17 probe checks PASS on the remediated tree
+(375/800/1280) — the navigation works; the ONE real v4-class animation
+bug (the drawer's transition list omitting the standalone `translate`
+property) is **fixed and gated** this sprint.
+
+### Final gate (all verified, executed)
+
+backend **969P/0F/5S** (re-verified; untouched) · vitest **642/642
+(76 files)** on vitest 4.1.12 · coverage green at the ratchet · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · live e2e:full **41/41**
+(+1) · rls_smoke **13/13 as `ledgersg_app`** · mobile-nav **17/17**
+(fifteenth) · prod-CSP **5/5** (rebuilt standalone) · `npm audit`
+**0 critical** · 8 DOM-verified screenshots (`136-143`, incl. the
+drawer captured mid-slide at `translate: -7.92%`) · schema v1.2.2 (no
+DDL).
+
+### Environment lesson (recorded)
+
+The rls_smoke setup had ALTERed the `ledgersg_app` password, which
+broke two RLS tests on the next pytest run (they rely on the schema's
+documented dev default `CHANGE_ME_IN_PRODUCTION`) — the role was
+restored, the :8001 instance restarted with the default, both gates
+green. Role passwords are test-visible state: inventory environment
+changes before diagnosing a red suite as a code regression.
+
+### Deferred (registered, not dropped)
+
+The remaining 17 dev-tier npm-audit findings (typescript-eslint/vite/
+undici chains — major bumps, a dedicated dependency sprint); list
+pagination (the envelope prerequisite done — `LedgerView` line
+materialisation first); the ruff mechanical batch (936 production);
+the audit-log INSERT policy (DDL); BE-L3/BE-L4 locking; the CSV
+errors[] strings; dead-letter design; UEN checksum; the P21 deferred
+register carried forward unchanged.

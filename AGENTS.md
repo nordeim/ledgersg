@@ -2,17 +2,28 @@ LedgerSG Project Status — Comprehensive Summary
 Executive Overview
 LedgerSG is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs with IRAS 2026 compliance. The platform has undergone significant development across multiple phases, achieving enterprise-grade security, comprehensive test coverage, and a complete banking UI.
 ---
-Current Status (2026-11-27 — P21 remediated; see the sprint-patterns sections
-at the bottom of this file for P0–P21 and the README status table for the
+Current Status (2026-11-27 — P23 remediated; see the sprint-patterns sections
+at the bottom of this file for P0–P23 and the README status table for the
 live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 42 / P21):
+Current truth (all gates executed and green, session 44 / P23):
 - Backend: pytest 969 passed / 0 failed / 5 skipped (974 collected;
-  invariants 34, security 83 passed + 3 skipped)
-- Frontend: vitest 641/641 (75 files), tsc --noEmit 0 errors, whole-tree
+  invariants 34, security 83 passed + 3 skipped) — re-verified on a
+  fresh clone this session (no backend code changed in P23)
+- Frontend: vitest 642/642 (76 files, on vitest 4.1.12 — the P23
+  advisory closure), tsc --noEmit 0 errors, whole-tree
   eslint **0 errors / 0 warnings**
+- P23 headline: the mobile-nav drawer-slide transition truth (the
+  one real Tailwind v4 bug the 13 prior functional settlements missed:
+  v4 animates translate-x-* through the STANDALONE `translate` CSS
+  property and the drawer's transition list omitted it — the 300ms
+  slide never interpolated; fixed to
+  `transition-[transform,translate,visibility]` and pinned by its own
+  compiled-CSS gates) + the vitest critical-advisory closure
+  (^4.0.18 → ^4.1.12; both criticals closed, 0 critical remaining,
+  the 17 residual findings all dev-tier)
 - P21 headline: the list-envelope unification ({results, count} on
   EVERY list surface incl. the former bare-array /auth/organisations/ —
   the prerequisite for pagination; the vacuous RLS isolation assert
@@ -24,16 +35,20 @@ Current truth (all gates executed and green, session 42 / P21):
   a11y batch (the Reference name, the keyboard-reachable CSV import,
   the loader live regions, the payment-card keyboard contract, the
   reconcile aria-pressed), the timezone-safe date helpers
-- E2E: 40 specs (11 always-green + 29 backend-gated); live run 40P/0F/0S
-  green on the FIRST run of a fresh DB (the P20/X-H1 bootstrap fix);
+- E2E: 41 specs (11 always-green + 30 backend-gated); live run 41P/0F/0S
+green (the P23 transition spec included; the P21 live run 40P/0F/0S was
+green on the FIRST run of a fresh DB — the P20/X-H1 bootstrap fix);
   CI runs the always-green 11 (P18/CFG-L1)
 - Production-CSP smoke (P16/FE-C1): 5/5 — nonce served, hydration
   happened, zero violations (the gate class the dev suite cannot cover)
 - Runtime-role smoke: 13/13 steps green as ledgersg_app (C-1/H-7)
 - Mobile-nav live probe: 17/17 at 375/800/1280 — the navigation works,
-  no Tailwind v4 bug (the P12–P17 verdicts re-settled on the P18 tree;
-  the only real v4-class bug found — the tailwindcss-animate family
-  silently compiling to nothing — was fixed in P18 with tw-animate-css)
+  the functional contract green (the fifteenth settlement, session 44 /
+  P23); the ONE real v4-class animation bug (the drawer's transition
+  list omitting the standalone `translate` property — the slide never
+  interpolated) was found by the P23 compile proof and FIXED with its
+  own compiled-CSS gates (the tailwindcss-animate family that silently
+  compiled to nothing in v4 was the P18 fix)
 - Coverage: green at the ratchet (whole-suite + src/lib + src/hooks
   per-glob floors, the hooks tier added P18/CFG-L2); build:server green;
   schema v1.2.2 (§17 RLS complete + §15c framework tables incl. the
@@ -1612,3 +1627,45 @@ focusable + labelled (Enter/Space opens the picker natively) while the
 label's click target still works. The e2e masked the bug
 (`setInputFiles` bypasses the UI) — a DOM-attribute probe
 (className + label association) is the honest unit contract.
+
+
+## 2026-11-27 P23 Sprint — New Patterns & Lessons (session 44)
+
+### A Functional Contract Can Hide A Dead Animation
+Thirteen consecutive mobile-nav settlements asserted the functional
+contract (state, visibility, focus, scroll-lock, overlay, Escape) — all
+green, and all blind to the drawer's 300ms slide never interpolating:
+Tailwind v4 animates `translate-x-*` through the STANDALONE `translate`
+CSS property, and the drawer's `transition-[transform,visibility]`
+omitted it (the same Trap 5(b) family as the P18 animate-in bug — the
+utility compiles, the consumer just never references it). The probe
+gap: nobody asserted the property the engine actually animates. Lesson:
+an animation contract needs its own gate — pin the compiled
+`transition-property` token in a unit test AND the computed
+`transitionProperty` in a real browser (the e2e spec), or a future
+class edit silently re-drops the property with every suite green. The
+compile proof (`npx @tailwindcss/cli`) is the one-command ground truth
+for "does this utility compile to what I think it compiles to".
+
+### The dev-tier advisory that IS worth a controlled bump
+`npm audit` reported 2 criticals in vitest 4.0.18 — dev-tier, so the
+P22B decision was defer-everything. But the fix release (4.1.12) sat
+inside the existing caret range (a minor bump), and the full gate
+matrix was runnable in-session: probe the bump `--no-save`, run the
+whole suite, then commit the pin only if green. That closed both
+criticals with re-verified evidence — the distinction that matters is
+NOT dev-tier vs production, it's "fix available inside the declared
+range + gates runnable" vs "needs major bumps". The remaining 17
+findings (typescript-eslint/vite/undici chains) are the second kind —
+still deferred, now with the boundary drawn.
+
+### The Role Password Is Test-Visible Environment State
+Running `ALTER ROLE ledgersg_app PASSWORD …` for an rls_smoke setup
+broke two RLS tests on the next pytest run — the tests hardcode the
+schema's documented dev default (`CHANGE_ME_IN_PRODUCTION`) exactly as
+the schema comments promise. The failure looked like a code
+regression (it appeared right after a code change elsewhere) but was
+pure environment state. Lesson: on a red suite, FIRST inventory what
+environment state changed since the last green run; role passwords and
+other DB-level state are invisible to `git status`. And when a probe
+changes role state, restore it before the next gate run.
