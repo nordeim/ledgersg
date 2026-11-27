@@ -63,8 +63,8 @@ export function SettingsClient() {
   // legitimately org-less user.
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-24 text-text-secondary">
-        <Loader2 className="h-5 w-5 animate-spin" />
+      <div role="status" aria-live="polite" className="flex items-center justify-center gap-2 py-24 text-text-secondary">
+        <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
         <span>Loading settings…</span>
       </div>
     );
@@ -86,8 +86,8 @@ export function SettingsClient() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-24 text-text-secondary">
-        <Loader2 className="h-5 w-5 animate-spin" />
+      <div role="status" aria-live="polite" className="flex items-center justify-center gap-2 py-24 text-text-secondary">
+        <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
         <span>Loading settings…</span>
       </div>
     );

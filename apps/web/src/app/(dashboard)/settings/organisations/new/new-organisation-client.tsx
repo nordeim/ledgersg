@@ -214,7 +214,7 @@ export function NewOrganisationClient() {
                   type="checkbox"
                   checked={form.gst_registered}
                   onChange={(e) => set("gst_registered", e.target.checked)}
-                  className="h-4 w-4 rounded-sm accent-primary"
+                  className="h-4 w-4 rounded-sm accent-[var(--color-accent-primary)]"
                 />
                 <span className="label-text">
                   GST-registered

@@ -106,7 +106,7 @@ export default function ContactsClient() {
 
       {/* List */}
       {isLoading ? (
-        <div className="flex items-center gap-2 text-sm text-text-secondary py-12 justify-center">
+        <div role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-text-secondary py-12 justify-center">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           Loading contacts…
         </div>
@@ -344,7 +344,7 @@ function EditContactDialog({
           </DialogDescription>
         </DialogHeader>
         {isLoading || !detail ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-secondary">
+          <div role="status" aria-live="polite" className="flex items-center justify-center gap-2 py-10 text-sm text-text-secondary">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             Loading contact…
           </div>

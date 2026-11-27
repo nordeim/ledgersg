@@ -134,18 +134,22 @@ describe("checkSession public-route guard (P10/H-2)", () => {
 describe("switchOrg persists the choice (P10/M-3)", () => {
   const orgA = "11111111-1111-4111-8111-111111111111";
   const orgB = "22222222-2222-4222-8222-222222222222";
-  const orgsPayload = [
-    {
-      org: { id: orgA, name: "Org A" },
-      role: { can_manage_org: true },
-      is_default: true,
-    },
-    {
-      org: { id: orgB, name: "Org B" },
-      role: { can_manage_org: true },
-      is_default: false,
-    },
-  ];
+  // P21/BE-M6: the orgs list speaks the unified {results, count} envelope.
+  const orgsPayload = {
+    results: [
+      {
+        org: { id: orgA, name: "Org A" },
+        role: { can_manage_org: true },
+        is_default: true,
+      },
+      {
+        org: { id: orgB, name: "Org B" },
+        role: { can_manage_org: true },
+        is_default: false,
+      },
+    ],
+    count: 2,
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -255,7 +259,7 @@ describe("selectOrgById selects without list state (P16/FE-H2)", () => {
   it("selects an org that is not yet in the loaded list (the just-created org)", async () => {
     // Fresh registrant: NO organisations loaded yet.
     vi.mocked(apiClient.api.get).mockImplementation(async (url: string) => {
-      if (url.includes("/organisations/")) return [];
+      if (url.includes("/organisations/")) return { results: [], count: 0 };
       return { id: "u1", email: "fresh@ledgersg.sg", full_name: "Fresh" };
     });
     const postMock = vi.fn().mockResolvedValue({});

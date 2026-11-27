@@ -8,6 +8,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+// P21/FE-M3: the shared date helpers (isoYearOf + localTodayISO).
+import { isoYearOf, localTodayISO } from "@/shared/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,8 +43,10 @@ import { ApiError } from "@/lib/api-client";
  * Statements, the GST F5 lifecycle and aged AR/AP all read live data.
  */
 
+// P21/FE-M3: local calendar day (was UTC — yesterday for users behind
+// UTC; the shared helper owns the derivation).
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localTodayISO();
 }
 
 function firstOfYearISO(): string {
@@ -116,7 +120,10 @@ export function ReportsClient() {
   const tb = useFinancialReport(orgId, "trial_balance", { as_at_date: asAt });
   const agedAr = useAgedReport(orgId, "receivables", asAt);
   const agedAp = useAgedReport(orgId, "payables", asAt);
-  const gstYear = React.useMemo(() => new Date(asAt).getFullYear(), [asAt]);
+  // P21/FE-M3: the GST year read lexically — new Date(asAt).getFullYear()
+  // read the RUNNER's year (2025 for "2026-01-01" behind UTC) and the F5
+  // tab queried the wrong year's returns.
+  const gstYear = React.useMemo(() => isoYearOf(asAt), [asAt]);
   const gstReturns = useGSTReturns(orgId, gstYear);
   const generateReturn = useGenerateGSTReturn(orgId ?? "");
   const fileReturn = useFileGSTReturn(orgId ?? "");
@@ -264,8 +271,8 @@ export function ReportsClient() {
                 )}
               </div>
               {tb.isLoading ? (
-                <div className="flex items-center justify-center gap-2 py-16 text-text-secondary">
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                <div role="status" aria-live="polite" className="flex items-center justify-center gap-2 py-16 text-text-secondary">
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
                   <span className="text-sm">Computing trial balance…</span>
                 </div>
               ) : tb.isError ? (
@@ -328,8 +335,8 @@ export function ReportsClient() {
                 Profit &amp; Loss
               </h2>
               {pl.isLoading ? (
-                <div className="flex items-center justify-center gap-2 py-16 text-text-secondary">
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                <div role="status" aria-live="polite" className="flex items-center justify-center gap-2 py-16 text-text-secondary">
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
                   <span className="text-sm">Computing profit &amp; loss…</span>
                 </div>
               ) : pl.isError ? (
@@ -382,8 +389,8 @@ export function ReportsClient() {
                 )}
               </div>
               {bs.isLoading ? (
-                <div className="flex items-center justify-center gap-2 py-16 text-text-secondary">
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                <div role="status" aria-live="polite" className="flex items-center justify-center gap-2 py-16 text-text-secondary">
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
                   <span className="text-sm">Computing balance sheet…</span>
                 </div>
               ) : bs.isError ? (
@@ -466,8 +473,8 @@ export function ReportsClient() {
               )}
 
               {gstReturns.isLoading ? (
-                <div className="flex items-center justify-center gap-2 py-16 text-text-secondary">
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                <div role="status" aria-live="polite" className="flex items-center justify-center gap-2 py-16 text-text-secondary">
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
                   <span className="text-sm">Loading returns…</span>
                 </div>
               ) : gstReturns.isError ? (
@@ -639,8 +646,8 @@ export function ReportsClient() {
                   </span>
                 </div>
                 {query.isLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-12 text-text-secondary">
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                  <div role="status" aria-live="polite" className="flex items-center justify-center gap-2 py-12 text-text-secondary">
+                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
                     <span className="text-sm">Computing aged {label.toLowerCase()}…</span>
                   </div>
                 ) : query.isError ? (

@@ -127,9 +127,15 @@ export function TransactionRow({ transaction, onToggle, onReconcile, onUnreconci
         </div>
       </button>
 
-      {/* Expanded Details */}
-      {isExpanded && (
-        <CardContent id={detailsId} className="border-t border-border bg-carbon p-4">
+      {/* Details region — P21/FE-L3: always in the DOM (hidden when
+          collapsed) so the toggle's aria-controls resolves in both
+          states; the content itself stays conditional. */}
+      <CardContent
+        id={detailsId}
+        hidden={!isExpanded}
+        className="border-t border-border bg-carbon p-4"
+      >
+        {isExpanded && (
           <div className="space-y-3">
             <div className="text-sm font-semibold text-text-primary">
               Transaction Details
@@ -210,8 +216,8 @@ export function TransactionRow({ transaction, onToggle, onReconcile, onUnreconci
               </div>
             )}
           </div>
-        </CardContent>
-      )}
+        )}
+      </CardContent>
     </Card>
   );
 }

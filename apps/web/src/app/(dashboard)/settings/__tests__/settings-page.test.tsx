@@ -39,8 +39,9 @@ vi.mock("@/hooks/use-organisation");
 // P10/M-8: the settings page renders the fiscal card — benign stubs so
 // the org-settings assertions above stay focused.
 vi.mock("@/hooks/use-fiscal", () => ({
+  // P21/BE-M6: the unified list envelope.
   useFiscalYears: vi.fn().mockReturnValue({
-    data: { data: [], count: 0 },
+    data: { results: [], count: 0 },
     isLoading: false,
   }),
   useFiscalPeriods: vi.fn().mockReturnValue({

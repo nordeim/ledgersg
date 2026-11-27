@@ -368,6 +368,7 @@ export function InvoiceForm({
                     <ContactPicker
                       orgId={orgId ?? ""}
                       type="customer"
+                      labelId="customer-picker-label"
                       value={pickedContactId ?? ""}
                       onChange={setPickedContactId}
                       onSelect={(contact) => {

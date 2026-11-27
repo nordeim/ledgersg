@@ -34,8 +34,10 @@ export interface FiscalPeriodRow {
   fiscal_year_id: string;
 }
 
+/** P21/BE-M6: the unified list envelope — fiscal-years/ now returns
+ * {results, count} (was {data, count}). */
 interface FiscalYearsResponse {
-  data: FiscalYearRow[];
+  results: FiscalYearRow[];
   count: number;
 }
 

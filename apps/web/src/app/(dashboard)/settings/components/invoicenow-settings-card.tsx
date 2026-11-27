@@ -28,6 +28,8 @@ export function InvoiceNowSettingsCard({ orgId }: { orgId: string }) {
       <Card className="border-border bg-carbon rounded-sm">
         <CardContent className="py-10">
           <div
+            role="status"
+            aria-live="polite"
             data-testid="invoicenow-card-loading"
             className="flex items-center justify-center gap-2 text-sm text-text-secondary"
           >

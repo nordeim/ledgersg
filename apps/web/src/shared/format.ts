@@ -85,3 +85,35 @@ export function formatDateOnly(value: string): string {
     timeZone: "UTC",
   });
 }
+
+/**
+ * P21/FE-M3: the year of a date-only ISO string, read LEXICALLY.
+ *
+ * `new Date("2026-01-01").getFullYear()` reads the year in the RUNNER'S
+ * timezone — 2025 for every timezone behind UTC — while the string's own
+ * year is unambiguous. Compliance-facing year selection (the GST F5 tab)
+ * must not shift with the runner's timezone.
+ *
+ * @param value - date-only string ("YYYY-MM-DD")
+ * @returns the lexical year (NaN for a non-ISO string — callers guard).
+ */
+export function isoYearOf(value: string): number {
+  return Number(value.slice(0, 4));
+}
+
+/**
+ * P21/FE-M3: today as a date-only ISO string, from LOCAL calendar parts.
+ *
+ * `new Date().toISOString().slice(0, 10)` returns the UTC day — yesterday
+ * for users behind UTC — as the default report/payment dates. The product
+ * is Singapore-first (UTC+8, ahead of UTC), so the local calendar is the
+ * honest "today" (and matches the pinned Asia/Singapore Playwright runner).
+ */
+export function localTodayISO(): string {
+  const now = new Date();
+  return [
+    String(now.getFullYear()).padStart(4, "0"),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+}

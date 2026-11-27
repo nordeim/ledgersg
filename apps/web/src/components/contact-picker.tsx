@@ -31,6 +31,10 @@ interface ContactPickerProps {
   type: "customer" | "supplier";
   value: string;
   onChange: (contactId: string) => void;
+  /** P21/FE-L2: id of a visible label element — when given, it becomes
+   * the combobox's accessible name (aria-labelledby outranks the
+   * built-in aria-label, so the visible label is what SR users hear). */
+  labelId?: string;
   /** P10/H-1: optional full-contact callback — the invoice form mirrors
    * the picked contact's name into its own form state (its zod schema
    * requires customer.name) without re-fetching the row. */
@@ -45,6 +49,7 @@ export function ContactPicker({
   value,
   onChange,
   onSelect,
+  labelId,
   disabled = false,
   invalid = false,
 }: ContactPickerProps) {
@@ -224,6 +229,7 @@ export function ContactPicker({
               role="combobox"
               aria-expanded={open}
               aria-label={`Search ${type}`}
+              aria-labelledby={labelId}
               aria-haspopup="listbox"
               aria-autocomplete="list"
               aria-controls={listboxId}

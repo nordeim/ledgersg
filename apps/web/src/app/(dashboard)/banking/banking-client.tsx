@@ -48,8 +48,9 @@ export function BankingClient() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-accent-primary" />
+      <div role="status" aria-live="polite" className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-accent-primary" aria-hidden />
+        <span className="sr-only">Loading banking…</span>
       </div>
     );
   }
@@ -152,8 +153,14 @@ function BankAccountsTab({ accountsData, isLoading, error }: BankAccountsTabProp
     content = (
       <Card className="border-border bg-carbon rounded-sm">
         <CardContent className="py-12">
-          <div data-testid="accounts-loading-skeleton" className="flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-accent-primary" />
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="accounts-loading-skeleton"
+            className="flex items-center justify-center"
+          >
+            <Loader2 className="h-8 w-8 animate-spin text-accent-primary" aria-hidden />
+            <span className="sr-only">Loading bank accounts…</span>
           </div>
         </CardContent>
       </Card>

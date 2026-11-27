@@ -219,7 +219,10 @@ describe("InvoiceForm submit — contact picker contract (P10/H-1)", () => {
     const user = userEvent.setup();
 
     // The customer card defaults to search mode: pick the existing contact.
-    const search = screen.getByRole("combobox", { name: /search customer/i });
+    // P21/FE-L2: the picker's accessible name is now the visible
+    // "Customer" label (aria-labelledby outranks the built-in
+    // aria-label) — the better a11y outcome the dangling id fix landed.
+    const search = screen.getByRole("combobox", { name: "Customer" });
     await user.click(search);
     await user.type(search, "Marina");
     const option = await screen.findByRole("option", {

@@ -165,9 +165,11 @@ function PaymentRow({
         />
         Allocations · {payment.payment_number}
       </Button>
-      {expanded && (
-        <PaymentAllocationsPanel orgId={orgId} paymentId={payment.id} />
-      )}
+      {/* P21/FE-L3: the region always exists (hidden when collapsed) so
+          the toggle's aria-controls resolves in both states. */}
+      <div id={`payment-allocations-${payment.id}`} hidden={!expanded}>
+        {expanded && <PaymentAllocationsPanel orgId={orgId} paymentId={payment.id} />}
+      </div>
       {voiding && !payment.is_voided && (
         <div className="mt-2 rounded-sm border border-border bg-surface p-3 space-y-2">
           <label htmlFor={`void-reason-${payment.id}`} className="text-sm text-text-secondary">

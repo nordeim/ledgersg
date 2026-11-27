@@ -88,6 +88,21 @@ interface AuthContextType {
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
+// P21/BE-M6: the unified list envelope — /auth/organisations/ now returns
+// {results, count} like every other list surface (it was the one bare
+// array). One typed helper so every call site reads the same key.
+interface OrganisationsListResponse {
+  results: UserOrganisation[];
+  count: number;
+}
+
+async function fetchOrganisations(): Promise<UserOrganisation[]> {
+  const payload = await api.get<OrganisationsListResponse>(
+    endpoints.organisations.list
+  );
+  return payload.results;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<User | null>(null);
   const [organisations, setOrganisations] = React.useState<UserOrganisation[]>([]);
@@ -118,10 +133,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userData = await api.get<User>(endpoints.auth.me);
         setUser(userData);
         
-      // Fetch user's organisations (returns array directly from auth/organisations/)
-      const orgsData = await api.get<UserOrganisation[]>(
-        endpoints.organisations.list
-      );
+      // Fetch user's organisations — P21/BE-M6: the list now speaks the
+      // unified {results, count} envelope (was a bare array).
+      const orgsData = await fetchOrganisations();
       setOrganisations(orgsData);
 
       // Set default org
@@ -171,9 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // cache), so mutations that change org data must explicitly refresh it.
   const refreshOrganisations = async () => {
     try {
-      const orgsData = await api.get<UserOrganisation[]>(
-        endpoints.organisations.list
-      );
+      const orgsData = await fetchOrganisations();
       setOrganisations(orgsData);
     } catch {
       // Transport failures keep the last known list; the session path
@@ -197,9 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(response.user);
 
     // Fetch organisations separately
-    const orgsData = await api.get<UserOrganisation[]>(
-      endpoints.organisations.list
-    );
+    const orgsData = await fetchOrganisations();
     setOrganisations(orgsData);
 
     // Set default org
@@ -239,9 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // A fresh registration is org-less (orgs are user-created by design);
     // fetch whatever exists so the caller can route on the real state.
-    const orgsData = await api.get<UserOrganisation[]>(
-      endpoints.organisations.list
-    );
+    const orgsData = await fetchOrganisations();
     setOrganisations(orgsData);
     setCurrentOrgId(
       orgsData.find((uo) => uo.is_default)?.org.id ??

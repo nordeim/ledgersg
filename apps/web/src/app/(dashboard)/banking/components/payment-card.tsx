@@ -21,10 +21,31 @@ export function PaymentCard({ payment, onClick, onVoid }: PaymentCardProps) {
   const amountColor = isReceived ? "text-success" : "text-text-primary";
   const Icon = isReceived ? ArrowDownLeft : ArrowUpRight;
 
+  // P21/FE-M4: the P19 transaction-row keyboard contract — a clickable
+  // div is mouse-only (no role, no tab order, no keydown). Only applies
+  // when a handler is wired (otherwise the card stays static).
+  const interactive = Boolean(onClick);
+
   return (
     <Card
-      className="border-border bg-surface hover:border-accent-primary/50 hover:bg-carbon cursor-pointer transition-colors rounded-sm"
+      className={interactive
+        ? "border-border bg-surface hover:border-accent-primary/50 hover:bg-carbon cursor-pointer transition-colors rounded-sm focus-visible:outline-accent-primary"
+        : "border-border bg-surface rounded-sm"}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={
+        interactive
+          ? `Payment ${payment.payment_number} — ${formatMoney(payment.amount)} ${payment.currency}`
+          : undefined
+      }
       onClick={() => onClick?.(payment)}
+      onKeyDown={(e) => {
+        if (!interactive) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick?.(payment);
+        }
+      }}
       data-testid="payment-card"
     >
       <CardContent className="p-4">

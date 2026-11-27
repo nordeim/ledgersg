@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { MoneyInput } from "@/components/ui/money-input";
 import { useMakePayment, useBankAccounts } from "@/hooks/use-banking";
+import { localTodayISO } from "@/shared/format";
 import { paymentMakeInputSchema } from "@/shared/schemas";
 import type { PaymentMakeInput } from "@/shared/schemas";
 import { ContactPicker } from "@/components/contact-picker";
@@ -47,7 +48,8 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
   const [formData, setFormData] = useState<Partial<PaymentMakeInput>>({
     contact_id: "",
     bank_account_id: "",
-    payment_date: new Date().toISOString().split("T")[0],
+    // P21/FE-M3: the LOCAL calendar day (was the UTC day).
+    payment_date: localTodayISO(),
     amount: "",
     currency: "SGD",
     exchange_rate: "1.000000",
@@ -239,6 +241,7 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
             <div className="space-y-2">
               <label className="text-sm text-text-secondary">Reference</label>
               <Input
+                aria-label="Reference"
                 placeholder="e.g., BILL-000012"
                 value={formData.payment_reference || ""}
                 onChange={(e) => handleChange("payment_reference", e.target.value)}

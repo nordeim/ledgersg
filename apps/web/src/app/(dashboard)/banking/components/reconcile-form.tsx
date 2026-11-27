@@ -107,8 +107,9 @@ export function ReconcileForm({ transaction, orgId, onClose }: ReconcileFormProp
           </h4>
           
           {isLoadingMatches ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-accent-primary" />
+            <div role="status" aria-live="polite" className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-accent-primary" aria-hidden />
+              <span className="sr-only">Finding matching payments…</span>
             </div>
           ) : matches && matches.length > 0 ? (
             <div className="space-y-2">
@@ -116,6 +117,10 @@ export function ReconcileForm({ transaction, orgId, onClose }: ReconcileFormProp
                 <button
                   key={match.payment_id}
                   onClick={() => setSelectedPaymentId(match.payment_id)}
+                  // P21/FE-M5: the selection was conveyed only via
+                  // border/background classes — invisible to assistive
+                  // tech. aria-pressed exposes the single-select state.
+                  aria-pressed={selectedPaymentId === match.payment_id}
                   className={`w-full p-4 rounded-sm border text-left transition-colors ${
                     selectedPaymentId === match.payment_id
                       ? "border-accent-primary bg-accent-primary/10"

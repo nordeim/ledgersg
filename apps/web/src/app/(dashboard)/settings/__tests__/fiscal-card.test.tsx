@@ -92,7 +92,8 @@ describe("FiscalCard (P10/M-8)", () => {
     vi.clearAllMocks();
     __testAuth.hasPermission.mockReturnValue(true);
     vi.mocked(fiscalHooks.useFiscalYears).mockReturnValue({
-      data: { data: [YEAR], count: 1 },
+      // P21/BE-M6: the unified list envelope.
+      data: { results: [YEAR], count: 1 },
       isLoading: false,
       error: null,
     } as unknown as ReturnType<typeof fiscalHooks.useFiscalYears>);

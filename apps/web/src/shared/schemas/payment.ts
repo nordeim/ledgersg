@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+// P21/FE-M3: the shared local-today helper (was the UTC day).
+import { localTodayISO } from "../format";
+
 /**
  * LEDGERSG PAYMENT SCHEMA
  *
@@ -217,7 +220,7 @@ export function createEmptyReceivePaymentInput(): PaymentReceiveInput {
   return {
     contact_id: "",
     bank_account_id: "",
-    payment_date: new Date().toISOString().split("T")[0],
+    payment_date: localTodayISO(),
     amount: "0.0000",
     currency: "SGD",
     exchange_rate: "1.000000",
@@ -232,7 +235,7 @@ export function createEmptyMakePaymentInput(): PaymentMakeInput {
   return {
     contact_id: "",
     bank_account_id: "",
-    payment_date: new Date().toISOString().split("T")[0],
+    payment_date: localTodayISO(),
     amount: "0.0000",
     currency: "SGD",
     exchange_rate: "1.000000",

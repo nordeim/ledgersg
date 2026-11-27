@@ -70,6 +70,12 @@ describe("Tailwind v4 compiled-utility gates (P18/FE-L1)", () => {
     expect(globalsCss).toMatch(/@import\s+"tw-animate-css"/);
   });
 
+  it("the new-organisation checkbox accent compiles against the real token (P21/FE-L1 — accent-primary was dead)", () => {
+    // `accent-primary` needed a nonexistent --color-primary; the pinned
+    // arbitrary form compiles to a real accent-color rule.
+    expect(compiled).toContain("accent-color: var(--color-accent-primary)");
+  });
+
   it.each([
     "animate-in",
     "animate-out",

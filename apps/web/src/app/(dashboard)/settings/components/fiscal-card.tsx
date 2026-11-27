@@ -47,6 +47,8 @@ export function FiscalCard({ orgId }: { orgId: string }) {
       <Card className="border-border bg-carbon rounded-sm">
         <CardContent className="py-10">
           <div
+            role="status"
+            aria-live="polite"
             data-testid="fiscal-card-loading"
             className="flex items-center justify-center gap-2 text-sm text-text-secondary"
           >
@@ -58,7 +60,8 @@ export function FiscalCard({ orgId }: { orgId: string }) {
     );
   }
 
-  const years = yearsData?.data ?? [];
+  // P21/BE-M6: the unified list envelope ({results, count}).
+  const years = yearsData?.results ?? [];
 
   return (
     <Card className="border-border bg-carbon rounded-sm">

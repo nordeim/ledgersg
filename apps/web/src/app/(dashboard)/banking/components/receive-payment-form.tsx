@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle } from "lucide-react";
 import { MoneyInput } from "@/components/ui/money-input";
 import { useReceivePayment } from "@/hooks/use-banking";
+import { localTodayISO } from "@/shared/format";
 import { useBankAccounts } from "@/hooks/use-banking";
 import { ContactPicker } from "@/components/contact-picker";
 import { AllocationSection } from "./allocation-section";
@@ -50,7 +51,8 @@ export function ReceivePaymentForm({
   const [formData, setFormData] = useState<Partial<PaymentReceiveInput>>({
     contact_id: initialContactId ?? "",
     bank_account_id: "",
-    payment_date: new Date().toISOString().split("T")[0],
+    // P21/FE-M3: the LOCAL calendar day (was the UTC day).
+    payment_date: localTodayISO(),
     amount: "",
     currency: "SGD",
     exchange_rate: "1.000000",

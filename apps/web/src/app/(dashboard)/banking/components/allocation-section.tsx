@@ -92,7 +92,12 @@ export function AllocationSection({
         Apply to open {documentType === "SALES_INVOICE" ? "invoices" : "bills"}
       </label>
       {isLoading ? (
-        <div className="flex items-center gap-2 text-sm text-text-secondary py-2">
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="open-documents-loading"
+          className="flex items-center gap-2 text-sm text-text-secondary py-2"
+        >
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           Loading open documents…
         </div>

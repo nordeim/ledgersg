@@ -146,7 +146,7 @@ export function ImportTransactionsForm({
 
         {/* Bank Account Select */}
         <div className="space-y-2">
-          <label className="text-sm text-text-secondary" htmlFor="bank-account">
+          <label className="text-sm text-text-secondary" htmlFor="import-bank-account">
             Bank Account
           </label>
           <Select
@@ -154,7 +154,7 @@ export function ImportTransactionsForm({
             onValueChange={setSelectedAccountId}
             disabled={isLoadingAccounts}
           >
-            <SelectTrigger id="bank-account" aria-label="Bank account">
+            <SelectTrigger id="import-bank-account" aria-label="Bank account">
               <SelectValue placeholder="Select account" />
             </SelectTrigger>
             <SelectContent>
@@ -173,12 +173,17 @@ export function ImportTransactionsForm({
             CSV File
           </label>
           <div className="border-2 border-dashed border-border rounded-sm p-6 text-center">
+            {/* P21/FE-H2: sr-only, NOT hidden — display:none removes the
+                input from the tab order and the a11y tree, leaving
+                keyboard-only users no path to import a statement (the
+                label is the only click affordance). sr-only keeps the
+                input focusable + labelled; Enter/Space opens the picker. */}
             <input
               id="csv-file"
               type="file"
               accept=".csv"
               onChange={handleFileChange}
-              className="hidden"
+              className="sr-only"
             />
             <label
               htmlFor="csv-file"
