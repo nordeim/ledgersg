@@ -382,6 +382,13 @@ class AccountService:
                 )
 
             # Check for transactions (balance must be zero)
+            # P19/BE-M1: the gate must read the LIVE ledger — the
+            # account_balance cache is seeded by balance GETs and never
+            # invalidated by journal postings, so a cached zero archived
+            # accounts with live lines (which then vanish from the trial
+            # balance's is_active filter while remaining in the ledger).
+            # cache.delete() forces the direct SQL read below.
+            cache.delete(f"account_balance:{account_id}")
             balance = AccountService.get_account_balance(org_id, account_id)
             if balance != Decimal("0.0000"):
                 raise ValidationError(

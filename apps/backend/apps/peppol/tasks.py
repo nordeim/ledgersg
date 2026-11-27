@@ -205,6 +205,13 @@ def check_transmission_status_task(message_id: str, org_id: str) -> Optional[dic
     opens the RLS tenant context (P17/BE-H3 helper) for the lookup and
     the status write.
 
+    P19/BE-M5: the WHOLE body runs inside the tenant context — the
+    P18 wrap closed after the lookup, leaving the adapter lookup (an
+    OrganisationPeppolSettings query under the same strict policies)
+    and the log.save() (an RLS-scoped UPDATE that matches 0 rows on a
+    real worker) outside; the delivery-status write silently never
+    landed.
+
     Args:
         message_id: Peppol message ID from transmission
         org_id: UUID of the owning organisation (the RLS tenant)
@@ -219,8 +226,10 @@ def check_transmission_status_task(message_id: str, org_id: str) -> Optional[dic
         }
 
     Example:
-        # Check status
-        result = check_transmission_status_task.delay("msg-abc-123").get()
+        # Check status (org_id is required — the RLS tenant)
+        result = check_transmission_status_task.delay(
+            str(message_id), str(org.id)
+        ).get()
     """
     from apps.peppol.models import PeppolTransmissionLog
     from apps.peppol.services.transmission_service import TransmissionService
@@ -238,29 +247,29 @@ def check_transmission_status_task(message_id: str, org_id: str) -> Optional[dic
             logger.warning(f"No transmission log found for message {message_id}")
             return None
 
-    try:
-        service = TransmissionService()
-        adapter = service.get_adapter_for_org(str(log.org_id))
-        result = adapter.check_status(message_id)
-    except Exception as exc:
-        logger.exception(f"Status check for message {message_id} failed: {exc}")
-        return {
-            "message_id": message_id,
-            "status": log.status,
-            "delivered_at": None,
-            "error": str(exc),
-        }
+        try:
+            service = TransmissionService()
+            adapter = service.get_adapter_for_org(str(log.org_id))
+            result = adapter.check_status(message_id)
+        except Exception as exc:
+            logger.exception(f"Status check for message {message_id} failed: {exc}")
+            return {
+                "message_id": message_id,
+                "status": log.status,
+                "delivered_at": None,
+                "error": str(exc),
+            }
 
-    if result.success:
-        log.status = "DELIVERED"
-        log.error_code = ""
-        log.error_message = ""
-    else:
-        log.status = result.status.value
-        log.error_code = result.error_code or ""
-        log.error_message = result.error_message or ""
-    log.response_at = timezone.now()
-    log.save()
+        if result.success:
+            log.status = "DELIVERED"
+            log.error_code = ""
+            log.error_message = ""
+        else:
+            log.status = result.status.value
+            log.error_code = result.error_code or ""
+            log.error_message = result.error_message or ""
+        log.response_at = timezone.now()
+        log.save()
 
     return {
         "message_id": message_id,

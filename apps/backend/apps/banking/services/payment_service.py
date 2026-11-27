@@ -646,22 +646,32 @@ class PaymentService:
             ResourceNotFound: If allocation not found
             ValidationError: If allocation belongs to different org
         """
-        # P18/BE-M2: take the same locks allocate() takes, in the same
-        # order (payment, then document) — the pre-P18 shape deleted the
-        # allocation and recomputed amount_paid/status from a stale
-        # allocation set while a concurrent (locked) allocate() on the
-        # same payment/document pair could interleave, breaking the P5/H-1
-        # invariant "the allocations table is the truth".
+        # P18/BE-M2 + P19/BE-M3: the payment row lock comes FIRST, then
+        # the allocation row, then the document — the pre-P19 shape
+        # locked the allocation first, inverting against void()/allocate()
+        # (which hold the payment lock and then write allocation rows):
+        # T1 unallocate holds the allocation row and waits for the
+        # payment; T2 void holds the payment and waits to delete the
+        # allocation — the AB-BA deadlock (PG 40P01 → untyped 500).
+        # The initial allocation read is unlocked (ids only, stable);
+        # the row is re-fetched under the payment lock for current
+        # state before any mutation.
+        try:
+            allocation_ref = PaymentAllocation.objects.get(id=allocation_id, org_id=org_id)
+        except PaymentAllocation.DoesNotExist:
+            raise ResourceNotFound(f"Allocation {allocation_id} not found")
+
+        payment = Payment.objects.select_for_update().get(id=allocation_ref.payment_id)
         try:
             allocation = PaymentAllocation.objects.select_for_update().get(
                 id=allocation_id, org_id=org_id
             )
         except PaymentAllocation.DoesNotExist:
+            # Deleted between the unlocked id read and the lock — a
+            # concurrent unallocate won; the typed contract holds.
             raise ResourceNotFound(f"Allocation {allocation_id} not found")
-
-        payment = Payment.objects.select_for_update().get(id=allocation.payment_id)
         document = InvoiceDocument.objects.select_for_update().get(
-            id=allocation.document_id
+            id=allocation_ref.document_id
         )
 
         # Store old values for audit

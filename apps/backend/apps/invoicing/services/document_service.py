@@ -425,19 +425,36 @@ class DocumentService:
             document_id: Document ID
             line_id: Line ID
         """
-        document = DocumentService.get_document(org_id, document_id)
+        # P19/BE-H1: the line-number read, the delete and the totals
+        # recompute must run under the document row lock — the pre-P19
+        # shape (plain get_document() + DRAFT gate + delete + save)
+        # interleaved with approve_document() (which holds the lock): a
+        # concurrent approval committed between the gate read and the
+        # save, and remove_line then overwrote the totals — and
+        # regressed the status — of an APPROVED, journal-posted
+        # document. Mirrors add_line()'s P18/BE-M5 structure. (The
+        # filter also fixed a latent FieldError: the InvoiceLine FK is
+        # `document`, not `invoice` — the pre-P19 method 500'd on
+        # every call.)
+        with transaction.atomic():
+            try:
+                document = InvoiceDocument.objects.select_for_update().get(
+                    id=document_id, org_id=org_id
+                )
+            except InvoiceDocument.DoesNotExist:
+                raise ResourceNotFound(f"Document {document_id} not found")
 
-        if document.status != "DRAFT":
-            raise ValidationError("Can only remove lines from DRAFT documents.")
+            if document.status != "DRAFT":
+                raise ValidationError("Can only remove lines from DRAFT documents.")
 
-        try:
-            line = InvoiceLine.objects.get(id=line_id, invoice=document)
-            line.delete()
-        except InvoiceLine.DoesNotExist:
-            raise ResourceNotFound(f"Line {line_id} not found")
+            try:
+                line = InvoiceLine.objects.get(id=line_id, document=document)
+                line.delete()
+            except InvoiceLine.DoesNotExist:
+                raise ResourceNotFound(f"Line {line_id} not found")
 
-        # Recalculate totals
-        DocumentService._recalculate_totals(document)
+            # Recalculate totals
+            DocumentService._recalculate_totals(document)
 
     @staticmethod
     def transition_status(

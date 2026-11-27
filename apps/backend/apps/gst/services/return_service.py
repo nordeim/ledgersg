@@ -172,13 +172,20 @@ class GSTReturnService:
                 continue
 
             try:
-                gst_return = GSTReturn.objects.create(
-                    org_id=org_id,
-                    period_start=period_start,
-                    period_end=period_end,
-                    filing_due_date=due_date,
-                    status="DRAFT",
-                )
+                # P19/BE-M4: the create runs in its own savepoint — the
+                # P18 catch without one poisoned the surrounding
+                # ATOMIC_REQUESTS transaction (an aborted transaction
+                # makes the NEXT loop query raise
+                # TransactionManagementError → the untyped 500 the fix
+                # claimed to prevent).
+                with transaction.atomic():
+                    gst_return = GSTReturn.objects.create(
+                        org_id=org_id,
+                        period_start=period_start,
+                        period_end=period_end,
+                        filing_due_date=due_date,
+                        status="DRAFT",
+                    )
             except IntegrityError:
                 # P18/BE-L4: a concurrent create won the UNIQUE(org, type,
                 # period_start, period_end) race between our .exists()
@@ -462,26 +469,31 @@ class GSTReturnService:
         `notes` (documented decision — a dedicated column requires a
         versioned schema change; see the deferred debt register).
         """
-        # P16/BE-L3: lock the return row (same rationale as file_return).
-        gst_return = GSTReturn.objects.select_for_update().get(
-            org_id=org_id, id=return_id
-        )
+        # P16/BE-L3 + P19/BE-L3: lock the return row (same rationale as
+        # file_return) inside an explicit atomic — the P16 shape ran
+        # the lock bare, which only worked under ATOMIC_REQUESTS (any
+        # non-transactional caller — a future task or shell — would hit
+        # TransactionManagementError).
+        with transaction.atomic():
+            gst_return = GSTReturn.objects.select_for_update().get(
+                org_id=org_id, id=return_id
+            )
 
-        if gst_return.status != "FILED":
-            raise ValidationError("Only filed returns can be amended")
+            if gst_return.status != "FILED":
+                raise ValidationError("Only filed returns can be amended")
 
-        if not reason or not reason.strip():
-            raise ValidationError("An amendment reason is required")
+            if not reason or not reason.strip():
+                raise ValidationError("An amendment reason is required")
 
-        gst_return.status = "AMENDED"
-        timestamp = timezone.now().strftime("%Y-%m-%d %H:%M")
-        existing_notes = gst_return.notes or ""
-        gst_return.notes = (
-            f"{existing_notes}\n" if existing_notes else ""
-        ) + f"[{timestamp}] Amendment: {reason.strip()}"
-        gst_return.save()
+            gst_return.status = "AMENDED"
+            timestamp = timezone.now().strftime("%Y-%m-%d %H:%M")
+            existing_notes = gst_return.notes or ""
+            gst_return.notes = (
+                f"{existing_notes}\n" if existing_notes else ""
+            ) + f"[{timestamp}] Amendment: {reason.strip()}"
+            gst_return.save()
 
-        return gst_return
+            return gst_return
 
     @staticmethod
     def pay_return(

@@ -122,7 +122,9 @@ class JournalService:
             )
             queryset = queryset.filter(id__in=entry_ids)
 
-        return list(queryset.order_by("-entry_date", "-entry_number"))
+        return list(
+            queryset.order_by("-entry_date", "-entry_number").prefetch_related("lines")
+        )
 
     @staticmethod
     def get_entry(org_id: UUID, entry_id: UUID) -> JournalEntry:
@@ -224,6 +226,25 @@ class JournalService:
         assert_not_gst_locked(org_id, entry_date)
 
         with transaction.atomic():
+            # P19/BE-M2 (cont.): lock every referenced account up front,
+            # in SORTED order — the per-line lock below serializes the
+            # archive gate, but acquiring locks in user line order could
+            # deadlock two concurrent entries posting to overlapping
+            # account sets in opposite orders (AB-BA). Missing/garbage
+            # ids pass through silently here; the per-line gates below
+            # produce their typed errors.
+            from django.core.exceptions import ValidationError as _DjangoVE
+
+            for _pre_id in sorted(
+                {str(l.get("account_id")) for l in lines if l.get("account_id")}
+            ):
+                try:
+                    Account.objects.select_for_update().only("id").get(
+                        id=_pre_id, org_id=org_id
+                    )
+                except (Account.DoesNotExist, ValueError, TypeError, _DjangoVE):
+                    pass
+
             entry_number = JournalService._get_next_entry_number(org_id)
 
             journal_entry = JournalEntry.objects.create(
@@ -245,7 +266,13 @@ class JournalService:
                     raise ValidationError("Each line must have an account_id.")
 
                 try:
-                    account = Account.objects.get(id=account_id, org_id=org_id)
+                    # P19/BE-M2: the account row is locked (we are already
+                    # inside the entry's atomic) — a plain SELECT does not
+                    # conflict with archive_account()'s row lock, so lines
+                    # could land on an account archived a moment earlier.
+                    account = Account.objects.select_for_update().get(
+                        id=account_id, org_id=org_id
+                    )
                 except Account.DoesNotExist:
                     raise ResourceNotFound(f"Account {account_id} not found")
 
