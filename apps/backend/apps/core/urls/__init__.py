@@ -43,25 +43,13 @@ org_scoped_urlpatterns = [
     # the endpoint 404'd; routed here in the ACTIVE package.)
     path("fiscal-periods/", FiscalPeriodListView.as_view(), name="org-fiscal-periods"),
     # Fiscal year close - api/v1/{org_id}/fiscal-years/{year_id}/close/
-    path(
-        "fiscal-years/<str:year_id>/close/",
-        FiscalYearCloseView.as_view(),
-        name="fiscal-year-close",
-    ),
+    path("fiscal-years/<uuid:year_id>/close/", FiscalYearCloseView.as_view(), name="fiscal-year-close"),
     # Fiscal period close - api/v1/{org_id}/fiscal-periods/{period_id}/close/
-    path(
-        "fiscal-periods/<str:period_id>/close/",
-        FiscalPeriodCloseView.as_view(),
-        name="fiscal-period-close",
-    ),
+    path("fiscal-periods/<uuid:period_id>/close/", FiscalPeriodCloseView.as_view(), name="fiscal-period-close"),
     # Fiscal period open - api/v1/{org_id}/fiscal-periods/{period_id}/open/
     # (P10/M-8: the symmetric act — the approval error named it but no
     # endpoint could perform it)
-    path(
-        "fiscal-periods/<str:period_id>/open/",
-        FiscalPeriodOpenView.as_view(),
-        name="fiscal-period-open",
-    ),
+    path("fiscal-periods/<uuid:period_id>/open/", FiscalPeriodOpenView.as_view(), name="fiscal-period-open"),
     # Organisation summary - mounted at api/v1/{org_id}/summary/
     path("summary/", OrganisationSummaryView.as_view(), name="org-summary"),
     # Organisation settings - mounted at api/v1/{org_id}/settings/

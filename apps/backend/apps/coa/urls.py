@@ -34,9 +34,10 @@ urlpatterns = [
     # Trial balance
     path("trial-balance/", TrialBalanceView.as_view(), name="trial-balance"),
     
-    # Account detail, update, delete
-    path("<str:account_id>/", AccountDetailView.as_view(), name="account-detail"),
-    
+    # Account detail, update, delete (P19/BE-M7: uuid converter — a
+    # malformed id 404s at routing like every sibling route)
+    path("<uuid:account_id>/", AccountDetailView.as_view(), name="account-detail"),
+
     # Account balance
-    path("<str:account_id>/balance/", AccountBalanceView.as_view(), name="account-balance"),
+    path("<uuid:account_id>/balance/", AccountBalanceView.as_view(), name="account-balance"),
 ]

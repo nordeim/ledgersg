@@ -135,6 +135,16 @@ class ReconciliationService:
         # back, and a non-UTF-8 statement silently imported 0 rows with a
         # success-shaped response.
         raw_bytes = csv_file.read()
+
+        # P19/X-M2: a size cap BEFORE the decode (the decode doubles the
+        # memory) and a row ceiling on the parsed statement — an
+        # authenticated CanManageBanking user could otherwise OOM a worker
+        # with one oversized upload.
+        if len(raw_bytes) > 5 * 1024 * 1024:
+            raise ValidationError(
+                "Statement file is too large (over 5 MB). "
+                "Split the export and import it in parts."
+            )
         try:
             decoded_file = raw_bytes.decode("utf-8")
         except UnicodeDecodeError:
@@ -143,6 +153,15 @@ class ReconciliationService:
             except Exception as e:
                 raise ValidationError(f"Could not decode file: {e}")
 
+        reader = csv.DictReader(io.StringIO(decoded_file))
+
+        row_count = sum(1 for _ in reader)
+        if row_count > 10_000:
+            raise ValidationError(
+                f"Statement has too many rows ({row_count}; the ceiling is "
+                "10,000). Split the export and import it in parts."
+            )
+        # Rewind for the real pass.
         reader = csv.DictReader(io.StringIO(decoded_file))
 
         for row_num, row in enumerate(reader, start=2):
@@ -443,7 +462,9 @@ class ReconciliationService:
             bank_account_id=transaction_obj.bank_account_id,
             is_voided=False,
             is_reconciled=False,
-        )
+        ).select_related(
+            "contact"
+        )  # P19/BE-L5: the per-row payment.contact.name read was an N+1
 
         suggestions = []
         for payment in candidates:

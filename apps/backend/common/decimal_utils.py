@@ -89,9 +89,23 @@ def display_money(value: Union[str, int, float, Decimal]) -> str:
         )
     
     try:
+        decimal_value = Decimal(str(value))
+    except (InvalidOperation, ValueError) as e:
+        raise ValueError(f"Cannot format {value!r}: {e}")
+
+    # P19/BE-D2: mirror money()'s finite gate — NaN propagates through
+    # quantize() and would render the literal string "NaN" to a user
+    # (money() already rejects non-finite on the write path; the
+    # display twin must match).
+    if not decimal_value.is_finite():
+        raise ValueError(
+            f"Non-finite value {value!r} cannot be formatted as money."
+        )
+    
+    try:
         with localcontext() as ctx:
             ctx.rounding = ROUND_HALF_UP
-            return str(Decimal(str(value)).quantize(DISPLAY_PLACES))
+            return str(decimal_value.quantize(DISPLAY_PLACES))
     except (InvalidOperation, ValueError) as e:
         raise ValueError(f"Cannot format {value!r}: {e}")
 

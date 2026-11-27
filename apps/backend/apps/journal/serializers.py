@@ -126,7 +126,7 @@ class JournalEntryDetailSerializer(serializers.ModelSerializer):
         return {
             "total_debits": str(total_debits),
             "total_credits": str(total_credits),
-            "balanced": abs(total_debits - total_credits) < Decimal("0.001"),
+            "balanced": abs(total_debits - total_credits) < Decimal("0.0001"),
         }
 
     def get_source_document(self, obj: JournalEntry) -> dict:
@@ -178,7 +178,11 @@ class JournalEntryCreateSerializer(serializers.Serializer):
         total_debits = sum(Decimal(str(line.get("debit", 0))) for line in lines)
         total_credits = sum(Decimal(str(line.get("credit", 0))) for line in lines)
 
-        if abs(total_debits - total_credits) > Decimal("0.001"):
+        # P19/BE-D1: 0.0001 — the service and DB-trigger boundary
+        # (P13/B-13, database_schema.sql trg_journal_line_balance); the
+        # old 0.001 let a 0.0002..0.001 imbalance pass here then die in
+        # the service with a differently-shaped error.
+        if abs(total_debits - total_credits) > Decimal("0.0001"):
             raise serializers.ValidationError(
                 f"Debits ({total_debits}) must equal credits ({total_credits})."
             )
