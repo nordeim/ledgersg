@@ -77,7 +77,7 @@ urlpatterns = [
         name="bank-transaction-unreconcile",
     ),
     path(
-        "bank-transactions/<str:transaction_id>/suggest-matches/",
+        "bank-transactions/<uuid:transaction_id>/suggest-matches/",
         BankTransactionSuggestMatchesView.as_view(),
         name="bank-transaction-suggest-matches",
     ),
