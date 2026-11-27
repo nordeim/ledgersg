@@ -2,17 +2,28 @@ LedgerSG Project Status — Comprehensive Summary
 Executive Overview
 LedgerSG is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs with IRAS 2026 compliance. The platform has undergone significant development across multiple phases, achieving enterprise-grade security, comprehensive test coverage, and a complete banking UI.
 ---
-Current Status (2026-11-27 — P18 remediated; see the sprint-patterns sections
-at the bottom of this file for P0–P18 and the README status table for the
+Current Status (2026-11-27 — P21 remediated; see the sprint-patterns sections
+at the bottom of this file for P0–P21 and the README status table for the
 live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 40 / P20):
-- Backend: pytest 950 passed / 0 failed / 5 skipped (955 collected;
+Current truth (all gates executed and green, session 42 / P21):
+- Backend: pytest 969 passed / 0 failed / 5 skipped (974 collected;
   invariants 34, security 83 passed + 3 skipped)
-- Frontend: vitest 627/627 (73 files), tsc --noEmit 0 errors, whole-tree
+- Frontend: vitest 641/641 (75 files), tsc --noEmit 0 errors, whole-tree
   eslint **0 errors / 0 warnings**
+- P21 headline: the list-envelope unification ({results, count} on
+  EVERY list surface incl. the former bare-array /auth/organisations/ —
+  the prerequisite for pagination; the vacuous RLS isolation assert
+  fixed with it), the InvoiceNow invoicenow_sent_at evidence stamp (the
+  restore-to-SENT branch was dead code), the on-commit cache truth (the
+  dashboard + balance invalidations wait for the commit; void_document
+  + manual entries invalidate the dashboard too), the bank-account
+  default-flag locks, the ValidateBalance typed-400 body, the banking
+  a11y batch (the Reference name, the keyboard-reachable CSV import,
+  the loader live regions, the payment-card keyboard contract, the
+  reconcile aria-pressed), the timezone-safe date helpers
 - E2E: 40 specs (11 always-green + 29 backend-gated); live run 40P/0F/0S
   green on the FIRST run of a fresh DB (the P20/X-H1 bootstrap fix);
   CI runs the always-green 11 (P18/CFG-L1)
@@ -259,13 +270,13 @@ Summary: The LedgerSG platform is production-ready with comprehensive test cover
 **LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore Small and Medium Businesses (SMBs). Its primary mission is to transform IRAS 2026 compliance from a regulatory burden into a seamless, automated experience. The platform combines enterprise-grade financial integrity with a distinctive "Illuminated Carbon" neo-brutalist user interface.
 
 **Current Status:** ✅ **Production Ready**
-- **Frontend:** v0.3.5 (Next.js 16.4.6, 16 pages, 73 test files, **627 tests passing**)
-- **Backend:** v0.6.5 (Django 6.0.10, 90+ API endpoints, **950 tests passing, 0 failed**)
-- **Database:** v1.2.1 (PostgreSQL 16+, 7 schemas, 29 domain tables + 1 view + §15c framework tables, RLS complete on every tenant table §17)
+- **Frontend:** v0.3.6 (Next.js 16.4.6, 16 pages, 75 test files, **641 tests passing**)
+- **Backend:** v0.6.6 (Django 6.0.10, 90+ API endpoints, **969 tests passing, 0 failed**)
+- **Database:** v1.2.2 (PostgreSQL 16+, 7 schemas, 29 domain tables + 1 view + §15c framework tables, RLS complete on every tenant table §17)
 - **Dashboard:** v1.0.0 (Real Data Integration, 36 TDD tests, 100% coverage)
 - **Integration Gaps:** Phase 3 Complete (GAP-3: 20 tests, GAP-4: 13 tests)
 - **Banking UI:** Phase 5.5 Complete (73 TDD tests, all tabs live)
-- **Security Posture:** P0–P17 remediated; remaining P1/P2 items tracked in the deferred register (see the README Security Posture table)
+- **Security Posture:** P0–P21 remediated; remaining P1/P2 items tracked in the deferred register (see the README Security Posture table)
 
 As an autonomous coding agent, your objective is to maintain this high standard of architectural maturity while executing Pull Requests (PRs). You must operate under the **Meticulous Approach**: Analyze → Plan → Validate → Implement → Verify → Deliver. Surface-level assumptions are prohibited; every change must be grounded in deep technical reasoning.
 
@@ -1551,3 +1562,53 @@ bytes ONCE (a re-read of a consumed stream returns b"" and "successfully"
 imports 0 rows); a docstring that overstates wiring (period_lock) is a
 defect in the next auditor's model of the system — fix it in the same
 commit as the truth.
+
+
+## 2026-11-27 P21 Sprint — New Patterns & Lessons (session 42)
+
+### The Bare Array Was The Envelope Debt In Miniature
+`/auth/organisations/` returned a raw JSON array while every sibling
+list spoke `{results, count}` — the frontend org-selector, the e2e
+helpers, and the bootstrap script each carried their own dual-shape
+fallback. Unifying to `{results, count}` (reports keep `{data: {...}}`:
+*lists → results, reports → data*) deleted three fallbacks and made the
+pagination prerequisite real. Lesson: an envelope inconsistency
+multiplies consumers that must "handle both" — each fallback is a small
+lie that survives the unification and then becomes dead code.
+
+### on_commit Is The Only Honest Cache-Invalidation Point
+Deleting a cache key INSIDE the open transaction re-seeds the stale
+value in the delete→commit window (a concurrent read re-populates from
+the still-pre-commit DB; the value then survives to TTL).
+`transaction.on_commit` is the correct hook — and it fires immediately
+in autocommit contexts, so non-transactional callers keep working. The
+pytest probe: `django_capture_on_commit_callbacks(execute=False)` +
+assert the spy was NOT called inside the block, then execute the
+captured callbacks and assert it fired. (Gotcha the first probe hit:
+the `patch` context must WRAP the capture — exiting the with-block
+undoes the spy before the callbacks execute.)
+
+### A Dead Evidence Column Is A Dead Branch
+`invoicenow_sent_at` existed in the schema and model, was read by the
+void/unallocate restore ("SENT" if stamped else "APPROVED") — and was
+written by NOTHING. The branch was untestable dead code. Stamping it
+on the DELIVERED transmission (one `.update()` with an `isnull=True`
+filter — stamp-once, no status write) resurrected the designed behavior
+without touching the transition map.
+
+### The Vacuous-Assert Trap, Envelope Edition
+`test_rls_isolation.py` read `response.data.get("data", [])` against
+the accounts list — which returns `{results}`. The fallback produced
+`[]` and the "other org's account is not visible" assertion ALWAYS
+passed, even if isolation broke. When an envelope changes, grep the
+tests for the OLD key with a default — a `.get(old_key, default)`
+assert is a test that verifies nothing.
+
+### Keyboard Reachability: sr-only, Not display:none
+The CSV import's `<input type="file" className="hidden">` removed the
+input from the tab order AND the a11y tree — the visible label was the
+only affordance and it wasn't focusable. `sr-only` keeps the input
+focusable + labelled (Enter/Space opens the picker natively) while the
+label's click target still works. The e2e masked the bug
+(`setInputFiles` bypasses the UI) — a DOM-attribute probe
+(className + label association) is the honest unit contract.

@@ -5,7 +5,7 @@
 # This pipeline institutionalizes the "SQL-First" mandate by:
 # 1. Manually initializing PostgreSQL with database_schema.sql (not migrations)
 # 2. Running pytest with --no-migrations and --reuse-db flags
-# 3. Validating the backend suite (950 tests, P20) against the true production schema
+# 3. Validating the backend suite (969 tests, P21) against the true production schema
 # 4. Running the always-green no-backend e2e subset (P18/CFG-L1)
 #
 # Version: 1.2.1 (P19: the ci-summary gate now includes security-scan)
@@ -186,16 +186,17 @@ jobs:
           npx tsc --noEmit
           echo "✅ TypeScript check passed"
 
-      - name: 🧹 ESLint Gate (0 errors, warnings at the documented parity)
+      - name: 🧹 ESLint Gate (0 errors, 0 warnings — clean since P19)
         working-directory: ./apps/web
         run: |
           echo "🧹 Running the whole-tree eslint gate..."
-          # P17/FE-M2: whole-tree eslint 0 errors; --max-warnings pins the
-          # documented 5-warning register so the count cannot drift
+          # P17/FE-M2: whole-tree eslint 0 errors. P19 cleared the last
+          # 5 parity warnings — the register is 0E/0W; --max-warnings 5
+          # remains as the drift guard so the count cannot ratchet
           # silently again (the P16 lesson: 6 errors lived for a sprint
           # because no CI step ran lint).
           npx eslint . --max-warnings 5
-          echo "✅ ESLint gate passed (0 errors, warnings at parity)"
+          echo "✅ ESLint gate passed (0 errors, 0 warnings)"
 
       - name: 🧪 Run Frontend Tests (coverage ratchet)
         working-directory: ./apps/web

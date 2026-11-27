@@ -1038,3 +1038,74 @@ reconcile FX comparator (BE-M4); the CSV dedupe backstop (BE-M6, DDL);
 the route-guard history design (FE-M2); the drawer×dialog trap (FE-M3);
 the small FE batch (L1/L4/L5/L6/L8); the CI hardening batch (X-L2/I1/I2);
 the version-story reconciliation (X-M8).
+
+## P21 Remediation — 2026-11-27 (session 42): the list-envelope unification, the InvoiceNow evidence stamp, the cache-commit truth & the banking a11y batch
+
+**Base:** `67512bf1` (post-P20, all gates green). **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-27_P21.md` (anchor-validated);
+**report:** `docs/REMEDIATION_2026-11-27_P21_REPORT.md`.
+**Method:** TDD (RED → GREEN → full gate) for every behavioural fix;
+conventional commits on `main`; `skills/` excluded; no DDL (schema
+v1.2.2 carries forward). The session-40 workspace survived — the
+baselines were reproduced first (950P · 627/627 · tsc 0 · eslint 0E/0W
+· e2e 40/40 · rls 13/13 · mobile-nav 17/17 (twelfth settlement) ·
+prod-CSP 5/5; `test_ledgersg_dev` recreated + loaded).
+
+### The audits (three parallel, Mode C; every High verified in source)
+
+0 Critical / 2 High / 20 Medium / 15 Low / 13 Informational. The
+headline: the list layer speaks 5 shapes across 30 sites (the
+deferred register's big-ticket item), `invoicenow_sent_at` is read by
+the void/unallocate restore but written by NOTHING (dead branch), the
+dashboard cache is not invalidated by voids or manual entries and
+every invalidation runs INSIDE the transaction (the delete→commit
+re-seed race), the bank-account default flag races (two concurrent
+set_defaults → two defaults; full-row saves clobber concurrent
+edits), ValidateBalanceView 500s on malformed bodies, and the two
+banking a11y Highs (the unnamed Reference input; the
+keyboard-inaccessible CSV import). The cross-cutting audit found one
+pattern: the P20 truth pass updated the top status blocks but left
+second-tier doc surfaces stale (9M + 5L). Bonus truth finding: the
+RLS isolation test read `.get("data", [])` against a `{results}`
+endpoint — a VACUOUS assertion (always passed).
+
+### What shipped (per phase)
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-M6 (the envelope) | every LIST endpoint returns `{results, count}`: the orgs list, fiscal years, the bare-array `/auth/organisations/`, the trial balance (+totals), entry types, IRAS info, the GST periods POST; reports keep `{data}` (lists → results, reports → data); the frontend + e2e + bootstrap consumers migrated | 7 new envelope contract tests + the updated shape tests + the vacuous RLS assert fixed + live (the :8000 org list verified) |
+| BE-M1 | the bank-account default flag locked: set_default's org-wide sorted lock; update/deactivate via `_get_locked` + `update_fields` | the lock spy + the racing-save no-clobber probe (T2's 999.00 survives) |
+| BE-M2/M3 | the dashboard cache invalidated by void_document + create_entry (the P5/H-3 completion); every mutation-path invalidation/deletion on `transaction.on_commit` | the capture-on-commit probes (not-inline + fires-on-execute) |
+| BE-M4 | `invoicenow_sent_at` stamped on a DELIVERED transmission (stamp-once, isnull filter; the status/transition map untouched) | the DELIVERED-stamp test |
+| BE-M5 | ValidateBalanceView typed 400s on malformed bodies (was AttributeError/InvalidOperation 500s) | the three malformed-body tests |
+| FE-H1/H2 + M1/M2/M4/M5 | the Reference accessible name; the sr-only CSV input (was display:none — unfocusable); the import dialog's unique ids; the loader live regions on every remaining surface; the payment-card keyboard contract; the reconcile aria-pressed | the vitest probes + the live captures 128-131 |
+| FE-M3 + L-batch | `isoYearOf` (the GST year lexically — the local-tz read queried the wrong year) + `localTodayISO` (local calendar day); the visible-label ContactPicker; the dead accent token (compile-verified); the always-rendered aria-controls; video retain-on-failure | 5 helper tests + the design-tokens gate + the captures 132/133 |
+| X-docs | the 9M + 5L truth batch (README badge/section/order, CLAUDE's P19 retitle, AGENTS header/v1.2.2/P0–P21, SKILL quick-ref + NUMERIC v1.1.0, PAD lint row, ci.yml, the API guide 3.2.0 + the P21 addendum, DEPLOYMENT counts); the bootstrap script's dual-shape fallback retired | doc review; each count re-measured |
+
+### The named focus (settled live — thirteenth consecutive settlement)
+
+**Mobile navigation:** 17/17 probe checks PASS on the remediated tree
+(375/800/1280) — **no TailwindCSS v4 bug exists**. The FE audit's
+compile-verified dead-token sweep found exactly one dead utility
+(`accent-primary`) — fixed this sprint with a compile gate.
+
+### Final gate (all verified, executed)
+
+backend **969P/0F/5S** (+19 P21 tests) · vitest **641/641** (75 files,
++14) · tsc 0 · whole-tree eslint **0 errors / 0 warnings** ·
+**coverage green at the ratchet** · **e2e:full 40P/0F/0S** ·
+**rls_smoke 13/13 as `ledgersg_app`** (the stale --noreload backends
+restarted first — the P13 lesson) · **mobile-nav 17/17** ·
+**prod-CSP 5/5** · build:server green · schema v1.2.2 (no DDL).
+
+### Deferred (registered, not dropped)
+
+List pagination (the envelope prerequisite is NOW DONE —
+`LedgerView` line materialisation is the first target); the ruff
+mechanical batch (re-measured 936 production / 1307 whole-tree); the
+audit-log INSERT policy (DDL); the BE-L3 config-class locking; the
+Peppol log-state locking; the CSV errors[] raw strings; dead-letter
+design; UEN checksum; NULL-context SELECT; H-05b models; PaymentsTab
+prefill; TanStack incompatibility; the membership-cache window; the
+journal detail N+1; the P20-era FE-M2/M3 designs; CI hardening; the
+version-story reconciliation.

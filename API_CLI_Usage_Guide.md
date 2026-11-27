@@ -2,8 +2,8 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 3.1.0 (P19 addendum + the P20 route errata)
-> **Last Updated**: 2026-11-27 (P17 — NEW 400 contracts: double-reversal / double-void / double-reconcile refusals under row locks; typed GST box parsing; allocation UUID field errors; UEN normalize-then-validate on org PATCH; tax-rate range; on-commit task dispatch + the worker RLS context)
+> **Version**: 3.2.0 (the P21 list-envelope unification + the P19 addendum + the P20 route errata)
+> **Last Updated**: 2026-11-27 (P21 — the list-envelope unification: every list endpoint now returns `{results, count}` incl. `/auth/organisations/` which was a bare array; the InvoiceNow evidence stamp; the on-commit cache invalidation; the ValidateBalance typed-400 body contract; carried forward: the P20 route errata + the P17 400 contracts)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
 ---
@@ -21,7 +21,7 @@ Every documented contract below was re-exercised against the running stack
 | `POST /documents/{id}/approve/` → posts the GL journal | ✅ Verified (P11 live gate); **credit notes post REVERSED entries** — AR credit, revenue/GST debit (P11/C-1 fix) |
 | F5 computation | ✅ Net of credit notes, posted-types only (P11/H-3) — quotes no longer pollute Box 1 |
 | Dashboard metrics | ✅ `GET /api/v1/{orgId}/reports/dashboard/metrics/` (the H-4 surface; `gst_payable` non-zero on real data) |
-| Org context for CLI flows | ✅ `GET /api/v1/auth/organisations/` returns the membership list — take `[i].org.id`; note it is a bare array at the top level (no `{results, count}` envelope on this auth route) |
+| Org context for CLI flows | ✅ `GET /api/v1/auth/organisations/` returns the membership list — take `results[i].org.id`; **P21/BE-M6**: this route now speaks the unified `{results, count}` envelope (it was the one bare array) |
 
 ### Historical Test Metrics (post-P11/P12 — superseded by post-P16 below)
 
@@ -87,7 +87,7 @@ The P16 sprint (session 32) changed several request/response contracts
 | Frontend (org creation) | The new organisation is SELECTED immediately (the stale-closure fix) — no more "No Organisation Selected" dead-end |
 | Frontend (UEN) | All three ACRA formats validate (LLP/society T/S-forms included — previously rejected) |
 
-**Current test metrics (post-P16)**: backend **860 passed / 0 failed / 5
+**Historical test metrics (post-P16 — superseded by post-P21 below)**: backend **860 passed / 0 failed / 5
 skipped** (865 collected; invariants 34, security 76+3 skipped) · frontend
 vitest **554/554** (64 files) · e2e 11 always-green + 29 backend-gated,
 **40/40 live** under `test:e2e:full` · the production-CSP smoke **5/5** ·
@@ -123,7 +123,7 @@ contracts_p17.py` + `tests/integration/test_api_contract_p17.py` +
 | `GET /admin/` | **404 under non-DEBUG settings** (the URL is no longer mounted in production/service settings — settings-gate tested) |
 | List endpoints (`payments`, `documents`, `transactions`) | `select_related` on the FK joins — the N+1 is gone (query-count gated); response shapes unchanged |
 
-**Current test metrics (post-P17)**: backend **882 passed / 0 failed / 5
+**Historical test metrics (post-P17 — superseded by post-P21 below)**: backend **882 passed / 0 failed / 5
 skipped** (887 collected; invariants 34, security 78+3 skipped) · frontend
 vitest **582/582** (69 files) · e2e 11 always-green + 29 backend-gated,
 **40/40 live** under `test:e2e:full` · the production-CSP smoke **5/5** ·
@@ -151,11 +151,47 @@ residual concurrency seams, and the task-contract gaps (all pinned by
 | `create_return_periods` | The UNIQUE(org, type, period) race is typed — the loser skips cleanly (never an IntegrityError 500) |
 | Service seam (`_validated_exchange_rate`) | A garbage rate from a direct (non-DRF) caller is a typed 400, not an InvalidOperation 500 |
 
-**Current test metrics (post-P20)**: backend **950 passed / 0 failed / 5
-skipped** (invariants 34, security 83+3 skipped) · frontend vitest
-**627/627** (73 files) · e2e 11 always-green + 29 backend-gated, **40/40
-live** under `test:e2e:full` · the production-CSP smoke **5/5** · the
-runtime-role smoke **13/13** · the mobile-nav probe **17/17**.
+**Current test metrics (post-P21)**: backend **969 passed / 0 failed / 5
+skipped** (974 collected; invariants 34, security 83+3 skipped) ·
+frontend vitest **641/641** (75 files) · e2e 11 always-green + 29
+backend-gated, **40/40 live** under `test:e2e:full` · the
+production-CSP smoke **5/5** · the runtime-role smoke **13/13** · the
+mobile-nav probe **17/17**.
+
+---
+
+## P21 Addendum — the list-envelope unification (2026-11-27, session 42)
+
+**The contract change:** every LIST endpoint now returns
+`{results, count}`. Single-report payloads (`/reports/financial/`
+trial-balance / profit-loss / balance-sheet, dashboard metrics) keep
+their `{data: {...}}` shape — the convention is *lists → results,
+reports → data*.
+
+Seven routes changed shape in P21 (all previously `{data, count}` or a
+bare array):
+
+| Route | Old shape | New shape |
+|:---|:---|:---|
+| `GET /api/v1/auth/organisations/` | bare array `[...]` | `{results: [...], count}` |
+| `GET /api/v1/organisations/` | `{data, count}` | `{results, count}` |
+| `GET /api/v1/{org_id}/fiscal-years/` | `{data, count}` | `{results, count}` |
+| `GET /api/v1/{org_id}/journal-entries/trial-balance/` | `{data, count, totals, as_of_date}` | `{results, count, totals, as_of_date}` |
+| `GET /api/v1/{org_id}/journal-entries/entries/types/` | `{data, count}` | `{results, count}` |
+| `GET /api/v1/{org_id}/gst/tax-codes/iras-info/` | `{data, count}` (results carries the keyed map) | `{results, count}` |
+| `POST /api/v1/{org_id}/gst/returns/` (create periods) | `{message, count, data}` | `{message, count, results}` |
+
+CLI recipes that read `.data` or indexed the bare array must read
+`.results` (the e2e helpers + the bootstrap script were migrated in the
+same commit). Every other list endpoint already spoke `{results, count}`.
+
+**Also in P21** (behaviour, not shape): `invoicenow_sent_at` is now
+stamped on a DELIVERED Peppol transmission (the void/unallocate restore
+reads it); the dashboard + balance caches invalidate on COMMIT
+(`transaction.on_commit`) after voids / manual journal entries /
+postings; `POST /journal-entries/entries/validate/` returns a typed 400
+envelope (not a 500) on malformed bodies; the bank-account default flag
+is row-locked (concurrent `set_default` calls serialize).
 
 ---
 

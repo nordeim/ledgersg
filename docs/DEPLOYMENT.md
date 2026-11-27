@@ -6,8 +6,8 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-27, session 40 / P20) re-verified the guide against the current
-codebase on a live sandbox (backend 950P/0F/5S, vitest 627/627, typecheck
+(2026-11-27, session 42 / P21) re-verified the guide against the current
+codebase on a live sandbox (backend 969P/0F/5S, vitest 641/641, typecheck
 0 errors, whole-tree eslint 0 errors / 0 warnings, build:server
 green, the production-CSP smoke 5/5, live e2e 40P/0F/0S (40 specs), the
 runtime-role smoke 13/13 as `ledgersg_app`, the mobile-nav probe 17/17 —
@@ -249,7 +249,7 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-27 P20): 950 passed, 0 failed, 5 skipped
+# expected (post-2026-11-27 P21): 969 passed, 0 failed, 5 skipped
 pytest tests/invariants -q    # 34 passed (conformance, capacity, balances,
                               # filed-return immutability, GST lock, RLS)
 pytest tests/security -q      # 83 passed, 3 skipped (RLS, tokens, cookies,
@@ -335,7 +335,7 @@ Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 627 vitest tests
+npm test                    # 641 vitest tests
 npm run test:coverage       # green at the honest measured-floor ratchet
 npm run build:server        # the only build mode
 npm run test:e2e            # green without a backend (gated specs skip)

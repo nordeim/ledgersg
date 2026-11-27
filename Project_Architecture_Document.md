@@ -1,8 +1,9 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.14.0
+> **Version**: 3.15.0
 > **Last Updated**: 2026-11-27
+> **P21 note**: the list-envelope unification ({results, count} on every list surface — the pagination prerequisite; the vacuous RLS-isolation assert fixed with it), the InvoiceNow invoicenow_sent_at evidence stamp, the on-commit cache truth (the dashboard + balance invalidations wait for the commit; void_document + manual journal entries now invalidate the dashboard), the bank-account default-flag locks, the ValidateBalance typed-400 body, and the banking a11y batch (the Make-Payment Reference name, the keyboard-reachable CSV import, the loader live regions, the payment-card keyboard contract, the reconcile aria-pressed) + the timezone-safe date helpers — see `docs/REMEDIATION_PLAN_2026-11-27_P21.md`. Carries the P20 state forward:
 > **P20 note**: the void/transition/allocate lock completion (void locks its affected documents sorted; transition_status locks + update_fields; allocate pre-locks documents sorted), the CSV import savepoint + magnitude bound, the posting-side balance-cache invalidation, the two a11y Highs (invoice-form Notes/Terms names, the new-page back links), the ContactPicker blur dismissal, the timezone-safe date formatter, the coverage ratchet expanded to the app/providers tiers + raised, the playwright port/locale/timezone/trace pins, and the e2e first-run truth fix (the banking helper is contact-self-sufficient; the one-command §9 bootstrap script ships) — see `docs/REMEDIATION_PLAN_2026-11-27_P20.md`. Carries the P19 state forward:
 > **P19 note**: the remove_line truth-gap fix + the contrast debt + the Celery coverage completion — generate_f5/review_return locked with file_return; unallocate/unreconcile/convert/credit-cap/add_line locked; header/archived account posting refused; the three remaining Peppol task bodies under the RLS tenant context + the on-commit dispatch covered + terminal classification for deleted-org tasks; the email status gate (APPROVED invoices only); the bg-success/bg-alert contrast fixes at WCAG AA; `tw-animate-css` imported (the Radix animate utilities that silently compiled to nothing in v4); the genuinely-shared `uenSchema`; schema **v1.2.2** (§15c completion: the ENABLE_ADMIN opt-in tables) — see `docs/REMEDIATION_PLAN_2026-11-27_P19.md`. Carries the P17 state forward: double-reversal / double-void / double-reconcile refused under row locks; tasks dispatch on-commit; the 400-contract sweep; `/admin/` gated; the `STORAGES` manifest migration; the `--color-success` token — see `docs/REMEDIATION_PLAN_2026-11-27_P17.md`
 >
@@ -45,22 +46,22 @@
 
 **LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs. It eliminates the complexity of IRAS compliance through a "SQL-First" design philosophy and a distinctive "Illuminated Carbon" neo-brutalist UI.
 
-### Key Metrics (P20, 2026-11-27)
+### Key Metrics (P21, 2026-11-27)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,617 Tests Passing** | 950 Backend + 627 Frontend unit + 40 e2e (11 always + 29 backend-gated; 40/40 live-green on the first run of a fresh DB) + the 13-step runtime-role smoke |
-| **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+") |
+| **Test Coverage** | **1,650 Tests Passing** | 969 Backend + 641 Frontend unit + 40 e2e (11 always + 29 backend-gated; 40/40 live-green) + the 13-step runtime-role smoke |
+| **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+"); every LIST endpoint returns the unified `{results, count}` envelope (P21) |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
-| **Lint Register** | **ESLint 0 errors / 5 warnings (src+e2e) · ruff ~1216 whole-tree (~735 production)** | The P17 state — the 6 P16-era errors cleared; deferred classes documented |
+| **Lint Register** | **ESLint 0 errors / 0 warnings (src+e2e) · ruff ~1307 whole-tree (~936 production)** | ESLint clean since P19; the ruff mechanical batch is the registered deferred debt (P21 re-measured) |
 
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 627 | 100% | Vitest + RTL | ✅ Passing |
-| **Backend (pytest)** | 950 passed / 5 skipped (955 collected) | 100% of run | pytest | ✅ Passing |
+| **Frontend Unit** | 641 (75 files) | 100% | Vitest + RTL | ✅ Passing |
+| **Backend (pytest)** | 969 passed / 5 skipped (974 collected) | 100% of run | pytest | ✅ Passing |
 | **E2E (Playwright)** | 40 (11 always + 29 backend-gated) | 100% live | Playwright | ✅ Passing |
-| **Total Passing** | **1,617** | — | Mixed | ✅ Verified |
+| **Total Passing** | **1,650** | — | Mixed | ✅ Verified |
 
 ---
 
