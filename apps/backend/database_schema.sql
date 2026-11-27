@@ -3,7 +3,7 @@
 -- ║   LEDGERSG — COMPLETE POSTGRESQL 16 DATABASE SCHEMA                        ║
 -- ║   Enterprise-Grade Accounting Software for Singapore SMBs                  ║
 -- ║                                                                            ║
--- ║   Version:    1.2.1                                                        ║
+-- ║   Version:    1.2.2                                                        ║
 -- ║   DB Engine:  PostgreSQL 16+                                               ║
 -- ║   Precision:  NUMERIC(19,4) for all monetary values                        ║
 -- ║   Encoding:   UTF-8                                                        ║
@@ -3238,7 +3238,8 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ledgersg_app;
 
 
 -- ============================================================================
--- §15c  DJANGO FRAMEWORK TABLES (v1.2.1 — P17 fresh-host remediation)
+-- §15c  DJANGO FRAMEWORK TABLES (v1.2.1 — P17 fresh-host remediation;
+--       v1.2.2 — P18 completion: the ENABLE_ADMIN opt-in surface)
 -- ============================================================================
 -- django.contrib tables, hand-written to honour SQL-First (the app's
 -- bundled migrations are never executed — MIGRATE = False).
@@ -3252,11 +3253,23 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ledgersg_app;
 -- the gap (verified live on the P17 fresh-host rebuild: "relation
 -- django_content_type does not exist" at teardown).
 --
+-- WHY (P18, v1.2.2): the P17 ENABLE_ADMIN gate (config/urls.py mounts
+-- /admin/ only when the knob is on — dev default TRUE, production
+-- FALSE) needs django_session (admin login) and django_admin_log (the
+-- LogEntry audit writes). A schema-only host with the opt-in enabled
+-- 500ed on first admin use. The API itself never touches sessions
+-- (JWT + HttpOnly refresh cookies), so the flush path is unchanged —
+-- these two tables close the admin surface only. The django_celery_beat
+-- tables stay intentionally omitted (no beat in the documented runtime;
+-- enabling DatabaseScheduler requires a documented maintenance decision).
+--
 -- Layout mirrors django.contrib.contenttypes.models.ContentType,
--- django.contrib.auth.models.Permission and the migrations recorder.
+-- django.contrib.auth.models.Permission, the migrations recorder,
+-- django.contrib.sessions.models.Session and
+-- django.contrib.admin.models.LogEntry (user FK → core.app_user's UUID
+-- pk, the schema's convention; content_type FK nullable per SET_NULL).
 -- Framework rows are global (no RLS, no org column) — same posture as
--- the §15b token tables. django_session/django_admin_log are NOT
--- needed by the flush path and are intentionally omitted.
+-- the §15b token tables.
 
 CREATE TABLE IF NOT EXISTS public.django_content_type (
     id          BIGSERIAL PRIMARY KEY,
@@ -3284,11 +3297,42 @@ CREATE TABLE IF NOT EXISTS public.django_migrations (
     CONSTRAINT django_migrations_app_name_key UNIQUE (app, name)
 );
 
--- Framework role access (flush + post_migrate read/write these)
+-- v1.2.2: the ENABLE_ADMIN opt-in surface (P18/BE-L1). Layout mirrors
+-- Django 6's contrib sessions/admin migrations exactly.
+CREATE TABLE IF NOT EXISTS public.django_session (
+    session_key  VARCHAR(40) NOT NULL PRIMARY KEY,
+    session_data TEXT        NOT NULL,
+    expire_date  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS django_session_expire_date
+    ON public.django_session (expire_date);
+
+CREATE TABLE IF NOT EXISTS public.django_admin_log (
+    id              BIGSERIAL PRIMARY KEY,
+    action_time     TIMESTAMPTZ NOT NULL,
+    object_id       TEXT NULL,
+    object_repr     VARCHAR(200) NOT NULL,
+    action_flag     SMALLINT NOT NULL
+                    CONSTRAINT django_admin_log_action_flag_check
+                        CHECK (action_flag >= 0),
+    change_message  TEXT NOT NULL,
+    content_type_id BIGINT NULL REFERENCES public.django_content_type(id)
+                    DEFERRABLE INITIALLY DEFERRED,
+    user_id         UUID NOT NULL REFERENCES core.app_user(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS django_admin_log_content_type_id
+    ON public.django_admin_log (content_type_id);
+CREATE INDEX IF NOT EXISTS django_admin_log_user_id
+    ON public.django_admin_log (user_id);
+
+-- Framework role access (flush + post_migrate read/write these; the
+-- admin opt-in writes sessions + LogEntry rows)
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     public.django_content_type,
     public.auth_permission,
-    public.django_migrations
+    public.django_migrations,
+    public.django_session,
+    public.django_admin_log
     TO ledgersg_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ledgersg_app;
 
@@ -3670,6 +3714,18 @@ ALTER FUNCTION audit.log_change() SET search_path = pg_catalog, audit, public;
 -- VERSION CHANGELOG
 -- ============================================================================
 
+-- v1.2.2 (2026-11-27) — §15c Completion: the ENABLE_ADMIN surface (P18/BE-L1)
+-- ---------------------------------------------------------------------------
+-- §15c gained public.django_session and public.django_admin_log (idempotent,
+-- granted to ledgersg_app). The P17 ENABLE_ADMIN gate (dev default TRUE,
+-- production FALSE) mounts /admin/ whose login + LogEntry writes hit exactly
+-- these tables — on a schema-only fresh host the opt-in 500ed. The API never
+-- touches sessions (JWT + HttpOnly refresh cookies), so the flush path is
+-- unchanged. django_celery_beat tables stay omitted (no beat in the
+-- documented runtime; enabling DatabaseScheduler is a documented decision).
+--
+-- Applied earlier in this script as §15c.
+
 -- v1.2.1 (2026-11-27) — Django Framework Tables (P17 fresh-host remediation)
 -- ---------------------------------------------------------------------------
 -- §15c: public.django_content_type, public.auth_permission and
@@ -3678,8 +3734,7 @@ ALTER FUNCTION audit.log_change() SET search_path = pg_catalog, audit, public;
 -- signal (auth create_permissions) queries django_content_type; on any
 -- environment built by the documented setup the table was missing and
 -- every transactional pytest teardown ERRORED. Framework tables are
--- global (no RLS) — the §15b token-blacklist posture. django_session /
--- django_admin_log are not touched by the flush path and stay omitted.
+-- global (no RLS) — the §15b token-blacklist posture.
 --
 -- Applied earlier in this script as §15c.
 
@@ -3741,5 +3796,5 @@ ALTER FUNCTION audit.log_change() SET search_path = pg_catalog, audit, public;
 
 -- ╔══════════════════════════════════════════════════════════════════════════════╗
 -- ║  END OF SCHEMA SCRIPT                                                      ║
--- ║  LedgerSG v1.2.1 — PostgreSQL 16 Database Initialization                  ║
+-- ║  LedgerSG v1.2.2 — PostgreSQL 16 Database Initialization                  ║
 -- ╚══════════════════════════════════════════════════════════════════════════════╝
