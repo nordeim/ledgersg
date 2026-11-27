@@ -8,13 +8,25 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 45 / P24):
-- Backend: pytest 995 passed / 0 failed / 5 skipped (1000 collected)
-  — the P24 pagination contract file added 26 gates; the P21-era
-  register's big-ticket deferral (list pagination) is shipped
-- Frontend: vitest 660/660 (77 files, on vitest 4.1.12 — the P23
+Current truth (all gates executed and green, session 48 / P25):
+- Backend: pytest 1009 passed / 0 failed / 5 skipped (1014 collected)
+  — the P25 hardening file added 14 gates (the int8 offset cap, the
+  offset-requires-limit 400s, the transactions surface in the matrix)
+- Frontend: vitest 664/664 (78 files, on vitest 4.1.12 — the P23
   advisory closure), tsc --noEmit 0 errors, whole-tree
   eslint **0 errors / 0 warnings**
+- P25 headline: the fresh-substrate first-run truth + the pagination
+  contract hardening — the §9 bootstrap's invoice/credit-note steps had
+  been silently broken since P14/M-4 made tax_code_id required (the
+  POSTs failed behind `|| true` guards, printing "invoice OK ()" with
+  an empty id); a fresh host reproduced the documented 42/42 as
+  40P/1F/1S. Fixed: the SR tax code on every substrate line (failures
+  LOUD) + the step-4c fodder top-up (≥ 36 ledger lines, ≥ 4 APPROVED
+  invoices, idempotent). PROVEN: fresh DB → one bootstrap → the FIRST
+  e2e:full = 42/42, 0 skipped. Plus the int8 offset cap (a >2^63−1
+  offset was an untyped 500), offset-requires-limit (was silently
+  ignored), the WCAG 2.5.3 pagination labels, the beyond-end page
+  keeping its controls, the render-time org-switch reset
 - P24 headline: the server-side list pagination — the additive
   `?limit=&offset=` contract on the six core list surfaces (the
   general ledger at the SQL level: count() + the queryset slice; the
@@ -50,8 +62,10 @@ Current truth (all gates executed and green, session 45 / P24):
   the loader live regions, the payment-card keyboard contract, the
   reconcile aria-pressed), the timezone-safe date helpers
 - E2E: 42 specs (11 always-green + 31 backend-gated); live run 42P/0F/0S
-green (the P24 ledger-pagination spec included; the P23 transition
-spec + the P21 live runs before it); CI runs the always-green 11
+green INCLUDING the fresh-DB first-run proof (session 48 / P25: drop +
+recreate the dev DB → one §9 bootstrap run → the FIRST test:e2e:full
+= 42/42, 0 skipped — the P20-era promise restored after the P24
+pagination spec exposed the substrate gap); CI runs the always-green 11
   (P18/CFG-L1)
 - Production-CSP smoke (P16/FE-C1): 5/5 — nonce served, hydration
   happened, zero violations (the gate class the dev suite cannot cover)
@@ -1739,3 +1753,60 @@ changes do NOT reach them. The live-probe/e2e loop will silently test
 yesterday's code (the first pagination e2e run failed against the
 old backend that ignored `limit`). After any backend edit: restart
 both instances (:8000 + the :8001 RLS one) before a live gate.
+
+## 2026-11-28 P25 Sprint — New Patterns & Lessons (session 48)
+
+### A Spec's Substrate Claim Is A Contract — Pin It In The Bootstrap
+The P24 ledger e2e spec documented "the demo substrate posts 36+ journal
+lines (the §9 bootstrap)" — but that claim only held on a DB whose
+volume had ACCUMULATED across prior sessions' e2e runs; a fresh host
+bootstrapped 6 lines and the spec failed (40P/1F/1S vs the documented
+42/42). Worse, the bootstrap's own invoice/credit-note steps had been
+silently broken since P14/M-4 made `tax_code_id` required — the POSTs
+failed behind `|| true` guards and printed "invoice OK ()" with an
+empty id, masked for months by the specs being self-sufficient. Lesson:
+when a spec depends on substrate volume or shape, the bootstrap is part
+of the contract — a `test.skip` that silently passes on a thin
+substrate hides the dependency until a volume-hungry spec exposes it.
+And a bootstrap step that can fail MUST fail loudly (print the response
+body, exit 1) — an idempotency guard that reuses what exists is not
+evidence that creation ever worked. The proof belongs in the sprint:
+drop the DB, run the bootstrap ONCE, run the suite FIRST-run, count the
+skips.
+
+### Parse The Range, Not Just The Type
+`parse_int_param` validated that an offset was a well-formed
+non-negative integer — but `?offset=99999999999999999999` parses fine
+and detonates at the SQL layer (`DataError: bigint out of range` → an
+untyped 500 on the ledger, while the Python-sliced envelope views
+quietly returned an empty page). A "garbage param" is anything the
+STORE cannot round-trip, not just what the parser cannot read: a
+bigint-backed param needs the int8 bound at the parse layer. The
+`min_value`/`max_value` pair is now symmetric (the upper mirror landed
+a sprint after the lower — asymmetries in validation helpers are where
+the next 500 lives).
+
+### Silent-Ignore Is A Contract Hole Too
+A well-formed `offset` without a `limit` was parsed, then discarded —
+every view returned the FULL unpaginated set with the offset unused,
+while `?offset=abc` correctly 400'd. The module's own philosophy
+("explicit beats silent clamping") was contradicted by its own code
+path. When a parameter is meaningless without its pair, say so with
+the typed 400 — but verify the blast radius first: grep every consumer
+(e2e, bootstrap, smoke scripts, hooks) for the orphan shape before
+making it an error, and document the rule in the API guide with a
+version bump.
+
+### Test The Observable Transport, Not The Mocked Hook
+The org-switch offset-reset test could not be written against a module
+mock of `useLedger` — a React render that is DISCARDED still calls the
+mock synchronously, so the mock records calls that never commit a
+fetch. The honest pin mocks only the api-client TRANSPORT and runs the
+real TanStack hook under a real QueryClient: the recorded URLs are
+exactly what hit the network. Bonus finding: the "stale fetch" the fix
+targeted never actually fired on React 19 + TanStack 5.90 (notifyManager
+batching suppresses it — the old useEffect code was accidentally safe).
+Empiricism downgraded the finding from "bug" to "hardening" — and the
+render-time reset (the React prev-state pattern) makes the guarantee
+explicit instead of timing-emergent. Write the real-hook test BEFORE
+concluding a timing-interior bug exists.

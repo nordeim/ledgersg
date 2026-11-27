@@ -6,16 +6,21 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-27, session 45 / P24) re-verified the guide against the current
-codebase on a live sandbox (backend 995P/0F/5S, vitest 660/660 (77 files,
+(2026-11-28, session 48 / P25) re-verified the guide against the current
+codebase on a live sandbox REBUILT FROM ZERO (rootless PG 17 + Redis via
+§3/§5, backend 1009P/0F/5S, vitest 664/664 (78 files,
 on vitest 4.1.12 — the P23 advisory closure), typecheck
 0 errors, whole-tree eslint 0 errors / 0 warnings, build:server
-green, the production-CSP smoke 5/5, live e2e 42P/0F/0S (42 specs), the
+green, the production-CSP smoke 5/5, live e2e 42P/0F/0S (42 specs) —
+INCLUDING the fresh-DB first-run proof: drop/recreate the dev database →
+ONE §9 bootstrap run → the FIRST `test:e2e:full` = 42/42 with 0 skipped
+(the P20-era promise restored by the P25 substrate top-up), the
 runtime-role smoke 13/13 as `ledgersg_app`, the mobile-nav probe 17/17 —
-the sixteenth consecutive settlement, P24; the new headline: the
-server-side list pagination (the additive `?limit=&offset=` contract on
-the six core list surfaces; the ledger UI pages at 20 rows — see
-`docs/REMEDIATION_2026-11-27_P24_REPORT.md`) —
+the eighteenth consecutive settlement, P25; the new headline: the
+fresh-substrate first-run truth + the pagination contract hardening (the
+§9 bootstrap's tax_code_id fix + the fodder top-up; the int8 offset cap +
+the offset-requires-limit typed 400s — see
+`docs/REMEDIATION_2026-11-28_P25_REPORT.md`) —
 carrying the P17 concurrency truth forward (double-reversal / double-void /
 double-reconcile refused under row locks; the 400-contract sweep; the Celery
 tenant context; the `/admin/` gate; the `STORAGES` manifest migration) and
@@ -253,8 +258,8 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-27 P24): 995 passed, 0 failed, 5 skipped
-# (P24 added the pagination contract gates; the P21-era suite was
+# expected (post-2026-11-28 P25): 1009 passed, 0 failed, 5 skipped
+# (P25 added the pagination-hardening gates; the P24-era suite was
 #  re-verified 969P on a fresh clone — the role `ledgersg_app` must
 #  still carry the schema's dev default password
 #  `CHANGE_ME_IN_PRODUCTION` for the RLS tests)
@@ -343,7 +348,7 @@ Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 660 vitest tests (77 files, on vitest 4.1.12)
+npm test                    # 664 vitest tests (78 files, on vitest 4.1.12)
 npm run test:coverage       # green at the honest measured-floor ratchet
 npm run build:server        # the only build mode
 npm run test:e2e            # green without a backend (gated specs skip)
@@ -365,8 +370,8 @@ export E2E_API_URL=http://127.0.0.1:8000 E2E_DEMO_EMAIL=demo@ledgersg.sg \
 # P20/X-H1: the ONE command bootstrap — scripts/bootstrap_demo_substrate_
 # session40.sh performs §9 steps 1-5 below idempotently against the live
 # stack (register/login, org, contact + profile PATCH, the invoice +
-# linked credit note + approvals, the F5 compute). Run it once on a fresh
-# database:
+# linked credit note + approvals, the pagination fodder top-up, the F5
+# compute). Run it once on a fresh database:
 bash scripts/bootstrap_demo_substrate_session40.sh http://127.0.0.1:8000
 
 # The equivalent manual steps (what the script does):
@@ -385,15 +390,28 @@ bash scripts/bootstrap_demo_substrate_session40.sh http://127.0.0.1:8000
 #    POST /api/v1/{org}/invoicing/documents/  with  document_type SALES_INVOICE
 #    and SALES_CREDIT_NOTE (a credit note additionally carries
 #    "related_document_id": <the invoice's id> — the P11 linkage contract;
-#    issue_date inside an open fiscal period; lines
-#    reference a REVENUE account id and optionally the SR tax code), then
+#    issue_date inside an open fiscal period; lines reference a REVENUE
+#    account id AND the SR tax code id — P25/E2E-M1: the line serializer
+#    has REQUIRED tax_code_id since P14/M-4; the pre-P25 script omitted
+#    it, the POSTs failed silently and the substrate's own invoice never
+#    landed on a fresh host), then
 #    POST …/documents/{id}/approve/  for each (posts the journal entries —
 #    the credit note's are direction-reversed, P11/C-1)
+# 4c) the pagination fodder top-up (P25/E2E-M1): the script counts the
+#    org's ledger lines (journal-entries/ledger/?limit=1 → count) and its
+#    APPROVED invoices, and while lines < 36 or approved < 4 (max 12
+#    iterations) creates + approves a small 50.00 SR fodder invoice —
+#    guaranteeing the P24 pagination spec's documented "36+ lines" claim
+#    and a durable voidable-document stock for the P7 void spec. The
+#    loop re-queries the count each iteration and is idempotent (a
+#    re-run at target creates nothing).
 # 5) compute an F5 return:  POST /api/v1/{org}/gst/returns/
 #    {"filing_frequency":"MONTHLY","start_date":"<month>-01","periods":1}
 #    then POST /api/v1/{org}/gst/returns/{id}/?force=true
 npm run test:e2e:full       # 42 specs: 11 always + 31 backend-gated
-                           # (42/42 live-green, P24)
+                           # (42/42 live-green on the FIRST run of a
+                           # fresh DB — re-proven P25 after the substrate
+                           # top-up: 42P/0F/0S)
 ```
 
 (P20/X-H1, the truth correction: the old parenthetical claimed "the p11

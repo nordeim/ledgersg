@@ -2,8 +2,8 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 3.3.0 (the P24 pagination contract + the P23 addendum + the P21 list-envelope unification + the P19 addendum + the P20 route errata)
-> **Last Updated**: 2026-11-27 (P24 — an API-surface change: the additive `?limit=&offset=` server-side pagination on every core list surface — see the P24 Addendum below; carried forward: the P23 presentation/test-tier sprint, the P21 list-envelope unification, the InvoiceNow evidence stamp, the on-commit cache invalidation, the ValidateBalance typed-400 body contract; carried forward: the P20 route errata + the P17 400 contracts)
+> **Version**: 3.4.0 (the P25 pagination-contract hardening + the P24 pagination contract + the P23 addendum + the P21 list-envelope unification + the P19 addendum + the P20 route errata)
+> **Last Updated**: 2026-11-28 (P25 — two request-semantics tightenings on the pagination contract: `offset` requires `limit` (the typed 400), the int8 offset cap at 2^63−1 — see the P25 Addendum below; carried forward: the P24 additive `?limit=&offset=` server-side pagination on every core list surface, the P23 presentation/test-tier sprint, the P21 list-envelope unification, the InvoiceNow evidence stamp, the on-commit cache invalidation, the ValidateBalance typed-400 body contract; carried forward: the P20 route errata + the P17 400 contracts)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
 ---
@@ -234,10 +234,61 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 ```
 
 The general-ledger web UI consumes this contract at page size 20 (the shared
-TablePagination control). Current gate truth (session 45): backend **995
+TablePagination control). Gate truth at P24 (session 45): backend **995
 passed / 0 failed / 5 skipped** (the +26 are the pagination contract gates) ·
 frontend **660 vitest + 42 e2e** (42/42 live) · the production dependency set
 clean at 0 advisories. See `docs/REMEDIATION_2026-11-27_P24_REPORT.md`.
+
+## P25 Addendum — the pagination-contract hardening (2026-11-28, session 48)
+
+**Two request-semantics tightenings on the P24 pagination contract** (both
+typed 400s, both pinned by `tests/integration/test_pagination_p25.py`):
+
+1. **`offset` now REQUIRES `limit`.** A well-formed `offset` without a
+   `limit` used to be silently ignored (the response returned the FULL
+   unpaginated set with the offset unused) — a caller that dropped `limit`
+   mid-paging got no signal. It is now the typed 400 (explicit beats
+   silent — the module's own convention; no existing consumer sends the
+   shape):
+
+   ```bash
+   curl -s -H "Authorization: Bearer $TOKEN" \
+     "http://127.0.0.1:8000/api/v1/$ORG/journal-entries/ledger/?offset=50"
+   # -> 400 {"error": {"code": "validation_error",
+   #         "message": "Invalid 'offset' — 'limit' is required when 'offset' is present ..."}}
+   ```
+
+2. **`offset` is capped at the Postgres bigint bound (2^63 − 1).** A
+   validly-typed but astronomically large offset used to reach the SQL
+   layer and detonate as an untyped **500** on the ledger
+   (`DataError: bigint out of range`). It is now the typed 400 on every
+   paginated surface; `offset=9223372036854775807` itself remains valid
+   (an empty page with a live `previous`):
+
+   ```bash
+   curl -s -H "Authorization: Bearer $TOKEN" \
+     "http://127.0.0.1:8000/api/v1/$ORG/journal-entries/ledger/?limit=10&offset=99999999999999999999"
+   # -> 400 {"error": {"code": "validation_error",
+   #         "message": "Invalid 'offset' — must be <= 9223372036854775807, got 99999999999999999999."}}
+   ```
+
+Everything else in the P24 addendum above is unchanged (the unpaginated
+`{results, count}` default stays byte-identical; `?limit=&offset=` empty
+strings behave as absent).
+
+**One documented divergence (not a change):** the account typeahead
+`GET /api/v1/{org_id}/coa/accounts/search/?q=…&limit=N` keeps its OWN
+legacy `limit` semantics (a result CAP, not a page: default 10, no upper
+bound, no offset, no next/previous) — it predates the P24 contract and
+serves autocomplete, not paging. Do not follow the P24 recipes there; the
+migration to the unified contract is registered for the search-surface
+work.
+
+Current gate truth (session 48): backend **1009 passed / 0 failed / 5
+skipped** (the +14 are the hardening gates) · frontend **664 vitest + 42
+e2e** (42/42 live INCLUDING the fresh-DB first-run proof) · the production
+dependency set clean at 0 advisories. See
+`docs/REMEDIATION_2026-11-28_P25_REPORT.md`.
 
 ## P23 Addendum — no API-surface change; the gates re-verified (2026-11-27, session 44)
 

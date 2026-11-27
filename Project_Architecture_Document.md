@@ -49,7 +49,7 @@
 ### Key Metrics (P24, 2026-11-27)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,697 Tests Passing** | 995 Backend + 660 Frontend unit + 42 e2e (11 always + 31 backend-gated; 42/42 live-green) + the 13-step runtime-role smoke |
+| **Test Coverage** | **1,715 Tests Passing** | 1009 Backend + 664 Frontend unit + 42 e2e (11 always + 31 backend-gated; 42/42 live-green incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+"); every LIST endpoint returns the unified `{results, count}` envelope (P21) with the additive `?limit=&offset=` pagination + next/previous + total-count (P24) |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
@@ -58,10 +58,10 @@
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
-| **Frontend Unit** | 660 (77 files) | 100% | Vitest + RTL (on vitest 4.1.12 — the P23 advisory closure) | ✅ Passing |
-| **Backend (pytest)** | 995 passed / 5 skipped (1000 collected) | 100% of run | pytest | ✅ Passing |
+| **Frontend Unit** | 664 (78 files) | 100% | Vitest + RTL (on vitest 4.1.12 — the P23 advisory closure) | ✅ Passing |
+| **Backend (pytest)** | 1009 passed / 5 skipped (1014 collected) | 100% of run | pytest | ✅ Passing |
 | **E2E (Playwright)** | 42 (11 always + 31 backend-gated) | 100% live | Playwright | ✅ Passing |
-| **Total Passing** | **1,697** | — | Mixed | ✅ Verified |
+| **Total Passing** | **1,715** | — | Mixed | ✅ Verified |
 
 ---
 

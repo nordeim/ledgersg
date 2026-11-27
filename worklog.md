@@ -1263,3 +1263,92 @@ deliberately not applied); the ruff mechanical batch (936
 production); the audit-log INSERT policy (DDL); BE-L3/BE-L4 locking;
 the CSV errors[] strings; dead-letter design; UEN checksum; the P21
 deferred register carried forward unchanged.
+
+## P25 Remediation — 2026-11-28 (session 48): the fresh-substrate first-run truth + the pagination contract hardening
+
+**Base:** `0def60b5` (post-P24 + the session-47 narration log). **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-28_P25.md` (anchor-validated);
+**report:** `docs/REMEDIATION_2026-11-28_P25_REPORT.md`. **Method:**
+TDD (RED → GREEN → full gate) for every behavioural change;
+conventional commits on `main`; `skills/` excluded; no DDL (schema v1.2.2
+carries forward); no backend model changes. The sandbox was recycled —
+the environment was rebuilt from zero (rootless PG 17 via
+`docs/setup_pg_z.sh`, Redis 8.0.2, the venv, `npm install`, Playwright
+chromium, the daemonized stack).
+
+### The baselines (reproduced before any change — 8 of 9 exact; the gap IS the finding)
+
+backend **995P/0F/5S** · vitest **660/660 (77 files)** · tsc 0 ·
+eslint **0E/0W** · live e2e:full **40P/1F/1S (first run) / 41P/1F/0S
+(second)** vs the documented **42/42** · rls_smoke **13/13** ·
+mobile-nav **17/17** · prod-CSP **5/5** · npm audit **0 critical**.
+
+### The named focus — settled first (seventeenth/eighteenth settlements)
+
+**The mobile navigation menu works as expected; NO remaining
+TailwindCSS v4 bug on that surface.** The live probe: the computed
+`transitionProperty: "transform, translate, visibility"`; the closed
+drawer `-100%`/hidden; a 120ms mid-flight sample at
+`translate: -40.9622%`; the open drawer a `role="dialog"` at `0px`;
+Escape closes it. The 17/17 audit re-ran on the fresh DB too.
+
+### The audits (Mode C; every finding hand-verified, one honestly downgraded)
+
+**0 Critical / 3 Medium / 5 Low / 4 Informational.** The headline
+(M1): the §9 bootstrap's invoice/credit-note steps had been SILENTLY
+BROKEN since P14/M-4 made `tax_code_id` required (the POSTs failed
+behind `|| true` guards — "invoice OK ()" with an empty id) and no step
+stocked the P24-era pagination volume: a fresh host could not reproduce
+the documented 42/42 (the P20-era first-run promise, broken by the P24
+spec's undocumented substrate dependency). M2: the huge offset (> 2^63−1)
+an untyped **500** on the ledger (live-reproduced `assert 500 == 400`).
+M3: the transactions surface untested in the P24 matrix. L1: the WCAG
+2.5.3 Label-in-Name pagination labels. L2: the beyond-end false "No
+journal entries yet" (the controls — the only way back — not rendered).
+L3: the org-switch stale-offset fetch — **empirically downgraded to
+hardening** (the real-hook test proved React 19 + TanStack 5.90's
+notifyManager batching suppresses it; the render-time reset makes the
+guarantee explicit). L4: the offset-without-limit silent ignore. L5:
+the stale texts. I1/I2: the Peppol transmission log + the
+accounts/search limit divergence (registered/documented).
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| E2E-M1 | the bootstrap's `TAX_CODE_ID` on every substrate line (LOUD failures — the body printed + exit 1) + **step 4c the fodder top-up** (count-driven: ≥ 36 ledger lines, ≥ 4 APPROVED invoices, max 12 iterations, idempotent) | the fixed step 4a created the invoice on the fresh org; the top-up stocked 36 lines / 12 approved from zero; the re-run created nothing |
+| BE-M2/L4 | `parse_int_param` gained `max_value`; `MAX_PAGE_OFFSET = 2^63−1` (int8 parity); the offset-requires-limit typed 400 | the 14-gate P25 file (RED 4 → GREEN 14) + the live curl probes (the typed 400 envelopes on :8000) |
+| BE-M3 | the transactions surface in the matrix (3 fixture `BankTransaction` rows) + the empty-string pins + the full absolute next-URL shape | the 6 transactions gates (pins — the coverage the P24 commit overstated) |
+| FE-L1/L2/L3 | `aria-label="Previous page"/"Next page"` (2.5.3); the count-based empty state + "Showing 0–0 of N" beyond-end math; the render-time org reset | the 3 RED→GREEN specs + the real-hook transport-URL pin (the honest downgrade recorded) |
+| X-docs | the truth pass (README badge 1715 + the P25 milestone, CLAUDE 2.26.0, AGENTS header + the P25 lessons, SKILL 2.12.0, PAD rows, DEPLOYMENT header/§7/§9 with the fodder top-up documented, the API guide 3.4.0 + the P25 addendum, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful (no changes) |
+
+### The fresh-DB proof (the M1 acceptance — executed)
+
+drop + recreate `ledgersg_dev` from the schema → restart both
+`--noreload` backends → flush Redis → **ONE** bootstrap run (**36
+lines / 12 APPROVED at the start**) → the **FIRST** `test:e2e:full` =
+**42P/0F/0S (2.3m)** — the first-run promise restored.
+
+### Final gate (all verified, executed)
+
+backend **1009P/0F/5S** (+14; 1014 collected) · vitest **664/664
+(78 files)** (+4) · coverage green at the ratchet · tsc 0 · whole-tree
+eslint **0 errors / 0 warnings** · **e2e:full 42P/0F/0S** (twice — the
+remediated tree AND the fresh-DB proof) · **rls_smoke 13/13 as
+`ledgersg_app`** (re-run on the fresh DB) · **mobile-nav 17/17** (the
+eighteenth settlement) · **prod-CSP 5/5** · build:server green · schema
+v1.2.2 (no DDL). 8 DOM-verified screenshots (152-159, the
+fresh-substrate ledger page 1/page 2 headline pair).
+
+### Deferred (registered, not dropped)
+
+The SQL-level push-down for the five service-driven lists; the frontend
+pagination wiring for invoices/contacts/payments/transactions; **the
+Peppol transmission-log pagination + its `id` tiebreaker (newly
+registered)**; **the `/accounts/search/` limit-contract migration
+(newly registered; the divergence documented in the API guide)**; the
+capped-default flip; the 17 dev-tier npm-audit findings (the dedicated
+dependency sprint); the ruff mechanical batch (936 production); the
+audit-log INSERT policy (DDL); BE-L3/BE-L4 locking; the CSV errors[]
+strings; dead-letter design; UEN checksum; the P21/P23/P24 deferred
+registers carried forward unchanged.
