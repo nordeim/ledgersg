@@ -15,8 +15,12 @@ import * as apiClient from "@/lib/api-client";
 import { AuthProvider, useAuth } from "../auth-provider";
 
 const push = vi.fn();
+// P19/FE-L7: the real App Router's useRouter() returns a STABLE
+// reference per mount — the fresh-object-per-render mock re-triggered
+// the session effect on every render once `router` joined its deps.
+const routerStub = { push, replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() };
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push, replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => routerStub,
 }));
 
 vi.mock("@/lib/api-client", async () => {

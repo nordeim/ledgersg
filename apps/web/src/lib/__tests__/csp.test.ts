@@ -109,3 +109,21 @@ describe("buildCsp (P16/FE-C1 — nonce-based production CSP)", () => {
     expect(() => buildCsp({ isDev: false, apiUrl })).toThrow(/nonce/i);
   });
 });
+
+describe("buildCsp (P19/X-M1 — production violation reporting)", () => {
+  it("production: carries report-uri bound to the backend CSP endpoint", () => {
+    const csp = buildCsp({
+      nonce: "abc123",
+      isDev: false,
+      apiUrl: "https://api.ledgersg.example",
+    });
+    expect(csp).toContain(
+      "report-uri https://api.ledgersg.example/api/v1/security/csp-report/"
+    );
+  });
+
+  it("development: no report-uri (the endpoint is cross-origin noise locally)", () => {
+    const csp = buildCsp({ isDev: true, apiUrl: "http://localhost:8000" });
+    expect(csp).not.toContain("report-uri");
+  });
+});

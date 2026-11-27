@@ -61,7 +61,7 @@ describe("InvoiceLineRow", () => {
   it("renders the per-line account select populated with the org accounts", async () => {
     renderLineRow();
 
-    const accountSelect = screen.getByRole("combobox", { name: "Account" });
+    const accountSelect = screen.getByRole("combobox", { name: "Line 1 account" });
     expect(accountSelect).toBeInTheDocument();
 
     const user = userEvent.setup();
@@ -73,7 +73,7 @@ describe("InvoiceLineRow", () => {
   it("renders server-resolved tax codes with their effective rates", async () => {
     renderLineRow();
 
-    const taxSelect = screen.getByRole("combobox", { name: "Tax code" });
+    const taxSelect = screen.getByRole("combobox", { name: "Line 1 tax code" });
     const user = userEvent.setup();
     await user.click(taxSelect);
 
@@ -86,7 +86,7 @@ describe("InvoiceLineRow", () => {
   it("falls back to the static tax-code list when no server rows are provided", async () => {
     renderLineRow({ taxCodes: undefined });
 
-    const taxSelect = screen.getByRole("combobox", { name: "Tax code" });
+    const taxSelect = screen.getByRole("combobox", { name: "Line 1 tax code" });
     const user = userEvent.setup();
     await user.click(taxSelect);
 
@@ -98,14 +98,14 @@ describe("InvoiceLineRow", () => {
     renderLineRow();
 
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Line description"), "Consulting");
-    await user.clear(screen.getByLabelText("Quantity"));
-    await user.type(screen.getByLabelText("Quantity"), "1");
-    await user.clear(screen.getByLabelText("Unit price"));
-    await user.type(screen.getByLabelText("Unit price"), "100");
+    await user.type(screen.getByLabelText("Line 1 description"), "Consulting");
+    await user.clear(screen.getByLabelText("Line 1 quantity"));
+    await user.type(screen.getByLabelText("Line 1 quantity"), "1");
+    await user.clear(screen.getByLabelText("Line 1 unit price"));
+    await user.type(screen.getByLabelText("Line 1 unit price"), "100");
 
     await waitFor(
-      () => expect(screen.getByLabelText("Line total").textContent).toBe("108.00"),
+      () => expect(screen.getByLabelText("Line 1 total").textContent).toBe("108.00"),
       { timeout: 3000 }
     );
   });

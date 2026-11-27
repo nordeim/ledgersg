@@ -432,34 +432,60 @@ function PaymentsTab() {
 
   return (
     <div className="space-y-4">
+      {/* Receive-payment modal — P19/FE-H1: the hand-rolled fixed div
+          (no focus trap, no Escape, no dialog semantics) replaced with
+          the Radix Dialog primitive the repo's own discipline mandates. */}
       {showReceiveForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <ReceivePaymentForm
-            orgId={orgId}
-            initialContactId={prefill?.contactId}
-            initialAllocations={prefill?.allocations}
-            onSuccess={() => {
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) {
               setShowReceiveForm(false);
               setPrefill(null);
-            }}
-            onCancel={() => {
-              setShowReceiveForm(false);
-              setPrefill(null);
-            }}
-          />
-        </div>
+            }
+          }}
+        >
+          <DialogContent
+            aria-label="Receive Payment"
+            className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-0 bg-transparent shadow-none"
+          >
+            <ReceivePaymentForm
+              orgId={orgId}
+              initialContactId={prefill?.contactId}
+              initialAllocations={prefill?.allocations}
+              onSuccess={() => {
+                setShowReceiveForm(false);
+                setPrefill(null);
+              }}
+              onCancel={() => {
+                setShowReceiveForm(false);
+                setPrefill(null);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* P9/B-5: the Make Payment button finally has its form (the state
-          existed but nothing rendered from it). */}
+          existed but nothing rendered from it). P19/FE-H1: Radix Dialog. */}
       {showMakeForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <MakePaymentForm
-            orgId={orgId}
-            onSuccess={() => setShowMakeForm(false)}
-            onCancel={() => setShowMakeForm(false)}
-          />
-        </div>
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setShowMakeForm(false);
+          }}
+        >
+          <DialogContent
+            aria-label="Make Payment"
+            className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-0 bg-transparent shadow-none"
+          >
+            <MakePaymentForm
+              orgId={orgId}
+              onSuccess={() => setShowMakeForm(false)}
+              onCancel={() => setShowMakeForm(false)}
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
       <PaymentFilters 
@@ -556,26 +582,46 @@ function BankTransactionsTab() {
 
   return (
     <div className="space-y-4">
-      {/* Import Modal */}
+      {/* Import Modal — P19/FE-H1: Radix Dialog. */}
       {showImportForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <ImportTransactionsForm
-            orgId={orgId}
-            onSuccess={() => setShowImportForm(false)}
-            onCancel={() => setShowImportForm(false)}
-          />
-        </div>
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setShowImportForm(false);
+          }}
+        >
+          <DialogContent
+            aria-label="Import Statement"
+            className="max-w-lg max-h-[90vh] overflow-y-auto p-0 border-0 bg-transparent shadow-none"
+          >
+            <ImportTransactionsForm
+              orgId={orgId}
+              onSuccess={() => setShowImportForm(false)}
+              onCancel={() => setShowImportForm(false)}
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
-      {/* Reconcile Modal */}
+      {/* Reconcile Modal — P19/FE-H1: Radix Dialog. */}
       {showReconcileForm && selectedTransaction && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <ReconcileForm
-            transaction={selectedTransaction}
-            orgId={orgId}
-            onClose={handleCloseReconcileForm}
-          />
-        </div>
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) handleCloseReconcileForm();
+          }}
+        >
+          <DialogContent
+            aria-label="Reconcile Transaction"
+            className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-0 bg-transparent shadow-none"
+          >
+            <ReconcileForm
+              transaction={selectedTransaction}
+              orgId={orgId}
+              onClose={handleCloseReconcileForm}
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Reconciliation Summary */}

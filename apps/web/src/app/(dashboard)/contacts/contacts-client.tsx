@@ -1,5 +1,6 @@
 "use client";
 
+import { optionalUenSchema } from "@/shared/schemas/uen";
 import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
@@ -387,6 +388,13 @@ function EditContactForm({
 
   const handleSave = async () => {
     setError(null);
+    // P19/FE-L8: the UEN edit field validates with the shared ACRA schema
+    // (the create path always did) — a typo'd UEN surfaced only as a
+    // backend 400 toast after save.
+    if (!optionalUenSchema.safeParse(form.uen ?? "").success) {
+      setError("UEN format is invalid (8-9 digits + letter, or T/S + 2 digits + 2 letters + 4 digits + letter).");
+      return;
+    }
     try {
       // The fields ride along with their TRUE prefilled values — a blank
       // only ever means the user cleared it.

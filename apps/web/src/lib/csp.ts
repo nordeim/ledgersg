@@ -66,6 +66,12 @@ export function buildCsp({ nonce, isDev, apiUrl }: CspOptions): string {
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
+    // P19/X-M1: production violations report to the backend's (already
+    // existing, already tested) CSP report endpoint — without this the
+    // ENFORCED policy's failures were invisible in production (the exact
+    // hydration-break class P16/FE-C1 fixed would return silently).
+    // Dev keeps no report-uri: the endpoint is cross-origin noise locally.
+    ...(isDev ? [] : [`report-uri ${apiUrl}/api/v1/security/csp-report/`]),
     // Production posture only — dev runs on plain http://localhost by design.
     ...(isDev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");

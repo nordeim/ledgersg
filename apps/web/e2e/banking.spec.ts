@@ -29,7 +29,7 @@ async function loginViaUi(page: import("@playwright/test").Page) {
     process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
   );
   await page.locator("input[type='password']").fill(
-    process.env.E2E_DEMO_PASSWORD ?? "demo1234"
+    process.env.E2E_DEMO_PASSWORD ?? "demo1234pass"
   );
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });
@@ -46,7 +46,7 @@ async function ensureOutstandingInvoice(page: import("@playwright/test").Page) {
   const login = await page.request.post(`${apiUrl}/api/v1/auth/login/`, {
     data: {
       email: process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg",
-      password: process.env.E2E_DEMO_PASSWORD ?? "demo1234",
+      password: process.env.E2E_DEMO_PASSWORD ?? "demo1234pass",
     },
   });
   test.expect(login.ok()).toBeTruthy();
@@ -185,7 +185,9 @@ test("record payment settles an invoice end to end (P9/B-3, B-3b)", async ({ pag
   await page.getByLabel("Payment amount").fill(due);
   // Scoped to the overlay — the payments tab behind it carries a
   // "Receive Payment" button of its own (strict mode).
-  const receiveOverlay = page.locator("div.fixed.inset-0");
+  // P19/FE-H1: the hand-rolled fixed-position overlay is a Radix Dialog
+  // now — scope to the dialog role.
+  const receiveOverlay = page.getByRole("dialog");
   await receiveOverlay
     .getByRole("button", { name: /receive payment/i })
     .click();
@@ -227,7 +229,7 @@ test("statement import sends real multipart and matches reconcile (P9/B-1, B-2, 
   // The import form overlay (scoped — the transaction filters carry a
   // bank-account combobox of their own).
   const overlay = page
-    .locator("div.fixed.inset-0")
+    .getByRole("dialog")
     .filter({ hasText: "Import Bank Statement" });
   await overlay.getByRole("combobox", { name: /bank account/i }).click();
   await page.getByRole("option", { name: /e2e operating/i }).first().click();
@@ -256,23 +258,27 @@ test("statement import sends real multipart and matches reconcile (P9/B-1, B-2, 
 
   // Reconcile: the match suggestion must RENDER (pre-P9 the envelope
   // mismatch always showed "No matching payments found").
-  await transactionRow.first().locator("div.cursor-pointer").click();
+  // P19/FE-H2: the row expander is a real button now (was a clickable
+  // div) — keyboard- and pointer-operable alike.
+  await transactionRow.first().getByRole("button").first().click();
+  // P19/FE-H2: the header button's accessible name now includes the
+  // "Unreconciled" badge — the ACTION button is matched by exact name.
   await transactionRow
     .first()
-    .getByRole("button", { name: /reconcile/i })
+    .getByRole("button", { name: "Reconcile", exact: true })
     .click();
 
   // The payment number is sequence-prefixed (RCP-00001) — the match row
   // is the only overlay button carrying it.
   const matchRow = page
-    .locator("div.fixed.inset-0")
+    .getByRole("dialog")
     .getByRole("button", { name: /rcp-\d|rec-\d/i })
     .first();
   await expect(matchRow).toBeVisible({ timeout: 15000 });
   await matchRow.click();
 
   await page
-    .locator("div.fixed.inset-0")
+    .getByRole("dialog")
     .getByRole("button", { name: /^reconcile$/i })
     .click();
 
@@ -280,7 +286,7 @@ test("statement import sends real multipart and matches reconcile (P9/B-1, B-2, 
   // AND the "Reconciled: <timestamp>" line both carry the word — .first()
   // is the badge).
   await expect(
-    page.locator("div.fixed.inset-0").filter({ hasText: "Suggested Matches" })
+    page.getByRole("dialog").filter({ hasText: "Suggested Matches" })
   ).toBeHidden({ timeout: 20000 });
   await expect(
     transactionRow.first().getByText("Unreconciled")

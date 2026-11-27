@@ -25,12 +25,15 @@ export function TaxBreakdownCard({
 }: TaxBreakdownCardProps) {
   const [announcement, setAnnouncement] = React.useState("");
 
-  // Screen reader announcement when totals change
+  // Screen reader announcement when totals change (P19/FE-L7: the
+  // effect intentionally depends only on the displayed total —
+  // destructured so the exhaustive-deps gate can verify it).
+  const displayTotal = totals?.display_total;
   React.useEffect(() => {
-    if (totals) {
-      setAnnouncement(`Invoice total updated to S$ ${totals.display_total}`);
+    if (displayTotal !== undefined) {
+      setAnnouncement(`Invoice total updated to S$ ${displayTotal}`);
     }
-  }, [totals?.display_total]);
+  }, [displayTotal]);
 
   if (!totals) {
     return (

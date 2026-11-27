@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/providers/auth-provider";
+import { optionalUenSchema } from "@/shared/schemas/uen";
 import { FiscalCard } from "./components/fiscal-card";
 import { ChangePasswordCard } from "./components/change-password-card";
 import { InvoiceNowSettingsCard } from "./components/invoicenow-settings-card";
@@ -36,6 +37,10 @@ export function SettingsClient() {
   const deregisterGst = useGstDeregistration(orgId as string);
 
   const [form, setForm] = useState<OrganisationUpdate>({});
+  // P19/FE-L8: the org UEN edit's client-side validation error (declared
+  // with the other hooks — the first cut landed below an early return and
+  // tripped rules-of-hooks).
+  const [uenError, setUenError] = useState<string | null>(null);
   const [gstNumber, setGstNumber] = useState("");
   const [gstDate, setGstDate] = useState("");
 
@@ -112,6 +117,13 @@ export function SettingsClient() {
 
   const handleSave = () => {
     if (Object.keys(form).length === 0) return;
+    // P19/FE-L8: the org UEN edit validates with the shared ACRA schema
+    // (the create path validates via uenSchema.safeParse).
+    if (!optionalUenSchema.safeParse(value("uen")).success) {
+      setUenError("UEN format is invalid.");
+      return;
+    }
+    setUenError(null);
     updateOrganisation.mutate(form, { onSuccess: handleSaveSuccess });
   };
 
@@ -148,6 +160,7 @@ export function SettingsClient() {
               label="UEN"
               value={value("uen")}
               onChange={(e) => setValue("uen", e.target.value)}
+              error={uenError ?? undefined}
             />
             {/* P11/M-5: the DB column is CHAR(3) — free text sent 4+
             chars into a DataError 500; the backend now 400s, and the input

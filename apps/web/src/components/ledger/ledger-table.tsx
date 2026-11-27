@@ -179,6 +179,12 @@ export function LedgerTable({ data }: LedgerTableProps) {
     },
   ];
 
+  // P19/FE-L7 (documented decision): the React Compiler cannot compile
+  // TanStack Table's useReactTable hook (upstream library incompatibility
+  // — "Compilation Skipped: Use of incompatible library"). The hook's
+  // own memoization is correct; the disable records that this is the
+  // library's limitation, not a repo defect to refactor around.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,

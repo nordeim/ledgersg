@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BankingClient } from "../banking-client";
@@ -177,7 +177,16 @@ describe("BankingPage", () => {
         refetch: vi.fn(),
       } as unknown as ReturnType<typeof bankingHooks.usePayments>);
       try {
+        const user = userEvent.setup();
         render(<BankingClient />, { wrapper: createWrapper() });
+
+        // P19/FE-H1: the deep link auto-opens the Receive Payment dialog
+        // (a real Radix modal now — the background is inert while open);
+        // close it first, then assert the tab landed on payments.
+        await user.keyboard("{Escape}");
+        await waitFor(() =>
+          expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+        );
 
         // The payments tab is ACTIVE (its content renders), not accounts.
         // .first(): the payments content carries the filter's own inner

@@ -146,6 +146,7 @@ export function InvoiceDetailClient({ id, variant = "invoice" }: InvoiceDetailCl
         <div className="flex items-center gap-4">
           <Link
             href={backHref}
+            aria-label={isQuote ? "Back to quotes" : "Back to invoices"}
             className="inline-flex h-10 w-10 items-center justify-center border border-border text-text-secondary hover:bg-surface"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -282,6 +283,7 @@ export function InvoiceDetailClient({ id, variant = "invoice" }: InvoiceDetailCl
         <div className="flex items-center gap-4">
           <Link
             href={backHref}
+            aria-label={isQuote ? "Back to quotes" : "Back to invoices"}
             className="inline-flex h-10 w-10 items-center justify-center border border-border text-text-secondary hover:bg-surface"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -500,16 +502,16 @@ export function InvoiceDetailClient({ id, variant = "invoice" }: InvoiceDetailCl
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">
+                  <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-text-secondary">
                     Description
                   </th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-text-secondary">
+                  <th scope="col" className="text-right py-3 px-4 text-sm font-medium text-text-secondary">
                     Qty
                   </th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-text-secondary">
+                  <th scope="col" className="text-right py-3 px-4 text-sm font-medium text-text-secondary">
                     Rate
                   </th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-text-secondary">
+                  <th scope="col" className="text-right py-3 px-4 text-sm font-medium text-text-secondary">
                     Amount
                   </th>
                 </tr>

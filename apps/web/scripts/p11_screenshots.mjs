@@ -19,7 +19,7 @@ import { chromium } from "playwright";
 const WEB = "http://localhost:3000";
 const SHOTS = "../../docs/screenshots";
 const EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg";
-const PASSWORD = process.env.E2E_DEMO_PASSWORD ?? "demo1234";
+const PASSWORD = process.env.E2E_DEMO_PASSWORD ?? "demo1234pass";
 
 const targets = [
   // [file, path, comment]

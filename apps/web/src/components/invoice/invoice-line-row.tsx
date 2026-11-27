@@ -120,8 +120,7 @@ export function InvoiceLineRow({
         "grid gap-2 items-start py-3 border-b border-border last:border-0",
         "grid-cols-12"
       )}
-      role="row"
-      aria-label={`Invoice line ${index + 1}`}
+      data-testid={`invoice-line-${index + 1}`}
     >
       {/* Drag Handle */}
       <div className="col-span-1 flex items-center justify-center pt-2">
@@ -137,7 +136,7 @@ export function InvoiceLineRow({
             "h-10 text-sm border-border bg-surface",
             "focus-visible:ring-accent-primary/50 rounded-sm"
           )}
-          aria-label="Line description"
+          aria-label={`Line ${index + 1} description`}
         />
       </div>
 
@@ -151,7 +150,7 @@ export function InvoiceLineRow({
             "h-10 text-sm text-right font-mono border-border bg-surface",
             "focus-visible:ring-accent-primary/50 rounded-sm tabular-nums slashed-zero"
           )}
-          aria-label="Quantity"
+          aria-label={`Line ${index + 1} quantity`}
         />
       </div>
 
@@ -161,7 +160,7 @@ export function InvoiceLineRow({
           value={line.unit_price}
           onChange={(val) => setValue(`lines.${index}.unit_price`, val)}
           currencySymbol=""
-          ariaLabel="Unit price"
+          ariaLabel={`Line ${index + 1} unit price`}
           className={cn("h-10 font-mono rounded-sm", "focus-visible:ring-accent-primary/50")}
           decimalScale={4}
         />
@@ -177,7 +176,7 @@ export function InvoiceLineRow({
             "h-10 text-sm text-right font-mono border-border bg-surface",
             "focus-visible:ring-accent-primary/50 rounded-sm tabular-nums"
           )}
-          aria-label="Discount percentage"
+          aria-label={`Line ${index + 1} discount percentage`}
           placeholder="0"
         />
       </div>
@@ -193,7 +192,7 @@ export function InvoiceLineRow({
               "h-10 text-xs border-border bg-surface rounded-sm",
               "focus-visible:ring-accent-primary/50"
             )}
-            aria-label="Account"
+            aria-label={`Line ${index + 1} account`}
           >
             <SelectValue placeholder="Account" />
           </SelectTrigger>
@@ -231,7 +230,7 @@ export function InvoiceLineRow({
               "h-10 text-xs border-border bg-surface rounded-sm",
               "focus-visible:ring-accent-primary/50"
             )}
-            aria-label="Tax code"
+            aria-label={`Line ${index + 1} tax code`}
           >
             <SelectValue placeholder="Tax" />
           </SelectTrigger>
@@ -253,7 +252,7 @@ export function InvoiceLineRow({
           "col-span-1 text-right text-sm font-mono font-medium pt-2",
           "tabular-nums slashed-zero text-text-primary"
         )}
-        aria-label="Line total"
+        aria-label={`Line ${index + 1} total`}
         aria-live="polite"
       >
         {computed.display_total}

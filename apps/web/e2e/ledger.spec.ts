@@ -12,17 +12,13 @@ const apiUrl = process.env.E2E_API_URL;
 
 test.skip(!apiUrl, "requires E2E_API_URL (live backend) — run via npm run test:e2e:full");
 
-interface LoginResponse {
-  tokens: { access: string; refresh: string };
-}
-
 async function loginViaUi(page: import("@playwright/test").Page) {
   await page.goto("/login");
   await page.locator("input[type='email']").fill(
     process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
   );
   await page.locator("input[type='password']").fill(
-    process.env.E2E_DEMO_PASSWORD ?? "demo1234"
+    process.env.E2E_DEMO_PASSWORD ?? "demo1234pass"
   );
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });

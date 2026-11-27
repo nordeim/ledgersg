@@ -24,6 +24,9 @@ export function TransactionRow({ transaction, onToggle, onReconcile, onUnreconci
   const amountPrefix = isCredit ? "+" : "";
   const amountColor = isCredit ? "text-success" : "text-alert";
   const AmountIcon = isCredit ? ArrowDownLeft : ArrowUpRight;
+  // P19/FE-H2: the expanded panel is the header button's controlled
+  // region (aria-controls).
+  const detailsId = `transaction-details-${transaction.id}`;
 
   const handleToggle = () => {
     setIsExpanded(!isExpanded);
@@ -52,9 +55,15 @@ export function TransactionRow({ transaction, onToggle, onReconcile, onUnreconci
       }`}
       data-testid="transaction-row"
     >
-      <div
-        className="p-4 cursor-pointer hover:bg-surface transition-colors"
+      {/* P19/FE-H2: a real button (the pre-P19 clickable div was
+          mouse-only — keyboard users could not expand a transaction,
+          therefore could not reach Reconcile at all; WCAG 2.1.1 Level A). */}
+      <button
+        type="button"
+        className="p-4 cursor-pointer hover:bg-surface transition-colors w-full text-left"
         onClick={handleToggle}
+        aria-expanded={isExpanded}
+        aria-controls={detailsId}
       >
         <div className="flex items-center justify-between">
           {/* Left: Transaction Info */}
@@ -116,11 +125,11 @@ export function TransactionRow({ transaction, onToggle, onReconcile, onUnreconci
             </div>
           </div>
         </div>
-      </div>
+      </button>
 
       {/* Expanded Details */}
       {isExpanded && (
-        <CardContent className="border-t border-border bg-carbon p-4">
+        <CardContent id={detailsId} className="border-t border-border bg-carbon p-4">
           <div className="space-y-3">
             <div className="text-sm font-semibold text-text-primary">
               Transaction Details

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertCircle, X } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { MoneyInput } from "@/components/ui/money-input";
 import { useReceivePayment } from "@/hooks/use-banking";
 import { useBankAccounts } from "@/hooks/use-banking";
@@ -127,15 +127,6 @@ export function ReceivePaymentForm({
           <CardTitle className="font-display text-lg text-text-primary">
             Receive Payment
           </CardTitle>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onCancel}
-            className="h-8 w-8"
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </CardHeader>
         
         <CardContent className="space-y-4">
@@ -166,7 +157,7 @@ export function ReceivePaymentForm({
                 invalid={!!errors.contact_id}
               />
               {errors.contact_id && (
-                <p className="text-sm text-alert">{errors.contact_id}</p>
+                <p role="alert" className="text-sm text-alert">{errors.contact_id}</p>
               )}
             </div>
 
@@ -192,7 +183,7 @@ export function ReceivePaymentForm({
                 </SelectContent>
               </Select>
               {errors.bank_account_id && (
-                <p className="text-sm text-alert">{errors.bank_account_id}</p>
+                <p role="alert" className="text-sm text-alert">{errors.bank_account_id}</p>
               )}
             </div>
 
@@ -208,7 +199,7 @@ export function ReceivePaymentForm({
           disabled={isSubmitting}
         />
               {errors.amount && (
-                <p className="text-sm text-alert">{errors.amount}</p>
+                <p role="alert" className="text-sm text-alert">{errors.amount}</p>
               )}
             </div>
 
@@ -219,13 +210,14 @@ export function ReceivePaymentForm({
               </label>
               <Input
                 type="date"
+                aria-label="Payment date"
                 value={formData.payment_date || ""}
                 onChange={(e) => handleChange("payment_date", e.target.value)}
                 className="rounded-sm"
                 disabled={isSubmitting}
               />
               {errors.payment_date && (
-                <p className="text-sm text-alert">{errors.payment_date}</p>
+                <p role="alert" className="text-sm text-alert">{errors.payment_date}</p>
               )}
             </div>
 
@@ -239,7 +231,7 @@ export function ReceivePaymentForm({
                 onValueChange={(value) => handleChange("payment_method", value)}
                 disabled={isSubmitting}
               >
-                <SelectTrigger className="rounded-sm">
+                <SelectTrigger className="rounded-sm" aria-label="Payment method">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -251,7 +243,7 @@ export function ReceivePaymentForm({
                 </SelectContent>
               </Select>
               {errors.payment_method && (
-                <p className="text-sm text-alert">{errors.payment_method}</p>
+                <p role="alert" className="text-sm text-alert">{errors.payment_method}</p>
               )}
             </div>
 
@@ -261,6 +253,7 @@ export function ReceivePaymentForm({
                 Reference
               </label>
               <Input
+                aria-label="Payment reference"
                 placeholder="e.g., Invoice #12345"
                 value={formData.payment_reference || ""}
                 onChange={(e) => handleChange("payment_reference", e.target.value)}
@@ -276,6 +269,7 @@ export function ReceivePaymentForm({
               Notes
             </label>
             <Input
+              aria-label="Notes"
               placeholder="Additional notes..."
               value={formData.notes || ""}
               onChange={(e) => handleChange("notes", e.target.value)}

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useSuggestMatches, useReconcileTransaction } from "@/hooks/use-banking";
 import { formatMoney } from "@/shared/format";
 import type { BankTransaction } from "@/shared/schemas";
@@ -63,9 +63,6 @@ export function ReconcileForm({ transaction, orgId, onClose }: ReconcileFormProp
         <CardTitle className="font-display text-lg text-text-primary">
           Reconcile Transaction
         </CardTitle>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Error Alert */}

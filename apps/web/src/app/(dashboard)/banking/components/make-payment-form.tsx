@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { MoneyInput } from "@/components/ui/money-input";
 import { useMakePayment, useBankAccounts } from "@/hooks/use-banking";
 import { paymentMakeInputSchema } from "@/shared/schemas";
@@ -118,15 +118,6 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
           <CardTitle className="font-display text-lg text-text-primary">
             Make Payment
           </CardTitle>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onCancel}
-            className="h-8 w-8"
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </CardHeader>
 
         <CardContent className="space-y-4">
@@ -154,7 +145,7 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
                 invalid={!!errors.contact_id}
               />
               {errors.contact_id && (
-                <p className="text-sm text-alert">{errors.contact_id}</p>
+                <p role="alert" className="text-sm text-alert">{errors.contact_id}</p>
               )}
             </div>
 
@@ -180,7 +171,7 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
                 </SelectContent>
               </Select>
               {errors.bank_account_id && (
-                <p className="text-sm text-alert">{errors.bank_account_id}</p>
+                <p role="alert" className="text-sm text-alert">{errors.bank_account_id}</p>
               )}
             </div>
 
@@ -196,7 +187,7 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
                 disabled={isSubmitting}
               />
               {errors.amount && (
-                <p className="text-sm text-alert">{errors.amount}</p>
+                <p role="alert" className="text-sm text-alert">{errors.amount}</p>
               )}
             </div>
 
@@ -207,13 +198,14 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
               </label>
               <Input
                 type="date"
+                aria-label="Payment date"
                 value={formData.payment_date || ""}
                 onChange={(e) => handleChange("payment_date", e.target.value)}
                 className="rounded-sm"
                 disabled={isSubmitting}
               />
               {errors.payment_date && (
-                <p className="text-sm text-alert">{errors.payment_date}</p>
+                <p role="alert" className="text-sm text-alert">{errors.payment_date}</p>
               )}
             </div>
 
@@ -227,7 +219,7 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
                 onValueChange={(value) => handleChange("payment_method", value)}
                 disabled={isSubmitting}
               >
-                <SelectTrigger className="rounded-sm">
+                <SelectTrigger className="rounded-sm" aria-label="Payment method">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -239,7 +231,7 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
                 </SelectContent>
               </Select>
               {errors.payment_method && (
-                <p className="text-sm text-alert">{errors.payment_method}</p>
+                <p role="alert" className="text-sm text-alert">{errors.payment_method}</p>
               )}
             </div>
 
@@ -260,6 +252,7 @@ export function MakePaymentForm({ orgId, onSuccess, onCancel }: MakePaymentFormP
           <div className="space-y-2">
             <label className="text-sm text-text-secondary">Notes</label>
             <Input
+              aria-label="Notes"
               placeholder="Additional notes..."
               value={formData.notes || ""}
               onChange={(e) => handleChange("notes", e.target.value)}

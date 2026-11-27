@@ -18,7 +18,7 @@ async function loginViaUi(page: import("@playwright/test").Page) {
     process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
   );
   await page.locator("input[type='password']").fill(
-    process.env.E2E_DEMO_PASSWORD ?? "demo1234"
+    process.env.E2E_DEMO_PASSWORD ?? "demo1234pass"
   );
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });

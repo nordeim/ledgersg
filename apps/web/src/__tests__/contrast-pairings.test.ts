@@ -110,7 +110,7 @@ describe("palette contrast ratios (P18/FE-M3)", () => {
 
   it("the bright status backgrounds meet AA with their dark foregrounds", () => {
     const voidFg = themeToken("color-void");
-    for (const token of ["color-success", "color-alert", "color-accent-primary", "color-accent-secondary"]) {
+    for (const token of ["color-success", "color-alert", "color-accent-primary", "color-accent-secondary", "color-warning"]) {
       const ratio = contrast(voidFg, themeToken(token));
       expect(ratio, `void on --${token} is ${ratio.toFixed(2)}:1 (AA needs 4.5)`).toBeGreaterThanOrEqual(4.5);
     }

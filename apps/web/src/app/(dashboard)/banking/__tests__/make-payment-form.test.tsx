@@ -80,7 +80,8 @@ describe("MakePaymentForm (P9/B-5)", () => {
 
     // pick the supplier (focus opens the dropdown)
     fireEvent.focus(screen.getByRole("combobox", { name: /search supplier/i }));
-    fireEvent.click(await screen.findByRole("option", { name: /Globex Supplies/i }));
+    // P19/FE-M2: options select on mousedown (before the input blur).
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /Globex Supplies/i }));
     await waitFor(() =>
       expect(screen.getByText(/Globex Supplies/)).toBeInTheDocument()
     );

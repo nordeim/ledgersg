@@ -189,8 +189,11 @@ describe("TransactionRow", () => {
       <TransactionRow transaction={unreconciled} onUnreconcile={onUnreconcile} />
     );
 
+    // P19/FE-H2: the row header is now a real button whose accessible
+    // name includes the "Unreconciled" badge — the ACTION button is
+    // matched by its exact name instead.
     expect(
-      screen.queryByRole("button", { name: /unreconcile/i })
+      screen.queryByRole("button", { name: "Unreconcile" })
     ).not.toBeInTheDocument();
   });
 });

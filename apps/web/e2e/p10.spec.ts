@@ -26,7 +26,7 @@ async function apiLoginToken(page: import("@playwright/test").Page): Promise<str
   const response = await page.request.post(`${apiUrl}/api/v1/auth/login/`, {
     data: {
       email: process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg",
-      password: process.env.E2E_DEMO_PASSWORD ?? "demo1234",
+      password: process.env.E2E_DEMO_PASSWORD ?? "demo1234pass",
     },
   });
   test.expect(response.ok()).toBeTruthy();
@@ -69,7 +69,7 @@ async function loginViaUi(page: import("@playwright/test").Page) {
     process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
   );
   await page.locator("input[type='password']").fill(
-    process.env.E2E_DEMO_PASSWORD ?? "demo1234"
+    process.env.E2E_DEMO_PASSWORD ?? "demo1234pass"
   );
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });

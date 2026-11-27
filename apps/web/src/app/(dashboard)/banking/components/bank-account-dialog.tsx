@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { useCreateBankAccount, useUpdateBankAccount } from "@/hooks/use-banking";
 import { useAccounts } from "@/hooks/use-accounts";
 import { bankAccountInputSchema, type BankAccount } from "@/shared/schemas/bank-account";
+import { uenRegex } from "@/shared/schemas/uen";
 
 /**
  * P9/B-4: the bank-account creation dialog — the "Add Bank Account"/"Add
@@ -109,7 +110,9 @@ export function BankAccountDialog({ open, onOpenChange, orgId, account }: Props)
     }
     if (effType && effId) {
       const id = effId;
-      if (effType === "UEN" && id.length > 10) {
+      // P19/FE-M1: the shared ACRA regex (the create path validates with
+      // it — the pre-P19 length-only check accepted any ≤10-char garbage).
+      if (effType === "UEN" && !uenRegex.test(id.trim().toUpperCase())) {
         record.paynow_id = "Invalid PayNow ID format for type";
       } else if (effType === "MOBILE" && !id.startsWith("+")) {
         record.paynow_id = "Invalid PayNow ID format for type";

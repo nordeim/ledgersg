@@ -26,6 +26,7 @@ import {
 } from "@/lib/invoice-submit";
 import { useInvoiceStore } from "@/stores/invoice-store";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
+import { UnsavedRouteGuard } from "@/components/unsaved-route-guard";
 import { useAuth } from "@/providers/auth-provider";
 import { useTaxCodes } from "@/hooks/use-tax-codes";
 import { useRevenueAccounts } from "@/hooks/use-accounts";
@@ -99,8 +100,10 @@ export function InvoiceForm({
     name: "lines",
   });
 
-  // Watch lines for real-time calculations
-  const lines = watch("lines") || [];
+  // Watch lines for real-time calculations (P19/FE-L7: the bare `|| []`
+  // fallback made the memo dependency identity unstable — every render
+  // with no lines produced a fresh array and re-ran the totals).
+  const watchedLines = watch("lines");
 
   // Rate overrides from the server-resolved rows (per tax code) drive the
   // preview at the rate in force on the document date (P3/D-3).
@@ -115,8 +118,11 @@ export function InvoiceForm({
 
   // Calculate totals
   const { totals } = React.useMemo(() => {
-    return calculateFromLines(lines as Invoice["lines"], rateOverrides);
-  }, [lines, rateOverrides]);
+    return calculateFromLines(
+      (watchedLines ?? []) as Invoice["lines"],
+      rateOverrides
+    );
+  }, [watchedLines, rateOverrides]);
 
   // Update form totals
   const setTotals = React.useCallback(
@@ -252,6 +258,10 @@ export function InvoiceForm({
 
   return (
     <FormProvider {...methods}>
+      {/* P19/FE-M3: the in-app half of the unsaved-work guard (the
+          beforeunload hook covers only tab-close; sidebar Link clicks
+          used to discard a dirty invoice silently). */}
+      <UnsavedRouteGuard />
       <form
         onSubmit={handleSubmit(onSubmit, onInvalidSubmit)}
         className="space-y-6"
@@ -430,9 +440,14 @@ export function InvoiceForm({
               </CardHeader>
               <CardContent>
                 {/* Header Row */}
+                {/* P19/FE-L1: plain divs — the old decorative
+                    role="rowheader"/"rowgroup" sat without a table/grid
+                    ancestor, so browsers pruned them and the line rows'
+                    labels lost their (nonexistent) row context. The
+                    inputs now carry their own row-numbered labels. */}
                 <div
                   className="grid grid-cols-12 gap-2 pb-2 border-b border-border text-xs font-medium text-text-secondary"
-                  role="rowheader"
+                  aria-hidden="true"
                 >
                   <div className="col-span-1"></div>
                   <div className="col-span-3">Description</div>
@@ -446,7 +461,7 @@ export function InvoiceForm({
                 </div>
 
                 {/* Line Items */}
-                <div role="rowgroup">
+                <div>
                   {fields.map((field, index) => (
                     <InvoiceLineRow
                       key={field.id}

@@ -24,7 +24,10 @@ import { useInvoices } from "@/hooks/use-invoices";
 function getStatusBadgeClass(status: string) {
   switch (status) {
     case "PAID":
-      return "bg-accent-primary text-void";
+      // P19/FE-M4: the status green is --color-success (the detail page
+      // and every settings surface already pair it so; the list badge
+      // rendering a second green for the same status was token drift).
+      return "bg-success text-void";
     case "SENT":
     case "APPROVED":
       return "bg-accent-secondary text-void";
@@ -195,22 +198,22 @@ export function InvoicesClient() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border text-left">
-                    <th className="pb-3 text-xs font-medium text-text-secondary uppercase">
+                    <th scope="col" className="pb-3 text-xs font-medium text-text-secondary uppercase">
                       Invoice
                     </th>
-                    <th className="pb-3 text-xs font-medium text-text-secondary uppercase">
+                    <th scope="col" className="pb-3 text-xs font-medium text-text-secondary uppercase">
                       Customer
                     </th>
-                    <th className="pb-3 text-xs font-medium text-text-secondary uppercase">
+                    <th scope="col" className="pb-3 text-xs font-medium text-text-secondary uppercase">
                       Date
                     </th>
-                    <th className="pb-3 text-xs font-medium text-text-secondary uppercase">
+                    <th scope="col" className="pb-3 text-xs font-medium text-text-secondary uppercase">
                       Due Date
                     </th>
-                    <th className="pb-3 text-xs font-medium text-text-secondary uppercase text-right">
+                    <th scope="col" className="pb-3 text-xs font-medium text-text-secondary uppercase text-right">
                       Amount
                     </th>
-                    <th className="pb-3 text-xs font-medium text-text-secondary uppercase">
+                    <th scope="col" className="pb-3 text-xs font-medium text-text-secondary uppercase">
                       Status
                     </th>
                   </tr>

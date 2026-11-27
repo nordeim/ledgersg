@@ -163,7 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     checkSession();
-  }, []);
+    // P19/FE-L7: router is stable in the App Router — declared so the
+    // exhaustive-deps gate stays honest (checkSession closes over it).
+  }, [router]);
 
   // P8/S-2: the organisation list is provider state (not a react-query
   // cache), so mutations that change org data must explicitly refresh it.

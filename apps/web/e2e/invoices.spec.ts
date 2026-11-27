@@ -30,7 +30,7 @@ async function apiLoginToken(page: import("@playwright/test").Page): Promise<str
   const response = await page.request.post(`${apiUrl}/api/v1/auth/login/`, {
     data: {
       email: process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg",
-      password: process.env.E2E_DEMO_PASSWORD ?? "demo1234",
+      password: process.env.E2E_DEMO_PASSWORD ?? "demo1234pass",
     },
   });
   test.expect(response.ok()).toBeTruthy();
@@ -84,7 +84,7 @@ async function openNewInvoiceForm(page: import("@playwright/test").Page) {
     process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
   );
   await page.locator("input[type='password']").fill(
-    process.env.E2E_DEMO_PASSWORD ?? "demo1234"
+    process.env.E2E_DEMO_PASSWORD ?? "demo1234pass"
   );
   await page.getByRole("button", { name: /sign in/i }).click();
 
@@ -119,7 +119,7 @@ test.describe("Invoices list page (P5/C-5 — real data)", () => {
       process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
     );
     await page.locator("input[type='password']").fill(
-      process.env.E2E_DEMO_PASSWORD ?? "demo1234"
+      process.env.E2E_DEMO_PASSWORD ?? "demo1234pass"
     );
     await page.getByRole("button", { name: /sign in/i }).click();
 
@@ -150,7 +150,7 @@ test.describe("New Invoice form (authenticated)", () => {
     await openNewInvoiceForm(page);
 
     // Per-line posting account select exists (backend add_line contract)
-    await expect(page.getByRole("combobox", { name: "Account" }).first()).toBeVisible({
+    await expect(page.getByRole("combobox", { name: "Line 1 account" }).first()).toBeVisible({
       timeout: 30000,
     });
 
@@ -168,12 +168,12 @@ test.describe("New Invoice form (authenticated)", () => {
   test("computes the line preview live as the user types", async ({ page }) => {
     await openNewInvoiceForm(page);
 
-    await page.getByLabel("Line description").first().fill("E2E preview check");
-    await page.getByLabel("Quantity").first().fill("2");
-    await page.getByLabel("Unit price").first().fill("100");
+    await page.getByLabel("Line 1 description").first().fill("E2E preview check");
+    await page.getByLabel("Line 1 quantity").first().fill("2");
+    await page.getByLabel("Line 1 unit price").first().fill("100");
 
     // 2 x 100 at SR 9% => 218.00 (server-resolved rate drives the preview)
-    await expect(page.getByLabel("Line total").first()).toHaveText("218.00", {
+    await expect(page.getByLabel("Line 1 total").first()).toHaveText("218.00", {
       // generous: first compile of the form page under a cold dev server
       timeout: 30000,
     });
@@ -182,7 +182,7 @@ test.describe("New Invoice form (authenticated)", () => {
   test("populates the account select from the organisation's accounts", async ({ page }) => {
     await openNewInvoiceForm(page);
 
-    const accountSelect = page.getByRole("combobox", { name: "Account" }).first();
+    const accountSelect = page.getByRole("combobox", { name: "Line 1 account" }).first();
     await accountSelect.click();
 
     // At least one account option from the org's chart of accounts
@@ -221,7 +221,7 @@ test.describe("Invoice detail page (P6/C-5 — real data)", () => {
       process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
     );
     await page.locator("input[type='password']").fill(
-      process.env.E2E_DEMO_PASSWORD ?? "demo1234"
+      process.env.E2E_DEMO_PASSWORD ?? "demo1234pass"
     );
     await page.getByRole("button", { name: /sign in/i }).click();
 
@@ -287,7 +287,7 @@ test.describe("Invoice detail — void flow (P7/F-1)", () => {
       process.env.E2E_DEMO_EMAIL ?? "demo@ledgersg.sg"
     );
     await page.locator("input[type='password']").fill(
-      process.env.E2E_DEMO_PASSWORD ?? "demo1234"
+      process.env.E2E_DEMO_PASSWORD ?? "demo1234pass"
     );
     await page.getByRole("button", { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 20000 });

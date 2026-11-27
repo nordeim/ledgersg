@@ -91,16 +91,16 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   // create-on-submit contract is now the explicit new-customer mode.
   await user.click(screen.getByRole("button", { name: /new customer/i }));
   await user.type(screen.getByLabelText("Customer Name"), "Acme Pte Ltd");
-  await user.type(screen.getByLabelText("Line description"), "Consulting");
-  await user.clear(screen.getByLabelText("Quantity"));
-  await user.type(screen.getByLabelText("Quantity"), "2");
-  await user.clear(screen.getByLabelText("Unit price"));
-  await user.type(screen.getByLabelText("Unit price"), "100");
+  await user.type(screen.getByLabelText("Line 1 description"), "Consulting");
+  await user.clear(screen.getByLabelText("Line 1 quantity"));
+  await user.type(screen.getByLabelText("Line 1 quantity"), "2");
+  await user.clear(screen.getByLabelText("Line 1 unit price"));
+  await user.type(screen.getByLabelText("Line 1 unit price"), "100");
 
   // select the posting account (Radix select) via keyboard — ArrowDown
   // highlights the first option, Enter selects it (userEvent pointer
   // interactions are refused on jsdom's animated select portal)
-  const accountSelect = screen.getByRole("combobox", { name: "Account" });
+  const accountSelect = screen.getByRole("combobox", { name: "Line 1 account" });
   await user.click(accountSelect);
   await user.keyboard("{ArrowDown}{Enter}");
 }
@@ -180,11 +180,11 @@ describe("InvoiceForm submit", () => {
     // fill everything EXCEPT the account selection
     await user.click(screen.getByRole("button", { name: /new customer/i }));
     await user.type(screen.getByLabelText("Customer Name"), "Acme Pte Ltd");
-    await user.type(screen.getByLabelText("Line description"), "Consulting");
-    await user.clear(screen.getByLabelText("Quantity"));
-    await user.type(screen.getByLabelText("Quantity"), "2");
-    await user.clear(screen.getByLabelText("Unit price"));
-    await user.type(screen.getByLabelText("Unit price"), "100");
+    await user.type(screen.getByLabelText("Line 1 description"), "Consulting");
+    await user.clear(screen.getByLabelText("Line 1 quantity"));
+    await user.type(screen.getByLabelText("Line 1 quantity"), "2");
+    await user.clear(screen.getByLabelText("Line 1 unit price"));
+    await user.type(screen.getByLabelText("Line 1 unit price"), "100");
 
     await user.click(screen.getByRole("button", { name: /send invoice/i }));
 
@@ -203,12 +203,12 @@ describe("InvoiceForm submit — contact picker contract (P10/H-1)", () => {
   });
 
   async function fillLines(user: ReturnType<typeof userEvent.setup>) {
-    await user.type(screen.getByLabelText("Line description"), "Consulting");
-    await user.clear(screen.getByLabelText("Quantity"));
-    await user.type(screen.getByLabelText("Quantity"), "2");
-    await user.clear(screen.getByLabelText("Unit price"));
-    await user.type(screen.getByLabelText("Unit price"), "100");
-    const accountSelect = screen.getByRole("combobox", { name: "Account" });
+    await user.type(screen.getByLabelText("Line 1 description"), "Consulting");
+    await user.clear(screen.getByLabelText("Line 1 quantity"));
+    await user.type(screen.getByLabelText("Line 1 quantity"), "2");
+    await user.clear(screen.getByLabelText("Line 1 unit price"));
+    await user.type(screen.getByLabelText("Line 1 unit price"), "100");
+    const accountSelect = screen.getByRole("combobox", { name: "Line 1 account" });
     await user.click(accountSelect);
     await user.keyboard("{ArrowDown}{Enter}");
   }
