@@ -2,7 +2,7 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 2.9.0 (P18 addendum)
+> **Version**: 3.0.0 (P19 addendum)
 > **Last Updated**: 2026-11-27 (P17 — NEW 400 contracts: double-reversal / double-void / double-reconcile refusals under row locks; typed GST box parsing; allocation UUID field errors; UEN normalize-then-validate on org PATCH; tax-rate range; on-commit task dispatch + the worker RLS context)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
@@ -301,6 +301,36 @@ curl "http://localhost:8000/api/v1/{orgId}/reports/dashboard/metrics/" \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 # gst_payable is computed from document lines (non-zero on real data)
 ```
+
+---
+
+## P19 Addendum (2026-11-27, session 38)
+
+**Route-contract completion (BE-M7):** the five remaining `<str:…>`
+path segments are now `<uuid:…>` — `fiscal-years/{year_id}/close/`,
+`fiscal-periods/{period_id}/close/` and `/open/`, `accounts/{account_id}/`
+and `accounts/{account_id}/balance/`. A malformed UUID on these routes
+is a **404 at the routing layer** (identical to every sibling route;
+previously an untyped 500).
+
+**The bank-statement import caps (X-M2):** `POST
+/api/v1/{orgId}/banking/bank-accounts/{accountId}/import-csv/` now
+refuses with a typed 400 before any row processing when the upload is
+over **5 MB** or carries more than **10,000 rows** ("split the export
+and import it in parts"). At-limit files import exactly as before.
+
+**The document-line seam (BE-H1):** `DELETE
+/api/v1/{orgId}/invoicing/documents/{documentId}/lines/{lineId}/` is
+now lock-protected (and actually functional — pre-P19 the service
+filtered by a non-existent field and 500'd on every call). Removal is
+refused with a 400-class validation error unless the document is
+DRAFT, the same contract as `add_line`.
+
+**The journal tolerance (BE-D1):** the create-serializer balance gate
+is now `0.0001` (the service and DB-trigger boundary) — a 0.0002..0.001
+imbalance is rejected at the serializer with the same error shape as
+the service, and the detail serializer's `totals.balanced` flag uses
+the same boundary.
 
 ---
 

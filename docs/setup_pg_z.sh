@@ -25,7 +25,7 @@ PG_MAJOR=$(apt-cache search --names-only '^postgresql-[0-9]+$' | grep -oE '[0-9]
 [ -n "$PG_MAJOR" ] || { echo "FAIL: no postgresql-N in apt cache"; exit 1; }
 echo "[pg] resolved major: $PG_MAJOR"
 
-if [ ! -x "/home/z/my-project/pg/root/usr/lib/postgresql/${PG_MAJOR}/bin/initdb" ]; then
+if [ ! -x "${PG_ROOT}/usr/lib/postgresql/${PG_MAJOR}/bin/initdb" ]; then
   cd "${PG_BASE}/deb"
   apt-get download "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}" postgresql-common libpq5
   for f in *.deb; do dpkg-deb -x "$f" "$PG_ROOT/"; done

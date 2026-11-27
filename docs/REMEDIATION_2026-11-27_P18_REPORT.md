@@ -25,7 +25,7 @@
 | Mobile-nav live probe (`scripts/mobile-nav-audit.js`) | **17/17 at 375/800/1280** — toggle, closed-drawer `visibility:hidden`, overlay, X hit-target, transition-aware close, no overflow, no console errors, sticky tablet/desktop, the v4 space-y trap sweep clean. **The navigation works; no TailwindCSS v4 bug exists** (seventh consecutive live settlement) |
 | The production-CSP smoke (`scripts/prod-csp-smoke.js`) | **5/5** — nonce served, no unsafe-inline, hydration happened, zero violations, shell rendered |
 | Screenshots | **8 new** (`docs/screenshots/104-111_*_session36.png`) — DOM-verified per surface, md5-unique, non-blank pixel-verified; the P18 proofs: the PAID badge pairing (`bg-success text-void`, live count 1), the settings "Registered" badge pairing (live count 1), the InvoiceNow card, and the animate-restored dialog (`animate-in` + `zoom-in-95` on the open Radix dialog, computed `animation: enter 0.2s` — the utilities compile and run again) |
-| CI | a new `e2e` job runs the 11 always-green no-backend specs (chromium-only, `--grep`-scoped, no backend service); the coverage ratchet now enforces a measured `src/hooks/**` floor |
+| CI | a new `e2e` job runs the specs with no backend service (chromium-only; the 29 backend-gated specs skip via their own `test.skip(!apiUrl)` guards — no `--grep` filter is involved. P19/X-L1 erratum: an earlier draft of this row said "`--grep`-scoped", which does not match ci.yml); the coverage ratchet now enforces a measured `src/hooks/**` floor |
 | Schema | **v1.2.2** — §15c completed with `django_session` + `django_admin_log` (idempotent, SQL-First, both local DBs re-loaded and re-verified at the fresh-load count of 30 domain tables) |
 
 ## 2. What Was Done

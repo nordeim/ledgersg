@@ -115,7 +115,10 @@ LedgerSG creates its own role and databases (run once; SUPERUSER is
 required because the schema CREATEs ROLEs in DO blocks):
 
 ```bash
-PGBIN=/home/z/my-project/pg/root/usr/lib/postgresql/17/bin
+# PGBIN derives from PG_BASE (P18/DOC-M9 + P19/X-M4 — the hardcoded
+# sandbox path broke the fresh-host story on any other prefix); the
+# major is whatever §3 resolved above (17 at the time of writing).
+PGBIN="${PG_BASE:-/home/z/my-project/pg}/root/usr/lib/postgresql/${PG_MAJOR:-17}/bin"
 "$PGBIN/psql" -h 127.0.0.1 -U postgres -d postgres -c \
   "CREATE ROLE ledgersg WITH LOGIN PASSWORD 'ledgersg_secret_to_change' SUPERUSER;"
 for db in ledgersg_dev test_ledgersg_dev; do
@@ -334,7 +337,8 @@ The full live gate (`npm run test:e2e:full`) additionally needs the dev DB
 bootstrapped with a demo user, organisation, contact and posted accounting
 activity (the banking + P11 specs' dependency). The e2e specs read
 `E2E_DEMO_EMAIL` / `E2E_DEMO_PASSWORD` (defaults `demo@ledgersg.sg` /
-`demo1234` — override with a 12+ char password to satisfy the register floor).
+`demo1234pass` — already at the 12-char register floor; the pre-P19
+8-char fallback could never actually log in, X-P19-L2).
 Bootstrap through the public API (idempotent — reuse what exists), then run
 the suite serially:
 
