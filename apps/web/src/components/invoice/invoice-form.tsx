@@ -491,10 +491,17 @@ export function InvoiceForm({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-text-secondary mb-1.5 block">
+                  {/* P20/FE-H1: programmatic label association — the bare
+                      label + register()-bound textarea had no accessible
+                      name (WCAG 1.3.1/4.1.2 Level A on the money form). */}
+                  <label
+                    htmlFor="invoice-notes"
+                    className="text-sm font-medium text-text-secondary mb-1.5 block"
+                  >
                     Notes
                   </label>
                   <textarea
+                    id="invoice-notes"
                     {...methods.register("notes")}
                     rows={3}
                     className={cn(
@@ -509,10 +516,14 @@ export function InvoiceForm({
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-text-secondary mb-1.5 block">
+                  <label
+                    htmlFor="invoice-terms"
+                    className="text-sm font-medium text-text-secondary mb-1.5 block"
+                  >
                     Terms & Conditions
                   </label>
                   <textarea
+                    id="invoice-terms"
                     {...methods.register("terms")}
                     rows={2}
                     className={cn(

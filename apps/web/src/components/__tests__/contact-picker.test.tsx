@@ -221,3 +221,50 @@ describe("ContactPicker WAI-ARIA combobox (P19/FE-M2)", () => {
     expect(screen.queryAllByRole("option")).toHaveLength(0);
   });
 });
+
+describe("ContactPicker blur dismissal (P20/FE-M1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useContacts).mockReturnValue({
+      data: CUSTOMERS,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useContacts>);
+  });
+
+  it("Tab out of the open combobox dismisses the listbox", async () => {
+    const user = userEvent.setup();
+    render(<ContactPicker orgId="org-1" type="customer" value="" onChange={vi.fn()} />);
+
+    const input = screen.getByRole("combobox", { name: /search customer/i });
+    await user.click(input);
+    expect(await screen.findByRole("listbox", { name: /customer results/i })).toBeInTheDocument();
+    expect(input.getAttribute("aria-expanded")).toBe("true");
+
+    // Tab moves focus out of the combobox — the WAI-ARIA pattern requires
+    // the popup to dismiss on blur (a dangling open listbox overlays the
+    // next form fields and screen readers announce an expanded listbox
+    // owned by an unfocused control). The dismissal runs in a rAF after
+    // the blur — waitFor rides it.
+    await user.tab();
+    await waitFor(() => {
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    });
+    expect(input.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("mousedown on an option still selects it (blur must not beat the click)", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ContactPicker orgId="org-1" type="customer" value="" onChange={onChange} />
+    );
+
+    const input = screen.getByRole("combobox", { name: /search customer/i });
+    await user.click(input);
+    const option = await screen.findByRole("option", { name: /ABC Pte Ltd/i });
+    // mousedown is the picker's select path (P19: pre-blur selection).
+    fireEvent.mouseDown(option);
+    expect(onChange).toHaveBeenCalledWith("c-11111111-1111-4111-8111-111111111111");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+});

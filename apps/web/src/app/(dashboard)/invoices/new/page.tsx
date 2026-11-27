@@ -20,8 +20,12 @@ export default function NewInvoicePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
+        {/* P20/FE-H2: the icon-only back link needs an accessible name —
+            the primary escape hatch from the money-entry forms was
+            announced as an empty link (WCAG 4.1.2 Level A). */}
         <Link
           href="/invoices"
+          aria-label="Back to invoices"
           className="inline-flex h-10 w-10 items-center justify-center border border-border text-text-secondary hover:bg-surface"
         >
           <ArrowLeft className="h-4 w-4" />

@@ -62,3 +62,26 @@ export function parseMoney(value: string): number {
   const cleaned = value.replace(/[^\d.-]/g, "");
   return parseFloat(cleaned);
 }
+
+/**
+ * Format a date-only string (e.g. "2024-01-31") for display — timezone-safe.
+ *
+ * P20/FE-M7: `new Date("YYYY-MM-DD")` parses as UTC midnight, and
+ * `toLocaleDateString` then renders in the RUNNER's timezone — one day
+ * early for every timezone behind UTC (the Americas). Pinning
+ * `timeZone: "UTC"` renders the string's own lexical date everywhere.
+ *
+ * @param value - date-only string ("YYYY-MM-DD"); other shapes fall back
+ *   to best-effort parsing, garbage falls back to the raw string.
+ * @returns e.g. "31 Jan 2024"
+ */
+export function formatDateOnly(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("en-SG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}

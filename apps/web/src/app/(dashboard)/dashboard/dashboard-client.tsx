@@ -31,8 +31,15 @@ export function DashboardClient() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-accent-primary" />
+      /* P20/FE-L3: a live region — the bare spinner was silent to screen
+         readers (WCAG 4.1.3 status messages); carry a text equivalent. */
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex items-center justify-center gap-3 h-[60vh]"
+      >
+        <Loader2 className="h-8 w-8 animate-spin text-accent-primary" aria-hidden />
+        <span className="sr-only">Loading dashboard…</span>
       </div>
     );
   }
@@ -61,8 +68,13 @@ export function DashboardClient() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-accent-primary" />
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex items-center justify-center gap-3 h-[60vh]"
+      >
+        <Loader2 className="h-8 w-8 animate-spin text-accent-primary" aria-hidden />
+        <span className="sr-only">Loading dashboard metrics…</span>
       </div>
     );
   }

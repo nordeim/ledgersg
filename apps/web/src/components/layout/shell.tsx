@@ -289,9 +289,12 @@ export function Shell({ children }: ShellProps) {
             <div className="w-8 h-8 bg-accent-primary flex items-center justify-center rounded-sm">
               <span className="font-mono font-bold text-void text-lg">L</span>
             </div>
-            <h1 className="font-display text-xl font-bold tracking-tight">
+            {/* P20/FE-L2: the brand is a paragraph, not a heading — every
+                dashboard page renders the page's own h1; a second h1 in
+                the sidebar logo broke the one-h1-per-page contract. */}
+            <p className="font-display text-xl font-bold tracking-tight">
               LEDGER<span className="text-accent-primary">SG</span>
-            </h1>
+            </p>
           </Link>
           <p className="text-xs text-text-muted mt-1 font-mono">
             IRAS-Compliant Accounting

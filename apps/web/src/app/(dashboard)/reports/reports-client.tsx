@@ -133,8 +133,14 @@ export function ReportsClient() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-24 text-text-secondary">
-        <Loader2 className="h-5 w-5 animate-spin" />
+      /* P20/FE-L3: a live region — async loading states were silent to
+         screen readers (WCAG 4.1.3 status messages). */
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex items-center justify-center gap-2 py-24 text-text-secondary"
+      >
+        <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
         <span>Loading reports…</span>
       </div>
     );

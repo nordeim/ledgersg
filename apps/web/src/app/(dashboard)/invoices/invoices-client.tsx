@@ -79,7 +79,9 @@ export function InvoicesClient() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center gap-2 text-text-secondary">
+      /* P20/FE-L3: a live region — async loading states were silent to
+         screen readers (WCAG 4.1.3 status messages). */
+      <div role="status" aria-live="polite" className="flex items-center gap-2 text-text-secondary">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
         <span className="text-sm">Loading…</span>
       </div>
@@ -129,7 +131,7 @@ export function InvoicesClient() {
 
       {/* Loading */}
       {isLoading ? (
-        <div className="flex items-center gap-2 text-text-secondary py-12 justify-center">
+        <div role="status" aria-live="polite" className="flex items-center gap-2 text-text-secondary py-12 justify-center">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           <span className="text-sm">Loading invoices…</span>
         </div>

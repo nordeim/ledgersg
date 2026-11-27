@@ -96,7 +96,11 @@ export function GSTF5Chart({ gstPayable }: GSTF5ChartProps) {
           aria-label="GST F5 Return Breakdown"
           className="border border-border rounded-sm"
         >
-          <div role="rowheader" className="grid grid-cols-3 border-b border-border bg-surface text-xs font-medium text-text-secondary">
+          {/* P20/FE-M4: a real ARIA row owning the columnheader cells —
+              the old rowheader-as-container is an invalid owned structure
+              (ARIA requires table > row > columnheader); browsers pruned
+              it, defeating the accessible-table fallback. */}
+          <div role="row" className="grid grid-cols-3 border-b border-border bg-surface text-xs font-medium text-text-secondary">
             <div role="columnheader" className="p-2 border-r border-border">Box</div>
             <div role="columnheader" className="p-2 border-r border-border">Description</div>
             <div role="columnheader" className="p-2 text-right">Amount</div>

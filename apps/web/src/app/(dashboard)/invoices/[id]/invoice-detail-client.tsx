@@ -15,6 +15,7 @@ import {
   Loader2,
   Banknote,
 } from "lucide-react";
+import { formatDateOnly } from "@/shared/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,14 +82,11 @@ function formatAmount(value: string) {
   });
 }
 
+// P20/FE-M7: date-only strings must render timezone-safely — the
+// UTC-parse + local-display formatter showed money-document dates one day
+// early for timezones behind UTC. The shared formatter pins timeZone UTC.
 function formatDate(value: string) {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("en-SG", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDateOnly(value);
 }
 
 interface InvoiceDetailClientProps {

@@ -197,9 +197,25 @@ export function ContactPicker({
               }}
               onFocus={() => setOpen(true)}
               onBlur={() => {
-                // The listbox options are pointer-clicked before the blur
-                // lands (mousedown precedes blur); keep the box open for
-                // them, the click-away listener closes it otherwise.
+                // P19/FE-M2: the listbox options are pointer-clicked
+                // before the blur lands (mousedown precedes blur), so a
+                // synchronous close would beat the selection.
+                // P20/FE-M1: but Tab-away MUST dismiss (the WAI-ARIA
+                // pattern — a dangling open listbox overlays the next
+                // form fields and announces an expanded listbox owned by
+                // an unfocused control). Defer one frame: if focus has
+                // genuinely left the wrapper, close; if the mousedown
+                // selection moved focus within (or the click lands
+                // first), the guard holds the box open for it.
+                requestAnimationFrame(() => {
+                  if (
+                    wrapperRef.current &&
+                    !wrapperRef.current.contains(document.activeElement)
+                  ) {
+                    setOpen(false);
+                    setActiveIndex(-1);
+                  }
+                });
               }}
               onKeyDown={handleInputKeyDown}
               disabled={disabled}
