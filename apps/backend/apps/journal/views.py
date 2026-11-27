@@ -79,8 +79,21 @@ class JournalEntryListCreateView(APIView):
             source_id=source_id,
         )
 
-        serializer = JournalEntryListSerializer(entries, many=True)
-        return Response({"results": serializer.data, "count": len(serializer.data)})
+        # P24/BE-M1: the additive pagination contract — without `limit`
+        # the response stays {results, count}; with it, next/previous +
+        # count as the TOTAL.
+        from common.pagination import page_envelope, parse_limit_offset
+
+        limit, offset = parse_limit_offset(request)
+        serializer = JournalEntryListSerializer(
+            entries if limit is None else entries[offset : offset + limit],
+            many=True,
+        )
+        if limit is None:
+            return Response({"results": serializer.data, "count": len(serializer.data)})
+        return page_envelope(
+            request, limit, offset, serializer.data, len(entries)
+        )
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
@@ -428,8 +441,14 @@ class LedgerView(APIView):
         if source_type:
             queryset = queryset.filter(entry__source_type=source_type)
 
-        results = [
-            {
+        # P24/BE-M1: server-side pagination (SQL-level on this — the
+        # unbounded line-level surface). `?limit=&offset=` slices the
+        # queryset and the envelope gains next/previous with count as
+        # the TOTAL; without limit the response stays {results, count}.
+        from common.pagination import page_envelope, parse_limit_offset
+
+        def _serialize(line) -> dict:
+            return {
                 "id": str(line.id),
                 "entry_id": str(line.entry_id),
                 "entry_number": line.entry.entry_number,
@@ -445,6 +464,14 @@ class LedgerView(APIView):
                 "debit": str(line.debit),
                 "credit": str(line.credit),
             }
-            for line in queryset
-        ]
-        return Response({"results": results, "count": len(results)})
+
+        limit, offset = parse_limit_offset(request)
+        if limit is None:
+            results = [_serialize(line) for line in queryset]
+            return Response({"results": results, "count": len(results)})
+
+        total = queryset.count()
+        page = queryset[offset : offset + limit]
+        return page_envelope(
+            request, limit, offset, [_serialize(line) for line in page], total
+        )

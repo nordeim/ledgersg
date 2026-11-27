@@ -263,7 +263,10 @@ class PaymentService:
         if is_voided is not None:
             queryset = queryset.filter(is_voided=is_voided)
 
-        return list(queryset.order_by("-payment_date", "-created_at"))
+        # P24/I1: the id tiebreaker — same-date payments tie, and Postgres
+        # tie order is not stable across executions (a paginated page
+        # boundary could skip or duplicate a row).
+        return list(queryset.order_by("-payment_date", "-created_at", "-id"))
 
     @staticmethod
     def get(org_id: UUID, payment_id: UUID) -> Payment:

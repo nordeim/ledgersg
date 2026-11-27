@@ -71,7 +71,9 @@ class ReconciliationService:
         if unreconciled_only:
             queryset = queryset.filter(is_reconciled=False)
 
-        return list(queryset.order_by("-transaction_date", "-created_at"))
+        # P24/I1: the id tiebreaker (same rationale as the payments list
+        # — a paginated page boundary must not skip or duplicate a row).
+        return list(queryset.order_by("-transaction_date", "-created_at", "-id"))
 
     @staticmethod
     def get_transaction(org_id: UUID, transaction_id: UUID) -> BankTransaction:

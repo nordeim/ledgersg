@@ -94,8 +94,17 @@ class ContactListCreateView(APIView):
             search=search,
         )
 
-        serializer = ContactListSerializer(contacts, many=True)
-        return Response({"results": serializer.data, "count": len(serializer.data)})
+        # P24/BE-M1: the additive pagination contract.
+        from common.pagination import page_envelope, parse_limit_offset
+
+        limit, offset = parse_limit_offset(request)
+        serializer = ContactListSerializer(
+            contacts if limit is None else contacts[offset : offset + limit],
+            many=True,
+        )
+        if limit is None:
+            return Response({"results": serializer.data, "count": len(serializer.data)})
+        return page_envelope(request, limit, offset, serializer.data, len(contacts))
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
@@ -209,8 +218,17 @@ class InvoiceDocumentListCreateView(APIView):
             search=search,
         )
 
-        serializer = InvoiceDocumentListSerializer(documents, many=True)
-        return Response({"results": serializer.data, "count": len(serializer.data)})
+        # P24/BE-M1: the additive pagination contract.
+        from common.pagination import page_envelope, parse_limit_offset
+
+        limit, offset = parse_limit_offset(request)
+        serializer = InvoiceDocumentListSerializer(
+            documents if limit is None else documents[offset : offset + limit],
+            many=True,
+        )
+        if limit is None:
+            return Response({"results": serializer.data, "count": len(serializer.data)})
+        return page_envelope(request, limit, offset, serializer.data, len(documents))
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:

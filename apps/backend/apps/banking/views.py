@@ -231,8 +231,17 @@ class PaymentListView(APIView):
             is_voided=is_voided_bool,
         )
 
-        serializer = PaymentSerializer(payments, many=True)
-        return Response({"results": serializer.data, "count": len(serializer.data)})
+        # P24/BE-M1: the additive pagination contract.
+        from common.pagination import page_envelope, parse_limit_offset
+
+        limit, offset = parse_limit_offset(request)
+        serializer = PaymentSerializer(
+            payments if limit is None else payments[offset : offset + limit],
+            many=True,
+        )
+        if limit is None:
+            return Response({"results": serializer.data, "count": len(serializer.data)})
+        return page_envelope(request, limit, offset, serializer.data, len(payments))
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
@@ -473,8 +482,19 @@ class BankTransactionListView(APIView):
             unreconciled_only=unreconciled_only,
         )
 
-        serializer = BankTransactionSerializer(transactions, many=True)
-        return Response({"results": serializer.data, "count": len(serializer.data)})
+        # P24/BE-M1: the additive pagination contract.
+        from common.pagination import page_envelope, parse_limit_offset
+
+        limit, offset = parse_limit_offset(request)
+        serializer = BankTransactionSerializer(
+            transactions if limit is None else transactions[offset : offset + limit],
+            many=True,
+        )
+        if limit is None:
+            return Response({"results": serializer.data, "count": len(serializer.data)})
+        return page_envelope(
+            request, limit, offset, serializer.data, len(transactions)
+        )
 
 
 class BankTransactionImportView(APIView):

@@ -59,7 +59,10 @@ class ContactService:
                 models.Q(company_name__icontains=search)
             )
         
-        return list(queryset.order_by("name"))
+        # P24/I1: the id tiebreaker — Postgres tie order is not stable
+        # across executions, so a paginated page boundary could skip or
+        # duplicate a same-name row.
+        return list(queryset.order_by("name", "id"))
     
     @staticmethod
     def get_contact(org_id: UUID, contact_id: UUID) -> Contact:
