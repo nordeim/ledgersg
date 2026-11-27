@@ -6,22 +6,28 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-28, session 50 / P26) re-verified the guide against the current
+(2026-11-28, session 52 / P27) re-verified the guide against the current
 codebase on the live sandbox (rootless PG 17 + Redis per §3/§5, backend
-1021P/0F/5S, vitest 686/686 (80 files, on vitest 4.1.12 — the P23
-advisory closure), typecheck 0 errors, whole-tree eslint 0 errors / 0
-warnings, build:server green, the production-CSP smoke 5/5, live e2e
-43P/0F/0S (43 specs) — INCLUDING the fresh-DB first-run proof, re-run
-this session: drop/recreate the dev database → ONE §9 bootstrap run →
-the FIRST `test:e2e:full` = 43/43 with 0 skipped (the P26 spec stocks
-its own fodder through the public API — the P25 lesson applied at design
+1021P/0F/5S — unchanged, re-verified, vitest 698/698 (85 files, on
+vitest 4.1.12 — the P23 advisory closure), typecheck 0 errors,
+whole-tree eslint 0 errors / 0 warnings, build:server green, the
+production-CSP smoke 5/5, live e2e 43P/0F/0S (43 specs) — deterministic
+this sprint (the P27 debounce mount-run race closed: a pagination click
+inside the ~600ms post-mount window no longer silently reverts to the
+cached page 1) — INCLUDING the fresh-DB first-run proof, re-run this
+session: drop/recreate the dev database → ONE §9 bootstrap run → the
+FIRST `test:e2e:full` = 43/43 with 0 skipped (the P26 spec stocks its
+own fodder through the public API — the P25 lesson applied at design
 time), the runtime-role smoke 13/13 as `ledgersg_app`, the mobile-nav
-probe 17/17 — the twenty-first consecutive settlement, P26; the new
-headline: the frontend pagination wiring (every list surface — invoices,
-contacts, payments, bank-transactions, quotes — pages server-side at
-size 20 through the shared control) + the Peppol transmission-log
-pagination contract (the last unbounded backend list — see
-`docs/REMEDIATION_2026-11-28_P26_REPORT.md`) —
+probe 17/17 — the twenty-third consecutive settlement, P27; the
+session-52 headline: the pagination state-machine truth (the debounce
+race + the org-switch and filter-change offset resets on every list
+surface — see `docs/REMEDIATION_2026-11-28_P27_REPORT.md`); the
+session-50 headline: the frontend pagination wiring (every list surface
+— invoices, contacts, payments, bank-transactions, quotes — pages
+server-side at size 20 through the shared control) + the Peppol
+transmission-log pagination contract (the last unbounded backend
+list — see `docs/REMEDIATION_2026-11-28_P26_REPORT.md`) —
 carrying the P17 concurrency truth forward (double-reversal / double-void /
 double-reconcile refused under row locks; the 400-contract sweep; the Celery
 tenant context; the `/admin/` gate; the `STORAGES` manifest migration) and
@@ -349,7 +355,7 @@ Frontend gates (run before every push):
 
 ```bash
 npm run typecheck           # 0 errors
-npm test                    # 664 vitest tests (78 files, on vitest 4.1.12)
+npm test                    # 698 vitest tests (85 files, on vitest 4.1.12)
 npm run test:coverage       # green at the honest measured-floor ratchet
 npm run build:server        # the only build mode
 npm run test:e2e            # green without a backend (gated specs skip)

@@ -1431,3 +1431,88 @@ mechanical batch (936 production); the audit-log INSERT policy (DDL);
 BE-L3/BE-L4 locking; the CSV errors[] strings; dead-letter design; UEN
 checksum; the P21/P23/P24/P25 deferred registers carried forward
 unchanged.
+
+## P27 Remediation — 2026-11-28 (session 52): the pagination state-machine truth — the debounce race + the reset-consistency completion
+
+**Base:** `3aad8b63` (post-P26 + the session-51 narration log). **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-28_P27.md` (anchor-validated);
+**report:** `docs/REMEDIATION_2026-11-28_P27_REPORT.md`. **Method:**
+TDD (RED → GREEN → full gate) for every behavioural change;
+conventional commits on `main`; `skills/` excluded; no DDL (schema v1.2.2
+carries forward); **no backend changes at all** — the defect class is
+entirely frontend state-machine wiring. The environment was live from
+the prior session (rootless PG 17, Redis, the daemonized stack) with
+one repair: the `ledgersg_app` password drift (ALTER back to the
+documented default; the 8001 RLS instance restarted on a detached
+daemon).
+
+### The baselines (9 of 10 exact — the 10th is the headline finding)
+
+backend **1021P/0F/5S** · vitest **686/686 (78→80 files)** · tsc 0 ·
+eslint **0E/0W** · rls_smoke **13/13** · mobile-nav **17/17** + the
+`translate` probe 8 mid-flight samples · npm audit **0 critical** —
+but live e2e:full **42/43 (three runs, always
+`invoices.spec.ts:446`, green in isolation)**.
+
+### The named focus — settled first (twenty-second/twenty-third settlements)
+
+**The mobile navigation menu works as expected; NO remaining
+TailwindCSS v4 bug on that surface.** The dedicated live probe: 8
+mid-flight `translate` samples (the slide interpolates), the computed
+`transitionProperty: "transform, translate, visibility"`, the closed
+drawer `-100%`/hidden, the open a `role="dialog"` at `0px`, Escape
+closes it.
+
+### The audits (Mode C; the High proven by executed trace evidence)
+
+**0 Critical / 1 High / 2 Medium / 1 Low.** FE-H1 (the headline): the
+P26 search-debounce effect's MOUNT-run called `setOffset(0)`
+unconditionally — a Next click inside the ~600ms window (doubled under
+StrictMode) silently reverted to the cached page 1 (no refetch, no
+feedback; trace: the click dispatched, the offset=20 request answered
+200, then the UI back at page 1 with NO third request — the
+cache-served revert signature; the isolated run passed by timing
+luck). FE-M2: the banking lists never restarted the paging on a
+filter change. FE-M3: the five P26 surfaces never reset the offset on
+org switch (the ledger's P25/FE-L3 pattern not yet applied).
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| FE-H1 | the page restart fires ONLY on a debounced VALUE CHANGE — the last-committed-value ref compared inside the timer callback (an event, never during render — the `react-hooks/refs` contract; the mount-run compares `""===""` and no-ops); a real search change still restarts (pinned) | invoices + contacts state specs: RED (the revert after 700ms) → GREEN (the page-2 summary holds); the P11/M-3 single-call debounce contracts unchanged |
+| FE-M3 | the org-switch render-time reset (the P25/FE-L3 pattern) on all five P26 surfaces | 4 new real-hook transport-URL specs (the ledger-org-switch pattern): RED (org-456 fetched at offset=20) → GREEN (never at a stale offset) |
+| FE-M2 | the banking filter-change reset on the filters-prop identity + the stable module-level `NO_FILTERS` default (the absent-prop fresh-`{}` identity loop the existing suite caught mid-fix) | payment-list + transaction-list state specs: RED (the filtered set at offset=20) → GREEN (offset=0) |
+| X-docs | the truth pass (README badge 1762 + the P27 milestone, CLAUDE 2.28.0, AGENTS header + 4 new lessons, SKILL 2.14.0, PAD 3.17.0, DEPLOYMENT header/§7, the API guide re-verified live — no API changes, 3.5.0 carries, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful (no changes) |
+
+### The fresh-DB proof (the acceptance — executed)
+
+drop + recreate `ledgersg_dev` → the schema reloaded (37 tables) →
+both `--noreload` backends restarted (8001 as `ledgersg_app`) → Redis
+flushed → **ONE** bootstrap run (**36 lines / 12 APPROVED** at the
+start) → the **FIRST** `test:e2e:full` = **43P/0F/0S (2.3m)** — and
+the full-run 43/43 is now deterministic (the race window is
+structurally closed, not timing-narrowened).
+
+### Final gate (all verified, executed)
+
+backend **1021P/0F/5S** (unchanged; re-run) · vitest **698/698
+(85 files)** (+12) · coverage green at the ratchet — **the whole-suite
+floor RAISED to 73.39/70.72/62.38/73.95** · tsc 0 · whole-tree eslint
+**0 errors / 0 warnings** · **e2e:full 43P/0F/0S** (twice — the
+remediated tree AND the fresh-DB proof) · **rls_smoke 13/13 as
+`ledgersg_app`** · **mobile-nav 17/17** (the twenty-third settlement)
+· the `translate` probe re-PASS · **prod-CSP 5/5** · build:server
+green · schema v1.2.2 (no DDL; no backend change at all). 8
+DOM-verified screenshots (168-175, the invoices page 2 HELD past the
+old race window the headline capture).
+
+### Deferred (registered, not dropped)
+
+The SQL-level push-down for the five service-driven lists; the
+`/accounts/search/` limit-contract migration; the capped-default flip;
+the 17 dev-tier npm-audit findings (the dedicated dependency sprint);
+the ruff mechanical batch (936 production); the audit-log INSERT
+policy (DDL); BE-L3/BE-L4 locking; the CSV errors[] strings;
+dead-letter design; UEN checksum; the P21/P23/P24/P25/P26 deferred
+registers carried forward unchanged.

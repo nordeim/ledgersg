@@ -8,27 +8,29 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 50 / P26):
+Current truth (all gates executed and green, session 52 / P27):
 - Backend: pytest 1021 passed / 0 failed / 5 skipped (1026 collected)
-  — the P26 file added 12 gates (the Peppol transmission-log pagination
-  matrix: limit-slice, the tiebreaker, the counters in both modes)
-- Frontend: vitest 686/686 (80 files, on vitest 4.1.12 — the P23
+  — unchanged this sprint (no backend code touched; re-verified)
+- Frontend: vitest 698/698 (85 files, on vitest 4.1.12 — the P23
   advisory closure), tsc --noEmit 0 errors, whole-tree
   eslint **0 errors / 0 warnings**
-- P26 headline: the frontend pagination wiring + the Peppol
-  transmission-log contract — every remaining list surface (invoices,
-  contacts, payments, bank-transactions, quotes) now pages server-side
-  at size 20 through the shared TablePagination (the page identity in
-  each hook's queryKey — the cache-paging trap pinned per hook); the
-  invoices search migrated server-side (the client-side filter only
-  ever saw the fetched page); useContacts returns the full envelope
-  (the count was previously discarded); the Peppol transmission log
-  (the last unbounded backend list) joined the ?limit=&offset=
-  contract with the -transmitted_at,-id tiebreaker + one
-  conditional-aggregation counters query (byte-identical unpaginated);
-  the new P26/FE-P1 e2e spec stocks its own fodder through the public
-  API (count-driven DRAFTs, idempotent, zero journal impact) — PROVEN:
-  fresh DB → one bootstrap → the FIRST e2e:full = 43/43, 0 skipped
+- P27 headline: the pagination state-machine truth — the P26
+  search-debounce effect's MOUNT-run called setOffset(0)
+  unconditionally, so a Next click inside the ~600ms window (doubled
+  under StrictMode) silently reverted to the cached page 1 (no
+  refetch, no feedback — the click lost; the serial full-run e2e lost
+  the race deterministically at 42/43 while isolation passed it;
+  proven by trace: the click dispatched, the offset=20 request
+  answered 200, then the UI back at page 1 with NO third request —
+  the cache-served revert signature). Fixed: the page restart fires
+  ONLY on a debounced VALUE CHANGE (the last-committed-value ref
+  compared inside the timer callback); the org-switch offset reset
+  extended to all five P26 surfaces (the P25/FE-L3 render-time
+  pattern); the banking filter-change offset reset (the filters-prop
+  identity compare + a stable NO_FILTERS default) — all pinned by
+  real-hook transport-URL specs. PROVEN: fresh DB → one bootstrap →
+  the FIRST e2e:full = 43/43, 0 skipped, deterministic
+- P26 headline: the frontend pagination wiring + the Peppol transmission-log contract (see the Previous Milestones in README.md — every remaining list surface server-side paged at size 20; the invoices search migrated server-side; useContacts returns the envelope; the Peppol log joined the ?limit=&offset= contract)
 - P25 headline: the fresh-substrate first-run truth + the pagination
   contract hardening — the §9 bootstrap's invoice/credit-note steps had
   been silently broken since P14/M-4 made tax_code_id required (the
@@ -1825,6 +1827,52 @@ Empiricism downgraded the finding from "bug" to "hardening" — and the
 render-time reset (the React prev-state pattern) makes the guarantee
 explicit instead of timing-emergent. Write the real-hook test BEFORE
 concluding a timing-interior bug exists.
+
+## 2026-11-28 P27 Sprint — New Patterns & Lessons (session 52)
+
+### A Page Reset Belongs To The VALUE CHANGE, Never The Timer
+The P26 "batch the reset into the debounce tick" lesson was half right:
+it fixed the double-fire but put `setOffset(0)` in the timer BODY —
+which runs on the effect's MOUNT-run too (search never changed; the
+reset fires anyway ~300ms after mount, doubled under React StrictMode).
+A user paginating inside that window had the click silently reverted to
+the cached page 1 — no refetch, no feedback. The lesson: a state reset
+that means "the input VALUE changed" must be gated on the value actually
+changing (compare against the last committed value — inside the timer
+callback, an event, never during render where the react-hooks/refs rule
+forbids ref access). The mount-run of any keyed effect is a render you
+did not ask for; anything unconditional in it runs against a user who
+has not acted.
+
+### A Race Proven By Trace Is A Bug Even When Isolation Passes
+The full-run e2e failed 3× at the same assertion while the isolated
+re-run passed — the lazy read is "flaky, retry". The Playwright trace
+settled it in minutes: the click WAS dispatched, the page-2 request
+fired and answered 200, then the failure snapshot showed the page back
+at "Showing 1–20" with NO third network request — the cache-served
+revert signature. When a test passes in isolation and fails in the full
+run: pull the trace, read the network log, and diff what the UI shows
+against what the transport saw. "Flaky" is a hypothesis, not a
+diagnosis.
+
+### A Module Mock Cannot Observe A Cache-Served Revert
+The P26 page tests mock the list hook — and a mocked hook cannot exhibit
+cache behaviour. When the defect IS the cache (a queryKey reverting to
+a cached entry), only the REAL hook under a REAL QueryClient shows it,
+and only the rendered page-math summary (not URL counting) catches the
+revert (no refetch happens — that is the bug). The real-hook
+transport-mock pattern (the P25 ledger-org-switch spec) is the right
+tool for state-machine contracts; the module-mock pattern remains right
+for render-shape contracts. Pick the mock by what the defect touches.
+
+### The Absent-Prop Default Needs A Stable Identity
+`filters = {}` in a destructured default creates a FRESH object every
+render — harmless until a render-time identity compare keys on it, at
+which point it is an infinite re-render loop ("Too many re-renders",
+found by the existing suite the moment the reset landed). The fix is a
+module-level `NO_FILTERS = {}` constant as the default value. Any
+component that compares a prop by identity must give that prop's
+absent-case default a stable, shared identity.
 
 ## 2026-11-28 P26 Sprint — New Patterns & Lessons (session 50)
 
