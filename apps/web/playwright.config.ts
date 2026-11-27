@@ -73,7 +73,10 @@ export default defineConfig({
     screenshot: "only-on-failure",
 
     /* Video recording */
-    video: "on-first-retry",
+    // P21/FE-L5: retain-on-failure, matching the trace policy — local runs
+    // have retries: 0, so on-first-retry recorded no video for local
+    // failures (the exact flaw the P20 trace fix documented).
+    video: "retain-on-failure",
 
     /* Viewport */
     viewport: { width: 1280, height: 720 },
