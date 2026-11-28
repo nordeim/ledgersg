@@ -11,7 +11,7 @@ help:
 	@echo "  make test         - Run test suite"
 	@echo "  make test-cov     - Run tests with coverage"
 	@echo "  make lint         - Run ruff linter (full report)"
-	@echo "  make lint-mechanical - Ruff gate: mechanical classes at 0 (P30)"
+	@echo "  make lint-mechanical - Ruff gate: closed classes at 0, whole tree (P30+P31)"
 	@echo "  make format       - Run ruff formatter"
 	@echo "  make typecheck    - Run mypy"
 	@echo "  make migrate      - Run Django migrations"
@@ -41,16 +41,17 @@ test-cov:
 
 # Linting and formatting
 # make lint stays the FULL report (the semantic findings are the
-# registered deferred batch); lint-mechanical is the P30/CFG-M3
-# RATCHET — the closed mechanical classes (whitespace, import order,
-# unused imports, the settings star-import contract) must stay at 0.
-# The same command runs in CI (ci.yml backend-tests) — a gate nobody
-# runs is a rubber stamp.
+# registered deferred batch); lint-mechanical is the P30/CFG-M3 +
+# P31/CFG-M3 unified RATCHET — the closed classes (whitespace, import
+# order, unused imports, the settings star-import contract, B904
+# exception chaining) must stay at 0 across the WHOLE tree (production
+# + tests). The same command runs in CI (ci.yml backend-tests) — a
+# gate nobody runs is a rubber stamp.
 lint:
 	ruff check .
 
 lint-mechanical:
-	ruff check --select W291,W293,I001,F401,F403,F405 apps common config
+	ruff check --select W291,W293,I001,F401,F403,F405,B904 apps common config tests
 
 format:
 	ruff format .
