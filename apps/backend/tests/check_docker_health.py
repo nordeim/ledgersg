@@ -16,9 +16,7 @@ def check_postgres_health(container_name="ledgersg_db"):
         print(f"Status:    {status}")
         print(f"Health:    {health}")
 
-        if health == "healthy":
-            return True
-        return False
+        return health == "healthy"
     except docker.errors.NotFound:
         print(f"Error: Container '{container_name}' not found.")
         return False

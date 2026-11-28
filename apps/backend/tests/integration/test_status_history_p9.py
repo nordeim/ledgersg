@@ -20,20 +20,20 @@ pytestmark = pytest.mark.django_db
 
 
 def _doc(org, contact, **kw):
-    defaults = dict(
-        org=org,
-        document_type="SALES_INVOICE",
-        document_number="INV-SH-1",
-        contact=contact,
-        issue_date=date(2024, 1, 15),
-        due_date=date(2024, 2, 15),
-        currency="SGD",
-        exchange_rate=Decimal("1.000000"),
-        total_excl=Decimal("100.0000"),
-        total_incl=Decimal("109.0000"),
-        amount_paid=Decimal("0.0000"),
-        status="DRAFT",
-    )
+    defaults = {
+        "org": org,
+        "document_type": "SALES_INVOICE",
+        "document_number": "INV-SH-1",
+        "contact": contact,
+        "issue_date": date(2024, 1, 15),
+        "due_date": date(2024, 2, 15),
+        "currency": "SGD",
+        "exchange_rate": Decimal("1.000000"),
+        "total_excl": Decimal("100.0000"),
+        "total_incl": Decimal("109.0000"),
+        "amount_paid": Decimal("0.0000"),
+        "status": "DRAFT",
+    }
     defaults.update(kw)
     return InvoiceDocument.objects.create(**defaults)
 

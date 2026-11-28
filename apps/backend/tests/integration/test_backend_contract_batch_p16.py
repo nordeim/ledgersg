@@ -18,6 +18,7 @@ BE-L7 (B11): the org-create path stores the NORMALIZED UEN (upper),
     so the case-sensitive UNIQUE pre-check cannot be dodged.
 """
 
+from contextlib import suppress
 from datetime import date
 
 import pytest
@@ -194,16 +195,14 @@ class TestReturnRowLockP16:
             "select_for_update",
             wraps=GSTReturn.objects.select_for_update,
         ) as spy:
-            try:
+            # A filing failure (missing boxes etc.) is fine — the probe
+            # asserts the LOCKED read, not a successful filing.
+            with suppress(Exception):
                 GSTReturnService.file_return(
                     org_id=test_organisation.id,
                     return_id=gst_return.id,
                     filed_by_id=test_user.id,
                 )
-            except Exception:
-                # A filing failure (missing boxes etc.) is fine — the probe
-                # asserts the LOCKED read, not a successful filing.
-                pass
             assert spy.called, (
                 "file_return must select_for_update() the return row "
                 "(B9: concurrent file/amend interleave)"

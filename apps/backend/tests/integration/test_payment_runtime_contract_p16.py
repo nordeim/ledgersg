@@ -26,13 +26,10 @@ from apps.core.models import AuditEventLog, InvoiceDocument
 from common.decimal_utils import money
 from tests.conftest import create_test_contact
 
-# The P14 allocation-contract module's fixture (a customer, bank account
-# and an approved 109.00 invoice) — imported rather than duplicated
-# (pytest fixtures are importable across test modules).
-from tests.integration.test_payment_allocation_contract_p14 import (  # noqa: F401
-    _receive,
-    payment_fixture,
-)
+# The P14 module's _receive helper (the payment substrate builder).
+# The payment_fixture substrate itself lives in tests/integration/
+# conftest.py since P32 — pytest's own discovery, no import needed.
+from tests.integration.test_payment_allocation_contract_p14 import _receive
 
 
 class TestMoneyRejectsNonFiniteP16:
@@ -149,7 +146,7 @@ class TestReleaseRestoresSentStatusP16:
         import datetime as dt
 
         fx = payment_fixture
-        fx["invoice"].invoicenow_sent_at = dt.datetime(2024, 1, 12, 10, 0, tzinfo=dt.timezone.utc)
+        fx["invoice"].invoicenow_sent_at = dt.datetime(2024, 1, 12, 10, 0, tzinfo=dt.UTC)
         fx["invoice"].save(update_fields=["invoicenow_sent_at"])
         fx["invoice"].status = "SENT"
         fx["invoice"].save(update_fields=["status"])
@@ -287,9 +284,6 @@ class TestAtomicCreateWithAllocationsP16:
 
         fx = payment_fixture
         payments_before = Payment.objects.filter(org=fx["org"]).count()
-        entries_before = fx["invoice"].journal_entries.count() if hasattr(
-            fx["invoice"], "journal_entries"
-        ) else 0
 
         with pytest.raises(ServiceValidationError):
             # 5000.00 against a 109.00 invoice — the P14/H-1 cap refuses.

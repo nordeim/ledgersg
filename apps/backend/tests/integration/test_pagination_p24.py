@@ -126,7 +126,7 @@ def pagination_fx(
     fx["bank"] = bank
     from apps.banking.services import PaymentService
 
-    for i in range(2):
+    for _i in range(2):
         PaymentService.create_received(
             org_id=fx["org"].id,
             data={

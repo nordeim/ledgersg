@@ -245,14 +245,13 @@ class TestQueueTaskOnCommitP18:
         with override_settings(CELERY_TASK_ALWAYS_EAGER=False), patch.object(
             transmit_peppol_invoice_task, "delay"
         ) as delay:
-            with django_capture_on_commit_callbacks(execute=True):
-                with transaction.atomic():
-                    queue_task(
-                        transmit_peppol_invoice_task, "log-id", str(test_organisation.id)
-                    )
-                    assert delay.call_count == 0, (
-                        ".delay must NOT fire while the transaction is open"
-                    )
+            with django_capture_on_commit_callbacks(execute=True), transaction.atomic():
+                queue_task(
+                    transmit_peppol_invoice_task, "log-id", str(test_organisation.id)
+                )
+                assert delay.call_count == 0, (
+                    ".delay must NOT fire while the transaction is open"
+                )
             assert delay.call_count == 1, (
                 ".delay must fire exactly once when the transaction commits"
             )
@@ -271,12 +270,11 @@ class TestQueueTaskOnCommitP18:
         with override_settings(CELERY_TASK_ALWAYS_EAGER=False), patch.object(
             transmit_peppol_invoice_task, "delay"
         ) as delay:
-            with django_capture_on_commit_callbacks(execute=True):
-                with transaction.atomic():
-                    queue_task(
-                        transmit_peppol_invoice_task, "log-id", str(test_organisation.id)
-                    )
-                    transaction.set_rollback(True)
+            with django_capture_on_commit_callbacks(execute=True), transaction.atomic():
+                queue_task(
+                    transmit_peppol_invoice_task, "log-id", str(test_organisation.id)
+                )
+                transaction.set_rollback(True)
             assert delay.call_count == 0, (
                 ".delay must NOT fire when the transaction rolled back"
             )

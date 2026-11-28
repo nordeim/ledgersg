@@ -74,7 +74,7 @@ class TestRLSContextMiddleware:
         request.user.is_authenticated = False
 
         mw = TenantContextMiddleware(lambda r: HttpResponse())
-        response = mw(request)
+        mw(request)
 
         with connection.cursor() as cursor:
             cursor.execute("SELECT current_setting('app.current_org_id', true)")
@@ -91,7 +91,7 @@ class TestRLSContextMiddleware:
         request.user = test_user_with_org
 
         mw = TenantContextMiddleware(lambda r: HttpResponse())
-        response = mw(request)
+        mw(request)
 
         with connection.cursor() as cursor:
             cursor.execute("SELECT current_setting('app.current_org_id', true)")

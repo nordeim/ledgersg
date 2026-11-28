@@ -44,7 +44,6 @@ def test_development_rebinds_simple_jwt_not_mutates():
 
 def test_development_rebinds_databases_not_mutates():
     """RED for P13/B-7: development's DATABASES dicts must be fresh objects."""
-    base = _fresh_import("config.settings.base")
     dev = _fresh_import("config.settings.development")
     base2 = sys.modules["config.settings.base"]
 

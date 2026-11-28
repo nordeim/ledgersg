@@ -1,4 +1,4 @@
-"""
+r"""
 P14/M-4 + M-1 — document-input hardening and identity validators.
 
 M-4: malformed document input must produce 400s, never 500s. The

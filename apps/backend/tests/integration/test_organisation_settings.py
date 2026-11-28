@@ -206,7 +206,7 @@ class TestOrganisationSettingsView:
 
         # Verify updated fields are listed
         updated_fields = data["updated_fields"]
-        for field in update_data.keys():
+        for field in update_data:
             assert field in updated_fields
 
         # Verify changes persisted to database

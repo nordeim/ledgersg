@@ -279,7 +279,7 @@ def test_service_boots_with_a_strong_key(monkeypatch):
     wildcard default is gone — H-9)."""
     strong = "svc-" + "k" * 80
     svc = _load_service_settings(monkeypatch, strong, hosts="localhost,127.0.0.1")
-    assert svc.SECRET_KEY == strong
+    assert strong == svc.SECRET_KEY
     assert svc.ALLOWED_HOSTS == ["localhost", "127.0.0.1"]
 
 

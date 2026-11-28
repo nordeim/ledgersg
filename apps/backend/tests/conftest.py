@@ -7,6 +7,7 @@ Fixtures and utilities for integration testing.
 import uuid
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from django.contrib.auth.hashers import make_password
@@ -24,6 +25,13 @@ from apps.core.models import (
     TaxCode,
     UserOrganisation,
 )
+
+# P32/BE-P32-M2 (the F821 closure): the string annotations below
+# reference Contact, whose import lives inside the function bodies (the
+# Django circular-avoidance pattern). TYPE_CHECKING makes the names
+# resolvable to static checkers without importing at runtime.
+if TYPE_CHECKING:
+    from apps.core.models import Contact
 
 # =============================================================================
 # Fixtures

@@ -153,7 +153,7 @@ def peppol_fx(test_organisation, test_user, test_accounts, test_tax_codes, test_
         ("DELIVERED", 20, "44444444"),
         ("PENDING", None, "55555555"),  # NULL transmitted_at (never sent)
     ]
-    for status_value, minutes, seed in rows:
+    for status_value, _minutes, _seed in rows:
         PeppolTransmissionLog.objects.create(
             org=fx["org"],
             document_id=document.id,
@@ -163,7 +163,7 @@ def peppol_fx(test_organisation, test_user, test_accounts, test_tax_codes, test_
     # The bulk UPDATE bypasses auto_now_add: pin exact transmitted_at
     # values (row i lands at base + minutes; the NULL row stays NULL).
     rows_qs = PeppolTransmissionLog.objects.filter(org=fx["org"]).order_by("id")
-    for row, (_, minutes, _seed) in zip(rows_qs, rows):
+    for row, (_, minutes, _seed) in zip(rows_qs, rows, strict=True):
         if minutes is not None:
             PeppolTransmissionLog.objects.filter(pk=row.pk).update(
                 transmitted_at=base + timedelta(minutes=minutes)

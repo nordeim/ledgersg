@@ -22,10 +22,6 @@ import pytest
 from apps.core.models import GSTReturn, InvoiceDocument
 from apps.gst.services import GSTReturnService
 from common.exceptions import ValidationError as ServiceValidationError
-from tests.integration.test_payment_allocation_contract_p14 import (  # noqa: F401
-    _receive,
-    payment_fixture,
-)
 
 
 @pytest.fixture
@@ -437,17 +433,16 @@ class TestAddLineLocksDocumentP18:
             side_effect=IntegrityError(
                 'duplicate key value violates unique constraint "uq_docline_doc_lineno"'
             ),
-        ):
-            with pytest.raises(ServiceValidationError, match="(?i)line|concurrent"):
-                DocumentService.add_line(
-                    org_id=fx["org"].id,
-                    document_id=fx["invoice"].id,
-                    account_id=fx["accounts"]["4000"].id,
-                    description="P18 race line",
-                    quantity=Decimal("1"),
-                    unit_price=Decimal("10.00"),
-                    tax_code_id=test_tax_codes["SR"].id,
-                )
+        ), pytest.raises(ServiceValidationError, match="(?i)line|concurrent"):
+            DocumentService.add_line(
+                org_id=fx["org"].id,
+                document_id=fx["invoice"].id,
+                account_id=fx["accounts"]["4000"].id,
+                description="P18 race line",
+                quantity=Decimal("1"),
+                unit_price=Decimal("10.00"),
+                tax_code_id=test_tax_codes["SR"].id,
+            )
 
 
 class TestCreditNoteCapLocksOriginalP18:

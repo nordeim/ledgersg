@@ -29,19 +29,19 @@ from tests.conftest import create_test_contact
 
 def _tax_code(org, **kwargs):
     code = kwargs.pop("code")
-    defaults = dict(
-        org=org,
-        code=code,
-        name=code,
-        description=code,
-        rate=Decimal("0.09"),
-        is_gst_charged=True,
-        is_input=False,
-        is_output=True,
-        is_claimable=True,
-        is_active=True,
-        effective_from=date(2024, 1, 1),
-    )
+    defaults = {
+        "org": org,
+        "code": code,
+        "name": code,
+        "description": code,
+        "rate": Decimal("0.09"),
+        "is_gst_charged": True,
+        "is_input": False,
+        "is_output": True,
+        "is_claimable": True,
+        "is_active": True,
+        "effective_from": date(2024, 1, 1),
+    }
     defaults.update(kwargs)
     return TaxCode.objects.create(**defaults)
 

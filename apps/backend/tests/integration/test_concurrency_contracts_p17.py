@@ -16,10 +16,7 @@ from decimal import Decimal
 import pytest
 
 from apps.banking.services import PaymentService
-from tests.integration.test_payment_allocation_contract_p14 import (  # noqa: F401
-    _receive,
-    payment_fixture,
-)
+from tests.integration.test_payment_allocation_contract_p14 import _receive
 
 
 class TestVoidLocksPaymentRowP17:
@@ -189,19 +186,17 @@ class TestCeleryTenantContextP17:
                 bare = conn.execute("SELECT count(*) FROM invoicing.contact").fetchone()[0]
             from common.tenant_context import tenant_context
 
-            with tenant_context(org.id):
-                with conn.transaction():
-                    # The helper set the GUC on the DJANGO connection, not
-                    # this psycopg one — assert on the Django connection
-                    # instead (the task body's world).
-                    pass
+            with tenant_context(org.id), conn.transaction():
+                # The helper set the GUC on the DJANGO connection, not
+                # this psycopg one — assert on the Django connection
+                # instead (the task body's world).
+                pass
             # The task body's contract, on the Django connection:
             from django.db import connection as dj_conn
 
-            with tenant_context(org.id):
-                with dj_conn.cursor() as cursor:
-                    cursor.execute("SELECT current_setting('app.current_org_id', true)")
-                    guc = cursor.fetchone()[0]
+            with tenant_context(org.id), dj_conn.cursor() as cursor:
+                cursor.execute("SELECT current_setting('app.current_org_id', true)")
+                guc = cursor.fetchone()[0]
             assert guc == str(org.id)
             assert bare == 0, (
                 "RLS must deny tenant rows to the runtime role without the "
@@ -278,7 +273,7 @@ class TestListQueryPlansP17:
 
 
         fx = payment_fixture
-        for i in range(3):
+        for _i in range(3):
             _receive(fx["org"], fx["user"], fx["bank"], fx["contact"], Decimal("5.00"))
         with CaptureQueriesContext(connection) as ctx:
             rows = PaymentService.list(org_id=fx["org"].id)

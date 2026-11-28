@@ -107,14 +107,14 @@ def test_unhandled_exception_marks_transaction_for_rollback(db):
     email = "rollback-canary@ledgersg.sg"
     # idempotent pre-clean: a RED run of this test legitimately commits the
     # canary (that is the bug); scrub it so reruns stay deterministic.
-    AppUser = pytest.importorskip("apps.core.models").AppUser
-    AppUser.objects.filter(email=email).delete()
+    app_user_model = pytest.importorskip("apps.core.models").AppUser
+    app_user_model.objects.filter(email=email).delete()
     with transaction.atomic():
-        AppUser.objects.create_user(
+        app_user_model.objects.create_user(
             email=email, password="CanaryPass123!", full_name="Rollback Canary"
         )
         # The write is visible inside the block…
-        assert AppUser.objects.filter(email=email).exists()
+        assert app_user_model.objects.filter(email=email).exists()
 
         from rest_framework.test import APIRequestFactory
 
@@ -131,7 +131,7 @@ def test_unhandled_exception_marks_transaction_for_rollback(db):
         )
 
     # After the atomic block: the partial write must be gone.
-    assert not AppUser.objects.filter(email=email).exists(), (
+    assert not app_user_model.objects.filter(email=email).exists(), (
         "The partial write survived — the 500 Response committed it."
     )
 
@@ -244,9 +244,11 @@ def test_reversal_second_phase_failure_leaves_no_orphan(
             raise RuntimeError("simulated original-marking failure")
         return real_save(self, *args, **kwargs)
 
-    with patch.object(JournalEntry, "save", failing_mark_save):
-        with pytest.raises(RuntimeError, match="original-marking failure"):
-            JournalService.create_reversal(
+    with (
+        patch.object(JournalEntry, "save", failing_mark_save),
+        pytest.raises(RuntimeError, match="original-marking failure"),
+    ):
+        JournalService.create_reversal(
                 org_id=test_organisation.id,
                 original_entry_id=original.id,
                 reversal_date=date(2024, 1, 20),

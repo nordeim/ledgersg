@@ -53,10 +53,7 @@ from apps.core.models import GSTReturn, InvoiceLine
 from apps.gst.services import GSTReturnService
 from apps.invoicing.services import DocumentService
 from common.exceptions import ValidationError as ServiceValidationError
-from tests.integration.test_payment_allocation_contract_p14 import (  # noqa: F401
-    _receive,
-    payment_fixture,
-)
+from tests.integration.test_payment_allocation_contract_p14 import _receive
 
 
 @pytest.fixture
@@ -138,9 +135,11 @@ class TestRemoveLineLocksDocumentP19:
             Doc.objects.filter(id=invoice.id).update(status="APPROVED")
             return real_sfu()
 
-        with patch.object(Doc.objects, "select_for_update", side_effect=racing_sfu):
-            with pytest.raises(ServiceValidationError, match="(?i)draft"):
-                DocumentService.remove_line(
+        with (
+            patch.object(Doc.objects, "select_for_update", side_effect=racing_sfu),
+            pytest.raises(ServiceValidationError, match="(?i)draft"),
+        ):
+            DocumentService.remove_line(
                     org_id=test_organisation.id,
                     document_id=invoice.id,
                     line_id=line.id,

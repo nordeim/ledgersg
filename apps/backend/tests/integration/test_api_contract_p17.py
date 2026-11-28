@@ -117,7 +117,7 @@ class TestBulkAllocationUUIDContractP17:
             is_active=True,
         )
         contact = create_test_contact(org, is_customer=True)
-        invoice = create_test_invoice(org, contact, status="APPROVED")
+        create_test_invoice(org, contact, status="APPROVED")
         payment = PaymentService.create_received(
             org_id=org.id,
             data={

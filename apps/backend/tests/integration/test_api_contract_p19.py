@@ -26,10 +26,6 @@ from decimal import Decimal
 
 import pytest
 
-from tests.integration.test_payment_allocation_contract_p14 import (  # noqa: F401
-    payment_fixture,
-)
-
 
 def _auth(client, user):
     from tests.conftest import get_auth_token
@@ -282,7 +278,7 @@ class TestSuggestMatchesQueryCountP19:
 
         fx = payment_fixture
         # 8 unreconciled received payments, all contact-linked.
-        for i in range(8):
+        for _i in range(8):
             _receive(
                 fx["org"], fx["user"], fx["bank"], fx["contact"], Decimal("109.00")
             )

@@ -45,20 +45,20 @@ def _org_with_contact(**contact_kwargs):
         user=user, org=org, role=role, is_default=True,
         invited_at=date.today(), accepted_at=date.today(),
     )
-    defaults = dict(
-        org=org,
-        contact_type="CUSTOMER",
-        name="Acme Trading Pte Ltd",
-        is_customer=True,
-        is_supplier=False,
-        is_active=True,
-        email="acme@example.com",
-        uen="199001234D",
-        peppol_id="0198:T10987654Z",
-        gst_reg_number="M12345678X",
-        address_line_1="12 Marina Boulevard",
-        postal_code="018982",
-    )
+    defaults = {
+        "org": org,
+        "contact_type": "CUSTOMER",
+        "name": "Acme Trading Pte Ltd",
+        "is_customer": True,
+        "is_supplier": False,
+        "is_active": True,
+        "email": "acme@example.com",
+        "uen": "199001234D",
+        "peppol_id": "0198:T10987654Z",
+        "gst_reg_number": "M12345678X",
+        "address_line_1": "12 Marina Boulevard",
+        "postal_code": "018982",
+    }
     defaults.update(contact_kwargs)
     contact = Contact.objects.create(**defaults)
     return user, org, contact

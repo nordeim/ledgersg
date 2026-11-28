@@ -41,7 +41,7 @@ def test_rls_accounts_isolation(auth_client, test_organisation, test_user):
     )
 
     # Create account in other org
-    other_account = Account.objects.create(
+    Account.objects.create(
         org=other_org,
         code="9999",
         name="Other Account",

@@ -29,14 +29,14 @@ def _org_with_manager(**org_kwargs):
         full_name="Org Patch Tester",
         is_active=True,
     )
-    defaults = dict(
-        name="Patch Org",
-        entity_type="PRIVATE_LIMITED",
-        base_currency="SGD",
-        uen=f"T{uuid.uuid4().hex[:9].upper()}",
-        gst_registered=False,
-        fy_start_month=1,
-    )
+    defaults = {
+        "name": "Patch Org",
+        "entity_type": "PRIVATE_LIMITED",
+        "base_currency": "SGD",
+        "uen": f"T{uuid.uuid4().hex[:9].upper()}",
+        "gst_registered": False,
+        "fy_start_month": 1,
+    }
     defaults.update(org_kwargs)
     org = Organisation.objects.create(**defaults)
     role = Role.objects.create(

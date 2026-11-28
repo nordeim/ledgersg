@@ -265,7 +265,7 @@ class TestGlobalThrottling:
         """Banking endpoints are subject to global throttling."""
         client, user = authenticated_client
 
-        bank_account = BankAccount.objects.create(
+        BankAccount.objects.create(
             org=test_org,
             bank_name="Test Bank",
             account_name="Test Account",

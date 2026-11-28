@@ -335,7 +335,7 @@ class TestJournalServiceBackwardsCompatibility:
 
         import warnings
 
-        with warnings.catch_warnings(record=True) as w:
+        with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
 
             entry = JournalService.create_entry(

@@ -165,9 +165,11 @@ class TestSalesCreditNotePosting:
         doc.refresh_from_db()
 
         lines = JournalLine.objects.filter(entry_id=doc.journal_entry_id)
-        debits = sum((l.debit for l in lines), Decimal("0"))
-        credits = sum((l.credit for l in lines), Decimal("0"))
-        assert debits == credits, f"unbalanced credit-note entry: D={debits} C={credits}"
+        debits = sum((line.debit for line in lines), Decimal("0"))
+        credit_total = sum((line.credit for line in lines), Decimal("0"))
+        assert debits == credit_total, (
+            f"unbalanced credit-note entry: D={debits} C={credit_total}"
+        )
 
     @pytest.mark.django_db
     def test_sales_invoice_keeps_invoice_direction(

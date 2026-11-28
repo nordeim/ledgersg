@@ -32,19 +32,19 @@ def _make_limited_member(org, **role_flags):
 
     from apps.core.models import AppUser, Role, UserOrganisation
 
-    defaults = dict(
-        can_manage_org=False,
-        can_manage_users=False,
-        can_manage_coa=False,
-        can_create_invoices=False,
-        can_approve_invoices=False,
-        can_void_invoices=False,
-        can_create_journals=False,
-        can_manage_banking=False,
-        can_file_gst=False,
-        can_view_reports=False,
-        can_export_data=False,
-    )
+    defaults = {
+        "can_manage_org": False,
+        "can_manage_users": False,
+        "can_manage_coa": False,
+        "can_create_invoices": False,
+        "can_approve_invoices": False,
+        "can_void_invoices": False,
+        "can_create_journals": False,
+        "can_manage_banking": False,
+        "can_file_gst": False,
+        "can_view_reports": False,
+        "can_export_data": False,
+    }
     defaults.update(role_flags)
     role = Role.objects.create(org=org, name="Limited P9", description="P9 test role", **defaults)
     user = AppUser.objects.create(

@@ -176,8 +176,8 @@ def test_journal_entry_reversal(
     reversal = JournalEntry.objects.get(id=response.data["reversal"]["id"])
     lines = list(reversal.lines.all())
 
-    ar_line = [l for l in lines if l.account_id == ar_account.id][0]
-    revenue_line = [l for l in lines if l.account_id == revenue_account.id][0]
+    ar_line = [line for line in lines if line.account_id == ar_account.id][0]
+    revenue_line = [line for line in lines if line.account_id == revenue_account.id][0]
 
     assert ar_line.debit == Decimal("0.00")
     assert ar_line.credit == Decimal("100.00")

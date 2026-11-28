@@ -70,7 +70,7 @@ class TestProductionBootTruth:
         """
         base, snapshot, _ = _import_base_then_production(monkeypatch)
 
-        assert base.LOGGING == snapshot, (
+        assert snapshot == base.LOGGING, (
             "importing config.settings.production must not mutate "
             "config.settings.base.LOGGING in place"
         )
