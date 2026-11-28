@@ -8,10 +8,10 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 66 / P34):
-- Backend: pytest 1073 passed / 0 failed / 5 skipped (1078 collected)
-  (+26: the P34 gates — 11 credit-note Peppol, 10 currency-vocabulary/org,
-  5 banking serializer)
+Current truth (all gates executed and green, session 68 / P35):
+- Backend: pytest 1089 passed / 0 failed / 5 skipped (1094 collected)
+  (+16: the P35 gates — 10 Schematron business rules, 6 transmission
+  failure-path/formatter)
 - Backend lint: the closed ruff classes at **0** across the WHOLE tree
   (the P30 production closure + the P31 extension + the P32 set:
   W291/W293 whitespace, I001 import order, F401 unused imports,
@@ -20,7 +20,7 @@ Current truth (all gates executed and green, session 66 / P34):
   tests 379 → 158 → 73 [the honest re-measured baseline; the P31
   report's 157 under-counted by the W605 the P32 sprint closed];
   `make lint-mechanical` + the CI step gate the extended class set
-  over production + tests — unchanged by P34: no lint class touched)
+  over production + tests — unchanged by P35: no lint class touched)
 - Frontend: vitest 698/698 (85 files, on vitest 4.1.12 — the P23
   advisory closure), coverage green at the RAISED per-glob ratchets
   (the P29 honest-ratchet completion: lib 73/54/78/75, hooks
@@ -29,7 +29,7 @@ Current truth (all gates executed and green, session 66 / P34):
   63/63/58/62, plus the NEW src/shared tier 73/62/76/73 — the P20
   tier set had missed the shared primitives), tsc --noEmit 0 errors,
   whole-tree eslint **0 errors / 0 warnings**,
-  npm audit **0 across dev+prod** (the web tree untouched by P34)
+  npm audit **0 across dev+prod** (the web tree untouched by P35)
 - P34 headline: the credit-note Peppol truth — a TRIPLE defect, all
   reproduced (generate_credit_note_xml emitted header-only UBL while
   the mapper supplies parties/totals/lines for every document type;
@@ -2260,3 +2260,43 @@ and asserts acceptance (`test_X_validator_accepts_generated_Y`). A
 validator only ever seeing hand-built fixtures (or nothing) is a
 rubber stamp; the producer-validator round-trip gate is the cheap
 permanent proof that the two ends of the seam agree.
+
+### A Validation Stack Is Only As Truthful As Its Topmost WIRED Layer
+The P35 finding, one layer above the P34 one: the Schematron
+business-rule layer had been decorative end to end — the `.sch`
+artefact declared the wrong XML namespace (a `dml` typo of `dsdl`:
+unparseable by ANY ISO-Schematron implementation) and an unsupported
+`queryBinding="xslt2"` (lxml ships only the XSLT 1.0 skeleton); the
+`_validate_schematron` placeholder was never CALLED by either validate
+method (`schematron_errors` was a constant `[]` in every result); and
+the one test on the axis was `assert hasattr(...) or True` — vacuous
+by construction. The suite was green while a USD document carrying
+one SGD-claiming amount validated clean: the P34 work made the XSD
+layer real, but the layer ABOVE it (the cross-element truths a
+structural schema cannot express) was still nothing. The lesson: when
+a validation stack has multiple layers (XSD → Schematron → code-list
+checks), verify EACH layer's wiring separately — a real bottom layer
+plus a decorative top layer still overstates what was checked. The
+cheap probe: hand-craft a document that passes the bottom layer but
+violates the top layer's strongest rule, and assert the verdict is
+False. If it validates clean, the top layer is wired to nothing. The
+P35 fix wires the layer (the five-rule deterministic XPath 1.0 set,
+the fail-closed load posture, `is_valid` folding both error lists)
+and pins exactly that probe (`test_tampered_currency_id_fails_the_business_rules`).
+
+### Join Consumer Shapes, Don't Assume The Mock's Shape At The Seam
+The P35 second finding: `_execute_transmission`'s failure message
+was built with `"; ".join(errors)` — the transmission TESTS mocked
+the validation service with a list of STRINGS, so the join worked in
+the suite; the REAL validator returns a list of DICTS, so the join
+raised TypeError the first time a real schema-invalid document hit
+the path, and the outer `except` rewrote the intended VALIDATION_ERROR
+into an INTERNAL_ERROR carrying the Python error string. The defect
+class: a seam where the mock's data shape and the real collaborator's
+shape diverge — the suite proves the mock's shape joinable, never the
+real one. The lesson: at every seam that formats/serialises a
+collaborator's return, keep ONE test that runs the REAL collaborator
+through the seam (mock the INPUT, not the collaborator, when the
+collaborator is the thing under test), and make the formatter
+defensive about shape (dicts → their message values, strings pass
+through) — the join should never be the thing that crashes.

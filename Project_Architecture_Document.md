@@ -1,8 +1,10 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.24.0
+> **Version**: 3.25.0
 > **Last Updated**: 2026-11-28
+> **P35 note**: the Peppol business-rule truth — the Schematron layer above the now-real XSD wired for real (the .sch corrected to the true ISO dsdl namespace + the xslt binding with a five-rule deterministic XPath 1.0 set — the BR-SG-06 amount-currencyID consistency rule pinning the P33 truth — plus the fail-closed load posture; `is_valid` folds both error lists) + the transmission failure-path truth (the shape-tolerant error join: a schema-invalid document now reports VALIDATION_ERROR with the real messages, not an INTERNAL_ERROR TypeError) — see `docs/REMEDIATION_PLAN_2026-11-28_P35.md`.
+>
 > **P33 note**: the currency-truth closure — the Peppol amount-currencyID thread (every amount element in the InvoiceNow UBL now carries the document currency; a non-SGD document previously transmitted a header that disagreed with its own amounts), the financial-reports denomination (the three report responses read org.base_currency), and the account-balance currency (the account's own field) — see `docs/REMEDIATION_PLAN_2026-11-28_P33.md`.
 >
 > **P30 note**: the ruff mechanical closure + the fourth-surface walk completion — the registered 928-finding production batch's mechanical classes closed 650 → 0 (whitespace ×378, import order ×122, unused imports ×121 across 51 files, the Django split-settings star imports ×29 documented via per-file-ignores — the pass-through contract; `ruff check --fix` now SAFE); the reconcile/unreconcile responses now JOIN bank_account instead of walking it (byte-identical payloads, 2 new query-count gates + the live round-trip); the mechanical-class lint ratchet (`make lint-mechanical` + the CI step) — see `docs/REMEDIATION_PLAN_2026-11-28_P30.md`.
@@ -52,10 +54,10 @@
 
 **LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs. It eliminates the complexity of IRAS compliance through a "SQL-First" design philosophy and a distinctive "Illuminated Carbon" neo-brutalist UI.
 
-### Key Metrics (P30, 2026-11-28)
+### Key Metrics (P35, 2026-11-28)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,814 Tests Passing** | 1073 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
+| **Test Coverage** | **1,830 Tests Passing** | 1089 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+"); every LIST endpoint returns the unified `{results, count}` envelope (P21) with the additive `?limit=&offset=` pagination + next/previous + total-count (P24) |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
@@ -65,9 +67,9 @@
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
 | **Frontend Unit** | 698 (85 files) | 100% | Vitest + RTL (on vitest 4.1.12 — the P23 advisory closure) | ✅ Passing |
-| **Backend (pytest)** | 1036 passed / 5 skipped (1041 collected) | 100% of run | pytest | ✅ Passing |
+| **Backend (pytest)** | 1089 passed / 5 skipped (1094 collected) | 100% of run | pytest | ✅ Passing |
 | **E2E (Playwright)** | 43 (11 always + 32 backend-gated) | 100% live | Playwright | ✅ Passing |
-| **Total Passing** | **1,771** | — | Mixed | ✅ Verified |
+| **Total Passing** | **1,830** | — | Mixed | ✅ Verified |
 
 ---
 

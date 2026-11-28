@@ -2058,3 +2058,91 @@ prefill; the TanStack incompatibility; the membership-cache window; the
 P20-era FE-M2/M3 designs; CI hardening (the mypy gate — 1491 errors);
 the version-story reconciliation — the P21–P33 deferred registers carry
 forward unchanged.
+
+## Session 68 — P35 Sprint (2026-11-28)
+
+The workspace pulled to `7322b224` (the session-67 log). The environment
+SURVIVED the sandbox recycle: rootless PG 17 with both databases + the
+v1.2.2 schema + the accumulated demo substrate, Redis 8, the backend
+venv, the web tree, the web dev server on :3000. The backend dev
+servers had been reaped (the documented behavior) — every live gate ran
+with the backends started INSIDE the same invocation. All documented
+baselines reproduced EXACTLY before any change: backend 1073P/0F/5S,
+vitest 698/698, tsc 0, eslint 0E/0W, e2e 43/43, rls 13/13, mobile-nav
+17/17 (the thirty-eighth settlement), the translate probe PASS, npm
+audit 0, make lint-mechanical 0, the production ruff count 148 exact,
+the tests count 73 exact. The mobile-nav focus settled: working, no
+Tailwind v4 bug.
+
+### The audits (Mode C)
+
+**0 Critical / 2 High / 0 Medium / 0 Low.** The P34 slice re-verified
+clean in source. The one-layer-UPPER sweep — the business-rule
+validation layer end-to-end (the .sch artefact → the placeholder → the
+two validate methods → the transmission failure path):
+
+**BE-P35-H1 (the headline): the Schematron business-rule truth — a
+triple defect, all reproduced via live probes.** (a) The `.sch`
+declared the WRONG XML namespace (`dml` — a typo of the ISO Schematron
+`dsdl`) AND an unsupported `queryBinding="xslt2"` (lxml ships only the
+XSLT 1.0 skeleton): the artefact had never been loadable by ANY
+ISO-Schematron implementation (SchematronParseError on construction).
+(b) `_validate_schematron` was a never-called placeholder returning
+`[]` — `schematron_errors` in every result was the constant empty
+list, and a USD document with ONE amount's `currencyID` tampered to
+SGD passed validation CLEAN (the cross-element truth the XSD cannot
+express — the P33 hazard class unguarded). (c) The one test on the
+axis was vacuous (`assert hasattr(...) or True` — always true; the
+FOURTH stacked blind spot on this path).
+
+**BE-P35-H2: the transmission failure-path truth.** `"; ".join(errors)`
+on the REAL validator's dict shape raised `TypeError` — the outer
+`except` converted a VALIDATION_ERROR into an INTERNAL_ERROR carrying
+the Python error string, hiding the document's defect from the
+operator. The tests never saw it: they mock the validation service
+with STRING lists and never exercise `_execute_transmission` with a
+failing real-shape result.
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-P35-H1(a) | the `.sch` rewritten: the true `dsdl` namespace + the `xslt` binding + the four UBL namespace bindings + the five-rule deterministic XPath 1.0 set (BR-SG-01 root type · 02/03 ID+IssueDate · 04 the currency shape via string-length+translate · 05 ≥1 line · **06 the amount-currencyID consistency sweep — the P33 truth pinned in the validation layer**) | 10 NEW gates (the artefact-load + namespace contract, the clean invoice/credit-note controls, the tampered-currency failure, the lowered-currency failure, the no-ID floor, the SVRL shape, the fail-closed load posture) |
+| BE-P35-H1(b) | the wiring: the `.sch` loaded with the hardened parser + the fail-closed contract; `_validate_schematron` real (the SVRL failed-asserts as message+location dicts); called by BOTH validate methods; `is_valid` folds both error lists | the same gates GREEN; the strengthened formerly-vacuous spec (clean → `[]`, tampered → BR-SG-06 + `is_valid: False`) |
+| BE-P35-H2 | the shape-tolerant `_format_validation_error_messages` at the failure seam (dicts → message values, strings pass, mixed tolerated) | 6 NEW gates (the REAL failure-path run with NO validation mock — VALIDATION_ERROR + the real message text; the valid-document control; the formatter unit pins) |
+| X-docs | the truth pass (README badge 1830 + the P35 milestone, CLAUDE 2.36.0, AGENTS header + 2 new lessons [the topmost-wired-layer lesson; the join-consumer-shapes lesson], SKILL 2.22.0, PAD 3.25.0, DEPLOYMENT header, the API guide v3.8.0 + the P35 addendum, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful (zero new env readers) |
+
+### Final gate (all verified, executed)
+
+backend **1089P/0F/5S** (+16) · vitest **698/698 (85 files)** · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · **e2e:full 43P/0F/0S** ·
+**rls_smoke 13/13 as `ledgersg_app`** · **mobile-nav 17/17** (the
+thirty-ninth settlement) · the `translate` probe re-PASS · **npm audit
+0 across dev+prod** · build:server green + **prod-CSP 5/5** · ruff
+production **148** / tests **73** (unchanged — no lint class touched)
+· schema v1.2.2 (no DDL). 8 DOM-verified screenshots (232-239, the
+invoices list — the P35 headline surface — + the banking payments, the
+reports trial-balance, the ledger, the dashboard, the settings, the
+mobile drawer closed/open). The live contract re-verification: the
+invoice XML from a REAL APPROVED document (INV-00006) validates clean
+with the business-rule layer ON (byte-stable); the credit-note XML
+from a real document validates clean; the tampered-currency control
+(one amount currencyID flipped) FAILS with BR-SG-06 named.
+
+### Deferred (registered, not dropped)
+
+The ruff semantic batch — **148 production findings** (unchanged: the
+UP typing batch ×105 [the mypy-gate conversation stays the registered
+precondition], E501 ×38 + the format axis at 160 files, S110 ×4, N818
+×1); the tests/-tree residual — **73 findings** (E501 ×73 only); **NEW:
+the Schematron ARITHMETIC axis** (the BR-CO-10..17 rules — honest
+XPath 1.0 arithmetic over NUMERIC(19,4) decimal strings needs its own
+careful specification; registered, not faked); the `/accounts/search/`
+limit-contract migration (verified again: capped + typed, no frontend
+consumer); the capped-default flip; the audit-log INSERT policy (DDL);
+BE-L3/BE-L4 locking; the CSV errors[] strings; dead-letter design; UEN
+checksum; the NULL-context SELECT tradeoff; H-05b models; PaymentsTab
+prefill; the TanStack incompatibility; the membership-cache window; the
+P20-era FE-M2/M3 designs; CI hardening (the mypy gate — 1491 errors);
+the version-story reconciliation — the P21–P34 deferred registers carry
+forward unchanged.
