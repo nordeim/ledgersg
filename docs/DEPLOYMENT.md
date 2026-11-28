@@ -6,8 +6,14 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-28, session 62 / P32) re-verified the guide against the current
-codebase on the live sandbox (rootless PG 17 + Redis per §3/§5 — the
+(2026-11-28, session 64 / P33) re-verified the guide against the current
+codebase on the live sandbox — **provisioned from scratch this session
+through this guide's own steps §1–§9** (the sandbox recycle had wiped the
+environment: fresh rootless PG 17 via §3's script, the ledgersg role +
+both databases + the schema load, fresh Redis 8 per §5, the venv per
+§6, the §7 suite green 1047P/0F/5S (+11 the currency-truth gates), the
+§9 web tree + the bootstrap script run — every step walked and
+re-verified; rootless PG 17 + Redis per §3/§5 — the
 cluster RECOVERED this session after the sandbox recycle damaged the
 data directory's empty structural subdirectories; the databases, all
 schemas and the three roles survived intact, backend

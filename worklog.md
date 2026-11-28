@@ -1884,3 +1884,82 @@ prefill; the TanStack incompatibility; the membership-cache window; the
 P20-era FE-M2/M3 designs; CI hardening (the mypy gate — 1491 errors);
 the version-story reconciliation; the P21–P31 deferred registers
 carried forward unchanged.
+
+## Session 64 — P33 Sprint (2026-11-28)
+
+The workspace had been reset (fresh clone); the environment provisioned
+FROM SCRATCH through DEPLOYMENT.md's own §1–§9 — the strongest
+re-validation of the deployment guide: rootless PG 17 via the §3
+script, the ledgersg role + both databases + the schema load, rootless
+Redis 8, the backend venv, the web npm ci (0 vulnerabilities),
+Playwright chromium, the demo substrate bootstrap (36 ledger lines, 12
+approved invoices, F5 computed). One environment lesson re-learned:
+running the backend suite WITHOUT the documented --reuse-db
+--no-migrations flags let pytest-django destroy and rebuild the test
+database — the documented invocation exists for a reason; the
+documented recovery restored the schema in one pass. All documented
+baselines reproduced EXACTLY before any change: backend 1036P/0F/5S,
+vitest 698/698, tsc 0, eslint 0E/0W, e2e 43/43 first-run, rls 13/13,
+mobile-nav 17/17 (the thirty-fourth settlement), the translate probe
+PASS, npm audit 0, build:server + prod-CSP 5/5, make lint-mechanical
+0, the production ruff count 148 exact, the tests count 73 exact. The
+mobile-nav focus settled: working, no Tailwind v4 bug.
+
+### The audits (Mode C)
+
+**0 Critical / 1 High / 2 Medium / 0 Low** — the currency-truth
+class. BE-P33-H1 (the headline): the Peppol amount-currency truth —
+XMLGeneratorService hardcoded currencyID="SGD" on all 11 amount
+elements while the mapper flows the document's own currency into
+DocumentCurrencyCode (a USD/EUR invoice would transmit internally
+inconsistent UBL — a PINT-SG validation hazard; the existing tests
+only ever built SGD payloads, the fixture masked the hardcode).
+BE-P33-M1: the financial-reports denomination — the three report views
+hardcoded "currency": "SGD" while the ledger they aggregate is
+denominated in the org's base_currency. BE-P33-M2: the
+account-balance currency — hardcoded "SGD" behind a literal TODO while
+the Account model carries its own currency field. Verified truthful in
+the same sweep: the invoice PDF (org.base_currency), the invoicing
+serializers, the banking services, tax_currency "SGD" (the statutory
+posture), the frontend formatMoneyWithCurrency.
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-P33-H1 | the Peppol amount-currency thread: the document currency flows as a PARAMETER through _create_tax_total/_create_monetary_total/_create_invoice_line; all 11 currencyID sites carry it; byte-identical for SGD documents | 6 NEW gates (the USD payload sweep enumerating zero SGD-claiming amount elements + the SGD-path control); the existing peppol suites 68/68 |
+| BE-P33-M1 | the reports denomination: the three report views read org.base_currency (one indexed-PK values_list per request) | 3 NEW gates (a USD-based org sees "currency": "USD" on all three reports) |
+| BE-P33-M2 | the account-balance currency: account.currency (the TODO retired) | 2 NEW gates (the USD account + the SGD default control) |
+| X-docs | the truth pass (README badge 1788 + the P33 milestone, CLAUDE 2.34.0, AGENTS header + the P33 headline + 2 new lessons [the default-value-fixture-masks-the-hardcode lesson; the money-denomination-truth lesson], SKILL 2.20.0, PAD 3.23.0, DEPLOYMENT header [provisioned from scratch through the guide this session], the API guide v3.6.0 + the P33 currency-truth addendum, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful |
+
+### Final gate (all verified, executed)
+
+backend **1047P/0F/5S** (+11) · vitest **698/698 (85 files)** · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · **e2e:full 43P/0F/0S** ·
+**rls_smoke 13/13 as `ledgersg_app`** · **mobile-nav 17/17** (the
+thirty-fifth settlement) · the `translate` probe re-PASS · **npm audit
+0 across dev+prod** · build:server green + **prod-CSP 5/5** · ruff
+production **148** / tests **73** (unchanged — no lint class touched)
+· schema v1.2.2 (no DDL). 8 DOM-verified screenshots (216-223, the
+reports trial-balance + P&L — the denomination surfaces — + the banking
+payments, the invoices list, the ledger, the dashboard, the mobile
+drawer closed/open).
+
+### Deferred (registered, not dropped)
+
+The ruff semantic batch — **148 production findings** (unchanged: the
+UP typing batch ×105 [the mypy-gate conversation stays the registered
+precondition], E501 ×38 + the format axis at 160 files, S110 ×4, N818
+×1); the tests/-tree residual — **73 findings** (E501 ×73 only); **NEW:
+the credit-note XML minimality** (generate_credit_note_xml emits
+header-only UBL — a full PINT-SG credit note would carry the amounts;
+its own reviewed pass) + **the ISO-4217 allowlist for currency inputs**
+(CHAR(3) with no code-list check — the "USDD" typo class); the
+`/accounts/search/` limit-contract migration (verified again: capped +
+typed, no frontend consumer); the capped-default flip; the audit-log
+INSERT policy (DDL); BE-L3/BE-L4 locking; the CSV errors[] strings;
+dead-letter design; UEN checksum; the NULL-context SELECT tradeoff;
+H-05b models; PaymentsTab prefill; the TanStack incompatibility; the
+membership-cache window; the P20-era FE-M2/M3 designs; CI hardening
+(the mypy gate — 1491 errors); the version-story reconciliation; the
+P21–P32 deferred registers carried forward unchanged.

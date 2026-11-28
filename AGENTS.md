@@ -8,9 +8,10 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 62 / P32):
-- Backend: pytest 1036 passed / 0 failed / 5 skipped (1041 collected)
-  (+2: the conftest fixture-resolution gates)
+Current truth (all gates executed and green, session 64 / P33):
+- Backend: pytest 1047 passed / 0 failed / 5 skipped (1052 collected)
+  (+11: the currency-truth gates — 6 Peppol amount-currencyID, 3
+  reports denomination, 2 account-balance currency)
 - Backend lint: the closed ruff classes at **0** across the WHOLE tree
   (the P30 production closure + the P31 extension + the P32 set:
   W291/W293 whitespace, I001 import order, F401 unused imports,
@@ -29,6 +30,17 @@ Current truth (all gates executed and green, session 62 / P32):
   tier set had missed the shared primitives), tsc --noEmit 0 errors,
   whole-tree eslint **0 errors / 0 warnings**,
   npm audit **0 across dev+prod**
+- P33 headline: the currency-truth closure — the Peppol amount
+  currencyID thread (XMLGeneratorService hardcoded currencyID="SGD"
+  on all 11 amount elements while the mapper flows the document's own
+  currency into DocumentCurrencyCode — a USD/EUR invoice transmitted
+  internally inconsistent UBL; the existing tests only ever built SGD
+  payloads, the fixture masked the hardcode), the financial-reports
+  denomination (the three report views now read org.base_currency,
+  not a hardcoded SGD — the invoice PDF already rendered the truthful
+  value), and the account-balance currency (the account's own
+  currency field, retiring the literal TODO). Byte-identical on the
+  SGD substrate; truthful for every other denomination
 - P32 headline: the dead-code & shadow-fragility closure + the
   tests-tree residual — the 3 dead service-seam bindings retired
   (void's never-read `reversal`, transition's `old_status`, approve's
@@ -2157,3 +2169,34 @@ import — RED on the base tree (fixture not found), GREEN after the
 move. When a lint class traces back to a workaround for missing
 infrastructure, fix the infrastructure; the findings close as a side
 effect.
+
+## 2026-11-28 P33 Sprint — New Patterns & Lessons (session 64)
+
+### A Fixture At The Default Value Masks A Hardcode At The Same Value
+The Peppol generator hardcoded `currencyID="SGD"` on all 11 amount
+elements while the mapper correctly flowed the document's own currency
+into `DocumentCurrencyCode` — and every existing generator test built
+its payload with `"currency": "SGD"`. The suite was green, the fixture
+was truthful FOR THE DEFAULT, and the defect was invisible: a
+USD-denominated invoice would have transmitted UBL whose header said
+USD and whose every amount said SGD. The same class as P1/A-2
+(fixture debt masks real bugs), sharpened: when a seam has a DEFAULT
+value, write at least one spec whose fixture sits at a NON-default
+value — the default-valued fixture can never distinguish "the code
+reads the value" from "the code hardcodes the default". The P33 specs
+pair the non-default probe (USD) with the default-path control (SGD)
+so the byte-stability claim is pinned too.
+
+### A Money-Denominated Response Owes Its Currency The Same Truth As Its Amounts
+Three surfaces returned real, computed amounts beside a hardcoded
+`"currency": "SGD"` (the financial reports ×3, the account balance —
+the latter behind a literal TODO). The pattern generalises the P5
+dashboard-truth class: any response carrying a monetary amount carries
+an IMPLIED denomination, and a hardcoded one is a lie that only
+non-default data exposes (a USD-based org's trial balance claimed
+SGD). The audit sweep that finds them is mechanical — grep every
+`"SGD"`/currency literal outside defaults/validators and ask, per
+site, "what does the DATA say?" The Peppol mapper's
+`tax_currency: "SGD"` survives that question (IRAS GST is accounted in
+SGD regardless of the document currency — the statutory posture);
+the amount-level currencyIDs did not.

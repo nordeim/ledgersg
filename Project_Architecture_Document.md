@@ -1,8 +1,10 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.22.0
+> **Version**: 3.23.0
 > **Last Updated**: 2026-11-28
+> **P33 note**: the currency-truth closure — the Peppol amount-currencyID thread (every amount element in the InvoiceNow UBL now carries the document currency; a non-SGD document previously transmitted a header that disagreed with its own amounts), the financial-reports denomination (the three report responses read org.base_currency), and the account-balance currency (the account's own field) — see `docs/REMEDIATION_PLAN_2026-11-28_P33.md`.
+>
 > **P30 note**: the ruff mechanical closure + the fourth-surface walk completion — the registered 928-finding production batch's mechanical classes closed 650 → 0 (whitespace ×378, import order ×122, unused imports ×121 across 51 files, the Django split-settings star imports ×29 documented via per-file-ignores — the pass-through contract; `ruff check --fix` now SAFE); the reconcile/unreconcile responses now JOIN bank_account instead of walking it (byte-identical payloads, 2 new query-count gates + the live round-trip); the mechanical-class lint ratchet (`make lint-mechanical` + the CI step) — see `docs/REMEDIATION_PLAN_2026-11-28_P30.md`.
 > **P29 note**: the detail-view N+1 closure — the three detail seams (document detail, journal entry detail, payment detail) fetched their row with a plain `.get()` while the serializers walked the related FKs per line / per related object (a 5-line invoice detail paid 14 queries where 3 would do, across 8 serialising call sites incl. the PDF context); now the contact rides the document SELECT, the lines arrive in ONE joined SELECT carrying account + tax_code, the payment joins its related rows — byte-identical payloads, pinned by 3 new query-count gates; plus the per-glob coverage-ratchet raise (all five tiers at their measured floors — the hooks branches floor sat 15 points below the truth — and the NEW src/shared tier, closing the P20 blind spot) — see `docs/REMEDIATION_PLAN_2026-11-28_P29.md`.
 > **P28 note**: the SQL-level push-down for the service-driven lists — the four services (contacts, documents [invoices AND quotes], payments, bank transactions) returned materialised Python lists and the views Python-sliced + `len()`-counted, so every 20-row page fetched the ENTIRE filtered set (the P24 envelope paged the response, not the query); now lazy querysets + SQL COUNT(*) + SQL LIMIT/OFFSET, byte-identical envelopes, pinned by 4 new query-level gates; plus the honest coverage-ratchet raise (71/60/68/71 → 73/62/70/73 at the measured floor) and the dev-tier dependency closure (npm audit 0 across dev+prod) — see `docs/REMEDIATION_PLAN_2026-11-28_P28.md`.
@@ -53,7 +55,7 @@
 ### Key Metrics (P30, 2026-11-28)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,777 Tests Passing** | 1036 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
+| **Test Coverage** | **1,788 Tests Passing** | 1047 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+"); every LIST endpoint returns the unified `{results, count}` envelope (P21) with the additive `?limit=&offset=` pagination + next/previous + total-count (P24) |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
