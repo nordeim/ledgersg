@@ -2146,3 +2146,91 @@ prefill; the TanStack incompatibility; the membership-cache window; the
 P20-era FE-M2/M3 designs; CI hardening (the mypy gate — 1491 errors);
 the version-story reconciliation — the P21–P34 deferred registers carry
 forward unchanged.
+
+## Session 70 — P36 Sprint (2026-11-28)
+
+The workspace pulled to `bda0dceb` (the session-69 narration log). The
+environment SURVIVED the sandbox recycle: rootless PG 17 with both
+databases + the v1.2.2 schema + the accumulated demo substrate (101
+orgs, 37 journal entries, 1308 accounts, 37 documents), Redis 8, the
+backend venv, the web tree node_modules. The dev servers had been
+reaped (the documented behavior) — every live gate ran with the
+backends started INSIDE the same invocation. All documented baselines
+reproduced EXACTLY before any change: backend 1089P/0F/5S, vitest
+698/698, tsc 0, eslint 0E/0W, e2e 43/43, rls 13/13, mobile-nav 17/17
+(the fortieth settlement), the translate probe PASS, make
+lint-mechanical 0, the production ruff count 148 exact, the tests
+count 73 exact. The mobile-nav focus settled: working, no Tailwind v4
+bug. The vitest + playwright configs verified IN PLACE (the standing
+test-suite task).
+
+### The audits (Mode C)
+
+**0 Critical / 2 High / 1 Low.** The P35 slice re-verified clean in
+source. The registered #1 candidate (the Schematron arithmetic axis)
+audited to its construction truth and **reproduced via live probes**:
+
+**BE-P36-H1 (the headline): the arithmetic truth gap.** The generator
+computes every total from the DB's NUMERIC(19,4) Decimals
+(total_excl = Σ line amounts, gst_total = Σ line GST with deposits
+exempt, total_incl = total_excl + gst_total; payable = total_incl −
+amount_paid), so the invariants hold by construction in emitted XML —
+and nothing checked them: a real APPROVED invoice with
+TaxInclusiveAmount tampered +500 passed validation CLEAN; the same
+document with a line amount tripled passed CLEAN. Construction-truth,
+not checked-truth.
+
+**BE-P36-H2: the TaxCurrencyCode hardcode (a P33-class survivor).**
+The mapper hardcoded "tax_currency": "SGD" — a USD document emitted
+TaxCurrencyCode=SGD beside DocumentCurrencyCode=USD and
+currencyID="USD" amounts (the exact P33 hazard class, masked by the
+P33 USD fixture itself carrying "SGD"; zero test pins).
+
+**BE-P36-L1: the Percent float artifact.** str(float(0.07) × 100)
+emitted "7.000000000000001" — the 7% rate rows are live in the demo
+DB.
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-P36-H1 | the `PINT-SG-ARITHMETIC` pattern in the `.sch`: BR-CO-10 (Σ lines == LineExtensionAmount), BR-CO-13 (TaxExclusive == LineExtension), BR-CO-15 (TaxInclusive == TaxExclusive + TaxAmount), BR-CO-16 (Payable == TaxInclusive − Prepaid), BR-CO-14 (TaxTotal == Σ subtotals — exact by the deposit exemption), BR-CO-17 (the rate math with the per-line-rounding-SOUND bound: \|tax − taxable×rate/100\| ≤ 0.005 × line count); the 0.00005 quantization guard; sum() reads absent elements as 0 | 13 NEW gates (the tampered totals failing with the rules named; the per-line-rounding case passing the sound bound while +0.02 fails; the no-TaxTotal + prepaid edges; the float-artifact Percent tolerated) |
+| BE-P36-H2 | the mapper carries the document currency as the tax currency; the generator emits TaxCurrencyCode ONLY when it differs (the UBL semantic — minOccurs=0 verified on both root XSDs) | 5 NEW gates (the USD mapper truth; the omission on invoice/credit-note/SGD paths; the divergent-MYR path preserved) |
+| BE-P36-L1 | `_format_percent_text` — the Decimal path (tolerant of Decimal + float inputs), `format(...normalize(), "f")` avoiding the 1E+2 trap | 7 NEW gates ("7"/"9"/"8.75"/"0"; the Decimal input; the full-validation control) |
+| X-docs | the truth pass (README badge 1855 + the P36 milestone, CLAUDE 2.37.0, AGENTS header + 2 new lessons [the construction-truth-vs-checked-truth class; the currency-sweep-completeness class], SKILL 2.23.0, PAD 3.26.0, DEPLOYMENT header, the API guide v3.9.0 + the P36 addendum [superseding the P33 tax-currency note], ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful (zero new env readers) |
+
+### Final gate (all verified, executed)
+
+backend **1114P/0F/5S** (+25) · vitest **698/698 (85 files)** · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · **e2e:full 43P/0F/0S** ·
+**rls_smoke 13/13 as `ledgersg_app`** · **mobile-nav 17/17** (the
+forty-first settlement) · the `translate` probe re-PASS · **npm audit
+0 across dev+prod** · build:server green + **prod-CSP 5/5** · ruff
+production **148** / tests **73** (unchanged — no lint class touched)
+· schema v1.2.2 (no DDL). 8 DOM-verified screenshots (240-247, the
+invoices list + the invoice detail — the P36 headline surfaces — +
+the banking payments, the reports trial-balance, the ledger, the
+dashboard, the mobile drawer closed/open). The live contract
+re-verification: ALL 37 real demo documents validate clean with the
+arithmetic layer ON; the three tampered-total controls fail with the
+BR-CO rules named; the two deliberate byte changes verified
+(TaxCurrencyCode omitted; the Percent canonical form).
+
+### Deferred (registered, not dropped)
+
+The ruff semantic batch — **148 production findings** (unchanged: the
+UP typing batch ×105 [the mypy-gate conversation stays the registered
+precondition], E501 ×38 + the format axis at 160 files, S110 ×4, N818
+×1); the tests/-tree residual — **73 findings** (E501 ×73 only);
+**NEW: BR-CO-11/12** (the document-level allowance/charge arithmetic —
+N/A today; when the mapper grows them, BR-CO-13 must widen to the
+general form); **NEW: BR-CO-18** (at least one VAT breakdown — a
+deposit-only document legitimately carries zero subtotals); the
+`/accounts/search/` limit-contract migration; the capped-default flip;
+the audit-log INSERT policy (DDL); BE-L3/BE-L4 locking; the CSV
+errors[] strings; dead-letter design; UEN checksum; the NULL-context
+SELECT tradeoff; H-05b models; PaymentsTab prefill; the TanStack
+incompatibility; the membership-cache window; the P20-era FE-M2/M3
+designs; CI hardening (the mypy gate — 1491 errors); the
+version-story reconciliation — the P21–P35 deferred registers carry
+forward unchanged.

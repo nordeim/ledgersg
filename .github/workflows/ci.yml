@@ -5,7 +5,7 @@
 # This pipeline institutionalizes the "SQL-First" mandate by:
 # 1. Manually initializing PostgreSQL with database_schema.sql (not migrations)
 # 2. Running pytest with --no-migrations and --reuse-db flags
-# 3. Validating the backend suite (1089 tests, P35 — +16 the P35 gates: the Schematron business-rule truth [the .sch corrected + wired above the now-real XSD] + the transmission failure-path truth [the shape-tolerant error join]) against the true production schema; the unified closed-class ruff gate (P30+P31+P32/CFG-M3: production + tests)
+# 3. Validating the backend suite (1114 tests, P36 — +25 the P36 gates: the BR-CO arithmetic rules [the six-rule calculation pattern in the Schematron layer] + the tax-currency/Percent truth) against the true production schema; the unified closed-class ruff gate (P30+P31+P32/CFG-M3: production + tests)
 # 4. Running the always-green no-backend e2e subset (P18/CFG-L1)
 #
 # Version: 1.2.1 (P19: the ci-summary gate now includes security-scan)

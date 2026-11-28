@@ -8,10 +8,10 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 68 / P35):
-- Backend: pytest 1089 passed / 0 failed / 5 skipped (1094 collected)
-  (+16: the P35 gates — 10 Schematron business rules, 6 transmission
-  failure-path/formatter)
+Current truth (all gates executed and green, session 70 / P36):
+- Backend: pytest 1114 passed / 0 failed / 5 skipped (1119 collected)
+  (+25: the P36 gates — 13 Schematron arithmetic rules, 12
+  tax-currency/Percent)
 - Backend lint: the closed ruff classes at **0** across the WHOLE tree
   (the P30 production closure + the P31 extension + the P32 set:
   W291/W293 whitespace, I001 import order, F401 unused imports,
@@ -20,7 +20,7 @@ Current truth (all gates executed and green, session 68 / P35):
   tests 379 → 158 → 73 [the honest re-measured baseline; the P31
   report's 157 under-counted by the W605 the P32 sprint closed];
   `make lint-mechanical` + the CI step gate the extended class set
-  over production + tests — unchanged by P35: no lint class touched)
+  over production + tests — unchanged by P35/P36: no lint class touched)
 - Frontend: vitest 698/698 (85 files, on vitest 4.1.12 — the P23
   advisory closure), coverage green at the RAISED per-glob ratchets
   (the P29 honest-ratchet completion: lib 73/54/78/75, hooks
@@ -29,7 +29,7 @@ Current truth (all gates executed and green, session 68 / P35):
   63/63/58/62, plus the NEW src/shared tier 73/62/76/73 — the P20
   tier set had missed the shared primitives), tsc --noEmit 0 errors,
   whole-tree eslint **0 errors / 0 warnings**,
-  npm audit **0 across dev+prod** (the web tree untouched by P35)
+  npm audit **0 across dev+prod** (the web tree untouched by P35/P36)
 - P34 headline: the credit-note Peppol truth — a TRIPLE defect, all
   reproduced (generate_credit_note_xml emitted header-only UBL while
   the mapper supplies parties/totals/lines for every document type;
@@ -2300,3 +2300,46 @@ through the seam (mock the INPUT, not the collaborator, when the
 collaborator is the thing under test), and make the formatter
 defensive about shape (dicts → their message values, strings pass
 through) — the join should never be the thing that crashes.
+
+### Construction-Truth Is Not Checked-Truth: Validate What The Constructor Guarantees
+The P36 headline: the generator computes every total from the DB's
+NUMERIC(19,4) Decimals (total_excl = Σ line amounts, gst_total = Σ line
+GST, total_incl = total_excl + gst_total, payable = total_incl −
+amount_paid), so the arithmetic invariants held BY CONSTRUCTION in every
+emitted document — and precisely because they always held, no layer
+checked them: the XSD checks structure, the P35 rules check currency
+consistency, but a document whose TaxInclusiveAmount was tampered +500
+(or whose line amounts were corrupted in transit) validated CLEAN. The
+defect class: construction-truth masquerading as validation-truth —
+"the numbers are right because we compute them right" leaves the
+pipeline blind to everything that happens AFTER construction (a bug in
+a future refactor, a tampered payload, a corrupted store). The lesson:
+for every invariant the constructor guarantees, decide DELIBERATELY
+whether the validation layer re-checks it — the re-check is cheap (the
+same values, re-derived from the document itself) and it is the layer
+a real counterpart (here: a Peppol access point's EN 16931 BR-CO rules)
+adds on top. And when the invariant involves ROUNDING (per-line 2dp
+GST), the validation rule must use the SOUND bound — the accumulated
+per-line rounding slack (0.005 × line count), never a fixed epsilon
+(false-rejects legitimate documents) and never naive equality
+(false-rejects the constructor's own output). The P36 fix pins exactly
+this: the six-rule BR-CO pattern with the per-line rounding-sound bound,
+proven by the tampered-total probes failing with the rules named while
+ALL 37 real demo documents pass clean.
+
+### The Currency Sweep Is Not Done Until Every Currency-Bearing Element Is Swept
+The P36 second finding: the mapper hardcoded "tax_currency": "SGD" —
+a USD document emitted TaxCurrencyCode=SGD beside DocumentCurrencyCode=USD
+and currencyID="USD" amounts. P33 swept the AMOUNT elements (11 hardcode
+sites) and fixed them; the tax-currency element sat one field over,
+outside the sweep's named scope, and — the recurring kicker — the P33
+USD test fixture ITSELF carried "SGD" (the default-value-fixture blind
+spot the P33 docstring names). The lesson: a truth sweep named after a
+class of elements (amounts) must enumerate EVERY element in the same
+semantic family (any currency-bearing header), not just the class the
+original bug report named — the fixture should be built from the
+honest mapper output (or its divergence pinned), so the fixture cannot
+mask the very class it tests. The cheap probe: for every hardcoded
+3-letter currency literal in the transmission path, grep it and ask
+"what does this become on a non-SGD document?" — P36 found exactly one
+answer that was still "SGD".
