@@ -8,11 +8,12 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 72 / P37):
-- Backend: pytest 1134 passed / 0 failed / 5 skipped (1139 collected)
-  (+20: the P37 gates — the credit-note reference truth + the reason
-  note; +25: the P36 gates — 13 Schematron arithmetic rules, 12
-  tax-currency/Percent)
+Current truth (all gates executed and green, session 74 / P38):
+- Backend: pytest 1146 passed / 0 failed / 5 skipped (1151 collected)
+  (+12: the P38 gates — the credit-note InvoiceNow gates + the Celery
+  web-process wiring; +20: the P37 gates — the credit-note reference
+  truth + the reason note; +25: the P36 gates — 13 Schematron arithmetic
+  rules, 12 tax-currency/Percent)
 - Backend lint: the closed ruff classes at **0** across the WHOLE tree
   (the P30 production closure + the P31 extension + the P32 set:
   W291/W293 whitespace, I001 import order, F401 unused imports,
@@ -2364,3 +2365,59 @@ enforces the FK — the rule can never false-reject a document this
 system creates). The corollary: when a surface renders a document type,
 check the TYPE's own labelling (the raw "SALES_CREDIT_NOTE" enum
 leaking as the PDF heading was the same bug wearing a costume).
+
+## 2026-11-28 P38 Sprint — New Patterns & Lessons (session 74)
+
+### A Gate Calibrated When A Path Was Broken Must Be Revisited When The Path Is Fixed
+The P38 headline: the send-invoicenow type gate (P9/C-3) refused every
+non-SALES_INVOICE document — calibrated when "the transmission path maps
+anything non-credit-note to UBL Invoice" (its own test docstring), i.e.
+when the credit-note pipeline was HOLLOW. P34 then fixed the pipeline
+(the type-aware generator + validator dispatch), P35 added the business
+rules, P36 the arithmetic, P37 the reference truth — four sprints of
+building a first-class credit-note transmission path that NO workflow
+entry point could reach: send_invoicenow refused the type (400), the
+approval auto-transmit only fired for invoices, and the UI rendered the
+"Send via InvoiceNow" button on APPROVED credit notes (a button that
+always 400'd — the advertised-workflow hazard). The defect class: a
+guard whose rationale was TRUE at birth, silently outliving the
+condition that justified it — and the guard never gets re-audited
+because the pipeline tests all pass (they test the layers the guard
+blocks, never the guard's own reachability). The lesson: every gate
+that cites a defect as its rationale ("the mapping layer renders X as
+Y") carries an implicit EXPIRY — when the cited defect is fixed, sweep
+for the gates it justified. The cheap probe the P38 audit used: for
+every workflow-refusal message, paste it into the UI affordance and ask
+"does a surface advertise what this gate refuses?" (the answer here was
+the credit-note detail page's own button). The corollary: gates that
+must NEVER expire (the quote refusal — a quote rendered as a tax
+invoice is wrong regardless of pipeline maturity) are the ones whose
+rationale names the TYPE's semantics, not the pipeline's current state;
+both classes of gate should say which they are.
+
+### The Celery App That Never Loads In The Web Process (And The Tests That Cannot See It)
+The P38 second finding, discovered by the sprint's own live contract
+re-verification: `config/__init__.py` was empty — nothing in the backend
+tree imported `config.celery`, so in every WSGI process the
+`@shared_task`s bound to Celery's DEFAULT app (broker amqp://localhost
+via kombu's fallback, eager off). The first REAL `queue_task` dispatch
+on a Peppol-configured org 500'd with Connection refused — the pyamqp
+transport in the traceback naming the wrong broker outright. The
+defect class: process-dependent wiring — the worker found the app
+through `celery -A config`'s fallback search (`config.celery.app`), the
+web process never did, and the test suite could not tell the
+difference because every dispatch-shaped test mocks `.delay` (the mock
+erases the app) or uses `.apply()` (eager by definition — the app never
+consulted). The masking had two layers: the demo org carried no Peppol
+settings (every dispatch path returned early), and the eager-mode
+contract the docs describe was true only in processes that had loaded
+the app. The lesson: a framework whose canonical wiring lives in the
+project package's `__init__` (`from .celery import app as celery_app`)
+should have a config-level gate asserting THE PACKAGE IMPORT wires the
+app (`celery.current_app.main == "<the-app>"` + the broker + the eager
+flag) — the assertion costs three lines, needs no broker, and would
+have failed on every host since the file was left empty; and when a
+dispatch path is first exercised, exercise it LIVE against a
+configured org before calling it delivered (the plan's Phase 3 live
+contract re-verification is where this one surfaced — exactly what
+that step is for).

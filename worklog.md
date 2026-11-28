@@ -2321,3 +2321,125 @@ H-05b models; PaymentsTab prefill; the TanStack incompatibility; the
 membership-cache window; the P20-era FE-M2/M3 designs; CI hardening
 (the mypy gate — 1491 errors); the version-story reconciliation — the
 P21–P36 deferred registers carry forward unchanged.
+
+## Session 74 — P38 Sprint: the credit-note InvoiceNow gates + the Celery web-process wiring (2026-11-28)
+
+**Base:** `dd5caff6` (main — post-P37 + the session-73 log) · **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-28_P38.md` · **Report:**
+`docs/REMEDIATION_2026-11-28_P38_REPORT.md` · **Session log:**
+`docs/session_74.md`
+
+### Environment — provisioned from scratch through the guide's own steps
+
+The sandbox recycle had wiped EVERYTHING (no repo, no PG, no Redis, no
+venv, no node_modules). Fresh clone; rootless PG 17 via
+`docs/setup_pg_z.sh` + `skills/rootless-postgresql` (the ledgersg role +
+both databases + the v1.2.2 schema load — 37 dev tables, the dev default
+password `CHANGE_ME_IN_PRODUCTION` on `ledgersg_app` for the RLS tests);
+Redis 8.0.2 rootless per `skills/rootless-postgresql`'s deb-extraction
+pattern (incl. the documented `liblzf1`); the backend venv (Python
+3.12.16 / Django 6.0.10); the web tree + Playwright chromium; the demo
+substrate via `scripts/bootstrap_demo_substrate_session40.sh`; the dev
+stack daemonized per `scripts/daemonize.py` (:8000, :8001 RLS as
+`ledgersg_app`, :3000). The guide's §1–§9 walked end to end on a fresh
+host — DEPLOYMENT.md's header now records the from-scratch
+re-verification.
+
+### Baseline reproduction — every documented gate exact
+
+backend **1134P/0F/5S (31.18s)** · vitest **698/698 (85 files)** · tsc 0 ·
+whole-tree eslint **0E/0W** · live e2e:full **43/43 (2.8m)** ·
+rls_smoke **13/13 as `ledgersg_app`** · mobile-nav **17/17** (the
+forty-fourth settlement) · the `translate` probe **PASS** (mid-flight 7)
+· `make lint-mechanical` exit 0 · ruff production **148** / tests **73**
+exact · npm audit **0** · build:server green · prod-CSP **5/5**. The
+named mobile-nav focus re-settled clean (no Tailwind v4 bug); the
+vitest + playwright configs verified IN PLACE and current.
+
+### Audit (Mode C) — 0 Critical / 2 High / 1 Low
+
+The P37 slice re-audited clean in source (the mapper, the generator,
+the XSD sequencing, BR-SG-07, the PDF presentation, the specs — with one
+portability defect in a P37 spec itself). The fresh axis — the workflow
+layer above the credit-note pipeline P34–P37 built:
+
+- **BE-P38-H1 (reproduced live on CN-00001):** BOTH InvoiceNow workflow
+  entry points refused credit notes — `send_invoicenow`'s P9/C-3 type
+  gate (calibrated pre-P34 when the credit-note path was hollow) and
+  `approve_document`'s SALES_INVOICE-only auto-transmit — while the UI
+  rendered the Send-via-InvoiceNow button on APPROVED credit notes (it
+  always 400'd). The IRAS e-Tax Guide §11.6 expects credit note data on
+  the InvoiceNow channel; the P37 investment was unreachable.
+- **BE-P38-H2 (discovered during this sprint's own Phase 3 live
+  contract re-verification — the first REAL `queue_task` dispatch on a
+  Peppol-configured org):** `config/__init__.py` was empty — nothing in
+  the backend tree imported `config.celery`, so in every WSGI process
+  the `@shared_task`s bound to Celery's DEFAULT app (amqp broker via
+  kombu's fallback, eager off) and the first real dispatch 500'd with
+  Connection refused through the pyamqp transport. The worker escaped
+  only through `celery -A config`'s fallback search; the tests never saw
+  it (every dispatch-shaped test mocks `.delay` or uses `.apply()`).
+- **BE-P38-L1:** the P37 reference spec's absolute SCHEMATRON_PATH (the
+  sandbox path; the P35/P36 convention is the relative rootdir path).
+
+### Remediation executed (TDD — 2 new specs, 6 RED gates + 6 designed controls)
+
+The gates widened to the outbound transmittable set
+**{SALES_INVOICE, SALES_CREDIT_NOTE}** on both workflow entry points
+(the manual send + the approval auto-transmit; quotes and inbound
+PURCHASE_* types still refused — the P9/C-3 hazard is type-semantic and
+never expires); the canonical `from .celery import app as celery_app`
+import wired into `config/__init__.py`; the P37 spec's path fixed; the
+auto-transmit helper's docstring corrected. RED for exactly the right
+reasons (the "Only SALES_INVOICE" refusal; no log row on approval; the
+default app with broker_url=None); GREEN after the fixes; the full suite
+**1146P/0F/5S (+12)** with every existing pin holding.
+
+### The live contract re-verification (the H2 discovery site)
+
+On the demo substrate with the org's Peppol settings seeded:
+`POST /documents/{CN-00001}/send-invoicenow/` → **200/QUEUED with a real
+transmission_log_id** (was 400 pre-H1, then 500 pre-H2, now 200 — the
+full journey is the sprint's own evidence chain); the status surface
+reports the log row; the DRAFT control still 400s naming APPROVED; the
+quote control pinned by the suite spec. The eager inline transmission
+ran against the demo's unreachable Storecove endpoint and honestly
+recorded FAILED on the log — the adapter's HTTP surface stays the
+registered unverifiable item.
+
+### Final gate (all verified, executed)
+
+backend **1146P/0F/5S** (+12) · vitest **698/698 (85 files)** · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · **e2e:full 43P/0F/0S** ·
+**rls_smoke 13/13 as `ledgersg_app`** · **mobile-nav 17/17** (the
+forty-fifth settlement) · the `translate` probe re-PASS · **npm audit
+0 across dev+prod** · build:server green + **prod-CSP 5/5** · ruff
+production **148** / tests **73** (unchanged — no lint class touched;
+the one draft I001 import-order slip fixed before commit) · schema
+v1.2.2 (no DDL). 8 DOM-verified + pixel-verified screenshots (256-263,
+variance 5275–6052) — the feature capture: the credit-note detail page
+with the now-honest Send-via-InvoiceNow button. The `.env.example`s
+re-verified truthful (zero new env readers — the fixes read DB fields,
+code artefacts, and the settings namespace).
+
+### Deferred (registered, not dropped)
+
+The ruff semantic batch — **148 production findings** (unchanged: the
+UP typing batch ×105 [the mypy-gate conversation stays the registered
+precondition], E501 ×38 + the format axis at 160 files, S110 ×4, N818
+×1); the tests/-tree residual — **73 findings** (E501 ×73 only);
+**NEW: the emailed-PDF gate for credit notes** (`send_email`'s
+P18/BE-L5 gate refuses every non-SALES_INVOICE — the sibling of the H1
+hazard class; deferred because the UI advertises no email affordance
+for credit notes and the channel carries no IRAS mandate parallel to
+§11.6; the post-P37 PDF presentation makes the widening sound when
+wanted); the `unit_code` modeling gap; the Invoice-path
+BillingReference declaration; BR-CO-11/12/18 (each with its registered
+precondition); the Storecove adapter's outbound call (the registered
+unverifiable item); the `/accounts/search/` limit-contract migration;
+the capped-default flip; the audit-log INSERT policy (DDL); BE-L3/BE-L4
+locking; the CSV errors[] strings; dead-letter design; UEN checksum;
+the NULL-context SELECT tradeoff; H-05b models; PaymentsTab prefill;
+the TanStack incompatibility; the membership-cache window; the P20-era
+FE-M2/M3 designs; CI hardening (the mypy gate); the version-story
+reconciliation — the P21–P37 deferred registers carry forward unchanged.

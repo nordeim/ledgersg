@@ -1,8 +1,10 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.27.0
+> **Version**: 3.28.0
 > **Last Updated**: 2026-11-28
+> **P38 note**: the credit-note InvoiceNow gates — both workflow entry points (send-invoicenow's type gate + approve_document's auto-transmit condition) widened to the outbound transmittable set {SALES_INVOICE, SALES_CREDIT_NOTE} while the quotes + inbound PURCHASE_* types stay refused; verified live: the real demo credit note queues 200/QUEUED. + the Celery web-process wiring — the canonical `from .celery import app as celery_app` import in `config/__init__.py` (the pre-P38 empty package left every WSGI-process @shared_task on Celery's DEFAULT amqp app: the first real queue_task dispatch 500'd) — see `docs/REMEDIATION_PLAN_2026-11-28_P38.md`.
+>
 > **P37 note**: the credit-note reference truth — the original-invoice reference (the IBG-03 group) wired through every presentation layer: the mapper threads the DB's related_document (guaranteed since P14), the generator emits cac:BillingReference/cac:InvoiceDocumentReference (number + issue date) in the UBL position, the XSDs declare the shape, BR-SG-07 pins the presence floor on every CreditNote root, the PDF renders the reference block under a CREDIT NOTE heading, and the reason note rides as cbc:Note (the BR-111-GST-SG surface) — see `docs/REMEDIATION_PLAN_2026-11-28_P37.md`.
 >
 > **P36 note**: the Peppol arithmetic truth — the BR-CO calculation rules wired into the Schematron layer above the P35 currency rules (a tampered-total document previously validated clean: the XSD checks structure, the P35 rules check currency consistency, but nothing checked that the totals agree with the lines; now BR-CO-10 [Σ lines == LineExtensionAmount], BR-CO-13 [TaxExclusive == LineExtension], BR-CO-15 [TaxInclusive == TaxExclusive + TaxAmount], BR-CO-16 [Payable == TaxInclusive − Prepaid], BR-CO-14 [TaxTotal == Σ subtotals], BR-CO-17 [the rate math with the per-line-rounding-sound bound]) + the tax-currency truth (the TaxCurrencyCode hardcode retired — the mapper carries the document currency, the element emitted only when different) + the Percent truth (the Decimal-formatted tax rate) — see `docs/REMEDIATION_PLAN_2026-11-28_P36.md`.
@@ -61,7 +63,7 @@
 ### Key Metrics (P36, 2026-11-28)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,875 Tests Passing** | 1134 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
+| **Test Coverage** | **1,887 Tests Passing** | 1146 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+"); every LIST endpoint returns the unified `{results, count}` envelope (P21) with the additive `?limit=&offset=` pagination + next/previous + total-count (P24) |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
@@ -71,9 +73,9 @@
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
 | **Frontend Unit** | 698 (85 files) | 100% | Vitest + RTL (on vitest 4.1.12 — the P23 advisory closure) | ✅ Passing |
-| **Backend (pytest)** | 1134 passed / 5 skipped (1139 collected) | 100% of run | pytest | ✅ Passing |
+| **Backend (pytest)** | 1146 passed / 5 skipped (1151 collected) | 100% of run | pytest | ✅ Passing |
 | **E2E (Playwright)** | 43 (11 always + 32 backend-gated) | 100% live | Playwright | ✅ Passing |
-| **Total Passing** | **1,855** | — | Mixed | ✅ Verified |
+| **Total Passing** | **1,887** | — | Mixed | ✅ Verified |
 
 ---
 

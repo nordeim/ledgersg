@@ -6,23 +6,24 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-28, session 72 / P37) re-verified the guide against the current
-codebase on the live sandbox — the standing environment (rootless PG 17
-with both databases + the v1.2.2 schema + the demo substrate, Redis 8,
-the backend venv, the web tree, the web dev server; the backend dev
-servers reaped by the sandbox recycle, restarted in-invocation) was
-verified end-to-end this session: `manage.py check` green
-(the documented W001), the §7 suite green **1134P/0F/5S (+20 the P37
-gates: the credit-note reference truth [the BillingReference wiring +
-BR-SG-07 + the PDF presentation + the cbc:Note reason note]; carrying
-the P36 BR-CO arithmetic rules + the P35 Schematron business-rule layer
-+ the P34 three-namespace XSD restructure)**, the live e2e 43/43, the RLS smoke 13/13 as
-`ledgersg_app`, the mobile-nav probe 17/17 + the translate probe PASS,
-`make lint-mechanical` green (the closed ruff classes at 0 across the
-whole tree), `build:server` + the prod-CSP smoke 5/5, and the Peppol
-validation re-verified live on real demo documents with the
-business-rule layer ON (both document types validate clean, the
-tampered-currency control fails with BR-SG-06 named). The prior
+(2026-11-28, session 74 / P38) was verified **PROVISIONED FROM SCRATCH
+through this guide's own steps §1–§9** (the sandbox recycle had wiped the
+environment completely: fresh rootless PG 17 via §3's script, the ledgersg
+role + both databases + the v1.2.2 schema load, fresh Redis 8 per §5, the
+venv per §6, the §7 suite green **1146P/0F/5S (+12 the P38 gates: the
+credit-note InvoiceNow gates + the Celery web-process wiring — the
+canonical `config/__init__.py` app import the guide's own §10 worker
+command depends on)**, the §9 web tree + `npm install` + the substrate
+bootstrap script run — every step walked and re-verified on a fresh
+host), then the live gates on the provisioned stack: e2e 43/43 ·
+rls_smoke 13/13 as `ledgersg_app` (the :8001 instance per §12.3) ·
+mobile-nav 17/17 + the translate probe PASS (the forty-fifth settlement)
+· `make lint-mechanical` green (the closed ruff classes at 0 across the
+whole tree) · build:server + the prod-CSP smoke 5/5 · the credit-note
+InvoiceNow contract live-verified (the real demo credit note queues
+200/QUEUED with a pollable transmission log). The prior revision
+(session 72 / P37) re-verified the guide against the then-current
+codebase on the standing environment. The prior
 revision (session 66 / P34 — the re-verification, unchanged in
 substance
 (2026-11-28, session 64 / P33) **provisioned from scratch through this
@@ -307,9 +308,10 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-28 P31): 1034 passed, 0 failed, 5 skipped
-# (P26 added the Peppol transmission-log pagination gates; the P24-era suite was
-#  re-verified 969P on a fresh clone — the role `ledgersg_app` must
+# expected (post-2026-11-28 P38): 1146 passed, 0 failed, 5 skipped
+# (the P38 gates: the credit-note InvoiceNow gates + the Celery web-process
+#  wiring; the P37 gates: the credit-note reference truth; the P24-era suite
+#  was re-verified 969P on a fresh clone — the role `ledgersg_app` must
 #  still carry the schema's dev default password
 #  `CHANGE_ME_IN_PRODUCTION` for the RLS tests)
 pytest tests/invariants -q    # 34 passed (conformance, capacity, balances,
@@ -484,6 +486,14 @@ is the dev default); otherwise start a worker:
 cd apps/backend && source .venv/bin/activate
 celery -A config worker -l info
 ```
+
+(P38 note: `config/__init__.py` imports the Celery app — the canonical
+Celery+Django wiring — so EVERY Django process (runserver, gunicorn, wsgi)
+loads the configured app and `@shared_task` binds to it: the broker from
+`REDIS_URL` and the eager flag from the settings. Pre-P38 the web process
+silently used Celery's default app (amqp broker, eager off) and the first
+real task dispatch from a request 500'd — if you ever remove that import,
+the wiring spec `tests/peppol/test_celery_app_wiring_p38.py` fails first.)
 
 ## 11. End-to-end verification checklist
 

@@ -5,7 +5,7 @@
 # This pipeline institutionalizes the "SQL-First" mandate by:
 # 1. Manually initializing PostgreSQL with database_schema.sql (not migrations)
 # 2. Running pytest with --no-migrations and --reuse-db flags
-# 3. Validating the backend suite (1134 tests, P37 — +20 the P37 gates: the credit-note reference truth [the BillingReference wiring + BR-SG-07 + the PDF presentation + the cbc:Note reason note]; +25 the P36 gates: the BR-CO arithmetic rules) against the true production schema; the unified closed-class ruff gate (P30+P31+P32/CFG-M3: production + tests)
+# 3. Validating the backend suite (1146 tests, P38 — +12 the P38 gates: the credit-note InvoiceNow gates [the send-invoicenow + auto-transmit workflow entry points widened to the outbound transmittable set] + the Celery web-process wiring [the canonical config/__init__ app import]; +20 the P37 gates: the credit-note reference truth) against the true production schema; the unified closed-class ruff gate (P30+P31+P32/CFG-M3: production + tests)
 # 4. Running the always-green no-backend e2e subset (P18/CFG-L1)
 #
 # Version: 1.2.1 (P19: the ci-summary gate now includes security-scan)
