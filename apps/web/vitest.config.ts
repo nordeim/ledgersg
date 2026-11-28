@@ -67,46 +67,60 @@ export default defineConfig({
         functions: 62,
         branches: 70,
         statements: 73,
-        // the lib tier floor (measured 71.23 / 74.8 / 52.32 / 73.2)
+        // the lib tier floor (P13/M-4 measured 71.23/74.8/52.32/73.2;
+        // P29/CFG-M2 raised at the measured floor 73.80/54.65/78.29/75.80
+        // statements/functions/branches/lines — the P28 follow-up: the
+        // per-glob tiers had sat at their P20 values since they were set)
         "src/lib/**": {
-          lines: 73,
-          functions: 52,
-          branches: 74,
-          statements: 71,
-        },
-        // P18/CFG-L2: the hooks tier floor, set at the measured value
-        // (52.81 / 47.34 / 36.15 statements/functions/branches) — the
-        // header's aspirational "Hooks: 85%" was never enforced, and 5 of
-        // 13 hooks measured 0-20%. Same ratchet philosophy as the P10
-        // whole-suite floor: a REAL gate at today's level, raised over
-        // time — never lowered.
-        "src/hooks/**": {
-          lines: 52,
-          functions: 47,
-          branches: 36,
-          statements: 52,
-        },
-        // P20/FE-M5: the app tier floor (the route clients — measured
-        // 74/65/72/74 statements/functions/branches/lines).
-        "src/app/**": {
-          lines: 73,
-          functions: 64,
-          branches: 71,
+          lines: 75,
+          functions: 54,
+          branches: 78,
           statements: 73,
         },
-        // P20/FE-M5: the components tier floor (measured 83/75/69/84).
-        "src/components/**": {
-          lines: 83,
-          functions: 74,
-          branches: 68,
-          statements: 82,
+        // P18/CFG-L2: the hooks tier floor (P18-measured 52.81/47.34/
+        // 36.15; P29/CFG-M2 raised at the measured floor 55.89/47.34/
+        // 51.16/55.63 — the branches tier sat 15 points below the truth,
+        // the widest rubber stamp in the config)
+        "src/hooks/**": {
+          lines: 55,
+          functions: 47,
+          branches: 51,
+          statements: 55,
         },
-        // P20/FE-M5: the providers tier floor (measured 62/62/59/61).
+        // P20/FE-M5: the app tier floor (P20-measured 74/65/72/74;
+        // P29/CFG-M2 raised at the measured floor 75.51/65.67/73.21/76.30)
+        "src/app/**": {
+          lines: 76,
+          functions: 65,
+          branches: 73,
+          statements: 75,
+        },
+        // P20/FE-M5: the components tier floor (P20-measured 83/75/69/84;
+        // P29/CFG-M2 raised at the measured floor 83.28/76.24/69.27/84.34)
+        "src/components/**": {
+          lines: 84,
+          functions: 76,
+          branches: 69,
+          statements: 83,
+        },
+        // P20/FE-M5: the providers tier floor (P20-measured 62/62/59/61;
+        // P29/CFG-M2 raised at the measured floor 63.11/63.64/58.54/62.11)
         "src/providers/**": {
-          lines: 60,
-          functions: 60,
+          lines: 62,
+          functions: 63,
           branches: 58,
-          statements: 61,
+          statements: 63,
+        },
+        // P29/CFG-M2: the shared tier — NEW. The P20 tier set covered
+        // lib/hooks/app/components/providers and missed src/shared (the
+        // same blind-spot class the P20 audit closed for app+providers):
+        // the shared money-formatting/date primitives sat gated only by
+        // the whole-suite floor. Measured 73.39/62.50/76.47/73.00.
+        "src/shared/**": {
+          lines: 73,
+          functions: 62,
+          branches: 76,
+          statements: 73,
         },
       },
       include: ["src/**/*.{ts,tsx}"],
