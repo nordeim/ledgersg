@@ -964,7 +964,11 @@ class DocumentService:
             # Queue for Peppol transmission if configured (InvoiceNow
             # integration) — also inside the transaction so a queueing
             # failure does not leave an inconsistent approval state.
-            if document.document_type == "SALES_INVOICE":
+            # P38/BE-P38-H1: both OUTBOUND transmittable types queue on
+            # approval (the pipeline has dispatched credit notes through
+            # the type-aware seam since P34; the SALES_INVOICE-only
+            # condition here was the other half of the workflow block).
+            if document.document_type in ("SALES_INVOICE", "SALES_CREDIT_NOTE"):
                 DocumentService._queue_peppol_transmission(document, org_id)
 
         _invalidate_dashboard_cache(org_id)
@@ -1233,15 +1237,29 @@ class DocumentService:
         # ResourceNotFound (404 envelope), not a raw DoesNotExist 500.
         document = DocumentService.get_document(org_id, document_id)
 
-        # P9/C-3: InvoiceNow is an invoice transmission channel. The mapping
-        # layer renders anything non-credit-note as a UBL Invoice, so a quote
-        # sent here would be delivered as a tax invoice into the recipient's
-        # AP pipeline. Refuse non-invoice types before anything is queued.
-        if document.document_type != "SALES_INVOICE":
+        # P9/C-3: InvoiceNow is an outbound fiscal-document transmission
+        # channel. The mapping layer renders anything non-credit-note as a
+        # UBL Invoice, so a quote sent here would be delivered as a tax
+        # invoice into the recipient's AP pipeline. Refuse everything
+        # outside the outbound transmittable set before anything is
+        # queued.
+        # P38/BE-P38-H1: the gate was calibrated pre-P34, when the credit-
+        # note transmission path was hollow (header-only UBL — P34/BE-P34
+        # H1(a)) — at that time accepting a credit note here would have
+        # transmitted a meaningless document. The pipeline has been
+        # type-aware end-to-end since P34 (the generator + the validator
+        # dispatch by root) and reference-truthful since P37
+        # (cac:BillingReference + BR-SG-07, sound because the DB layer
+        # enforces related_document_id on every credit note — P14/H-4),
+        # so the outbound set now includes SALES_CREDIT_NOTE — the IRAS
+        # e-Tax Guide on the GST InvoiceNow requirement (§11.6) expects
+        # credit note data on the InvoiceNow channel when the business
+        # transmits invoices that way.
+        if document.document_type not in ("SALES_INVOICE", "SALES_CREDIT_NOTE"):
             raise ValidationError(
                 f"Cannot send via InvoiceNow. Document type is "
-                f"'{document.document_type}'. Only SALES_INVOICE documents can "
-                "be transmitted."
+                f"'{document.document_type}'. Only SALES_INVOICE and "
+                "SALES_CREDIT_NOTE documents can be transmitted."
             )
 
         if document.status != "APPROVED":
@@ -1374,12 +1392,16 @@ class DocumentService:
         """
         Queue document for Peppol transmission if configured.
 
-        Called automatically when a sales invoice is approved.
-        Creates transmission log and queues async task if Peppol
-        is enabled and configured for the organization.
+        Called automatically when an outbound transmittable document
+        (SALES_INVOICE or SALES_CREDIT_NOTE — the set the caller gates
+        on, P38/BE-P38-H1) is approved. Creates transmission log and
+        queues async task if Peppol is enabled and configured for the
+        organization.
 
         Args:
-            document: InvoiceDocument instance (must be SALES_INVOICE)
+            document: InvoiceDocument instance (must be an outbound
+                transmittable type — SALES_INVOICE or SALES_CREDIT_NOTE;
+                the caller owns the type gate)
             org_id: Organisation ID
 
         Returns:

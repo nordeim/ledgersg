@@ -25,10 +25,10 @@ from decimal import Decimal
 
 from lxml import etree
 
-SCHEMATRON_PATH = (
-    "/home/z/my-project/ledgersg/apps/backend/apps/peppol/schemas/"
-    "PINT-UBL-validation.sch"
-)
+# P38/BE-P38-L1: the relative path — the P35/P36 convention (resolved
+# from pytest's rootdir apps/backend); the pre-P38 absolute sandbox path
+# passed only on the host that wrote it.
+SCHEMATRON_PATH = "apps/peppol/schemas/PINT-UBL-validation.sch"
 NS_CN = "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2"
 NS_INVOICE = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
 NS_CBC = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
