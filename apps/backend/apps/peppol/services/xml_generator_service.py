@@ -5,9 +5,24 @@ Generates UBL 2.1 XML from mapped data structure.
 """
 
 import hashlib
+from decimal import Decimal
 from typing import Any, Dict
 
 from lxml import etree
+
+
+def _format_percent_text(rate) -> str:
+    """Format a tax rate (0-1 scale) as the cbc:Percent canonical form.
+
+    P36/BE-P36-L1: the pre-P36 formatting went through a float —
+    str(float(Decimal('0.07')) * 100) emits "7.000000000000001", a float
+    artifact in a financial document's stated tax rate. This formatter
+    goes through Decimal (tolerating both Decimal inputs from the mapper
+    and float inputs from hand-built test payloads) and emits the
+    normalized plain-notation form ("9", "7", "8.75", "0") — the 'f'
+    format spec avoids normalize's 1E+2 exponent trap on integral values.
+    """
+    return format((Decimal(str(rate)) * 100).normalize(), "f")
 
 
 class XMLGeneratorService:
@@ -64,7 +79,14 @@ class XMLGeneratorService:
 
         # Currency
         self._add_element(invoice, "DocumentCurrencyCode", mapped_data.get("currency"))
-        self._add_element(invoice, "TaxCurrencyCode", mapped_data.get("tax_currency"))
+        # P36/BE-P36-H2: TaxCurrencyCode exists to declare a DIFFERENT tax
+        # currency; the tax is computed in the document currency, so the
+        # element is omitted when equal (the pre-P36 unconditional emission
+        # put a redundant SGD declaration on every SGD document and a FALSE
+        # one on every non-SGD document).
+        tax_currency = mapped_data.get("tax_currency")
+        if tax_currency and tax_currency != (mapped_data.get("currency") or "SGD"):
+            self._add_element(invoice, "TaxCurrencyCode", tax_currency)
 
         # P33/BE-P33-H1: every amount element's currencyID carries the
         # DOCUMENT currency — the mapper already sends it (`invoice.currency
@@ -151,7 +173,10 @@ class XMLGeneratorService:
 
         # Currency
         self._add_element(credit_note, "DocumentCurrencyCode", mapped_data.get("currency"))
-        self._add_element(credit_note, "TaxCurrencyCode", mapped_data.get("tax_currency"))
+        # P36/BE-P36-H2: the same guarded emission on the credit-note path.
+        tax_currency = mapped_data.get("tax_currency")
+        if tax_currency and tax_currency != (mapped_data.get("currency") or "SGD"):
+            self._add_element(credit_note, "TaxCurrencyCode", tax_currency)
 
         # P34 carries the P33 currency truth: every amount element's
         # currencyID carries the DOCUMENT currency, never a hardcoded
@@ -423,7 +448,7 @@ class XMLGeneratorService:
             # Percent
             if category.get("rate") is not None:
                 percent = etree.SubElement(tax_category, f"{{{self.NAMESPACE_CBC}}}Percent")
-                percent.text = str(float(category["rate"]) * 100)
+                percent.text = _format_percent_text(category["rate"])
 
         return tax_total
 

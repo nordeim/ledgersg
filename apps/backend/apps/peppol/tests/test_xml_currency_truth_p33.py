@@ -28,7 +28,7 @@ def _usd_mapped_data() -> dict:
         "due_date": "2026-12-28",
         "document_type": "INVOICE",
         "currency": "USD",
-        "tax_currency": "SGD",
+        "tax_currency": "USD",
         "supplier": {
             "name": "USD Supplier Pte Ltd",
             "uen": "202312345A",

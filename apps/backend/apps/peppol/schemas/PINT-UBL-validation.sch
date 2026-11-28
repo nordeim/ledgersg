@@ -17,13 +17,31 @@
     deterministic under XPath 1.0.
 
     Deliberately OUT of this rule set (registered, not faked): the
-    BR-CO-10..17 arithmetic rules (sum of line net amounts, payable =
-    tax-inclusive - prepaid). XPath 1.0 sum() computes in IEEE doubles
-    while the mapper emits NUMERIC(19,4) decimal strings; a naive
-    equality compare is rounding-hazard flaky. The ISO-4217 VOCABULARY
-    check stays at the input surfaces (P34/M1, common/currency.py) -
-    a regex code list here would duplicate the allowlist in an
-    untestable artefact; this layer checks the SHAPE.
+    ISO-4217 VOCABULARY check stays at the input surfaces (P34/M1,
+    common/currency.py) - a regex code list here would duplicate the
+    allowlist in an untestable artefact; this layer checks the SHAPE.
+
+    P36 adds the ARITHMETIC pattern below (the BR-CO calculation rules -
+    the registered P35-deferred axis). The XPath 1.0 precision resolution:
+    every construction-exact rule compares with the half-unit of the last
+    decimal place (0.00005 - absorbs the IEEE-double representation error
+    of sum(), fails on any real disagreement at the DB's 0.0001 scale);
+    absent elements are read via sum() (an empty node-set sums to 0 - a
+    missing element inside an arithmetic expression is NaN and silently
+    fails every comparison); BR-CO-17 carries the per-line rounding bound
+    (the DB rounds GST per line to 2dp - IRAS cent-level - so the category
+    tax is a sum of per-line roundings and |tax - taxable*rate/100| is
+    bounded by 0.005 x line count: sound, never false-rejecting). The
+    line count is the TOTAL line count (lines carry no tax category in
+    this XML shape, so the per-category count is unavailable; the total
+    is the conservative multiplier).
+
+    Deliberately OUT (registered): BR-CO-11/12 (document-level
+    allowance/charge arithmetic - the generator emits neither element,
+    N/A until the mapper grows them); BR-CO-18 (at least one VAT
+    breakdown - a deposit-only document legitimately carries zero
+    subtotals); BR-CO-16's rounding-amount term (PayableRoundingAmount
+    is never emitted).
   -->
 
   <ns prefix="ubl" uri="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"/>
@@ -70,4 +88,98 @@
     </rule>
 
   </pattern>
+
+  <!-- P36: the BR-CO calculation rules - the arithmetic truth above the
+       currency truth. The generator computes every total from the DB's
+       NUMERIC(19,4) Decimals (total_excl = sum of line amounts, gst_total
+       = sum of line GST with deposits exempt, total_incl = total_excl +
+       gst_total, payable = total_incl - amount_paid), so these invariants
+       hold by construction in emitted XML; this pattern converts
+       construction-truth into checked-truth - a tampered or corrupted
+       document no longer validates clean. Relative paths from
+       LegalMonetaryTotal use ../ (the parent IS the document root). -->
+  <pattern id="PINT-SG-ARITHMETIC">
+
+    <rule context="cac:LegalMonetaryTotal">
+      <!-- BR-CO-10: sum of line net amounts == LineExtensionAmount
+           (sum() over an empty node-set is 0 - the absent-element NaN
+           trap avoided). -->
+      <assert test="(sum(../cac:InvoiceLine/cbc:LineExtensionAmount |
+                         ../cac:CreditNoteLine/cbc:LineExtensionAmount)
+                    - cbc:LineExtensionAmount) &lt; 0.00005 and
+                    (cbc:LineExtensionAmount
+                    - sum(../cac:InvoiceLine/cbc:LineExtensionAmount |
+                          ../cac:CreditNoteLine/cbc:LineExtensionAmount))
+                    &lt; 0.00005"
+              role="PINT-SG-BR-CO-10">
+        BR-CO-10: Sum of line net amounts must equal the document LineExtensionAmount
+      </assert>
+      <!-- BR-CO-13 in the repo's no-allowance/charge form: the generator
+           emits no document-level allowances or charges, so the general
+           rule reduces to TaxExclusive == LineExtension. -->
+      <assert test="(cbc:TaxExclusiveAmount - cbc:LineExtensionAmount) &lt; 0.00005 and
+                    (cbc:LineExtensionAmount - cbc:TaxExclusiveAmount) &lt; 0.00005"
+              role="PINT-SG-BR-CO-13">
+        BR-CO-13: TaxExclusiveAmount must equal LineExtensionAmount (no document-level allowances or charges)
+      </assert>
+      <!-- BR-CO-15: TaxInclusive == TaxExclusive + the total tax amount
+           (0 when the element is absent - sum() over an empty node-set). -->
+      <assert test="(cbc:TaxInclusiveAmount
+                    - cbc:TaxExclusiveAmount
+                    - sum(../cac:TaxTotal/cbc:TaxAmount)) &lt; 0.00005 and
+                    (cbc:TaxExclusiveAmount
+                    + sum(../cac:TaxTotal/cbc:TaxAmount)
+                    - cbc:TaxInclusiveAmount) &lt; 0.00005"
+              role="PINT-SG-BR-CO-15">
+        BR-CO-15: TaxInclusiveAmount must equal TaxExclusiveAmount plus the total tax amount
+      </assert>
+      <!-- BR-CO-16: Payable == TaxInclusive - Prepaid (0 when absent;
+       the PayableRoundingAmount term is never emitted by the generator). -->
+      <assert test="(cbc:PayableAmount - cbc:TaxInclusiveAmount
+                    + sum(cbc:PrepaidAmount)) &lt; 0.00005 and
+                    (cbc:TaxInclusiveAmount
+                    - sum(cbc:PrepaidAmount)
+                    - cbc:PayableAmount) &lt; 0.00005"
+              role="PINT-SG-BR-CO-16">
+        BR-CO-16: PayableAmount must equal TaxInclusiveAmount minus PrepaidAmount
+      </assert>
+    </rule>
+
+    <rule context="cac:TaxTotal[cbc:TaxAmount]">
+      <!-- BR-CO-14: the total tax == the sum of the subtotal taxes (exact
+           by construction: deposit lines are GST-exempt, so the non-deposit
+           subtotal sums equal the document total; no subtotals sums to 0). -->
+      <assert test="(cbc:TaxAmount - sum(cac:TaxSubtotal/cbc:TaxAmount)) &lt; 0.00005 and
+                    (sum(cac:TaxSubtotal/cbc:TaxAmount) - cbc:TaxAmount) &lt; 0.00005"
+              role="PINT-SG-BR-CO-14">
+        BR-CO-14: The total tax amount must equal the sum of the tax-subtotal tax amounts
+      </assert>
+    </rule>
+
+    <rule context="cac:TaxSubtotal[cbc:TaxAmount][cbc:TaxableAmount][cac:TaxCategory/cbc:Percent]">
+      <!-- BR-CO-17 with the per-line rounding bound: the DB rounds GST per
+           line to 2dp (IRAS cent-level), so the category tax is a sum of
+           per-line roundings, NOT a rounding of the category sum - a naive
+           equality would false-reject legitimate documents (3 x 5.55 at
+           9%: 1.50 vs 1.4985). The bound: |tax - taxable*rate/100| <=
+           0.005 x (total line count) - sound (each line's rounding
+           contributes at most half a cent) and tight enough to catch
+           gross tampering. -->
+      <assert test="(cbc:TaxAmount
+                     - cbc:TaxableAmount * cac:TaxCategory/cbc:Percent div 100
+                     - 0.005 * count(../..//cac:InvoiceLine |
+                                     ../..//cac:CreditNoteLine)
+                     - 0.00005) &lt; 0 and
+                    (cbc:TaxableAmount * cac:TaxCategory/cbc:Percent div 100
+                     - cbc:TaxAmount
+                     - 0.005 * count(../..//cac:InvoiceLine |
+                                     ../..//cac:CreditNoteLine)
+                     - 0.00005) &lt; 0"
+              role="PINT-SG-BR-CO-17">
+        BR-CO-17: The tax-subtotal tax amount must equal the taxable amount times the rate, within the per-line rounding allowance
+      </assert>
+    </rule>
+
+  </pattern>
 </schema>
+

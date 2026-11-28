@@ -64,7 +64,15 @@ class XMLMappingService:
             else "INVOICE",
             # Currency
             "currency": invoice.currency or "SGD",
-            "tax_currency": "SGD",
+            # P36/BE-P36-H2: the tax currency is the DOCUMENT currency — the
+            # tax is computed from the same line amounts (never a divergent
+            # denomination). The pre-P36 hardcode ("SGD") emitted
+            # TaxCurrencyCode=SGD beside DocumentCurrencyCode=USD and
+            # currencyID="USD" amounts on every non-SGD document — the
+            # P33 hazard class, masked by the USD fixture itself carrying
+            # "SGD". The generator omits the element when equal (the UBL
+            # semantic: it exists to declare a DIFFERENT tax currency).
+            "tax_currency": invoice.currency or "SGD",
             # Supplier (AccountingSupplierParty)
             "supplier": XMLMappingService._map_supplier(org),
             # Customer (AccountingCustomerParty)
