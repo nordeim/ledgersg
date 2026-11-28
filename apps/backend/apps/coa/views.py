@@ -187,7 +187,11 @@ class AccountBalanceView(APIView):
                 "account_code": account.code,
                 "account_name": account.name,
                 "balance": str(balance),
-                "currency": "SGD",  # TODO: Get from org settings
+                # P33/BE-P33-M2: the account's own currency — the balance is
+                # the account's balance; the model has carried the field all
+                # along (this retired the literal "TODO: Get from org
+                # settings" the hardcode hid behind).
+                "currency": account.currency,
             }
         )
 

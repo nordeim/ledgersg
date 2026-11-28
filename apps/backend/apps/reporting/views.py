@@ -132,10 +132,23 @@ class FinancialReportView(APIView):
         end_date = parse_date_param(end_date, "end_date").date() if end_date else None
         as_at_date = parse_date_param(as_at_date, "as_at_date").date() if as_at_date else None
 
+        # P33/BE-P33-M1: the ledger these reports aggregate is denominated
+        # in the org's base_currency — the hardcoded "SGD" lied to any
+        # non-SGD-based org (the invoice PDF template already rendered the
+        # truthful org.base_currency). One indexed-PK read per report
+        # request, negligible beside the report's own aggregates.
+        from apps.core.models import Organisation
+
+        base_currency = (
+            Organisation.objects.values_list("base_currency", flat=True).get(
+                id=org_id
+            )
+        )
+
         if report_type == "profit_loss":
-            return self._get_profit_loss(org_id, start_date, end_date)
+            return self._get_profit_loss(org_id, start_date, end_date, base_currency)
         elif report_type == "balance_sheet":
-            return self._get_balance_sheet(org_id, as_at_date)
+            return self._get_balance_sheet(org_id, as_at_date, base_currency)
         else:
             # P8/R-2: the stub {"data": {}} is gone — the real trial balance
             # lives in the journal service (date-based, same semantics as
@@ -154,7 +167,7 @@ class FinancialReportView(APIView):
             return Response({
                 "report_type": "trial_balance",
                 "as_at_date": as_at_date,
-                "currency": "SGD",
+                "currency": base_currency,
                 "data": {
                     "lines": lines,
                     "totals": {
@@ -165,7 +178,7 @@ class FinancialReportView(APIView):
                 },
             })
 
-    def _get_profit_loss(self, org_id, start_date, end_date):
+    def _get_profit_loss(self, org_id, start_date, end_date, base_currency):
         # P8/R-3: per-account lines (not just totals) — each section lists
         # its accounts with amounts, ordered by code, plus the section
         # totals the stub-era response carried.
@@ -210,7 +223,7 @@ class FinancialReportView(APIView):
             "report_type": "profit_loss",
             "period_start": start_date,
             "period_end": end_date,
-            "currency": "SGD",
+            "currency": base_currency,
             "data": {
                 "sections": {"revenue": revenue_lines, "expenses": expense_lines},
                 "revenue_total": str(revenue_total),
@@ -219,7 +232,7 @@ class FinancialReportView(APIView):
             }
         })
 
-    def _get_balance_sheet(self, org_id, as_at_date):
+    def _get_balance_sheet(self, org_id, as_at_date, base_currency):
         # P8/R-3: the statement ties out — current-period earnings (all-time
         # revenue - expense balances up to as_at) are folded in as retained
         # earnings, so assets == liabilities + equity + retained whenever
@@ -276,7 +289,7 @@ class FinancialReportView(APIView):
         return Response({
             "report_type": "balance_sheet",
             "as_at_date": as_at_date,
-            "currency": "SGD",
+            "currency": base_currency,
             "data": {
                 "sections": {
                     "assets": asset_lines,

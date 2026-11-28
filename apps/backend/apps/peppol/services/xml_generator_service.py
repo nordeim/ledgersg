@@ -66,6 +66,14 @@ class XMLGeneratorService:
         self._add_element(invoice, "DocumentCurrencyCode", mapped_data.get("currency"))
         self._add_element(invoice, "TaxCurrencyCode", mapped_data.get("tax_currency"))
 
+        # P33/BE-P33-H1: every amount element's currencyID carries the
+        # DOCUMENT currency — the mapper already sends it (`invoice.currency
+        # or "SGD"`); the hardcoded "SGD" produced internally inconsistent
+        # UBL on any non-SGD document (DocumentCurrencyCode=USD beside
+        # currencyID="SGD" amounts — a Peppol PINT-SG validation hazard).
+        # The defensive fallback keeps hand-built payloads honest.
+        currency = mapped_data.get("currency") or "SGD"
+
         # Supplier (AccountingSupplierParty)
         if mapped_data.get("supplier"):
             supplier_party = self._create_supplier_party(mapped_data["supplier"])
@@ -83,18 +91,18 @@ class XMLGeneratorService:
 
         # Tax Totals
         if mapped_data.get("tax_totals"):
-            tax_total = self._create_tax_total(mapped_data["tax_totals"])
+            tax_total = self._create_tax_total(mapped_data["tax_totals"], currency)
             invoice.append(tax_total)
 
         # Monetary Totals
         if mapped_data.get("monetary_totals"):
-            monetary_total = self._create_monetary_total(mapped_data["monetary_totals"])
+            monetary_total = self._create_monetary_total(mapped_data["monetary_totals"], currency)
             invoice.append(monetary_total)
 
         # Invoice Lines
         if mapped_data.get("lines"):
             for line_data in mapped_data["lines"]:
-                line = self._create_invoice_line(line_data)
+                line = self._create_invoice_line(line_data, currency)
                 invoice.append(line)
 
         # Generate XML string
@@ -324,12 +332,14 @@ class XMLGeneratorService:
 
         return terms
 
-    def _create_tax_total(self, tax_data: Dict[str, Any]) -> etree.Element:
+    def _create_tax_total(self, tax_data: Dict[str, Any], currency: str) -> etree.Element:
         """
         Create TaxTotal element.
 
         Args:
             tax_data: Tax totals dictionary
+            currency: the document's currency (P33 — every amount's
+                currencyID carries it, never a hardcoded denomination)
 
         Returns:
             TaxTotal element
@@ -339,7 +349,7 @@ class XMLGeneratorService:
         # Total tax amount
         if tax_data.get("total_tax_amount"):
             tax_amount = etree.SubElement(tax_total, f"{{{self.NAMESPACE_CBC}}}TaxAmount")
-            tax_amount.set("currencyID", "SGD")
+            tax_amount.set("currencyID", currency)
             tax_amount.text = tax_data["total_tax_amount"]
 
         # Tax subtotals for each category
@@ -348,12 +358,12 @@ class XMLGeneratorService:
 
             # Taxable amount
             taxable = etree.SubElement(tax_subtotal, f"{{{self.NAMESPACE_CBC}}}TaxableAmount")
-            taxable.set("currencyID", "SGD")
+            taxable.set("currencyID", currency)
             taxable.text = category.get("taxable_amount", "0.00")
 
             # Tax amount
             amount = etree.SubElement(tax_subtotal, f"{{{self.NAMESPACE_CBC}}}TaxAmount")
-            amount.set("currencyID", "SGD")
+            amount.set("currencyID", currency)
             amount.text = category.get("tax_amount", "0.00")
 
             # Tax category
@@ -370,12 +380,14 @@ class XMLGeneratorService:
 
         return tax_total
 
-    def _create_monetary_total(self, totals_data: Dict[str, str]) -> etree.Element:
+    def _create_monetary_total(self, totals_data: Dict[str, str], currency: str) -> etree.Element:
         """
         Create LegalMonetaryTotal element.
 
         Args:
             totals_data: Monetary totals dictionary
+            currency: the document's currency (P33 — every amount's
+                currencyID carries it)
 
         Returns:
             LegalMonetaryTotal element
@@ -387,7 +399,7 @@ class XMLGeneratorService:
             line_ext = etree.SubElement(
                 monetary_total, f"{{{self.NAMESPACE_CBC}}}LineExtensionAmount"
             )
-            line_ext.set("currencyID", "SGD")
+            line_ext.set("currencyID", currency)
             line_ext.text = totals_data["line_extension_amount"]
 
         # Tax exclusive amount
@@ -395,7 +407,7 @@ class XMLGeneratorService:
             tax_exc = etree.SubElement(
                 monetary_total, f"{{{self.NAMESPACE_CBC}}}TaxExclusiveAmount"
             )
-            tax_exc.set("currencyID", "SGD")
+            tax_exc.set("currencyID", currency)
             tax_exc.text = totals_data["tax_exclusive_amount"]
 
         # Tax inclusive amount
@@ -403,29 +415,31 @@ class XMLGeneratorService:
             tax_inc = etree.SubElement(
                 monetary_total, f"{{{self.NAMESPACE_CBC}}}TaxInclusiveAmount"
             )
-            tax_inc.set("currencyID", "SGD")
+            tax_inc.set("currencyID", currency)
             tax_inc.text = totals_data["tax_inclusive_amount"]
 
         # Payable amount
         if totals_data.get("payable_amount"):
             payable = etree.SubElement(monetary_total, f"{{{self.NAMESPACE_CBC}}}PayableAmount")
-            payable.set("currencyID", "SGD")
+            payable.set("currencyID", currency)
             payable.text = totals_data["payable_amount"]
 
         # Prepaid amount
         if totals_data.get("prepaid_amount"):
             prepaid = etree.SubElement(monetary_total, f"{{{self.NAMESPACE_CBC}}}PrepaidAmount")
-            prepaid.set("currencyID", "SGD")
+            prepaid.set("currencyID", currency)
             prepaid.text = totals_data["prepaid_amount"]
 
         return monetary_total
 
-    def _create_invoice_line(self, line_data: Dict[str, Any]) -> etree.Element:
+    def _create_invoice_line(self, line_data: Dict[str, Any], currency: str) -> etree.Element:
         """
         Create InvoiceLine element.
 
         Args:
             line_data: Line dictionary from mapped data
+            currency: the document's currency (P33 — every amount's
+                currencyID carries it)
 
         Returns:
             InvoiceLine element
@@ -443,7 +457,7 @@ class XMLGeneratorService:
 
         # Line extension amount
         ext_amount = etree.SubElement(line, f"{{{self.NAMESPACE_CBC}}}LineExtensionAmount")
-        ext_amount.set("currencyID", "SGD")
+        ext_amount.set("currencyID", currency)
         ext_amount.text = line_data.get("line_extension_amount", "0.00")
 
         # Item
@@ -457,7 +471,7 @@ class XMLGeneratorService:
         # Price
         price = etree.SubElement(line, f"{{{self.NAMESPACE_CAC}}}Price")
         price_amount = etree.SubElement(price, f"{{{self.NAMESPACE_CBC}}}PriceAmount")
-        price_amount.set("currencyID", "SGD")
+        price_amount.set("currencyID", currency)
         price_amount.text = line_data.get("unit_price", "0.00")
 
         return line
