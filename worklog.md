@@ -1595,3 +1595,86 @@ batch (936 production); the audit-log INSERT policy (DDL); BE-L3/BE-L4
 locking; the CSV errors[] strings; dead-letter design; UEN checksum;
 the P21/P23/P24/P25/P26/P27 deferred registers carried forward
 unchanged.
+
+---
+
+## Session 56 — P29 Sprint (2026-11-28)
+
+**Scope:** the detail-view N+1 closure + the per-glob coverage ratchet
+raise + the missing shared tier. **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-28_P29.md`. **Report:**
+`docs/REMEDIATION_2026-11-28_P29_REPORT.md`. **Method:** TDD (RED →
+GREEN → full gate); conventional commits on `main`; `skills/`
+excluded; no DDL (schema v1.2.2 carries forward); no frontend
+component changes (the web-tree delta is the ratchet config). The
+environment was live from the prior sessions with **no repair
+required**.
+
+### The baselines (all gates exact — the P28 state held)
+
+backend **1025P/0F/5S** · vitest **698/698 (85 files)** · tsc 0 ·
+eslint **0E/0W** · live e2e:full **43/43 (deterministic, first run)**
+· rls_smoke **13/13** · mobile-nav **17/17** · the dedicated
+`translate` probe **PASS** (7 mid-flight samples) · npm audit **0
+across dev+prod**.
+
+### The named focus — settled (twenty-sixth/twenty-seventh settlements)
+
+**The mobile navigation menu works as expected; NO remaining
+TailwindCSS v4 bug on that surface.** The dedicated live probe: 7
+mid-flight `translate` samples (the slide interpolates), the computed
+`transitionProperty: "transform, translate, visibility"`, the closed
+drawer `-100%`/hidden, the open a `role="dialog"` at `0px`, Escape
+closes.
+
+### The audits (Mode C; the High proven by the RED run)
+
+**0 Critical / 1 High / 1 Medium / 1 Low.** BE-P29-H1 (the
+headline): the detail-view N+1 — the three detail seams
+(`DocumentService.get_document`, `JournalService.get_entry`,
+`PaymentService.get`) fetched their row with a plain
+`.objects.get(...)` while the serializers walked the related FKs: the
+invoice/quote detail walked account + tax_code on EVERY line (a
+5-line detail paid 14 queries where 3 would do, across 8 serialising
+call sites incl. the PDF context), the journal entry detail walked
+account per line (the registered "journal detail N+1"), the payment
+detail walked contact + bank_account. CFG-P29-M2: the per-glob
+coverage tiers still held their P20-measured values (the hooks
+branches floor 15 points below the measured 51.16) AND
+`src/shared/**` had no tier at all (the P20 blind-spot class).
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-P29-H1 | the three service gets gain the bounded-fetch contracts: the contact rides the document SELECT, the lines arrive in ONE joined SELECT carrying account + tax_code, the journal lines-with-account prefetch, the payment joins contact + bank_account — no `order_by` on any prefetch (the default related-manager order is the serialized-line contract; the bytes cannot change) | NEW `tests/integration/test_detail_query_counts_p29.py` (3 gates, the CaptureQueriesContext pattern with table anchors): RED (the 3 separate account SELECTs on a 3-line document shown in the assertion output) → GREEN (≤1 joined SELECT per related table, the fixed rows riding the main query); the full backend **1028P/0F/5S** (every existing pin holds); the detail contracts re-verified live (byte-identical) |
+| CFG-P29-M2 | the five per-glob ratchets raised at the measured floors (lib 73/54/78/75, hooks 55/47/51/55, app 75/65/73/76, components 83/76/69/84, providers 63/63/58/62) + the NEW `src/shared/**` tier at 73/62/76/73 | `test:coverage` exit 0 at the raised floors (the measured values re-printed: 73.39/62.38/70.72/73.95 whole-suite; per-glob 73.80/54.65/78.29/75.80 lib, 55.89/47.34/51.16/55.63 hooks, …) |
+| X-docs | the truth pass (README badge 1769 + the P29 milestone, CLAUDE 2.30.0, AGENTS header + 3 new lessons, SKILL 2.16.0, PAD 3.19.0, DEPLOYMENT header, the API guide re-verification note — no API changes, the version carries, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful (no changes) |
+
+### Final gate (all verified, executed)
+
+backend **1028P/0F/5S** (+3) · vitest **698/698 (85 files)** ·
+coverage green at the RAISED per-glob ratchets · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · **e2e:full 43P/0F/0S**
+(both backends restarted on the remediated code first) · **rls_smoke
+13/13 as `ledgersg_app`** · **mobile-nav 17/17** (twenty-seventh
+settlement) · the `translate` probe re-PASS · **npm audit 0 across
+dev+prod** · build:server green + **prod-CSP 5/5** · schema v1.2.2
+(no DDL). 8 DOM-verified screenshots (184-191, the invoice detail
+page — the headline surface — + the lists, the ledger, the mobile
+drawer closed/open).
+
+### Deferred (registered, not dropped)
+
+The `/accounts/search/` limit-contract migration (verified again: no
+frontend consumer); the capped-default flip; the ruff mechanical
+batch (928 production findings re-measured this session — `make
+lint` convenience only, NOT a CI gate; the 26 F405 star-import
+usages make blind `--fix` unsafe, so it stays a dedicated reviewed
+sprint); the audit-log INSERT policy (DDL); BE-L3/BE-L4 locking; the
+CSV errors[] strings; dead-letter design; UEN checksum; the
+NULL-context SELECT tradeoff; H-05b models; PaymentsTab prefill; the
+TanStack incompatibility; the membership-cache window; the P20-era
+FE-M2/M3 designs; CI hardening; the version-story reconciliation;
+the P21/P23/P24/P25/P26/P27/P28 deferred registers carried forward
+unchanged.

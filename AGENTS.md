@@ -8,16 +8,33 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 53 / P28):
-- Backend: pytest 1025 passed / 0 failed / 5 skipped (1030 collected)
-  (+4: the push-down query-level gates)
+Current truth (all gates executed and green, session 55 / P29):
+- Backend: pytest 1028 passed / 0 failed / 5 skipped (1033 collected)
+  (+3: the detail-query-count gates)
 - Frontend: vitest 698/698 (85 files, on vitest 4.1.12 — the P23
-  advisory closure), coverage green at the RAISED whole-suite ratchet
-  73/62/70/73 (the P28 honest-ratchet fix: the P21–P27 reports
-  recorded the raise but never wrote it into the config),
-  tsc --noEmit 0 errors, whole-tree eslint **0 errors / 0 warnings**,
-  npm audit **0 across dev+prod** (the 17 dev-tier findings closed
-  with in-range semver bumps — the P28 dependency closure)
+  advisory closure), coverage green at the RAISED per-glob ratchets
+  (the P29 honest-ratchet completion: lib 73/54/78/75, hooks
+  55/47/51/55 [the branches floor sat 15 points below the measured
+  51.16], app 75/65/73/76, components 83/76/69/84, providers
+  63/63/58/62, plus the NEW src/shared tier 73/62/76/73 — the P20
+  tier set had missed the shared primitives), tsc --noEmit 0 errors,
+  whole-tree eslint **0 errors / 0 warnings**,
+  npm audit **0 across dev+prod**
+- P29 headline: the detail-view N+1 closure — the three detail seams
+  (document detail, journal entry detail, payment detail) fetched
+  their row with a plain `.objects.get(...)` while the serializers
+  walked the related FKs: the invoice/quote detail walked account +
+  tax_code on EVERY line (a 5-line invoice paid 14 queries where 3
+  would do, across 8 serialising call sites incl. the PDF context),
+  the journal entry detail walked account on every line (the
+  registered "journal detail N+1"), the payment detail walked
+  contact + bank_account. Fixed at the service seam (the same seam
+  as the P28 list push-down): the contact rides the document SELECT,
+  the lines arrive in ONE joined SELECT carrying account + tax_code,
+  the payment joins its related rows — the payloads byte-identical,
+  pinned by 3 NEW query-count gates (a detail request issues a
+  bounded, line-count-independent set of SELECTs; the RED runs
+  proved the per-line walks)
 - P28 headline: the SQL-level push-down — the four service-driven
   list surfaces (contacts, documents [invoices AND quotes], payments,
   bank transactions) materialised the ENTIRE filtered set in Python
@@ -1843,6 +1860,50 @@ Empiricism downgraded the finding from "bug" to "hardening" — and the
 render-time reset (the React prev-state pattern) makes the guarantee
 explicit instead of timing-emergent. Write the real-hook test BEFORE
 concluding a timing-interior bug exists.
+
+## 2026-11-28 P29 Sprint — New Patterns & Lessons (session 55)
+
+### A Detail Page Costs One Detail Per Line — Audit The Get-Seam, Not Just The Lists
+The P28 sprint closed the LIST-surface cost class and the audit
+stopped there — the DETAIL surfaces carried the same disease at a
+different seam: three `get_*` service methods returned a plain
+`.objects.get(...)` while the serializers walked FKs per line (the
+invoice detail paid 2 queries per line; a 5-line detail = 14 queries).
+The tell: any serializer field with `source="fk.field"` is a walk
+UNLESS the queryset that produced the row carried the
+select_related/prefetch_related. The sweep is mechanical — grep the
+serializers for nested `source=` access, then check the service get
+the view called. The fix belongs at the SERVICE seam (uniform, one
+test per service, every serialising consumer benefits incl. the PDF
+context), never per-view: per-view optimisation is how the drift class
+re-enters. And pin it with the query-count gate, not the response —
+the bytes are identical at any query count, which is exactly why no
+existing test could see the cost.
+
+### The Per-Row Walk Hides Behind A Correct Response — Count Queries By Table Anchor
+The detail N+1 was invisible to every contract test because each
+per-line walk returns the RIGHT bytes. The pin that bites:
+`CaptureQueriesContext` + a table anchor (`coa"."account`), asserting
+an upper bound INDEPENDENT of the line count. Two design notes from
+the RED runs: (a) with select_related the JOIN puts the anchor table
+INSIDE the main query, so "queries touching the anchor" counts 1 both
+before (the walk) and after (the join) for FIXED related rows — the
+distinguishable assertion for those is that the MAIN query carries
+the JOIN (read the SQL, don't just count); (b) for per-LINE walks the
+count IS the signal (3 lines → 3 walks on the base code, 1 joined
+fetch after). Pick the assertion shape by whether the walk multiplies
+per row or is a fixed extra.
+
+### A Tier Set Is A Blind-Spot Generator — Re-Enumerate The Source Tree When Tiering
+The P20 sprint added per-glob coverage tiers for lib/hooks/app/
+components/providers and MISSED src/shared — the shared
+money-formatting primitives sat gated only by the whole-suite floor
+for nine sprints. The same sprint pattern repeated at the TIER level:
+once a tier set exists, new directories are born outside it silently.
+The lesson: whenever a tiered gate ships, enumerate the ACTUAL source
+tree against the tier set in the same commit (a two-line `ls src/`
+diff), and re-check it whenever a new src/ subtree lands. A tier
+nobody adds is a tier nobody gates.
 
 ## 2026-11-28 P28 Sprint — New Patterns & Lessons (session 53)
 

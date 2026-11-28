@@ -5,7 +5,7 @@
 # This pipeline institutionalizes the "SQL-First" mandate by:
 # 1. Manually initializing PostgreSQL with database_schema.sql (not migrations)
 # 2. Running pytest with --no-migrations and --reuse-db flags
-# 3. Validating the backend suite (1025 tests, P28 — +4 the push-down query-level gates) against the true production schema
+# 3. Validating the backend suite (1028 tests, P29 — +3 the detail-query-count gates) against the true production schema
 # 4. Running the always-green no-backend e2e subset (P18/CFG-L1)
 #
 # Version: 1.2.1 (P19: the ci-summary gate now includes security-scan)
