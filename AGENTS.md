@@ -8,12 +8,28 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 52 / P27):
-- Backend: pytest 1021 passed / 0 failed / 5 skipped (1026 collected)
-  — unchanged this sprint (no backend code touched; re-verified)
+Current truth (all gates executed and green, session 53 / P28):
+- Backend: pytest 1025 passed / 0 failed / 5 skipped (1030 collected)
+  (+4: the push-down query-level gates)
 - Frontend: vitest 698/698 (85 files, on vitest 4.1.12 — the P23
-  advisory closure), tsc --noEmit 0 errors, whole-tree
-  eslint **0 errors / 0 warnings**
+  advisory closure), coverage green at the RAISED whole-suite ratchet
+  73/62/70/73 (the P28 honest-ratchet fix: the P21–P27 reports
+  recorded the raise but never wrote it into the config),
+  tsc --noEmit 0 errors, whole-tree eslint **0 errors / 0 warnings**,
+  npm audit **0 across dev+prod** (the 17 dev-tier findings closed
+  with in-range semver bumps — the P28 dependency closure)
+- P28 headline: the SQL-level push-down — the four service-driven
+  list surfaces (contacts, documents [invoices AND quotes], payments,
+  bank transactions) materialised the ENTIRE filtered set in Python
+  on every request (`return list(queryset...)`) and the views
+  Python-sliced + `len()`-counted, so every 20-row page of an org
+  with N documents fetched all N rows (the P24 envelope paged the
+  RESPONSE, not the QUERY). Fixed: the services return lazy
+  querysets; the views count via SQL COUNT(*) and page via SQL
+  LIMIT/OFFSET — the envelope byte-identical, pinned by 4 new
+  query-level gates (a paginated request issues a LIMIT-bounded
+  SELECT at the requested page size + a COUNT query; the RED runs
+  proved the unbounded fetch)
 - P27 headline: the pagination state-machine truth — the P26
   search-debounce effect's MOUNT-run called setOffset(0)
   unconditionally, so a Next click inside the ~600ms window (doubled
@@ -1827,6 +1843,41 @@ Empiricism downgraded the finding from "bug" to "hardening" — and the
 render-time reset (the React prev-state pattern) makes the guarantee
 explicit instead of timing-emergent. Write the real-hook test BEFORE
 concluding a timing-interior bug exists.
+
+## 2026-11-28 P28 Sprint — New Patterns & Lessons (session 53)
+
+### A Paginated Response Is Not A Paginated Query — Pin The SQL, Not Just The Envelope
+The P24 sprint shipped the `?limit=&offset=` envelope and called the
+lists paginated — but four of the surfaces fetched the ENTIRE filtered
+set into Python and sliced the list in the view (`len()` for the
+count). The response was correct at every size; the cost was quadratic
+in org size and invisible to every envelope-level test (the bytes are
+identical whether you fetch 20 rows or 20,000). The gate that pins it
+is `CaptureQueriesContext`: assert the SELECT carries the REQUESTED
+`LIMIT n` and that a `COUNT(*)` ran. Correctness tests pin the
+contract; query-level tests pin the cost. When a fix's value is
+performance, its regression test must read the query log — an
+envelope assertion cannot fail on a full-table fetch.
+
+### A Ratchet Nobody Bumps Is A Rubber Stamp
+Seven consecutive sprint reports (P21–P27) each recorded "the coverage
+floor RAISED to <measured value>" — and the config still held the P20
+thresholds. The gate passed every time (it sat 2+ points below the
+truth), so nothing forced the discrepancy to surface. The lesson: a
+ratchet's value is the WRITE, not the read — the sprint that raises
+the measured floor must also raise the configured floor in the same
+commit, or the mechanism silently degrades into a pass-through. Audit
+the ratchet whenever a report claims a raise: `grep` the config for
+the claimed numbers.
+
+### Verify The Dev/Prod Split Before A Dependency Sprint
+"17 findings, 7 high" sounds like an incident; the split (`npm audit
+--omit=dev` → 0) says none of them can touch production. The dry-run
+then showed every fix was an in-range semver bump. Three checks
+(dev-only paths, the dry-run diff, the full gate matrix after) turned
+a scary audit into a 10-minute mechanical closure with zero risk
+transfer. Run all three before any dependency work; never `--force`
+when the in-range set already resolves.
 
 ## 2026-11-28 P27 Sprint — New Patterns & Lessons (session 52)
 

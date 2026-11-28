@@ -1516,3 +1516,82 @@ the ruff mechanical batch (936 production); the audit-log INSERT
 policy (DDL); BE-L3/BE-L4 locking; the CSV errors[] strings;
 dead-letter design; UEN checksum; the P21/P23/P24/P25/P26 deferred
 registers carried forward unchanged.
+
+---
+
+## Session 54 — P28 Sprint (2026-11-28)
+
+**Scope:** the SQL-level push-down for the service-driven lists + the
+honest coverage ratchet + the dev-tier dependency closure. **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-28_P28.md`. **Report:**
+`docs/REMEDIATION_2026-11-28_P28_REPORT.md`. **Method:** TDD (RED →
+GREEN → full gate); conventional commits on `main`; `skills/`
+excluded; no DDL (schema v1.2.2 carries forward); no frontend
+component changes (the web-tree deltas are the ratchet config + the
+dev-tier dependency bump). The environment was live from the prior
+sessions with **no repair required** (the `ledgersg_app` password held
+at the documented default).
+
+### The baselines (all gates exact — the P27 state held)
+
+backend **1021P/0F/5S** · vitest **698/698 (85 files)** · tsc 0 ·
+eslint **0E/0W** · live e2e:full **43/43 (deterministic, first run)**
+· rls_smoke **13/13** · mobile-nav **17/17** · the dedicated
+`translate` probe **PASS** (7 mid-flight samples) · npm audit **0
+critical** (17 dev-tier).
+
+### The named focus — settled (twenty-fourth/twenty-fifth settlements)
+
+**The mobile navigation menu works as expected; NO remaining
+TailwindCSS v4 bug on that surface.** The dedicated live probe
+(`scripts/translate-probe-session53.js`): 7 mid-flight `translate`
+samples (the slide interpolates), the computed `transitionProperty:
+"transform, translate, visibility"`, the closed drawer
+`-100%`/hidden, the open a `role="dialog"` at `0px`, Escape closes.
+
+### The audits (Mode C; the High proven by the RED run)
+
+**0 Critical / 1 High / 2 Medium / 1 Low.** BE-H1 (the headline):
+the four service-driven list surfaces (contacts, documents [invoices
+AND quotes], payments, bank transactions) materialised the ENTIRE
+filtered set in Python on every request (`return list(queryset...)`)
+and the views Python-sliced + `len()`-counted — every 20-row page of
+an org with N documents fetched all N rows (the P24 envelope paged
+the RESPONSE, not the QUERY). CFG-M2: the vitest coverage config
+still held the P20 whole-suite floor (71/60/68/71) while the
+measured floor was 73.39/70.72/62.38/73.95 — the P21–P27 reports
+each recorded the raise but never wrote it into the config. DEP-M3:
+the 17 dev-tier npm-audit findings (7 high — all verified dev-only;
+the dry-run showed in-range semver bumps only).
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-H1 | the four services return lazy querysets (the `list(...)` drops, the select_related/order_by chains carried, the annotations `QuerySet[T]`); the four views count via `.count()` — SQL COUNT(*) + SQL LIMIT/OFFSET; the envelope byte-identical | NEW `tests/integration/test_pagination_pushdown_p28.py` (4 gates, the CaptureQueriesContext pattern): RED (the unbounded SELECT shown in the assertion output) → GREEN (LIMIT n + COUNT(*)); the full backend **1025P/0F/5S** (every existing pin holds); the API contracts re-verified live (mid-set, beyond-end, both banking envelopes, the typed 400s, the unpaginated path — byte-identical) |
+| CFG-M2 | the whole-suite ratchet raised **71/60/68/71 → 73/62/70/73** at the measured floor | `test:coverage` exit 0 at the raised floor (the measured values re-printed identical: 73.39/70.72/62.38/73.95) |
+| DEP-M3 | `npm audit fix` — the dry-run set exactly (in-range semver bumps; `package.json` unchanged, only the lockfile) | **npm audit 0 across dev+prod**; the full web matrix on the bumped tree: vitest 698/698 · tsc 0 · eslint 0E/0W · e2e 43/43 · build:server green · prod-CSP 5/5 |
+| X-docs | the truth pass (README badge 1766 + the P28 milestone, CLAUDE 2.29.0, AGENTS header + 3 new lessons, SKILL 2.15.0, PAD 3.18.0, DEPLOYMENT header, the API guide re-verification note — no API changes, 3.5.0 carries, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful (no changes) |
+
+### Final gate (all verified, executed)
+
+backend **1025P/0F/5S** (+4) · vitest **698/698 (85 files)** ·
+coverage green at the RAISED ratchet (73/62/70/73) · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · **e2e:full 43P/0F/0S**
+(both backends restarted on the remediated code first) · **rls_smoke
+13/13 as `ledgersg_app`** · **mobile-nav 17/17** (twenty-fifth
+settlement) · the `translate` probe re-PASS · **npm audit 0 across
+dev+prod** · build:server green + **prod-CSP 5/5** · schema v1.2.2
+(no DDL). 8 DOM-verified screenshots (176-183, the four pushed-down
+list surfaces; the quotes capture stocks its own DRAFT quote through
+the public API — the P26 convention).
+
+### Deferred (registered, not dropped)
+
+The per-glob coverage-tier raise (new — needs the JSON-report
+numbers); the `/accounts/search/` limit-contract migration (verified:
+no frontend consumer); the capped-default flip; the ruff mechanical
+batch (936 production); the audit-log INSERT policy (DDL); BE-L3/BE-L4
+locking; the CSV errors[] strings; dead-letter design; UEN checksum;
+the P21/P23/P24/P25/P26/P27 deferred registers carried forward
+unchanged.
