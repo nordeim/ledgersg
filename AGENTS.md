@@ -8,15 +8,15 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 57 / P30):
-- Backend: pytest 1030 passed / 0 failed / 5 skipped (1035 collected)
-  (+2: the reconcile/unreconcile query-count gates)
-- Backend lint: the ruff mechanical classes at **0** on the production
-  tree (the P30 closure: W291/W293 whitespace, I001 import order, F401
-  unused imports, F403/F405 the settings star imports — 650 findings
-  closed, `ruff check --fix` now SAFE; the 277 semantic findings stay
-  registered; `make lint-mechanical` + the CI step pin the closed
-  classes at 0)
+Current truth (all gates executed and green, session 59 / P31):
+- Backend: pytest 1034 passed / 0 failed / 5 skipped (1039 collected)
+  (+4: the exception-chaining __cause__/__suppress_context__ gates)
+- Backend lint: the closed ruff classes at **0** across the WHOLE tree
+  (the P30 production closure + the P31 extension: W291/W293 whitespace,
+  I001 import order, F401 unused imports, F403/F405 the settings star
+  imports, B904 exception chaining — production 277 → 211, tests
+  379 → 157; `make lint-mechanical` + the CI step gate the unified
+  class set over production + tests)
 - Frontend: vitest 698/698 (85 files, on vitest 4.1.12 — the P23
   advisory closure), coverage green at the RAISED per-glob ratchets
   (the P29 honest-ratchet completion: lib 73/54/78/75, hooks
@@ -2085,3 +2085,31 @@ carries an envelope, the hook returns the envelope; consumers unwrap at
 the point of use (`data?.results ?? []`). The breaking-change cost was
 bounded because a consumer sweep preceded the change (exactly two
 callers); an un-enumerated hook-shape change is where regressions hide.
+
+### An Implicit __context__ Is Not A Chain — Make The Translation Explicit
+B904's 66 sites all "worked" — Python's implicit `__context__` captured
+the original exception inside every except block. But implicit context
+renders as "During handling of the above exception, another exception
+occurred" — the wording of an ACCIDENT, not a translation — and it is
+an implementation detail of WHERE the raise sits: any refactor that
+moves the raise out of the except block silently drops the chain. The
+P31 contract: `from exc` by default (the cause preserved as `__cause__`,
+stable across refactors, the constraint name visible in race
+translations), `from None` ONLY where the raised message already embeds
+the original error's own string (`f"...: {e}"` — the suppressed context
+is pure duplication). The response bytes never change — the pinning
+lives at the exception object level (`__cause__` isinstance /
+`__suppress_context__`), a truth no HTTP-contract test can see.
+
+### A Tests-Tree F401 Sweep Must Check The Import-Is-The-Side-Effect Class
+Extending the P30 mechanical closure from production to tests/ was not
+a blind re-run: test files import for SIDE EFFECTS more often than
+production modules (fixture registration via import, conftest helpers,
+settings patching). The P31 review enumerated every one of the 66
+tests-tree F401s by name — all models/stdlib/test-helpers, zero
+factory-or-registration modules — so the safe `--fix` was justified,
+and the full 1034-test suite (not a sample) proved it. The lesson
+generalises the P30 __init__.py re-export review: before autofixing
+F401 in ANY new tree, classify the imported names by whether the
+import itself is the behaviour; when in doubt, the suite is the
+arbiter, not the linter.

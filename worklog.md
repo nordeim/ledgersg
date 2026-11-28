@@ -1739,3 +1739,68 @@ prefill; the TanStack incompatibility; the membership-cache window; the
 P20-era FE-M2/M3 designs; CI hardening (the mypy gate — 1491 errors);
 the version-story reconciliation; the P21–P29 deferred registers
 carried forward unchanged.
+
+## Session 60 — P31 Sprint (2026-11-28)
+
+The workspace refreshed to `933af819` (the session-59 narration log the
+only delta); the environment intact (PG 17, Redis, next dev — the
+backends re-daemonised after the sandbox recycle). All documented
+baselines reproduced EXACTLY before any change: backend 1030P/0F/5S,
+vitest 698/698, tsc 0, eslint 0E/0W, e2e 43/43 first-run, rls 13/13,
+mobile-nav 17/17 (the thirtieth settlement), the translate probe PASS,
+npm audit 0, build:server + prod-CSP 5/5, make lint-mechanical 0, the
+production ruff count 277 exact. The mobile-nav focus settled: working,
+no Tailwind v4 bug.
+
+### The audits (Mode C)
+
+**0 Critical / 1 High / 2 Medium / 1 Low.** BE-P31-H1 (the headline):
+the registered B904 raise-from batch — 66 sites across 21 files, the
+P30 report's own suggested next sprint — classified by review into 62
+Class-A (from-exc: the lookup misses, the IntegrityError races, the
+password propagation, the parse translations, the Celery retries) + 4
+Class-B (from-None: decimal_utils ×3 + the CSV decode, whose messages
+already embed the original error's string). BE-P31-M2: the tests-tree
+mechanical batch — 221 findings in the P30-closed classes (W293 ×99,
+I001 ×56, F401 ×66 reviewed by name — no import-is-the-side-effect
+class). CFG-P31-M3: the ratchet split (production-only, the P30
+classes). One log-level false alarm cleared (the SyntaxWarning in the
+appended /tmp log was from a PRE-P30 boot; the current source compiles
+clean under -W error::SyntaxWarning).
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-P31-H1 | the 66 sites chained: 62 from-exc + 4 from-None (a string-aware statement-end scanner; the unbound excepts gained `as exc`; 6 E501 overflows hand-wrapped) | RED 4 (the missing __cause__/__suppress_context__ proven) → GREEN 4; `ruff --select B904` → 0; production 277 → 211; the live not-found 404 + typed-400 bodies byte-stable |
+| BE-P31-M2 | the tests-tree closure: W293 ×99 (pure whitespace, `git diff -w` proven), I001 ×60 incl. the re-sorts, F401 ×66 reviewed | tests 379 → 157; the full 1034-test suite green (the arbiter for the F401 removals) |
+| CFG-P31-M3 | the unified ratchet: `make lint-mechanical` + the CI step gate W291,W293,I001,F401,F403,F405,B904 over production + tests | make exit 0 locally; the recipe line byte-verified to carry its TAB; the ci.yml YAML valid |
+| X-docs | the truth pass (README badge 1775 + the P31 milestone, CLAUDE 2.32.0, AGENTS header + 2 new P31 lessons [the implicit-__context__ lesson; the tests-tree F401 review class], SKILL 2.18.0, PAD 3.21.0, DEPLOYMENT header, the API guide re-verification note — no API changes, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful |
+
+### Final gate (all verified, executed)
+
+backend **1034P/0F/5S** (+4) · vitest **698/698 (85 files)** · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · **e2e:full 43P/0F/0S** ·
+**rls_smoke 13/13 as `ledgersg_app`** · **mobile-nav 17/17** (the
+thirty-first settlement) · the `translate` probe re-PASS · **npm audit 0
+across dev+prod** · build:server green + **prod-CSP 5/5** · the
+closed-class ruff ratchet unified (production 277 → 211, tests
+379 → 157) · schema v1.2.2 (no DDL). 8 DOM-verified screenshots
+(200-207, the banking payments tab — the headline surface — + the
+invoice detail, the invoices list, the ledger, the banking transactions
+tab, the dashboard, the mobile drawer closed/open).
+
+### Deferred (registered, not dropped)
+
+The ruff semantic batch — now **211 production findings** (the UP
+typing batch ×109, E501 ×39 + the format axis at 80 files, F841 ×16,
+E402 ×12, …); the tests/-tree residual — **157 findings** (E501 ×73,
+F811 ×26, F841 ×9, S106 ×8, SIM117 ×8, …); the `/accounts/search/`
+limit-contract migration (verified again: capped + typed, no frontend
+consumer); the capped-default flip; the audit-log INSERT policy (DDL);
+BE-L3/BE-L4 locking; the CSV errors[] strings; dead-letter design; UEN
+checksum; the NULL-context SELECT tradeoff; H-05b models; PaymentsTab
+prefill; the TanStack incompatibility; the membership-cache window; the
+P20-era FE-M2/M3 designs; CI hardening (the mypy gate — 1491 errors);
+the version-story reconciliation; the P21–P30 deferred registers
+carried forward unchanged.

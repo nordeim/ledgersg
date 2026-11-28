@@ -1,7 +1,7 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.20.0
+> **Version**: 3.21.0
 > **Last Updated**: 2026-11-28
 > **P30 note**: the ruff mechanical closure + the fourth-surface walk completion — the registered 928-finding production batch's mechanical classes closed 650 → 0 (whitespace ×378, import order ×122, unused imports ×121 across 51 files, the Django split-settings star imports ×29 documented via per-file-ignores — the pass-through contract; `ruff check --fix` now SAFE); the reconcile/unreconcile responses now JOIN bank_account instead of walking it (byte-identical payloads, 2 new query-count gates + the live round-trip); the mechanical-class lint ratchet (`make lint-mechanical` + the CI step) — see `docs/REMEDIATION_PLAN_2026-11-28_P30.md`.
 > **P29 note**: the detail-view N+1 closure — the three detail seams (document detail, journal entry detail, payment detail) fetched their row with a plain `.get()` while the serializers walked the related FKs per line / per related object (a 5-line invoice detail paid 14 queries where 3 would do, across 8 serialising call sites incl. the PDF context); now the contact rides the document SELECT, the lines arrive in ONE joined SELECT carrying account + tax_code, the payment joins its related rows — byte-identical payloads, pinned by 3 new query-count gates; plus the per-glob coverage-ratchet raise (all five tiers at their measured floors — the hooks branches floor sat 15 points below the truth — and the NEW src/shared tier, closing the P20 blind spot) — see `docs/REMEDIATION_PLAN_2026-11-28_P29.md`.
@@ -53,17 +53,17 @@
 ### Key Metrics (P30, 2026-11-28)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,771 Tests Passing** | 1030 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
+| **Test Coverage** | **1,775 Tests Passing** | 1034 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+"); every LIST endpoint returns the unified `{results, count}` envelope (P21) with the additive `?limit=&offset=` pagination + next/previous + total-count (P24) |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
-| **Lint Register** | **ESLint 0 errors / 0 warnings (src+e2e) · ruff mechanical classes 0 (production tree)** | ESLint clean since P19; the P30 closure (650 mechanical findings closed; `make lint-mechanical` + the CI step pin them at 0); the 277 semantic findings + the tests-tree batch stay registered; npm audit **0 across dev+prod** |
+| **Lint Register** | **ESLint 0 errors / 0 warnings (src+e2e) · ruff closed classes 0 (whole tree)** | ESLint clean since P19; the P30 production closure (650 mechanical) + the P31 extension (B904 ×66 chained + the tests tree 221 closed — production 277 → 211, tests 379 → 157; `make lint-mechanical` + the CI step gate the unified class set over production + tests); the residual semantic findings stay registered; npm audit **0 across dev+prod** |
 
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
 | **Frontend Unit** | 698 (85 files) | 100% | Vitest + RTL (on vitest 4.1.12 — the P23 advisory closure) | ✅ Passing |
-| **Backend (pytest)** | 1030 passed / 5 skipped (1035 collected) | 100% of run | pytest | ✅ Passing |
+| **Backend (pytest)** | 1034 passed / 5 skipped (1039 collected) | 100% of run | pytest | ✅ Passing |
 | **E2E (Playwright)** | 43 (11 always + 32 backend-gated) | 100% live | Playwright | ✅ Passing |
 | **Total Passing** | **1,771** | — | Mixed | ✅ Verified |
 
