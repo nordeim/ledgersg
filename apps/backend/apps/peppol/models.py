@@ -6,6 +6,7 @@ SQL-First Architecture: managed = False
 """
 
 import uuid
+
 from django.db import models
 
 

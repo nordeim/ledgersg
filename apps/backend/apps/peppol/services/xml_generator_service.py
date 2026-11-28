@@ -5,7 +5,8 @@ Generates UBL 2.1 XML from mapped data structure.
 """
 
 import hashlib
-from typing import Dict, Any
+from typing import Any, Dict
+
 from lxml import etree
 
 

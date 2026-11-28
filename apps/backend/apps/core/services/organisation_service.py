@@ -9,20 +9,20 @@ Handles organisation lifecycle management including:
 """
 
 import uuid
-from typing import Optional
 from datetime import date, timedelta
+from typing import Optional
 
 from django.db import IntegrityError, connection, transaction
 
 from apps.core.models import (
-    Organisation, 
-    AppUser, 
-    Role, 
-    UserOrganisation,
-    FiscalYear,
+    AppUser,
     FiscalPeriod,
+    FiscalYear,
+    Organisation,
+    Role,
+    UserOrganisation,
 )
-from common.exceptions import ValidationError, DuplicateResource
+from common.exceptions import ValidationError
 
 
 def create_organisation(
@@ -44,7 +44,7 @@ def create_organisation(
     # Set default entity_type if empty
     if not entity_type:
         entity_type = "PRIVATE_LIMITED"
-    
+
     with transaction.atomic():
         # Create organisation
         try:
@@ -86,16 +86,16 @@ def create_organisation(
 
         # Seed Chart of Accounts via PostgreSQL function
         _seed_chart_of_accounts(org.id, gst_registered)
-        
+
         # Create first fiscal year
         _create_first_fiscal_year(org, fy_start_month)
-        
+
         # Assign user as Owner
         _assign_owner_role(org, user)
-        
+
         # Seed default tax codes
         _seed_tax_codes(org.id)
-        
+
     return org
 
 
@@ -189,7 +189,7 @@ def _create_first_fiscal_year(org: Organisation, start_month: int) -> None:
     Create the first fiscal year with periods.
     """
     current_year = timezone.localdate().year
-    
+
     # Calculate fiscal year dates
     if start_month == 1:
         # Calendar year
@@ -201,7 +201,7 @@ def _create_first_fiscal_year(org: Organisation, start_month: int) -> None:
         start_date = date(current_year, start_month, 1)
         end_date = date(current_year + 1, start_month, 1) - timedelta(days=1)
         label = f"FY{current_year}-{current_year + 1}"
-    
+
     # Create fiscal year
     fiscal_year = FiscalYear.objects.create(
         org=org,
@@ -210,7 +210,7 @@ def _create_first_fiscal_year(org: Organisation, start_month: int) -> None:
         end_date=end_date,
         is_closed=False,
     )
-    
+
     # Create fiscal periods (months)
     _create_fiscal_periods(org, fiscal_year, start_date, end_date)
 
@@ -225,21 +225,21 @@ def _create_fiscal_periods(
     Create fiscal periods (months) for a fiscal year.
     """
     from calendar import month_name
-    
+
     current_date = start_date
     period_number = 1
-    
+
     while current_date <= end_date:
         # Calculate period end (last day of month)
         if current_date.month == 12:
             period_end = date(current_date.year, 12, 31)
         else:
             period_end = date(current_date.year, current_date.month + 1, 1) - timedelta(days=1)
-        
+
         # Ensure we don't exceed fiscal year end
         if period_end > end_date:
             period_end = end_date
-        
+
         # Create period
         FiscalPeriod.objects.create(
             org=org,
@@ -250,13 +250,13 @@ def _create_fiscal_periods(
             end_date=period_end,
             is_open=True,
         )
-        
+
         # Move to next month
         if current_date.month == 12:
             current_date = date(current_date.year + 1, 1, 1)
         else:
             current_date = date(current_date.year, current_date.month + 1, 1)
-        
+
         period_number += 1
 
 
@@ -284,7 +284,7 @@ def _assign_owner_role(org: Organisation, user: AppUser) -> None:
             "is_system": True,
         }
     )
-    
+
     # Create user-organisation membership
     UserOrganisation.objects.create(
         user=user,
@@ -382,7 +382,7 @@ def toggle_gst_registration(
         org.gst_registered = False
         org.gst_reg_number = ""
         org.gst_reg_date = None
-    
+
     org.save()
     return org
 

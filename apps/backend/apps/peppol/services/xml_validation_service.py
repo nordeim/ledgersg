@@ -13,6 +13,7 @@ asserts the constant.
 """
 
 from typing import Any, Dict, List  # noqa: UP006 — Dict matches the codebase idiom
+
 from lxml import etree
 
 # P14/X-1: the parser policy (the knobs, asserted by the configuration gate —

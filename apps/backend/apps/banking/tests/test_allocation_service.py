@@ -7,30 +7,28 @@ Run with: pytest apps/banking/tests/test_allocation_service.py -v
 SEC-001 Remediation: Tests validate all security controls.
 """
 
-import pytest
 import uuid
 from datetime import date
 from decimal import Decimal
+
+import pytest
 from django.contrib.auth.hashers import make_password
 
+from apps.banking.services import PaymentService
 from apps.core.models import (
+    Account,
     AppUser,
+    AuditEventLog,
+    BankAccount,
+    Contact,
+    FiscalPeriod,
+    FiscalYear,
+    InvoiceDocument,
     Organisation,
     Role,
     UserOrganisation,
-    Account,
-    Contact,
-    BankAccount,
-    Payment,
-    PaymentAllocation,
-    InvoiceDocument,
-    FiscalYear,
-    FiscalPeriod,
-    AuditEventLog,
 )
-from apps.banking.services import PaymentService
-from common.exceptions import ValidationError, ResourceNotFound
-
+from common.exceptions import ValidationError
 
 pytestmark = pytest.mark.django_db
 

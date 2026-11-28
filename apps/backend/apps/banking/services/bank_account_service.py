@@ -5,16 +5,14 @@ Business logic for bank account CRUD operations.
 SEC-001 Remediation: All operations validated and logged.
 """
 
+from typing import List, Optional
 from uuid import UUID
-from typing import List, Optional, Dict, Any
-from decimal import Decimal
-from django.db import transaction
-from django.utils import timezone
-from django.core.exceptions import ValidationError as DjangoValidationError
 
-from apps.core.models import BankAccount, Account, AuditEventLog
-from common.exceptions import ValidationError, ResourceNotFound, DuplicateResource
+from django.db import transaction
+
+from apps.core.models import Account, AuditEventLog, BankAccount
 from common.decimal_utils import money
+from common.exceptions import DuplicateResource, ResourceNotFound, ValidationError
 
 
 class BankAccountService:

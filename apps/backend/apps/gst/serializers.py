@@ -5,8 +5,8 @@ Serializers for TaxCode and GSTReturn models.
 """
 
 from decimal import Decimal
-from django.utils import timezone
 
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.core.models import GSTReturn, TaxCode
@@ -207,7 +207,6 @@ class GSTReturnListSerializer(serializers.ModelSerializer):
 
     def get_days_until_due(self, obj: GSTReturn) -> int:
         """Get days until due date."""
-        from datetime import date
         if not obj.filing_due_date:
             return 0
         return (obj.filing_due_date - timezone.localdate()).days

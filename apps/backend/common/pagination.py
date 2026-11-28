@@ -30,6 +30,8 @@ payments `id` tiebreakers landed with this module).
 
 from rest_framework.pagination import (
     CursorPagination as _CursorPagination,
+)
+from rest_framework.pagination import (
     PageNumberPagination,
 )
 from rest_framework.request import Request

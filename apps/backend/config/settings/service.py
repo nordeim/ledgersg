@@ -14,7 +14,6 @@ container start time can forge HS256 JWTs). ALLOWED_HOSTS comes from env
 (the hardcoded wildcard is gone).
 """
 
-import os
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -34,7 +33,8 @@ DEBUG = False
 # P19/X-L4: decouple (`.env`-aware) — the os.environ-only read gave the
 # service mode split semantics (SECRET_KEY from the same .env WAS
 # honored while ALLOWED_HOSTS silently was not).
-from decouple import Csv, config as _decouple_config
+from decouple import Csv
+from decouple import config as _decouple_config
 
 ALLOWED_HOSTS = _decouple_config(
     "ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv()

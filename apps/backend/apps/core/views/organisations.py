@@ -4,36 +4,34 @@ Organisation views for LedgerSG.
 Organisation CRUD, GST registration, fiscal year management.
 """
 
-from datetime import date
-from typing import List
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from django.db import IntegrityError, connection
 
+from apps.core.models import (
+    Account,
+    FiscalPeriod,
+    FiscalYear,
+    Organisation,
+)
+from apps.core.permissions import (
+    CanCreateJournals,
+    CanManageOrg,
+    CanViewReports,
+    IsOrgMember,
+)
 from apps.core.serializers import (
-    OrganisationSerializer,
-    OrganisationCreateSerializer,
-    GSTRegistrationSerializer,
     FiscalYearSerializer,
+    GSTRegistrationSerializer,
+    OrganisationCreateSerializer,
+    OrganisationSerializer,
 )
 from apps.core.services import organisation_service
-from apps.core.permissions import (
-    IsOrgMember,
-    CanManageOrg,
-    CanCreateJournals,
-    CanViewReports,
-)
-from apps.core.models import (
-    Organisation,
-    FiscalYear,
-    FiscalPeriod,
-    Account,
-)
-from common.exceptions import ValidationError, DuplicateResource, UnauthorizedOrgAccess
+from common.exceptions import UnauthorizedOrgAccess
 from common.views import wrap_response
 
 

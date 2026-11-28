@@ -6,6 +6,7 @@ Imported bank feed transactions for reconciliation matching.
 """
 
 from django.db import models
+
 from common.models import TenantModel
 
 

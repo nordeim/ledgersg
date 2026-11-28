@@ -4,21 +4,20 @@ Reporting views for LedgerSG.
 Dashboard metrics and alerts API.
 """
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework import status
-from django.db.models import Sum, F
-from django.utils import timezone
 from decimal import Decimal
 from uuid import UUID
-from datetime import date
 
-from apps.core.permissions import IsOrgMember, CanViewReports
-from apps.core.models import Account, JournalLine
-from common.views import wrap_response
+from django.db.models import F, Sum
+from django.utils import timezone
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from apps.core.models import JournalLine
+from apps.core.permissions import CanViewReports, IsOrgMember
 from common.exceptions import ValidationError
+from common.views import wrap_response
 
 
 class DashboardMetricsView(APIView):

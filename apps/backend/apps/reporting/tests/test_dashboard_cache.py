@@ -9,26 +9,24 @@ Date: 2026-03-04
 Phase: RED - Failing Tests
 """
 
-import pytest
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
+
+import pytest
 from django.core.cache import cache
 
 from apps.core.models import (
-    Organisation,
-    AppUser,
-    FiscalYear,
-    FiscalPeriod,
-    InvoiceDocument,
-    Contact,
-    TaxCode,
     Account,
+    AppUser,
     BankAccount,
-    Payment,
-    JournalEntry,
-    JournalLine,
+    Contact,
+    FiscalPeriod,
+    FiscalYear,
+    InvoiceDocument,
+    Organisation,
     Role,
+    TaxCode,
     UserOrganisation,
 )
 from apps.reporting.services.dashboard_service import DashboardService
@@ -374,7 +372,6 @@ class TestDashboardCacheWithData:
         cache_test_tax_code,
     ):
         """Test caching works correctly with invoice data."""
-        from apps.invoicing.services import DocumentService
 
         # Create customer
         customer = Contact.objects.create(

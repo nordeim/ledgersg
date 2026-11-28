@@ -4,22 +4,21 @@ Core URL configuration.
 Routes for authentication (non-org-scoped) and organisation management.
 """
 
-from django.urls import path, include
+from django.urls import include, path
 
-from apps.core.views.organisations import (
-    OrganisationDetailView,
-    GSTRegistrationView,
-    FiscalYearListView,
-    OrganisationSummaryView,
-    OrganisationSettingsView,
-)
 from apps.core.views.fiscal import (
-    FiscalPeriodListView,
-    FiscalYearCloseView,
     FiscalPeriodCloseView,
+    FiscalPeriodListView,
     FiscalPeriodOpenView,
+    FiscalYearCloseView,
 )
-
+from apps.core.views.organisations import (
+    FiscalYearListView,
+    GSTRegistrationView,
+    OrganisationDetailView,
+    OrganisationSettingsView,
+    OrganisationSummaryView,
+)
 
 # Non-org-scoped URLs
 urlpatterns = [

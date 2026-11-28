@@ -10,7 +10,8 @@ help:
 	@echo "  make dev          - Start development server"
 	@echo "  make test         - Run test suite"
 	@echo "  make test-cov     - Run tests with coverage"
-	@echo "  make lint         - Run ruff linter"
+	@echo "  make lint         - Run ruff linter (full report)"
+	@echo "  make lint-mechanical - Ruff gate: mechanical classes at 0 (P30)"
 	@echo "  make format       - Run ruff formatter"
 	@echo "  make typecheck    - Run mypy"
 	@echo "  make migrate      - Run Django migrations"
@@ -39,8 +40,17 @@ test-cov:
 	pytest --reuse-db --no-migrations --cov=apps --cov=common --cov-report=html --cov-report=term
 
 # Linting and formatting
+# make lint stays the FULL report (the semantic findings are the
+# registered deferred batch); lint-mechanical is the P30/CFG-M3
+# RATCHET — the closed mechanical classes (whitespace, import order,
+# unused imports, the settings star-import contract) must stay at 0.
+# The same command runs in CI (ci.yml backend-tests) — a gate nobody
+# runs is a rubber stamp.
 lint:
 	ruff check .
+
+lint-mechanical:
+	ruff check --select W291,W293,I001,F401,F403,F405 apps common config
 
 format:
 	ruff format .

@@ -7,29 +7,28 @@ Run with: pytest apps/banking/tests/test_reconciliation_service.py -v
 SEC-001 Remediation: Tests validate all security controls.
 """
 
-import pytest
 import uuid
 from datetime import date
 from decimal import Decimal
-from django.contrib.auth.hashers import make_password
 from io import BytesIO
 
+import pytest
+from django.contrib.auth.hashers import make_password
+
+from apps.banking.services import PaymentService, ReconciliationService
 from apps.core.models import (
+    Account,
     AppUser,
+    BankAccount,
+    BankTransaction,
+    Contact,
+    FiscalPeriod,
+    FiscalYear,
     Organisation,
     Role,
     UserOrganisation,
-    Account,
-    Contact,
-    BankAccount,
-    BankTransaction,
-    Payment,
-    FiscalYear,
-    FiscalPeriod,
 )
-from apps.banking.services import ReconciliationService, PaymentService
-from common.exceptions import ValidationError, ResourceNotFound
-
+from common.exceptions import ValidationError
 
 pytestmark = pytest.mark.django_db
 

@@ -16,8 +16,8 @@ from datetime import date
 import pytest
 from django.contrib.auth.hashers import make_password
 
-from apps.banking.services import BankAccountService, PaymentService
 from apps.banking.serializers import BankAccountSerializer
+from apps.banking.services import BankAccountService, PaymentService
 from apps.core.models import AppUser, Organisation, Role, UserOrganisation
 from common.exceptions import ValidationError
 

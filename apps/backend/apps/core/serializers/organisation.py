@@ -4,18 +4,17 @@ Organisation serializers for LedgerSG.
 Serializers for Organisation, FiscalYear, FiscalPeriod, Role, and UserOrganisation.
 """
 
+
 from rest_framework import serializers
-from datetime import date
-from typing import Optional
 
 from apps.core.models import (
-    Organisation,
-    FiscalYear,
     FiscalPeriod,
+    FiscalYear,
+    Organisation,
     Role,
     UserOrganisation,
 )
-from apps.core.validators import validate_uen, validate_gst_reg_number
+from apps.core.validators import validate_gst_reg_number, validate_uen
 
 
 def ensure_uen_available(uen, exclude_org=None):
@@ -42,9 +41,9 @@ def ensure_uen_available(uen, exclude_org=None):
 
 class OrganisationSerializer(serializers.ModelSerializer):
     """Serializer for Organisation model."""
-    
+
     fy_start_month = serializers.IntegerField(min_value=1, max_value=12)
-    
+
     class Meta:
         model = Organisation
         fields = [
@@ -61,7 +60,7 @@ class OrganisationSerializer(serializers.ModelSerializer):
 
 class OrganisationCreateSerializer(serializers.Serializer):
     """Serializer for creating a new organisation."""
-    
+
     name = serializers.CharField(max_length=255)
     legal_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     uen = serializers.CharField(max_length=20, required=False, allow_blank=True)
@@ -77,7 +76,7 @@ class OrganisationCreateSerializer(serializers.Serializer):
     # PATCH path fixed the same lie in P6/F-10).
     contact_email = serializers.EmailField(required=False, allow_blank=True)
     contact_phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    
+
     def validate(self, data):
         """Validate GST registration fields + identity-number formats."""
         if data.get("gst_registered"):
@@ -173,10 +172,10 @@ def _normalize_uen_fields(data: dict) -> dict:
 
 class GSTRegistrationSerializer(serializers.Serializer):
     """Serializer for GST registration."""
-    
+
     gst_reg_number = serializers.CharField(max_length=20)
     gst_reg_date = serializers.DateField()
-    
+
     def validate_gst_reg_number(self, value):
         """Validate GST registration number format.
 
@@ -197,7 +196,7 @@ class GSTRegistrationSerializer(serializers.Serializer):
 
 class FiscalYearSerializer(serializers.ModelSerializer):
     """Serializer for FiscalYear model."""
-    
+
     class Meta:
         model = FiscalYear
         fields = [
@@ -209,9 +208,9 @@ class FiscalYearSerializer(serializers.ModelSerializer):
 
 class FiscalPeriodSerializer(serializers.ModelSerializer):
     """Serializer for FiscalPeriod model."""
-    
+
     fiscal_year = FiscalYearSerializer(read_only=True)
-    
+
     class Meta:
         model = FiscalPeriod
         fields = [
@@ -223,7 +222,7 @@ class FiscalPeriodSerializer(serializers.ModelSerializer):
 
 class RoleSerializer(serializers.ModelSerializer):
     """Serializer for Role model."""
-    
+
     class Meta:
         model = Role
         fields = [
@@ -239,11 +238,11 @@ class RoleSerializer(serializers.ModelSerializer):
 
 class UserOrganisationSerializer(serializers.ModelSerializer):
     """Serializer for UserOrganisation model."""
-    
+
     user_email = serializers.CharField(source="user.email", read_only=True)
     user_full_name = serializers.CharField(source="user.full_name", read_only=True)
     role_name = serializers.CharField(source="role.name", read_only=True)
-    
+
     class Meta:
         model = UserOrganisation
         fields = [
@@ -255,11 +254,11 @@ class UserOrganisationSerializer(serializers.ModelSerializer):
 
 class OrganisationMemberSerializer(serializers.ModelSerializer):
     """Serializer for organisation members."""
-    
+
     user_email = serializers.CharField(source="user.email", read_only=True)
     user_full_name = serializers.CharField(source="user.full_name", read_only=True)
     role = RoleSerializer(read_only=True)
-    
+
     class Meta:
         model = UserOrganisation
         fields = [
@@ -348,7 +347,7 @@ class OrganisationSettingsSerializer(serializers.Serializer):
 class OrganisationUpdateSerializer(serializers.Serializer):
     """Typed allowlist for the organisation DETAIL PATCH (P11/M-5).
 
-    The raw allowlist let entity_type='PTE_LTD' (DB CHECK), 
+    The raw allowlist let entity_type='PTE_LTD' (DB CHECK),
     base_currency='SGDD' (CHAR(3)) and country='SGP' (CHAR(2)) reach the
     database as IntegrityError/DataError 500s.
     """

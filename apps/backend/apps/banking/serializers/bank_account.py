@@ -12,10 +12,11 @@ PDPA protected identifiers and round-trip unchanged.
 """
 
 from decimal import Decimal
-from rest_framework import serializers
-from django.utils.translation import gettext_lazy as _
 
-from apps.core.models import BankAccount, Account
+from django.utils.translation import gettext_lazy as _
+from rest_framework import serializers
+
+from apps.core.models import Account, BankAccount
 
 
 def _mask_paynow_id(paynow_type, paynow_id):

@@ -9,9 +9,10 @@ Tests for Peppol/InvoiceNow endpoints:
 Run with: pytest apps/peppol/tests/test_views.py -v
 """
 
-import pytest
 import uuid
 from datetime import date
+
+import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 

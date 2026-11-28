@@ -32,8 +32,8 @@ class TestXMLValidationService:
 
     def test_validate_well_formed_invoice_xml(self):
         """Test that valid Invoice XML passes validation."""
-        from apps.peppol.services.xml_validation_service import XMLValidationService
         from apps.peppol.services.xml_generator_service import XMLGeneratorService
+        from apps.peppol.services.xml_validation_service import XMLValidationService
 
         # Generate valid XML
         generator = XMLGeneratorService()
@@ -100,8 +100,8 @@ class TestXMLValidationService:
 
     def test_validate_invoice_xml_missing_required(self):
         """Test that missing required elements are caught."""
-        from apps.peppol.services.xml_validation_service import XMLValidationService
         from apps.peppol.services.xml_generator_service import XMLGeneratorService
+        from apps.peppol.services.xml_validation_service import XMLValidationService
 
         generator = XMLGeneratorService()
         mapped_data = {
@@ -140,8 +140,8 @@ class TestXMLValidationService:
 
     def test_validate_credit_note_well_formed(self):
         """Test that valid CreditNote XML passes validation."""
-        from apps.peppol.services.xml_validation_service import XMLValidationService
         from apps.peppol.services.xml_generator_service import XMLGeneratorService
+        from apps.peppol.services.xml_validation_service import XMLValidationService
 
         generator = XMLGeneratorService()
         mapped_data = {
@@ -217,8 +217,8 @@ class TestXMLValidationService:
 
     def test_validate_returns_document_type(self):
         """Test that validation result includes document type."""
-        from apps.peppol.services.xml_validation_service import XMLValidationService
         from apps.peppol.services.xml_generator_service import XMLGeneratorService
+        from apps.peppol.services.xml_validation_service import XMLValidationService
 
         generator = XMLGeneratorService()
         mapped_data = {

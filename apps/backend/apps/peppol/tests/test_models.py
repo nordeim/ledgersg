@@ -3,11 +3,11 @@ TDD Tests for Peppol Django Models
 Phase 1: Foundation
 """
 
-import pytest
 from uuid import uuid4
-from datetime import datetime
 
-from apps.peppol.models import PeppolTransmissionLog, OrganisationPeppolSettings
+import pytest
+
+from apps.peppol.models import OrganisationPeppolSettings, PeppolTransmissionLog
 
 
 @pytest.mark.django_db

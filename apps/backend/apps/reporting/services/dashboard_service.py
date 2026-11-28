@@ -6,24 +6,21 @@ Phase 3: Production Ready (TDD)
 Phase 4: Redis Caching (TDD)
 """
 
+import logging
 from datetime import date, timedelta
-from django.utils import timezone
 from decimal import Decimal
 from uuid import UUID
-import logging
 
-from django.db.models import Sum, Q, F
-from django.db.models.functions import Coalesce
 from django.core.cache import cache
+from django.db.models import F, Sum
+from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 from apps.core.models import (
-    InvoiceDocument,
-    FiscalYear,
-    FiscalPeriod,
     BankAccount,
+    FiscalYear,
+    InvoiceDocument,
     Payment,
-    JournalLine,
-    BankTransaction,
 )
 from common.decimal_utils import money
 

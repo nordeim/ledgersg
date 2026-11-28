@@ -9,7 +9,7 @@ from django.db import models
 
 class AccountType(models.Model):
     """Account type classification."""
-    
+
     id = models.SmallIntegerField(primary_key=True, db_column="id")
     code = models.CharField(max_length=20, unique=True, db_column="code")
     name = models.CharField(max_length=50, db_column="name")
@@ -23,7 +23,7 @@ class AccountType(models.Model):
     )
     display_order = models.SmallIntegerField(db_column="display_order")
     is_debit_positive = models.BooleanField(db_column="is_debit_positive")
-    
+
     class Meta:
         managed = False
         db_table = 'coa"."account_type'

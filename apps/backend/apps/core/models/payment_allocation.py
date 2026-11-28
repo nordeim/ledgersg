@@ -5,12 +5,13 @@ Maps to banking.payment_allocation table.
 """
 
 from django.db import models
+
 from common.models import TenantModel
 
 
 class PaymentAllocation(TenantModel):
     """Maps payments to invoices (supports partial payments)."""
-    
+
     payment = models.ForeignKey(
         "Payment", on_delete=models.CASCADE,
         db_column="payment_id"
@@ -27,7 +28,7 @@ class PaymentAllocation(TenantModel):
         max_digits=19, decimal_places=4,
         db_column="base_allocated_amount"
     )
-    
+
     class Meta:
         managed = False
         db_table = 'banking"."payment_allocation'

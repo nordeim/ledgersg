@@ -5,7 +5,7 @@ Business logic services for contacts and documents.
 """
 
 from .contact_service import ContactService
-from .document_service import DocumentService, DOCUMENT_TYPES, STATUS_TRANSITIONS
+from .document_service import DOCUMENT_TYPES, STATUS_TRANSITIONS, DocumentService
 
 __all__ = [
     "ContactService",

@@ -124,14 +124,14 @@ class AccountService:
     def get_account(org_id: UUID, account_id: UUID) -> Account:
         """
         Get account by ID.
-        
+
         Args:
             org_id: Organisation ID
             account_id: Account ID
-            
+
         Returns:
             Account instance
-            
+
         Raises:
             ResourceNotFound: If account doesn't exist
         """
@@ -144,11 +144,11 @@ class AccountService:
     def get_account_by_code(org_id: UUID, code: str) -> Account | None:
         """
         Get account by code.
-        
+
         Args:
             org_id: Organisation ID
             code: Account code
-            
+
         Returns:
             Account instance or None
         """
@@ -172,7 +172,7 @@ class AccountService:
     ) -> Account:
         """
         Create a new custom account.
-        
+
         Args:
             org_id: Organisation ID
             code: Account code (must be unique within org)
@@ -184,10 +184,10 @@ class AccountService:
             bank_account_id: Linked bank account
             is_bank_account: Whether this is a bank account
             **kwargs: Additional fields
-            
+
         Returns:
             Created Account instance
-            
+
         Raises:
             ValidationError: If validation fails
             DuplicateResource: If code already exists
@@ -290,14 +290,14 @@ class AccountService:
     ) -> Account:
         """
         Update account fields.
-        
+
         Note: System accounts cannot be modified except for description.
-        
+
         Args:
             org_id: Organisation ID
             account_id: Account ID
             **updates: Fields to update
-            
+
         Returns:
             Updated Account instance
         """
@@ -351,15 +351,15 @@ class AccountService:
     def archive_account(org_id: UUID, account_id: UUID) -> Account:
         """
         Archive (soft delete) a custom account.
-        
+
         System accounts cannot be archived.
         Accounts with transactions cannot be archived.
         Accounts with children cannot be archived.
-        
+
         Args:
             org_id: Organisation ID
             account_id: Account ID
-            
+
         Returns:
             Archived Account instance
         """
@@ -444,11 +444,11 @@ class AccountService:
     def get_account_hierarchy(org_id: UUID, account_type: str | None = None) -> list[dict[str, Any]]:
         """
         Get account hierarchy tree.
-        
+
         Args:
             org_id: Organisation ID
             account_type: Optional filter by account type
-            
+
         Returns:
             List of account trees with children
         """
@@ -491,7 +491,7 @@ class AccountService:
     def get_account_types() -> dict[str, Any]:
         """
         Get all valid account types with metadata.
-        
+
         Returns:
             Dictionary of account type information
         """

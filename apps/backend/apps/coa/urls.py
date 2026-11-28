@@ -7,13 +7,13 @@ Routes for account management, hierarchy, and trial balance.
 from django.urls import path
 
 from .views import (
-    AccountListCreateView,
-    AccountDetailView,
     AccountBalanceView,
+    AccountDetailView,
     AccountHierarchyView,
+    AccountListCreateView,
+    AccountSearchView,
     AccountTypesView,
     TrialBalanceView,
-    AccountSearchView,
 )
 
 app_name = "coa"
@@ -21,19 +21,19 @@ app_name = "coa"
 urlpatterns = [
     # Account list and create
     path("", AccountListCreateView.as_view(), name="account-list-create"),
-    
+
     # Account search (must be before detail to avoid conflict)
     path("search/", AccountSearchView.as_view(), name="account-search"),
-    
+
     # Account types
     path("types/", AccountTypesView.as_view(), name="account-types"),
-    
+
     # Account hierarchy
     path("hierarchy/", AccountHierarchyView.as_view(), name="account-hierarchy"),
-    
+
     # Trial balance
     path("trial-balance/", TrialBalanceView.as_view(), name="trial-balance"),
-    
+
     # Account detail, update, delete (P19/BE-M7: uuid converter — a
     # malformed id 404s at routing like every sibling route)
     path("<uuid:account_id>/", AccountDetailView.as_view(), name="account-detail"),

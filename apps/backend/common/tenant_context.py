@@ -31,7 +31,6 @@ Semantics (identical to the P14/C-1 organisation-service pattern):
 """
 
 from contextlib import contextmanager
-from typing import Any
 from uuid import UUID
 
 from django.db import connection, transaction

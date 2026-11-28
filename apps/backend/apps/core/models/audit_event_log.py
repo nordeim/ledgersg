@@ -4,8 +4,8 @@ AuditEventLog model for LedgerSG.
 Maps to audit.event_log table.
 """
 
-from django.db import models
 from django.contrib.postgres.fields import ArrayField
+from django.db import models
 
 
 class AuditEventLog(models.Model):

@@ -10,24 +10,25 @@ Date: 2026-03-03
 Phase: 3 - Production Ready (TDD)
 """
 
-import pytest
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
+import pytest
+
 from apps.core.models import (
-    Organisation,
-    AppUser,
-    FiscalYear,
-    FiscalPeriod,
-    InvoiceDocument,
-    Contact,
-    TaxCode,
     Account,
+    AppUser,
     BankAccount,
-    Payment,
+    Contact,
+    FiscalPeriod,
+    FiscalYear,
+    InvoiceDocument,
     JournalEntry,
     JournalLine,
+    Organisation,
+    Payment,
+    TaxCode,
 )
 from apps.invoicing.services import DocumentService
 from apps.reporting.services.dashboard_service import DashboardService
@@ -256,7 +257,7 @@ class TestGSTCalculations:
         tax_code/tax_amount set, data the posting engine never produces,
         which is exactly why real orgs reported GST Payable = 0.00.
         """
-        from apps.core.models import Contact, DocumentSequence, Account
+        from apps.core.models import Account, Contact, DocumentSequence
 
         for doc_type, prefix in [
             ("SALES_INVOICE", "INV-"),
@@ -334,7 +335,7 @@ class TestGSTCalculations:
         credit notes net their statutory boxes, so the dashboard KPI nets
         them too.
         """
-        from apps.core.models import Contact, DocumentSequence, Account
+        from apps.core.models import Account, Contact, DocumentSequence
 
         for doc_type, prefix in [
             ("SALES_INVOICE", "INV-"),

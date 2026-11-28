@@ -3,7 +3,6 @@ Custom authentication classes for LedgerSG API.
 """
 
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework import exceptions
 
 
 class CORSJWTAuthentication(JWTAuthentication):

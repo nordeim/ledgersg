@@ -7,10 +7,10 @@ Dashboard and financial reporting endpoints.
 from django.urls import path
 
 from .views import (
-    DashboardMetricsView,
-    DashboardAlertsView,
-    FinancialReportView,
     AgedReportView,
+    DashboardAlertsView,
+    DashboardMetricsView,
+    FinancialReportView,
 )
 
 app_name = "reporting"

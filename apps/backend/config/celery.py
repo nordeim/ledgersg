@@ -32,5 +32,6 @@ def debug_task(self):
 def config_loggers(*args, **kwargs):
     """Configure logging for Celery workers."""
     from logging.config import dictConfig
+
     from django.conf import settings
     dictConfig(settings.LOGGING)

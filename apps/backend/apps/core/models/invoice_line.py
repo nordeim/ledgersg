@@ -5,12 +5,13 @@ Maps to invoicing.document_line table.
 """
 
 from django.db import models
+
 from common.models import BaseModel
 
 
 class InvoiceLine(BaseModel):
     """Individual line items on an invoice."""
-    
+
     document = models.ForeignKey(
         "InvoiceDocument", on_delete=models.CASCADE,
         db_column="document_id",
@@ -26,7 +27,7 @@ class InvoiceLine(BaseModel):
         "Account", on_delete=models.CASCADE,
         db_column="account_id"
     )
-    
+
     quantity = models.DecimalField(
         max_digits=19, decimal_places=4, default=1,
         db_column="quantity"
@@ -43,7 +44,7 @@ class InvoiceLine(BaseModel):
         max_digits=19, decimal_places=4, default=0,
         db_column="discount_amount"
     )
-    
+
     tax_code = models.ForeignKey(
         "TaxCode", on_delete=models.CASCADE,
         db_column="tax_code_id"
@@ -55,7 +56,7 @@ class InvoiceLine(BaseModel):
     is_tax_inclusive = models.BooleanField(
         default=False, db_column="is_tax_inclusive"
     )
-    
+
     line_amount = models.DecimalField(
         max_digits=19, decimal_places=4,
         db_column="line_amount"
@@ -68,7 +69,7 @@ class InvoiceLine(BaseModel):
         max_digits=19, decimal_places=4,
         db_column="total_amount"
     )
-    
+
     base_line_amount = models.DecimalField(
         max_digits=19, decimal_places=4, default=0,
         db_column="base_line_amount"
@@ -81,11 +82,11 @@ class InvoiceLine(BaseModel):
         max_digits=19, decimal_places=4, default=0,
         db_column="base_total_amount"
     )
-    
+
     is_bcrs_deposit = models.BooleanField(
         default=False, db_column="is_bcrs_deposit"
     )
-    
+
     class Meta:
         managed = False
         db_table = 'invoicing"."document_line'

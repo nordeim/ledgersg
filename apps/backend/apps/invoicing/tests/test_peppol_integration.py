@@ -4,8 +4,7 @@ TDD Tests for Phase 4: Invoice Approval Peppol Integration
 Tests that invoice approval triggers Peppol transmission when configured.
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 
@@ -14,7 +13,6 @@ class TestInvoiceApprovalPeppolIntegration:
 
     def test_approval_queues_peppol_when_configured(self):
         """Test that approval queues Peppol transmission when configured."""
-        from apps.invoicing.services.document_service import DocumentService
 
         with (
             patch("apps.peppol.models.OrganisationPeppolSettings") as mock_settings,
@@ -47,7 +45,6 @@ class TestInvoiceApprovalPeppolIntegration:
             mock_task.delay.return_value = Mock(id="task-123")
 
             # Execute (simulate approval logic that calls queue_peppol_transmission)
-            from apps.peppol.services.transmission_service import TransmissionService
 
             # This would be called inside approve_document
             log = mock_log.objects.create(
@@ -107,7 +104,6 @@ class TestInvoiceApprovalPeppolIntegration:
 
     def test_approval_skips_when_no_peppol_id(self):
         """Test that approval skips when recipient has no Peppol ID."""
-        from apps.invoicing.services.document_service import DocumentService
 
         # Setup: Invoice without Peppol ID
         mock_invoice = Mock()
@@ -141,8 +137,9 @@ class TestInvoiceApprovalPeppolIntegration:
 
     def test_approval_creates_transmission_log(self):
         """Test that approval creates PeppolTransmissionLog entry."""
-        from apps.peppol.models import PeppolTransmissionLog
         from uuid import uuid4
+
+        from apps.peppol.models import PeppolTransmissionLog
 
         with patch("apps.peppol.models.PeppolTransmissionLog.objects") as mock_objects:
             # Setup

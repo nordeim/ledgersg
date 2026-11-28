@@ -13,16 +13,16 @@ import io
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from django.db import connection, transaction
+from django.db.models import Prefetch, QuerySet
 from django.db.utils import IntegrityError
 from django.template.loader import render_to_string
 from django.utils import timezone
 from weasyprint import HTML
 
 from apps.core.models import Account, Contact, InvoiceDocument, InvoiceLine, Organisation, TaxCode
-from django.db.models import Prefetch, QuerySet
 from apps.gst.services import GSTCalculationService, TaxCodeService
 from common.decimal_utils import money, sum_money
 from common.exceptions import ResourceNotFound, ValidationError

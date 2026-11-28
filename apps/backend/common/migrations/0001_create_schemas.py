@@ -5,11 +5,11 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     """Initial migration to create database schemas."""
-    
+
     initial = True
-    
+
     dependencies = []
-    
+
     operations = [
         migrations.RunSQL(
             sql="""

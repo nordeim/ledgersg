@@ -96,6 +96,17 @@ ignore = ["S101"]  # Allow assert in tests
 [tool.ruff.lint.isort]
 known-first-party = ["apps", "common", "config"]
 
+[tool.ruff.lint.per-file-ignores]
+# P30/BE-P30-H1: the Django split-settings pass-through contract.
+# config/settings/*.py derive from `from .base import *` — the star
+# import is the mechanism that flows EVERY base setting (and every
+# FUTURE base addition) into the derived modules. Converting to
+# explicit imports would silently drop future base additions (the
+# drift class this repo registers as a lesson), so F403/F405 stay
+# suppressed HERE and only here; the per-file-ignores block is the
+# single documented place for that contract.
+"config/settings/*.py" = ["F403", "F405"]
+
 [tool.mypy]
 python_version = "3.12"
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]

@@ -5,12 +5,13 @@ Maps to invoicing.document table.
 """
 
 from django.db import models
+
 from common.models import TenantModel
 
 
 class InvoiceDocument(TenantModel):
     """Invoice document model."""
-    
+
     # SQL ENUM: invoicing.doc_type
     DOCUMENT_TYPES = [
         ("SALES_INVOICE", "Sales Invoice"),
@@ -22,7 +23,7 @@ class InvoiceDocument(TenantModel):
         ("PURCHASE_DEBIT_NOTE", "Purchase Debit Note"),
         ("PURCHASE_ORDER", "Purchase Order"),
     ]
-    
+
     # SQL ENUM: invoicing.doc_status
     STATUS_CHOICES = [
         ("DRAFT", "Draft"),
@@ -33,7 +34,7 @@ class InvoiceDocument(TenantModel):
         ("OVERDUE", "Overdue"),
         ("VOID", "Void"),  # SQL uses "VOID" not "VOIDED"
     ]
-    
+
     document_type = models.CharField(
         max_length=20, db_column="document_type",
         choices=DOCUMENT_TYPES
@@ -54,14 +55,14 @@ class InvoiceDocument(TenantModel):
         db_column="status",
         choices=STATUS_CHOICES
     )
-    
+
     # Currency & Exchange Rate
     currency = models.CharField(max_length=3, default="SGD", db_column="currency")
     exchange_rate = models.DecimalField(
         max_digits=12, decimal_places=6, default=1.000000,
         db_column="exchange_rate"
     )
-    
+
     # Monetary Fields
     total_excl = models.DecimalField(
         max_digits=19, decimal_places=4,
@@ -84,7 +85,7 @@ class InvoiceDocument(TenantModel):
         db_column="amount_paid"
     )
     # Note: amount_due is GENERATED ALWAYS in SQL, not stored
-    
+
     # Base Currency Equivalents
     base_subtotal = models.DecimalField(
         max_digits=19, decimal_places=4, default=0,
@@ -98,20 +99,20 @@ class InvoiceDocument(TenantModel):
         max_digits=19, decimal_places=4, default=0,
         db_column="base_total_amount"
     )
-    
+
     # Notes & References
     notes = models.TextField(blank=True, db_column="customer_notes")
     internal_notes = models.TextField(blank=True, db_column="internal_notes")
     reference = models.CharField(
         max_length=100, blank=True, db_column="reference"
     )
-    
+
     # Tax Invoice Compliance
     is_tax_invoice = models.BooleanField(default=False, db_column="is_tax_invoice")
     tax_invoice_label = models.CharField(
         max_length=50, blank=True, db_column="tax_invoice_label"
     )
-    
+
     # InvoiceNow / Peppol
     peppol_message_id = models.UUIDField(null=True, blank=True, db_column="peppol_message_id")
     invoicenow_status = models.CharField(
@@ -129,7 +130,7 @@ class InvoiceDocument(TenantModel):
     )
     invoicenow_sent_at = models.DateTimeField(null=True, blank=True, db_column="invoicenow_sent_at")
     invoicenow_error = models.TextField(blank=True, db_column="invoicenow_error")
-    
+
     # Workflow & Linkage
     journal_entry = models.ForeignKey(
         "JournalEntry", null=True, blank=True,
@@ -140,7 +141,7 @@ class InvoiceDocument(TenantModel):
         on_delete=models.SET_NULL, db_column="related_document_id",
         related_name="related_documents"
     )
-    
+
     # Audit Fields
     approved_at = models.DateTimeField(null=True, blank=True, db_column="approved_at")
     approved_by = models.ForeignKey(
@@ -155,7 +156,7 @@ class InvoiceDocument(TenantModel):
         related_name="voided_documents"
     )
     void_reason = models.TextField(blank=True, db_column="void_reason")
-    
+
     class Meta:
         managed = False
         db_table = 'invoicing"."document'

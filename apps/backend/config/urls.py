@@ -7,11 +7,11 @@ health check endpoint, admin (development only).
 
 import logging
 
-from django.contrib import admin
-from django.urls import path, include
-from django.http import JsonResponse
-from django.db import connection
 from django.conf import settings
+from django.contrib import admin
+from django.db import connection
+from django.http import JsonResponse
+from django.urls import include, path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
@@ -106,10 +106,12 @@ try:
 except ImportError:
     pass
 
-# Try to include app URLs if they exist
+# Try to include app URLs if they exist. The try-imports mirror the
+# sibling blocks: include("...") itself raises the ImportError the
+# except guards (P30/BE-P30-H1: the redundant availability-probe
+# imports — whose names were never used — are gone; behaviour is
+# identical).
 try:
-    from apps.coa import urls as coa_urls
-
     org_scoped_urlpatterns.append(path("accounts/", include("apps.coa.urls")))
 except ImportError:
     pass
@@ -130,15 +132,11 @@ except ImportError:
     pass
 
 try:
-    from apps.gst import urls as gst_urls
-
     org_scoped_urlpatterns.append(path("gst/", include("apps.gst.urls")))
 except ImportError:
     pass
 
 try:
-    from apps.invoicing import urls as invoicing_urls
-
     org_scoped_urlpatterns.append(path("invoicing/", include("apps.invoicing.urls")))
 except ImportError:
     pass

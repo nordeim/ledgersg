@@ -4,9 +4,8 @@ TDD Tests for Phase 3: Access Point Adapter Base
 Tests the abstract base class interface for AP providers.
 """
 
+
 import pytest
-from abc import ABC
-from typing import Dict, Any
 
 
 class TestAPAdapterBase:

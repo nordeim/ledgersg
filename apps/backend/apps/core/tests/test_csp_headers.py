@@ -9,8 +9,8 @@ Reference: REMEDIATION_PLAN.md Section 1.4
 """
 
 import pytest
-from django.test import Client
 from django.contrib.auth import get_user_model
+from django.test import Client
 
 User = get_user_model()
 

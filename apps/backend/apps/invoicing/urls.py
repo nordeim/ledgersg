@@ -7,23 +7,23 @@ Routes for contacts and invoice documents.
 from django.urls import path
 
 from .views import (
-    ContactListCreateView,
     ContactDetailView,
-    InvoiceDocumentListCreateView,
-    InvoiceDocumentDetailView,
-    InvoiceDocumentStatusView,
-    InvoiceLineAddView,
-    InvoiceLineRemoveView,
-    QuoteConvertView,
+    ContactListCreateView,
     DocumentSummaryView,
-    ValidStatusTransitionsView,
     # Phase 2: Invoice workflow operations
     InvoiceApproveView,
-    InvoiceVoidView,
-    InvoicePDFView,
-    InvoiceSendView,
-    InvoiceSendInvoiceNowView,
+    InvoiceDocumentDetailView,
+    InvoiceDocumentListCreateView,
+    InvoiceDocumentStatusView,
     InvoiceInvoiceNowStatusView,
+    InvoiceLineAddView,
+    InvoiceLineRemoveView,
+    InvoicePDFView,
+    InvoiceSendInvoiceNowView,
+    InvoiceSendView,
+    InvoiceVoidView,
+    QuoteConvertView,
+    ValidStatusTransitionsView,
 )
 
 app_name = "invoicing"

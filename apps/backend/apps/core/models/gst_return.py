@@ -5,18 +5,19 @@ Maps to gst.return table.
 """
 
 from django.db import models
+
 from common.models import TenantModel
 
 
 class GSTReturn(TenantModel):
     """GST Return (F5/F7/F8) model for IRAS filing."""
-    
+
     RETURN_TYPES = [
         ("F5", "GST F5 (Standard)"),
         ("F7", "GST F7 (Correction)"),
         ("F8", "GST F8 (Final)"),
     ]
-    
+
     STATUS_CHOICES = [
         ("DRAFT", "Draft"),
         ("COMPUTED", "Computed"),
@@ -24,7 +25,7 @@ class GSTReturn(TenantModel):
         ("FILED", "Filed"),
         ("AMENDED", "Amended"),
     ]
-    
+
     return_type = models.CharField(
         max_length=5, choices=RETURN_TYPES, default="F5",
         db_column="return_type"
@@ -32,7 +33,7 @@ class GSTReturn(TenantModel):
     period_start = models.DateField(db_column="period_start")
     period_end = models.DateField(db_column="period_end")
     filing_due_date = models.DateField(db_column="filing_due_date")
-    
+
     # F5 Boxes 1-10
     box1_std_rated_supplies = models.DecimalField(
         max_digits=19, decimal_places=4, default=0,
@@ -74,7 +75,7 @@ class GSTReturn(TenantModel):
         max_digits=19, decimal_places=4, default=0,
         db_column="box10_tourist_refund"
     )
-    
+
     # F5 Boxes 11-15 (Missing in original)
     box11_bad_debt_relief = models.DecimalField(
         max_digits=19, decimal_places=4, default=0,
@@ -96,7 +97,7 @@ class GSTReturn(TenantModel):
         max_digits=19, decimal_places=4, default=0,
         db_column="box15_electronic_marketplace"
     )
-    
+
     # Status & Workflow
     status = models.CharField(
         max_length=20, default="DRAFT",
@@ -120,7 +121,7 @@ class GSTReturn(TenantModel):
         max_length=50, blank=True, db_column="iras_confirmation"
     )
     notes = models.TextField(blank=True, db_column="notes")
-    
+
     class Meta:
         managed = False
         db_table = 'gst"."return'

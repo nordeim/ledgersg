@@ -13,11 +13,11 @@ from common.models import TenantModel
 class Role(TenantModel):
     """
     Role model for RBAC (Role-Based Access Control).
-    
+
     Maps to core.role table.
     Each role has granular permission flags.
     """
-    
+
     # Role name
     name = models.CharField(
         max_length=100,
@@ -27,7 +27,7 @@ class Role(TenantModel):
         blank=True,
         db_column="description",
     )
-    
+
     # Permission flags
     can_manage_org = models.BooleanField(
         default=False,
@@ -84,30 +84,30 @@ class Role(TenantModel):
         db_column="can_export_data",
         help_text="Can export data (CSV, Excel, PDF)",
     )
-    
+
     # System roles cannot be deleted or modified
     is_system = models.BooleanField(
         default=False,
         db_column="is_system",
     )
-    
+
     # Soft delete
     deleted_at = models.DateTimeField(
         null=True,
         blank=True,
         db_column="deleted_at",
     )
-    
+
     class Meta:
         managed = False
         db_table = 'core"."role'
         verbose_name = "role"
         verbose_name_plural = "roles"
         unique_together = [["org", "name"]]
-    
+
     def __str__(self) -> str:
         return f"{self.name} ({self.org.name})"
-    
+
     @classmethod
     def get_system_roles(cls):
         """Return system role definitions."""

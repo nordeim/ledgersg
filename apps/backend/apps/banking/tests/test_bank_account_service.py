@@ -7,27 +7,26 @@ Run with: pytest apps/banking/tests/test_bank_account_service.py -v
 SEC-001 Remediation: Tests validate all security controls.
 """
 
-import pytest
 import uuid
 from datetime import date
 from decimal import Decimal
+
+import pytest
 from django.contrib.auth.hashers import make_password
 
 pytestmark = pytest.mark.django_db
 
+from apps.banking.services import BankAccountService
 from apps.core.models import (
+    Account,
     AppUser,
+    AuditEventLog,
+    BankAccount,
     Organisation,
     Role,
     UserOrganisation,
-    Account,
-    AccountType,
-    AccountSubType,
-    BankAccount,
-    AuditEventLog,
 )
-from apps.banking.services import BankAccountService
-from common.exceptions import ValidationError, ResourceNotFound, DuplicateResource
+from common.exceptions import DuplicateResource, ResourceNotFound, ValidationError
 
 
 @pytest.fixture

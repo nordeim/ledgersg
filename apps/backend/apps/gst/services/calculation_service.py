@@ -30,17 +30,17 @@ class GSTCalculationService:
     ) -> dict[str, Decimal]:
         """
         Calculate GST for a single line item.
-        
+
         Singapore IRAS rules:
         - GST is calculated per line and rounded to 2 decimal places
         - BCRS (beverage container) deposits are GST exempt
-        
+
         Args:
             amount: Line amount (excluding GST)
             rate: GST rate (e.g., 0.09 for 9%)
             is_bcrs_deposit: Whether this is a BCRS deposit
             rounding: Decimal places for rounding (default: 2)
-            
+
         Returns:
             Dictionary with gst_amount, total_amount, net_amount
         """
@@ -87,14 +87,14 @@ class GSTCalculationService:
     ) -> dict[str, Any]:
         """
         Calculate GST for a document with multiple lines.
-        
+
         Args:
             lines: List of line dictionaries with:
                 - amount: Line amount
                 - rate: GST rate (optional, uses default)
                 - is_bcrs_deposit: Whether BCRS exempt
             default_rate: Default GST rate if not specified per line
-            
+
         Returns:
             Document totals with breakdown
         """
@@ -149,15 +149,15 @@ class GSTCalculationService:
     ) -> dict[str, Decimal]:
         """
         Calculate GST from a tax-inclusive amount.
-        
+
         Used when total includes GST and we need to back-calculate.
-        
+
         Formula: GST = Total - (Total / (1 + rate))
-        
+
         Args:
             total_amount: Total amount including GST
             rate: GST rate
-            
+
         Returns:
             Dictionary with net_amount, gst_amount, total_amount
         """
@@ -192,14 +192,14 @@ class GSTCalculationService:
     ) -> bool:
         """
         Validate GST calculation matches expected within tolerance.
-        
+
         IRAS allows 1 cent rounding difference.
-        
+
         Args:
             calculated_gst: Our calculated GST
             expected_gst: Expected GST amount
             tolerance: Allowed difference (default: 0.01)
-            
+
         Returns:
             True if within tolerance
         """
@@ -348,12 +348,12 @@ def calculate_gst_summary(
 ) -> tuple[Decimal, Decimal, Decimal]:
     """
     Convenience function for GST calculation.
-    
+
     Args:
         net_amount: Amount before GST
         gst_rate: GST rate (default 9%)
         is_bcrs_deposit: Whether BCRS exempt
-        
+
     Returns:
         Tuple of (net_amount, gst_amount, total_amount)
     """

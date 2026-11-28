@@ -6,10 +6,11 @@ SEC-001 Remediation: Replaces unvalidated request.data.get() stubs.
 """
 
 from decimal import Decimal
-from rest_framework import serializers
-from django.utils.translation import gettext_lazy as _
 
-from apps.core.models import PaymentAllocation, Payment, InvoiceDocument
+from django.utils.translation import gettext_lazy as _
+from rest_framework import serializers
+
+from apps.core.models import InvoiceDocument, Payment, PaymentAllocation
 from common.decimal_utils import money
 
 # P16/BE-H2: the allocation-eligible status set — ONE wire contract.

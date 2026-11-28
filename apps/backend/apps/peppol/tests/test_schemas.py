@@ -3,10 +3,9 @@ TDD Tests for Phase 2 Task 2.1: XML Schemas
 Tests that UBL 2.1 and PINT-SG schemas are downloaded and accessible.
 """
 
-import pytest
-import os
 from pathlib import Path
 
+import pytest
 
 # Get the project root directory (Ledger-SG)
 # Path: apps/backend/apps/peppol/tests/ -> 6 levels up to Ledger-SG

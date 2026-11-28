@@ -4,8 +4,9 @@ Journal serializers for LedgerSG.
 Serializers for JournalEntry and JournalLine models.
 """
 
-from rest_framework import serializers
 from decimal import Decimal
+
+from rest_framework import serializers
 
 from apps.core.models import JournalEntry, JournalLine
 

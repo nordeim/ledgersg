@@ -4,29 +4,24 @@ Chart of Accounts views for LedgerSG.
 Account CRUD, hierarchy, balance retrieval, trial balance.
 """
 
-from typing import Optional
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from apps.core.permissions import IsOrgMember, CanManageCoA, CanViewReports
 from apps.core.models import Account
-from common.exceptions import ValidationError, ResourceNotFound
+from apps.core.permissions import CanViewReports, IsOrgMember
 from common.views import wrap_response
 
-from .services import AccountService
 from .serializers import (
-    AccountListSerializer,
-    AccountDetailSerializer,
     AccountCreateSerializer,
+    AccountDetailSerializer,
+    AccountListSerializer,
     AccountUpdateSerializer,
-    AccountHierarchySerializer,
-    TrialBalanceSerializer,
-    AccountTypeSerializer,
 )
+from .services import AccountService
 
 
 class AccountListCreateView(APIView):
@@ -123,7 +118,6 @@ class AccountDetailView(APIView):
     @wrap_response
     def get(self, request, org_id: str, account_id: str) -> Response:
         """Get account details."""
-        from uuid import UUID
 
         account = AccountService.get_account(org_id, account_id)
         serializer = AccountDetailSerializer(account)
@@ -135,7 +129,6 @@ class AccountDetailView(APIView):
         # Check permission
         self._check_permission(request, "can_manage_coa")
 
-        from uuid import UUID
 
         serializer = AccountUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -152,7 +145,6 @@ class AccountDetailView(APIView):
         # Check permission
         self._check_permission(request, "can_manage_coa")
 
-        from uuid import UUID
 
         account = AccountService.archive_account(org_id, account_id)
 
@@ -185,8 +177,6 @@ class AccountBalanceView(APIView):
     @wrap_response
     def get(self, request, org_id: str, account_id: str) -> Response:
         """Get account balance."""
-        from uuid import UUID
-        from decimal import Decimal
 
         balance = AccountService.get_account_balance(org_id, account_id)
         account = AccountService.get_account(org_id, account_id)
@@ -215,7 +205,6 @@ class AccountHierarchyView(APIView):
         """Get account hierarchy."""
         account_type = request.query_params.get("account_type")
 
-        from uuid import UUID
 
         hierarchy = AccountService.get_account_hierarchy(org_id, account_type=account_type)
 

@@ -4,6 +4,7 @@ Phase 1: Foundation
 """
 
 import pytest
+
 from apps.core.models import Organisation
 
 

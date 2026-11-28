@@ -20,13 +20,13 @@ from apps.core.models import (
     Account,
     AppUser,
     Contact,
+    DocumentSequence,
     FiscalPeriod,
     FiscalYear,
     Organisation,
     Role,
     TaxCode,
     UserOrganisation,
-    DocumentSequence,
 )
 from apps.invoicing.services import DocumentService
 from apps.reporting.services.dashboard_service import DashboardService

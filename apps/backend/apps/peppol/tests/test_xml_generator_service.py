@@ -3,9 +3,8 @@ TDD Tests for Phase 2 Task 2.3: XML Generator Service
 Tests generating UBL 2.1 XML from mapped data.
 """
 
+
 import pytest
-from decimal import Decimal
-from datetime import date
 
 
 @pytest.mark.django_db

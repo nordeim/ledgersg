@@ -12,8 +12,10 @@ API Documentation:
   - GET /document_submissions/{id} - Check status
 """
 
+from typing import Any, Dict
+
 import requests
-from typing import Dict, Any, Optional
+
 from apps.peppol.services.ap_adapter_base import (
     APAdapterBase,
     TransmissionResult,

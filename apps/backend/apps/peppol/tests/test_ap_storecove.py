@@ -5,7 +5,6 @@ Tests the Storecove Access Point adapter implementation.
 Uses unittest.mock to mock HTTP requests.
 """
 
-import pytest
 from unittest.mock import Mock, patch
 
 
@@ -14,8 +13,8 @@ class TestStorecoveAdapter:
 
     def test_storecove_adapter_inherits_base(self):
         """Test that StorecoveAdapter inherits from APAdapterBase."""
-        from apps.peppol.services.ap_storecove_adapter import StorecoveAdapter
         from apps.peppol.services.ap_adapter_base import APAdapterBase
+        from apps.peppol.services.ap_storecove_adapter import StorecoveAdapter
 
         assert issubclass(StorecoveAdapter, APAdapterBase)
 
@@ -75,8 +74,8 @@ class TestStorecoveAdapter:
     @patch("apps.peppol.services.ap_storecove_adapter.requests.Session")
     def test_storecove_send_invoice_success(self, mock_session_class):
         """Test successful invoice transmission."""
-        from apps.peppol.services.ap_storecove_adapter import StorecoveAdapter
         from apps.peppol.services.ap_adapter_base import TransmissionStatus
+        from apps.peppol.services.ap_storecove_adapter import StorecoveAdapter
 
         # Mock successful response
         mock_session = Mock()
@@ -107,8 +106,8 @@ class TestStorecoveAdapter:
     @patch("apps.peppol.services.ap_storecove_adapter.requests.Session")
     def test_storecove_send_invoice_failure(self, mock_session_class):
         """Test failed invoice transmission."""
-        from apps.peppol.services.ap_storecove_adapter import StorecoveAdapter
         from apps.peppol.services.ap_adapter_base import TransmissionStatus
+        from apps.peppol.services.ap_storecove_adapter import StorecoveAdapter
 
         # Mock error response
         mock_session = Mock()
@@ -138,8 +137,8 @@ class TestStorecoveAdapter:
     @patch("apps.peppol.services.ap_storecove_adapter.requests.Session")
     def test_storecove_check_status_delivered(self, mock_session_class):
         """Test status check for delivered message."""
-        from apps.peppol.services.ap_storecove_adapter import StorecoveAdapter
         from apps.peppol.services.ap_adapter_base import TransmissionStatus
+        from apps.peppol.services.ap_storecove_adapter import StorecoveAdapter
 
         # Mock delivered response
         mock_session = Mock()

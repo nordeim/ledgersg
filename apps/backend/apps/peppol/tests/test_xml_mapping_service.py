@@ -3,10 +3,8 @@ TDD Tests for Phase 2 Task 2.2: XML Mapping Service
 Tests mapping InvoiceDocument to UBL 2.1 data structure.
 """
 
+
 import pytest
-from decimal import Decimal
-from datetime import date, timedelta
-from uuid import uuid4
 
 
 @pytest.mark.django_db

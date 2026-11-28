@@ -4,14 +4,15 @@ TaxCode model for LedgerSG.
 Maps to gst.tax_code table.
 """
 
+
 from django.db import models
-from decimal import Decimal
+
 from common.models import TenantModel
 
 
 class TaxCode(TenantModel):
     """Tax code model for GST calculation."""
-    
+
     code = models.CharField(max_length=10, db_column="code")
     # SQL schema has both 'name' and 'description' fields
     name = models.CharField(max_length=150, blank=True, db_column="name")
@@ -36,7 +37,7 @@ class TaxCode(TenantModel):
     effective_from = models.DateField(null=True, db_column="effective_from")
     effective_to = models.DateField(null=True, blank=True, db_column="effective_to")
     deleted_at = models.DateTimeField(null=True, blank=True, db_column="deleted_at")
-    
+
     class Meta:
         managed = False
         db_table = 'gst"."tax_code'

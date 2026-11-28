@@ -4,46 +4,42 @@ Invoicing views for LedgerSG.
 Contact management and document (invoice/quote) operations.
 """
 
-from typing import Optional
-from datetime import date
 from decimal import Decimal  # P20/BE-L1: module-level — the function-local
+
 # import below came AFTER a module-scope use (ruff F821, a latent NameError
 # masked only by the serializer's default)
-
 from django.http import FileResponse
 from django.utils import timezone
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from apps.core.models import InvoiceDocument
 from apps.core.permissions import (
-    IsOrgMember,
-    CanCreateInvoices,
     CanApproveInvoices,
-    CanVoidInvoices,
+    CanCreateInvoices,
     CanViewReports,
+    CanVoidInvoices,
+    IsOrgMember,
 )
-from apps.core.models import Contact, InvoiceDocument
-from common.exceptions import ValidationError, ResourceNotFound
-from common.views import wrap_response
-
-from apps.invoicing.services import ContactService, DocumentService, STATUS_TRANSITIONS
 from apps.invoicing.serializers import (
-    ContactListSerializer,
-    ContactDetailSerializer,
     ContactCreateSerializer,
+    ContactDetailSerializer,
+    ContactListSerializer,
     ContactUpdateSerializer,
-    InvoiceDocumentListSerializer,
-    InvoiceDocumentDetailSerializer,
     InvoiceDocumentCreateSerializer,
+    InvoiceDocumentDetailSerializer,
+    InvoiceDocumentListSerializer,
     InvoiceDocumentUpdateSerializer,
     InvoiceLineCreateSerializer,
-    StatusTransitionSerializer,
     QuoteConversionSerializer,
-    DocumentSummarySerializer,
+    StatusTransitionSerializer,
 )
+from apps.invoicing.services import STATUS_TRANSITIONS, ContactService, DocumentService
+from common.exceptions import ValidationError
+from common.views import wrap_response
 
 
 def require_permission(request, permission: str) -> None:
@@ -502,7 +498,6 @@ class DocumentSummaryView(APIView):
     @wrap_response
     def get(self, request, org_id: str) -> Response:
         """Get document summary."""
-        from uuid import UUID
 
         # Get counts by status
         status_counts = {}
@@ -568,6 +563,7 @@ class InvoiceApproveView(APIView):
     def post(self, request, org_id: str, document_id: str) -> Response:
         """Approve invoice and create journal entries."""
         from uuid import UUID
+
         from apps.invoicing.services import DocumentService
 
         document = DocumentService.approve_document(
@@ -592,6 +588,7 @@ class InvoiceVoidView(APIView):
     def post(self, request, org_id: str, document_id: str) -> Response:
         """Void invoice and create reversal entries."""
         from uuid import UUID
+
         from apps.invoicing.services import DocumentService
 
         reason = request.data.get("reason", "")
@@ -621,6 +618,7 @@ class InvoicePDFView(APIView):
     def get(self, request, org_id: str, document_id: str) -> FileResponse:
         """Generate PDF and return file response."""
         from uuid import UUID
+
         from apps.invoicing.services import DocumentService
 
         # Get document for filename
@@ -661,8 +659,9 @@ class InvoiceSendView(APIView):
         a silent permanent failure after the API had returned success).
         """
         from uuid import UUID
-        from apps.invoicing.services import DocumentService
+
         from apps.invoicing.serializers import InvoiceSendSerializer
+        from apps.invoicing.services import DocumentService
 
         serializer = InvoiceSendSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -690,6 +689,7 @@ class InvoiceSendInvoiceNowView(APIView):
     def post(self, request, org_id: str, document_id: str) -> Response:
         """Queue invoice for InvoiceNow transmission."""
         from uuid import UUID
+
         from apps.invoicing.services import DocumentService
 
         result = DocumentService.send_invoicenow(
@@ -713,6 +713,7 @@ class InvoiceInvoiceNowStatusView(APIView):
     def get(self, request, org_id: str, document_id: str) -> Response:
         """Get transmission status."""
         from uuid import UUID
+
         from apps.invoicing.services import DocumentService
 
         status_data = DocumentService.get_invoicenow_status(

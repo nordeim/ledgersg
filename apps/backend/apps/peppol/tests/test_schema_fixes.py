@@ -3,7 +3,6 @@ TDD Tests for Phase 2 Critical Schema Fixes
 Tests all 8 critical issues identified in Invoice_Schema_Validation_Report.md
 """
 
-import pytest
 from lxml import etree
 
 

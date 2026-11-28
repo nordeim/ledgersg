@@ -5,7 +5,7 @@
 # This pipeline institutionalizes the "SQL-First" mandate by:
 # 1. Manually initializing PostgreSQL with database_schema.sql (not migrations)
 # 2. Running pytest with --no-migrations and --reuse-db flags
-# 3. Validating the backend suite (1028 tests, P29 — +3 the detail-query-count gates) against the true production schema
+# 3. Validating the backend suite (1030 tests, P30 — +2 the reconcile/unreconcile query-count gates) against the true production schema; the mechanical-class ruff gate (P30/CFG-M3)
 # 4. Running the always-green no-backend e2e subset (P18/CFG-L1)
 #
 # Version: 1.2.1 (P19: the ci-summary gate now includes security-scan)
@@ -91,6 +91,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+
+      - name: 🧹 Mechanical Lint Gate (P30/CFG-M3 — the closed classes at 0)
+        working-directory: ./apps/backend
+        run: |
+          echo "🧹 Running the mechanical-class ruff ratchet..."
+          # P30/BE-P30-H1 closed the mechanical classes (whitespace,
+          # import order, unused imports, the settings star-import
+          # contract) on the production tree; this gate pins them at 0
+          # so they cannot silently regress. The 277 semantic findings
+          # stay in the deferred register (make lint is the full report).
+          ruff check --select W291,W293,I001,F401,F403,F405 apps common config
+          echo "✅ Mechanical lint gate passed (0 findings in the closed classes)"
 
       - name: 🗄️ Initialize Unmanaged SQL Schema (SQL-First Mandate)
         env:

@@ -4,14 +4,14 @@ Asynchronous tasks for Invoicing module.
 
 import logging
 from uuid import UUID
-from celery import shared_task
 
-from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
+from celery import shared_task
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 
-from apps.core.models import Organisation, InvoiceDocument
+from apps.core.models import InvoiceDocument, Organisation
 from apps.invoicing.services import DocumentService
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,8 @@ Routes for InvoiceNow/Peppol integration endpoints.
 """
 
 from django.urls import path
-from .views import PeppolTransmissionLogView, PeppolSettingsView
+
+from .views import PeppolSettingsView, PeppolTransmissionLogView
 
 app_name = "peppol"
 

@@ -6,12 +6,11 @@ SEC-001 Remediation: Replaces unvalidated request.data.get() stubs.
 """
 
 from decimal import Decimal
-from uuid import UUID
-from rest_framework import serializers
-from django.utils.translation import gettext_lazy as _
-from django.db import transaction
 
-from apps.core.models import Payment, BankAccount, Contact, InvoiceDocument
+from django.utils.translation import gettext_lazy as _
+from rest_framework import serializers
+
+from apps.core.models import BankAccount, Contact, InvoiceDocument, Payment
 from common.decimal_utils import money
 
 

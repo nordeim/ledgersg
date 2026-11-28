@@ -4,9 +4,10 @@ TDD Tests for Phase 4: Celery Tasks
 Tests the async Celery tasks for Peppol transmission.
 """
 
-import pytest
 from unittest.mock import Mock, patch
 from uuid import uuid4
+
+import pytest
 
 
 class TestTransmitPeppolInvoiceTask:
@@ -25,8 +26,8 @@ class TestTransmitPeppolInvoiceTask:
         django_db since P17/BE-H3: the task body opens the RLS tenant
         context (real transaction + set_config) before driving the service
         seam."""
-        from apps.peppol.tasks import transmit_peppol_invoice_task
         from apps.peppol.services.transmission_service import TransmissionService
+        from apps.peppol.tasks import transmit_peppol_invoice_task
 
         with patch.object(
             TransmissionService, "execute_transmission_for_log"
@@ -60,8 +61,8 @@ class TestTransmitPeppolInvoiceTask:
         django_db since P17/BE-H3: the task body opens the RLS tenant
         context (real transaction + set_config) before driving the service
         seam."""
-        from apps.peppol.tasks import transmit_peppol_invoice_task
         from apps.peppol.services.transmission_service import TransmissionService
+        from apps.peppol.tasks import transmit_peppol_invoice_task
 
         with patch.object(
             TransmissionService, "execute_transmission_for_log"
@@ -80,8 +81,8 @@ class TestTransmitPeppolInvoiceTask:
 
     def test_transmit_task_failure_triggers_retry(self):
         """Test that task retries on failure."""
-        from apps.peppol.tasks import transmit_peppol_invoice_task
         from apps.peppol.services.transmission_service import TransmissionService
+        from apps.peppol.tasks import transmit_peppol_invoice_task
 
         with patch.object(
             TransmissionService, "execute_transmission_for_log"
@@ -115,8 +116,8 @@ class TestRetryFailedTransmissionTask:
         RLS-blocked log row, so the caller hands it over explicitly.
         The db mark: the body opens the tenant context (transaction).
         """
-        from apps.peppol.tasks import retry_failed_transmission_task
         from apps.peppol.services.transmission_service import TransmissionService
+        from apps.peppol.tasks import retry_failed_transmission_task
 
         with patch.object(TransmissionService, "retry_transmission") as mock_retry:
             transmission_log_id = str(uuid4())

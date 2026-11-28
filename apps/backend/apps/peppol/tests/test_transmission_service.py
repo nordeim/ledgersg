@@ -4,9 +4,7 @@ TDD Tests for Phase 3: Transmission Service
 Tests the TransmissionService that orchestrates the complete workflow.
 """
 
-import pytest
-from unittest.mock import Mock, patch
-from uuid import uuid4
+from unittest.mock import Mock
 
 
 class TestTransmissionService:
@@ -14,8 +12,8 @@ class TestTransmissionService:
 
     def test_transmit_invoice_success(self):
         """Test successful transmission of an invoice."""
-        from apps.peppol.services.transmission_service import TransmissionService
         from apps.peppol.services.ap_adapter_base import TransmissionResult
+        from apps.peppol.services.transmission_service import TransmissionService
 
         # Create service
         service = TransmissionService()
@@ -68,7 +66,6 @@ class TestTransmissionService:
     def test_transmit_invoice_not_configured(self):
         """Test transmission when organization not configured."""
         from apps.peppol.services.transmission_service import TransmissionService
-        from apps.peppol.models import OrganisationPeppolSettings
 
         # Create settings that are not configured
         settings = Mock()
@@ -84,8 +81,8 @@ class TestTransmissionService:
 
     def test_retry_transmission(self):
         """Test retrying a failed transmission."""
-        from apps.peppol.services.transmission_service import TransmissionService
         from apps.peppol.services.ap_adapter_base import TransmissionResult
+        from apps.peppol.services.transmission_service import TransmissionService
 
         service = TransmissionService()
 

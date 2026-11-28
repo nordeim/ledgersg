@@ -10,17 +10,16 @@ Manages customers and suppliers including:
 
 from typing import Optional
 from uuid import UUID
-from datetime import date, timedelta
 
 from django.db.models import QuerySet
 
 from apps.core.models import Contact
-from common.exceptions import ValidationError, DuplicateResource, ResourceNotFound
+from common.exceptions import DuplicateResource, ResourceNotFound, ValidationError
 
 
 class ContactService:
     """Service class for contact operations."""
-    
+
     @staticmethod
     def list_contacts(
         org_id: UUID,
@@ -31,14 +30,14 @@ class ContactService:
     ) -> QuerySet[Contact]:
         """
         List contacts for an organisation.
-        
+
         Args:
             org_id: Organisation ID
             is_customer: Filter by customer flag
             is_supplier: Filter by supplier flag
             is_active: Filter by active status
             search: Search in name, email, UEN
-            
+
         Returns:
             Lazy Contact queryset (P28/BE-H1: the LAZY queryset — the
             view counts via .count() and pages at the SQL level; the
@@ -46,16 +45,16 @@ class ContactService:
             set on every page)
         """
         queryset = Contact.objects.filter(org_id=org_id)
-        
+
         if is_customer is not None:
             queryset = queryset.filter(is_customer=is_customer)
-        
+
         if is_supplier is not None:
             queryset = queryset.filter(is_supplier=is_supplier)
-        
+
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active)
-        
+
         if search:
             queryset = queryset.filter(
                 models.Q(name__icontains=search) |
@@ -63,23 +62,23 @@ class ContactService:
                 models.Q(uen__icontains=search) |
                 models.Q(company_name__icontains=search)
             )
-        
+
         # P24/I1: the id tiebreaker — Postgres tie order is not stable
         # across executions, so a paginated page boundary could skip or
         # duplicate a same-name row.
         # P28/BE-H1: returned LAZY — evaluate inside the request (the
         # RLS tenant context holds there).
         return queryset.order_by("name", "id")
-    
+
     @staticmethod
     def get_contact(org_id: UUID, contact_id: UUID) -> Contact:
         """
         Get contact by ID.
-        
+
         Args:
             org_id: Organisation ID
             contact_id: Contact ID
-            
+
         Returns:
             Contact instance
         """
@@ -87,7 +86,7 @@ class ContactService:
             return Contact.objects.get(id=contact_id, org_id=org_id)
         except Contact.DoesNotExist:
             raise ResourceNotFound(f"Contact {contact_id} not found")
-    
+
     @staticmethod
     def create_contact(
         org_id: UUID,
@@ -109,7 +108,7 @@ class ContactService:
     ) -> Contact:
         """
         Create a new contact.
-        
+
         Args:
             org_id: Organisation ID
             name: Contact name (person or company)
@@ -127,30 +126,30 @@ class ContactService:
             is_supplier: Is a supplier
             payment_terms_days: Payment terms in days
             **kwargs: Additional fields
-            
+
         Returns:
             Created Contact instance
         """
         # Validate at least one of customer/supplier
         if not is_customer and not is_supplier:
             raise ValidationError("Contact must be a customer, supplier, or both.")
-        
+
         # Validate UEN format if provided
         if uen:
             uen = uen.strip().upper()
             if not ContactService._validate_uen(uen):
                 raise ValidationError(f"Invalid UEN format: {uen}")
-            
+
             # Check uniqueness within org
             if Contact.objects.filter(org_id=org_id, uen=uen).exists():
                 raise DuplicateResource(f"Contact with UEN '{uen}' already exists.")
-        
+
         # Validate Peppol ID if provided
         if peppol_id:
             peppol_id = peppol_id.strip()
             if not ContactService._validate_peppol_id(peppol_id):
                 raise ValidationError(f"Invalid Peppol ID format: {peppol_id}")
-        
+
         # Determine contact type
         contact_type = "BOTH" if is_customer and is_supplier else "CUSTOMER" if is_customer else "SUPPLIER"
 
@@ -185,9 +184,9 @@ class ContactService:
             is_active=True,
             **kwargs
         )
-        
+
         return contact
-    
+
     @staticmethod
     def update_contact(
         org_id: UUID,
@@ -196,63 +195,63 @@ class ContactService:
     ) -> Contact:
         """
         Update contact fields.
-        
+
         Args:
             org_id: Organisation ID
             contact_id: Contact ID
             **updates: Fields to update
-            
+
         Returns:
             Updated Contact instance
         """
         contact = ContactService.get_contact(org_id, contact_id)
-        
+
         # Validate UEN if changed
         if "uen" in updates:
             new_uen = updates["uen"].strip().upper()
             if new_uen != contact.uen:
                 if new_uen and not ContactService._validate_uen(new_uen):
                     raise ValidationError(f"Invalid UEN format: {new_uen}")
-                
+
                 if Contact.objects.filter(org_id=org_id, uen=new_uen).exclude(id=contact_id).exists():
                     raise DuplicateResource(f"Contact with UEN '{new_uen}' already exists.")
-                
+
                 updates["uen"] = new_uen
-        
+
         # Validate Peppol ID if changed
         if "peppol_id" in updates:
             new_peppol = updates["peppol_id"].strip()
             if new_peppol and not ContactService._validate_peppol_id(new_peppol):
                 raise ValidationError(f"Invalid Peppol ID format: {new_peppol}")
             updates["peppol_id"] = new_peppol
-        
+
         # Update fields
         for key, value in updates.items():
             if hasattr(contact, key):
                 setattr(contact, key, value)
-        
+
         # Recalculate contact type
         is_customer = updates.get("is_customer", contact.is_customer)
         is_supplier = updates.get("is_supplier", contact.is_supplier)
         contact.contact_type = "BOTH" if is_customer and is_supplier else "CUSTOMER" if is_customer else "SUPPLIER"
-        
+
         contact.save()
         return contact
-    
+
     @staticmethod
     def deactivate_contact(org_id: UUID, contact_id: UUID) -> Contact:
         """
         Deactivate a contact.
-        
+
         Args:
             org_id: Organisation ID
             contact_id: Contact ID
-            
+
         Returns:
             Deactivated Contact instance
         """
         contact = ContactService.get_contact(org_id, contact_id)
-        
+
         # Check for open invoices (A-2 sweep: PARTIALLY_PAID is the enum
         # value — PAID_PARTIAL matched nothing, so a contact holding a
         # partially-paid invoice could be deactivated)
@@ -260,18 +259,18 @@ class ContactService:
             contact=contact,
             status__in=["DRAFT", "SENT", "APPROVED", "PARTIALLY_PAID", "OVERDUE"]
         ).count()
-        
+
         if open_invoices > 0:
             raise ValidationError(
                 f"Cannot deactivate contact with {open_invoices} open invoices. "
                 "Void or pay all invoices first."
             )
-        
+
         contact.is_active = False
         contact.save()
-        
+
         return contact
-    
+
     @staticmethod
     def _validate_uen(uen: str) -> bool:
         """
@@ -281,7 +280,7 @@ class ContactService:
         (apps.core.validators.validate_uen): the three real ACRA formats —
         business (8 digits + check letter), local company (9 digits +
         check letter), other entities (T/S + YY + 2 letters + 4 digits +
-        check letter). The pre-P14 copy accepted the bare ^\d{10}$
+        check letter). The pre-P14 copy accepted the bare ^\\d{10}$
         pattern (a branch registration number, NOT a UEN) alongside the
         real formats.
 
@@ -294,38 +293,39 @@ class ContactService:
         from apps.core.validators import validate_uen
 
         return validate_uen(uen)
-    
+
     @staticmethod
     def _validate_peppol_id(peppol_id: str) -> bool:
         """
         Validate Peppol participant ID format.
-        
+
         Format: 0195:123456789A (scheme:identifier)
-        
+
         Args:
             peppol_id: Peppol ID to validate
-            
+
         Returns:
             True if valid format
         """
         if not peppol_id:
             return True  # Empty is valid
-        
+
         peppol_id = peppol_id.strip()
-        
+
         # Common Peppol schemes
         valid_schemes = ["0195", "0088", "0060", "9901"]
-        
+
         if ":" in peppol_id:
             parts = peppol_id.split(":", 1)
             if len(parts) == 2:
                 scheme, identifier = parts
                 return scheme in valid_schemes and len(identifier) >= 3
-        
+
         # Allow identifier only (assume 0195 for Singapore)
         return len(peppol_id) >= 8
 
 
 # Import at end to avoid circular imports
 from django.db import models
+
 from apps.core.models import InvoiceDocument

@@ -18,11 +18,11 @@ def create_schemas(sender, **kwargs):
 
 class CommonConfig(AppConfig):
     """Configuration for common Django app."""
-    
+
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'common'
     verbose_name = 'Common'
-    
+
     def ready(self):
         """Connect signals when app is ready."""
         pre_migrate.connect(create_schemas, sender=self)

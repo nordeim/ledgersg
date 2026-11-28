@@ -4,7 +4,6 @@ Journal views for LedgerSG.
 Journal entry management and trial balance reporting.
 """
 
-from datetime import date
 from decimal import InvalidOperation
 
 from django.utils import timezone
@@ -395,7 +394,6 @@ class LedgerView(APIView):
     @wrap_response
     def get(self, request, org_id: str) -> Response:
         """List ledger lines with filters."""
-        from uuid import UUID
 
         from apps.core.models import JournalLine
 

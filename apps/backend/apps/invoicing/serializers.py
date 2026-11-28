@@ -4,15 +4,16 @@ Invoicing serializers for LedgerSG.
 Serializers for Contact and InvoiceDocument models.
 """
 
-from rest_framework import serializers
 from decimal import Decimal
+
+from rest_framework import serializers
 
 from apps.core.models import Contact, InvoiceDocument, InvoiceLine
 
 
 class ContactListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for contact list views."""
-    
+
     class Meta:
         model = Contact
         fields = [
@@ -29,7 +30,7 @@ class ContactListSerializer(serializers.ModelSerializer):
 
 class ContactDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for contact views."""
-    
+
     class Meta:
         model = Contact
         fields = [
@@ -48,7 +49,7 @@ class ContactDetailSerializer(serializers.ModelSerializer):
 
 class ContactCreateSerializer(serializers.Serializer):
     """Serializer for creating a new contact."""
-    
+
     name = serializers.CharField(max_length=255)
     company_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
@@ -67,7 +68,7 @@ class ContactCreateSerializer(serializers.Serializer):
 
 class ContactUpdateSerializer(serializers.Serializer):
     """Serializer for updating a contact."""
-    
+
     name = serializers.CharField(max_length=255, required=False)
     company_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
@@ -93,11 +94,11 @@ class ContactUpdateSerializer(serializers.Serializer):
 
 class InvoiceLineSerializer(serializers.ModelSerializer):
     """Serializer for invoice line items."""
-    
+
     account_code = serializers.CharField(source="account.code", read_only=True)
     account_name = serializers.CharField(source="account.name", read_only=True)
     tax_code_code = serializers.CharField(source="tax_code.code", read_only=True)
-    
+
     class Meta:
         model = InvoiceLine
         fields = [
@@ -190,7 +191,7 @@ class InvoiceDocumentListSerializer(serializers.ModelSerializer):
         """Outstanding balance — mirrors the detail serializer and the
         DB generated column invoicing.document.amount_due."""
         return str(obj.total_incl - obj.amount_paid)
-    
+
     def get_status_display(self, obj: InvoiceDocument) -> str:
         return obj.get_status_display()
 
@@ -226,7 +227,7 @@ class InvoiceDocumentDetailSerializer(serializers.ModelSerializer):
             "id", "document_number", "total_excl", "gst_total", "total_incl",
             "created_at", "updated_at"
         ]
-    
+
     def get_status_history(self, obj: InvoiceDocument) -> list:
         """Synthesize the status history from the model's timestamps
         (P9/C-5 — the field previously returned [] behind a TODO).
@@ -274,7 +275,7 @@ class InvoiceDocumentCreateSerializer(serializers.Serializer):
 
 class InvoiceDocumentUpdateSerializer(serializers.Serializer):
     """Serializer for updating a document draft."""
-    
+
     due_date = serializers.DateField(required=False)
     reference = serializers.CharField(max_length=100, required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
@@ -294,13 +295,13 @@ class StatusTransitionSerializer(serializers.Serializer):
 
 class QuoteConversionSerializer(serializers.Serializer):
     """Serializer for quote to invoice conversion."""
-    
+
     quote_id = serializers.UUIDField()
 
 
 class DocumentSummarySerializer(serializers.Serializer):
     """Serializer for document status summary."""
-    
+
     by_status = serializers.DictField(child=serializers.IntegerField())
     by_type = serializers.DictField(child=serializers.IntegerField())
     total_outstanding = serializers.DecimalField(max_digits=15, decimal_places=2)

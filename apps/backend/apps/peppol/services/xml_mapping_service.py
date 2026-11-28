@@ -4,9 +4,8 @@ XML Mapping Service for InvoiceNow/Peppol integration.
 Maps LedgerSG InvoiceDocument to UBL 2.1 PINT-SG data structure.
 """
 
-from typing import Dict, Any, Optional
 from decimal import Decimal
-from datetime import date
+from typing import Any, Dict
 
 
 class XMLMappingService:
@@ -43,7 +42,6 @@ class XMLMappingService:
         Raises:
             ValueError: If required Peppol fields are missing
         """
-        from apps.core.models import Organisation, Contact, TaxCode
 
         # Get related objects
         org = invoice.org

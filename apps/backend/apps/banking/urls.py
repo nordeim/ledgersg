@@ -8,19 +8,19 @@ SEC-001 Remediation: All endpoints use validated implementations.
 from django.urls import path
 
 from .views import (
-    BankAccountListView,
     BankAccountDetailView,
-    PaymentListView,
-    PaymentDetailView,
-    ReceivePaymentView,
+    BankAccountListView,
+    BankTransactionImportView,
+    BankTransactionListView,
+    BankTransactionReconcileView,
+    BankTransactionSuggestMatchesView,
+    BankTransactionUnreconcileView,
     MakePaymentView,
     PaymentAllocateView,
+    PaymentDetailView,
+    PaymentListView,
     PaymentVoidView,
-    BankTransactionListView,
-    BankTransactionImportView,
-    BankTransactionReconcileView,
-    BankTransactionUnreconcileView,
-    BankTransactionSuggestMatchesView,
+    ReceivePaymentView,
 )
 
 app_name = "banking"

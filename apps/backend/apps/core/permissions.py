@@ -6,8 +6,6 @@ DRF permission classes that check user's role within current org.
 
 from rest_framework import permissions
 
-from common.exceptions import UnauthorizedOrgAccess
-
 
 class IsOrgMember(permissions.BasePermission):
     """

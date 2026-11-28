@@ -7,8 +7,8 @@ for Peppol/InvoiceNow transmission.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
 from enum import Enum
+from typing import Any, Dict, Optional
 
 
 class TransmissionStatus(Enum):

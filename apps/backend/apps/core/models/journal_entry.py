@@ -6,8 +6,9 @@ Maps to journal.entry table.
 NOTE: This table does NOT have updated_at column (immutable table).
 """
 
-from django.db import models
 from uuid import uuid4
+
+from django.db import models
 
 
 class JournalEntry(models.Model):

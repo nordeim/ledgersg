@@ -6,9 +6,10 @@ enabling non-blocking approval workflows and retry logic.
 """
 
 import logging
-from django.utils import timezone
-from celery import shared_task
 from typing import Optional
+
+from celery import shared_task
+from django.utils import timezone
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -312,7 +313,8 @@ def cleanup_old_transmission_logs_task(days: int = 90, org_id: str | None = None
         # Per-org cleanup (the app-role path)
         deleted_count = cleanup_old_transmission_logs_task.delay(90, str(org.id)).get()
     """
-    from datetime import datetime, timedelta
+    from datetime import timedelta
+
     from apps.peppol.models import PeppolTransmissionLog
     from common.tenant_context import tenant_context
 

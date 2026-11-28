@@ -8,11 +8,10 @@ For the full list of settings and their values, see:
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
-from pathlib import Path
 from datetime import timedelta
-import os
+from pathlib import Path
 
-from decouple import config, Csv
+from decouple import Csv, config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -477,8 +476,8 @@ SENTRY_DSN = config("SENTRY_DSN", default=None)
 
 if SENTRY_DSN:
     import sentry_sdk
-    from sentry_sdk.integrations.django import DjangoIntegration
     from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.django import DjangoIntegration
 
     sentry_sdk.init(
         dsn=SENTRY_DSN,
