@@ -42,16 +42,17 @@ test-cov:
 # Linting and formatting
 # make lint stays the FULL report (the semantic findings are the
 # registered deferred batch); lint-mechanical is the P30/CFG-M3 +
-# P31/CFG-M3 unified RATCHET — the closed classes (whitespace, import
-# order, unused imports, the settings star-import contract, B904
-# exception chaining) must stay at 0 across the WHOLE tree (production
-# + tests). The same command runs in CI (ci.yml backend-tests) — a
+# P31/CFG-M3 + P32/CFG-M3 unified RATCHET — the closed classes
+# (whitespace, import order, unused imports, the settings star-import
+# contract, B904 exception chaining, the P32 dead-code/shadow/name/
+# suppress set) must stay at 0 across the WHOLE tree (production +
+# tests). The same command runs in CI (ci.yml backend-tests) — a
 # gate nobody runs is a rubber stamp.
 lint:
 	ruff check .
 
 lint-mechanical:
-	ruff check --select W291,W293,I001,F401,F403,F405,B904 apps common config tests
+	ruff check --select W291,W293,I001,F401,F403,F405,B904,F841,F811,F402,E741,A001,N806,N802,B007,B009,B017,B905,C408,SIM103,SIM105,SIM108,SIM110,SIM117,SIM118,SIM300,UP015,UP017,S608,E402,S105,S106,S108 apps common config tests
 
 format:
 	ruff format .

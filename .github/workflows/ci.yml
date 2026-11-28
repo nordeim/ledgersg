@@ -5,7 +5,7 @@
 # This pipeline institutionalizes the "SQL-First" mandate by:
 # 1. Manually initializing PostgreSQL with database_schema.sql (not migrations)
 # 2. Running pytest with --no-migrations and --reuse-db flags
-# 3. Validating the backend suite (1034 tests, P31 — +4 the exception-chaining gates) against the true production schema; the unified closed-class ruff gate (P30+P31/CFG-M3: production + tests)
+# 3. Validating the backend suite (1036 tests, P32 — +2 the conftest fixture-resolution gates) against the true production schema; the unified closed-class ruff gate (P30+P31+P32/CFG-M3: production + tests)
 # 4. Running the always-green no-backend e2e subset (P18/CFG-L1)
 #
 # Version: 1.2.1 (P19: the ci-summary gate now includes security-scan)
@@ -92,7 +92,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: 🧹 Mechanical Lint Gate (P30+P31/CFG-M3 — the closed classes at 0, whole tree)
+      - name: 🧹 Mechanical Lint Gate (P30+P31+P32/CFG-M3 — the closed classes at 0, whole tree)
         working-directory: ./apps/backend
         run: |
           echo "🧹 Running the closed-class ruff ratchet..."
@@ -101,11 +101,14 @@ jobs:
           # contract) on the production tree; P31 closed the B904
           # exception-chaining batch (66 → 0, the from-exc/from-None
           # contract) and extended the mechanical closure to the tests
-          # tree — this gate pins them ALL at 0 across the whole tree
-          # so they cannot silently regress. The 211 production + 157
-          # tests semantic findings stay in the deferred register
-          # (make lint is the full report).
-          ruff check --select W291,W293,I001,F401,F403,F405,B904 apps common config tests
+          # tree; P32 closed the dead-code/shadow/name/suppress set
+          # (F841/F811/F402/E741/A001/N806/B009/B017/B905/C408/SIM1xx/
+          # UP015/UP017/E402/S608 + the tests-tree S105/S106/S108
+          # per-file-ignores contract) — this gate pins them ALL at 0
+          # across the whole tree so they cannot silently regress. The
+          # 148 production + 73 tests semantic findings stay in the
+          # deferred register (make lint is the full report).
+          ruff check --select W291,W293,I001,F401,F403,F405,B904,F841,F811,F402,E741,A001,N806,N802,B007,B009,B017,B905,C408,SIM103,SIM105,SIM108,SIM110,SIM117,SIM118,SIM300,UP015,UP017,S608,E402,S105,S106,S108 apps common config tests
           echo "✅ Mechanical lint gate passed (0 findings in the closed classes)"
 
       - name: 🗄️ Initialize Unmanaged SQL Schema (SQL-First Mandate)
