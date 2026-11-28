@@ -58,11 +58,15 @@ export default defineConfig({
       // own suite.
       thresholds: {
         // whole-suite floor (P20/FE-M5: raised 62/51/52/63 → 71/60/68/71
-        // with the app+providers tiers now measured)
-        lines: 71,
-        functions: 60,
-        branches: 68,
-        statements: 71,
+        // with the app+providers tiers now measured; P28/CFG-M2: raised
+        // again 71/60/68/71 → 73/62/70/73 at the P27-measured floor
+        // 73.39/62.38/70.72/73.95 — the ratchet the P21–P27 reports
+        // recorded but never wrote into the config; a ratchet nobody
+        // bumps is a rubber stamp)
+        lines: 73,
+        functions: 62,
+        branches: 70,
+        statements: 73,
         // the lib tier floor (measured 71.23 / 74.8 / 52.32 / 73.2)
         "src/lib/**": {
           lines: 73,
