@@ -6,9 +6,19 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-28, session 64 / P33) re-verified the guide against the current
-codebase on the live sandbox — **provisioned from scratch this session
-through this guide's own steps §1–§9** (the sandbox recycle had wiped the
+(2026-11-28, session 66 / P34) re-verified the guide against the current
+codebase on the live sandbox — the standing environment (rootless PG 17
+with both databases + the v1.2.2 schema + the demo substrate, Redis 8,
+the backend venv, the web tree, both dev servers) survived the sandbox
+recycle and was verified end-to-end this session: `manage.py check` green
+(the documented W001), the §7 suite green **1073P/0F/5S (+26 the P34
+gates: the credit-note Peppol truth + the ISO-4217 currency-input
+vocabulary)**, the live e2e 43/43, the RLS smoke 13/13 as `ledgersg_app`,
+the mobile-nav probe 17/17 + the translate probe PASS, `make
+lint-mechanical` green (the closed ruff classes at 0 across the whole
+tree), `build:server` + the prod-CSP smoke 5/5. The prior revision
+(2026-11-28, session 64 / P33) **provisioned from scratch through this
+guide's own steps §1–§9** (the sandbox recycle had wiped the
 environment: fresh rootless PG 17 via §3's script, the ledgersg role +
 both databases + the schema load, fresh Redis 8 per §5, the venv per
 §6, the §7 suite green 1047P/0F/5S (+11 the currency-truth gates), the

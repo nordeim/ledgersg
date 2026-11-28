@@ -1963,3 +1963,98 @@ H-05b models; PaymentsTab prefill; the TanStack incompatibility; the
 membership-cache window; the P20-era FE-M2/M3 designs; CI hardening
 (the mypy gate — 1491 errors); the version-story reconciliation; the
 P21–P32 deferred registers carried forward unchanged.
+
+## Session 66 — P34 Sprint (2026-11-28)
+
+The workspace pulled to `9381124d` (the session-65 log). The environment
+SURVIVED the sandbox recycle (unlike session 64's full reset): rootless
+PG 17 with both databases + the v1.2.2 schema + the demo substrate,
+Redis 8, the backend venv, the web tree, both dev servers on the
+remediated P33 code. One environment lesson re-learned: this sandbox
+reaps background children between tool calls (nohup/disown/setsid all
+fall) — the live gates ran with the backend started INSIDE the same
+invocation. All documented baselines reproduced EXACTLY before any
+change: backend 1047P/0F/5S, vitest 698/698, tsc 0, eslint 0E/0W,
+e2e 43/43 first-run, rls 13/13, mobile-nav 17/17 (the thirty-sixth
+settlement), the translate probe PASS, npm audit 0, build:server +
+prod-CSP 5/5, make lint-mechanical 0, the production ruff count 148
+exact, the tests count 73 exact. The mobile-nav focus settled: working,
+no Tailwind v4 bug.
+
+### The audits (Mode C)
+
+**0 Critical / 1 High / 1 Medium / 0 Low.** The P33 slice re-verified
+clean in source. BE-P34-H1 (the headline): the credit-note Peppol
+truth — a TRIPLE defect, all reproduced via a live probe
+(generate_credit_note_xml emitted header-only UBL while the mapper
+supplies parties/totals/lines for every document type; the transmission
+service validated the CreditNote root against the INVOICE XSD, which a
+CreditNote can never pass — every real credit-note transmission was
+doomed to FAILED; the CreditNote XSD carried the Invoice-2
+targetNamespace copy-paste artefact + the InvoiceLine/InvoicedQuantity
+shape). Three stacked blind spots kept the suite silent: an
+existence-only generator test, a deliberately is_valid-less validation
+test, and a mocked validator in the transmission tests. BE-P34-M1: the
+ISO-4217 currency-input truth — five input surfaces (org create/PATCH
+base_currency, bank-account create currency, payment receive/make
+currency) accepted any ~3-char string, and post-P33 a garbage
+base_currency propagates into the reports denomination, the Peppol
+currencyIDs and the PDF.
+
+### The mid-sprint discovery (the TDD RED gate caught it)
+
+Turning the validator-acceptance gate GREEN exposed that the generated
+INVOICE also failed its own XSD — the single-file XSDs declared the
+cbc/cac children as LOCAL elements in each root's target namespace
+(the generator correctly emits the real cbc/cac namespaces) and
+declared ZERO attributes (currencyID/unitCode/schemeID never declared —
+any document carrying them failed). **The validation layer was
+decorative for BOTH paths**: every generated document failed its own
+schema, so every real transmission would have been marked FAILED
+before reaching the access point. The plan was AMENDED (the (d) fix)
+and the root cause closed: both XSDs restructured into the true
+three-namespace UBL shape (NEW ubl-CommonBasicComponents-2.xsd + NEW
+ubl-CommonAggregateComponents-2.xsd + both root XSDs as ref-based
+sequencers).
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-P34-H1(a) | the credit-note completeness: the full PINT-SG structure (DueDate, parties, payment terms, tax total, monetary total, the true UBL 2.1 CreditNoteLine/CreditedQuantity lines) with the P33 currency parameter threaded | 10 NEW gates (the structure sweep, the currencyID truth, the SGD control, the dispatch + its invoice control); the strengthened existing credit-note validation test |
+| BE-P34-H1(b) | the type-aware validator dispatch in the transmission service (the old unconditional Step-3 call retired) | the dispatch gates (validate_credit_note_xml called once, validate_invoice_xml not called, + the invoice control) |
+| BE-P34-H1(c)+(d) | the three-namespace XSD restructure: the CreditNote-2 namespace + CreditNoteLine/CreditedQuantity + the cbc/cac commons + the amount attributes | the acceptance gates on BOTH types (the generated invoice AND credit note validate clean — is_valid=True, 0 errors); test_schema_fixes green; the live verification on real demo documents |
+| BE-P34-M1 | the shared ISO-4217 vocabulary (common/currency.py — the active-code allowlist, case-normalising) on the five input surfaces; the org-create min_length hole closed | 15 NEW gates (the org API 400s + the normalisation + the banking serializer 400s + the vocabulary module pins); the live typed 400 + the usd→USD round-trip |
+| X-docs | the truth pass (README badge 1814 + the P34 milestone, CLAUDE 2.35.0, AGENTS header + the P34 headline + 2 new lessons [the three-stacked-blind-spots lesson; the validator-round-trip-gate lesson], SKILL 2.21.0, PAD 3.24.0, DEPLOYMENT header [the standing environment verified end-to-end], the API guide v3.7.0 + the P34 addendum, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful |
+
+### Final gate (all verified, executed)
+
+backend **1073P/0F/5S** (+26) · vitest **698/698 (85 files)** · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · **e2e:full 43P/0F/0S** ·
+**rls_smoke 13/13 as `ledgersg_app`** · **mobile-nav 17/17** (the
+thirty-seventh settlement) · the `translate` probe re-PASS · **npm audit
+0 across dev+prod** · build:server green + **prod-CSP 5/5** · ruff
+production **148** / tests **73** (unchanged — no lint class touched)
+· schema v1.2.2 (no DDL). 8 DOM-verified screenshots (224-231, the
+invoices list — the P34 headline surface — + the banking payments, the
+reports trial-balance, the ledger, the dashboard, the settings, the
+mobile drawer closed/open).
+
+### Deferred (registered, not dropped)
+
+The ruff semantic batch — **148 production findings** (unchanged: the
+UP typing batch ×105 [the mypy-gate conversation stays the registered
+precondition], E501 ×38 + the format axis at 160 files, S110 ×4, N818
+×1); the tests/-tree residual — **73 findings** (E501 ×73 only); **NEW:
+the Schematron axis** (`_validate_schematron` is a documented
+placeholder returning `[]`; the PINT-UBL-validation.sch exists but is
+not wired — the XSD now enforces the structural truth; the
+business-rule layer is its own pass); the `/accounts/search/`
+limit-contract migration (verified again: capped + typed, no frontend
+consumer); the capped-default flip; the audit-log INSERT policy (DDL);
+BE-L3/BE-L4 locking; the CSV errors[] strings; dead-letter design; UEN
+checksum; the NULL-context SELECT tradeoff; H-05b models; PaymentsTab
+prefill; the TanStack incompatibility; the membership-cache window; the
+P20-era FE-M2/M3 designs; CI hardening (the mypy gate — 1491 errors);
+the version-story reconciliation — the P21–P33 deferred registers carry
+forward unchanged.

@@ -2,7 +2,7 @@
 
 > **Direct Backend API Interaction via Command Line**
 > **For AI Agents and Advanced Users**
-> **Version**: 3.6.0 (the P33 currency-truth contract + the P26 transmission-log pagination + the P25 pagination-contract hardening + the P24 pagination contract + the P23 addendum + the P21 list-envelope unification + the P19 addendum + the P20 route errata)
+> **Version**: 3.7.0 (the P34 credit-note Peppol structure + the ISO-4217 currency-input contract + the P33 currency-truth contract + the P26 transmission-log pagination + the P25 pagination-contract hardening + the P24 pagination contract + the P23 addendum + the P21 list-envelope unification + the P19 addendum + the P20 route errata)
 > **Last Updated**: 2026-11-28 (P33 — ONE contract-visible change, byte-identical on the SGD default: three `currency` fields became truthful. (1) The financial reports — `GET /api/v1/{org_id}/reports/financial/?report_type=trial_balance|profit_loss|balance_sheet` — now carry the ORG's `base_currency` instead of a hardcoded `"SGD"` (the ledger they aggregate is denominated in the org's base currency; the invoice PDF already rendered the truthful value). (2) `GET /api/v1/{org_id}/accounts/{account_id}/balance/` now carries the ACCOUNT's own `currency` field instead of a hardcoded `"SGD"` (retiring a literal TODO). (3) The InvoiceNow UBL: every amount element's `currencyID` now carries the document's own currency instead of a hardcoded `"SGD"` (a USD/EUR-denominated document previously transmitted `DocumentCurrencyCode=USD` beside `currencyID="SGD"` amounts — internally inconsistent UBL; `TaxCurrencyCode` stays SGD by design — IRAS GST is accounted in SGD regardless of the document currency). Verified live this session on the SGD demo substrate: the three reports carry `"currency": "SGD"` byte-identical, the account balance carries `"currency": "SGD"`, and a real demo document's generated XML carries only its own currency. Consumers parsing `currency` should treat it as data, never assume SGD. Carried forward: P32 — no API contract changes that sprint (the P32 changes are dead-code/lint-level + test-infrastructure-level: the 3 dead service-seam bindings retired (void's never-read `reversal`, transition's `old_status`, approve's guard-query `fiscal_period` — the side-effect calls stay), the F402 `status` shadow renamed to `status_value` in the document-summary view (a loop-variable rename; the response shape untouched), the journal `credits` → `credit_total` rename (a local rename; the response keys untouched — the trial-balance payload verified live), the SIM105 `contextlib.suppress` conversions + the tests-tree conftest placement — none touch a rendered byte. Verified live this session on the remediated stack: the not-found document detail → the exact documented 404 body `{"error":{"code":"not_found","message":"Document <uuid> not found"}}`, the allocation typed-400s → `{"payment_id":["Payment not found in this organisation."]}` and `{"allocations":["Invalid allocated_amount: garbage"]}` byte-stable, the document-summary endpoint → 200 with the counts envelope (total_count, by_status, by_type, total_outstanding, overdue_count)). Carried forward: P31 — no API contract changes this sprint (the P31 changes are exception-object-level + lint-level: the 66 raise-inside-except sites now chain explicitly (`from exc` / `from None`) — the chaining sets `__cause__`/`__suppress_context__` on the raised exception and NEVER touches the rendered HTTP bodies, verified live this session on the remediated stack: the not-found document detail → the exact documented 404 body `{"error":{"code":"not_found","message":"Document <uuid> not found"}}`, the allocation typed-400s → `{"payment_id":["Payment not found in this organisation."]}` and `{"allocations":["Invalid allocated_amount: garbage"]}` byte-stable; the tests-tree lint closure touched no behaviour). Carried forward: P30 — no API contract changes this sprint (the P30 changes are query-level + lint-level: the reconcile/unreconcile responses now JOIN bank_account instead of walking it (the RESPONSE BYTES pinned byte-identical, verified live this session with a reconcile round-trip on the demo substrate — unreconcile then re-reconcile restored, both payloads carrying bank_account_name), and the ruff mechanical closure touched no behaviour. The bank-transactions list envelope re-verified live: `?limit=2` → count 7 + 2 rows + bank_account_name present). Carried forward: P29 — no API contract changes this sprint (the P29 detail-view N+1 closure is query-level: the three detail seams — document detail, journal entry detail, payment detail — now fetch their related rows in bounded, line-count-independent queries (the contact rides the document SELECT, the lines arrive in ONE joined SELECT carrying account + tax_code, the payment joins its related rows); the RESPONSE BYTES are pinned byte-identical, verified live this session on the remediated stack: the document detail payload (lines with account_code/tax_code_code, the nested contact, the totals), the payment detail payload (contact_name, bank_account_name, the allocations), the contacts envelope `?limit=1` → count 2 total + 1 row + the next URL carrying offset=1). Carried forward: P28 — no API contract changes (the push-down is query-level: the four service-driven lists — contacts, documents, payments, bank transactions — now fetch only the requested page via SQL LIMIT/OFFSET and count via SQL COUNT(*); the RESPONSE BYTES are pinned byte-identical, verified live on the remediated stack: the contacts mid-set page `?limit=1` → count 2 total + 1 row + the next URL carrying offset=1, the beyond-end page → count 2 + 0 rows + previous present, the payments + bank-transactions envelopes `{count, next, previous, results}` with the total counts, the invoices page 2 `?limit=20&offset=20` → count 23 + the last 3 rows + next null, `?offset=` without `?limit=` → the typed 400, `?limit=abc` → the typed 400, the unpaginated path → the byte-identical `{results, count}`). Carried forward: P27 — no API contract changes (frontend state-machine wiring); Carried forward: P26 — the Peppol transmission-log surface joins the pagination contract (limit/offset + the id tiebreaker + the counters in both modes, byte-identical unpaginated) — see the P26 Addendum below; carried forward: P25 — two request-semantics tightenings on the pagination contract: `offset` requires `limit` (the typed 400), the int8 offset cap at 2^63−1 — see the P25 Addendum below; carried forward: the P24 additive `?limit=&offset=` server-side pagination on every core list surface, the P23 presentation/test-tier sprint, the P21 list-envelope unification, the InvoiceNow evidence stamp, the on-commit cache invalidation, the ValidateBalance typed-400 body contract; carried forward: the P20 route errata + the P17 400 contracts)
 > **Status**: Production Ready ✅ (SEC-001/002/003, E2E Testing Complete, API Contracts Fixed)
 
@@ -599,3 +599,63 @@ Notes for CLI operators:
 - On an SGD-default org (the demo substrate) every one of these bytes
   is unchanged — the P33 verification re-ran the live contracts and
   confirmed byte-identity on the SGD paths.
+
+## P34 Addendum — the credit-note Peppol structure + the ISO-4217 currency-input contract (2026-11-28, session 66)
+
+**Two contract-visible changes (byte-identical on the SGD default; no
+existing consumer breaks):**
+
+### 1. The credit-note InvoiceNow XML now carries the full PINT-SG structure
+
+`POST /api/v1/{org_id}/documents/{document_id}/send-invoicenow/` on a
+`SALES_CREDIT_NOTE` previously transmitted header-only UBL (no parties,
+no amounts, no lines) — and the transmission was marked FAILED before
+reaching the access point (the CreditNote root was validated against the
+Invoice XSD, which it can never pass). Post-P34:
+
+- The credit-note UBL carries the full structure:
+  `cac:AccountingSupplierParty`, `cac:AccountingCustomerParty`,
+  `cac:PaymentTerms`, `cac:TaxTotal`, `cac:LegalMonetaryTotal` and the
+  true UBL 2.1 line — `cac:CreditNoteLine` with `cbc:CreditedQuantity`
+  (never `InvoiceLine`/`InvoicedQuantity` inside a credit note).
+- Every amount element's `currencyID` carries the document's currency
+  (the P33 truth, threaded through the credit-note path too).
+- The validator dispatches by document type: a credit note is validated
+  against the CreditNote XSD (`ubl-CreditNote.xsd`, target namespace
+  `CreditNote-2`), an invoice against the Invoice XSD.
+- The generated invoice AND credit note both validate clean against
+  their schemas (verified live on real demo documents — pre-P34 the
+  validation layer rejected every generated document, both types).
+
+### 2. Currency inputs accept only active ISO-4217 codes (the typed 400)
+
+| Surface | Pre-P34 | Post-P34 |
+|:---|:---|:---|
+| `POST /api/v1/organisations/` — `base_currency` | any string <= 3 chars (even 2-char "US") | an active ISO-4217 code (3 letters; case-insensitive, normalised to upper case) or the typed 400 field error |
+| `PATCH /api/v1/{org_id}/` — `base_currency` | any 3-char string ("XYZ"/"SGE" accepted) | an active ISO-4217 code or the typed 400 field error |
+| `POST /api/v1/{org_id}/bank-accounts/` — `currency` | any 3-char string | an active ISO-4217 code or the typed 400 field error |
+| `POST /api/v1/{org_id}/payments/receive/` — `currency` | any 3-char string | an active ISO-4217 code or the typed 400 field error |
+| `POST /api/v1/{org_id}/payments/make/` — `currency` | any 3-char string | an active ISO-4217 code or the typed 400 field error |
+
+The 400 body is the standard DRF field-error shape:
+
+```json
+{"base_currency": ["base_currency must be an active ISO-4217 currency code (e.g. SGD, USD, EUR)."]}
+```
+
+Notes for CLI operators:
+
+- A lower-case valid code is ACCEPTED and stored upper-cased
+  (`"usd"` -> `"USD"`) — the normalisation is part of the contract.
+- The allowlist (`common/currency.py`) covers the ACTIVE ISO-4217
+  national currencies; the placeholder codes (`XXX` no-currency, `XTS`
+  testing) and the supranational/precious-metal units (`XDR`, `XAU`,
+  `XAG`, `XPD`, `XPT`) are deliberately excluded, as are withdrawn
+  codes (`HRK`, `ANG`, `ZWL`, `SLL`, `VEF`).
+- The bank-account UPDATE path does not accept `currency` (unchanged);
+  the document currency is a database default, not an API input
+  (unchanged).
+- On an SGD-default org every rendered byte is unchanged — the P34
+  verification re-ran the live contracts and confirmed byte-identity on
+  the SGD paths (the invoice XML, the three reports, the account
+  balance).

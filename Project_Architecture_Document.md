@@ -1,7 +1,7 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.23.0
+> **Version**: 3.24.0
 > **Last Updated**: 2026-11-28
 > **P33 note**: the currency-truth closure — the Peppol amount-currencyID thread (every amount element in the InvoiceNow UBL now carries the document currency; a non-SGD document previously transmitted a header that disagreed with its own amounts), the financial-reports denomination (the three report responses read org.base_currency), and the account-balance currency (the account's own field) — see `docs/REMEDIATION_PLAN_2026-11-28_P33.md`.
 >
@@ -55,7 +55,7 @@
 ### Key Metrics (P30, 2026-11-28)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,788 Tests Passing** | 1047 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
+| **Test Coverage** | **1,814 Tests Passing** | 1073 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+"); every LIST endpoint returns the unified `{results, count}` envelope (P21) with the additive `?limit=&offset=` pagination + next/previous + total-count (P24) |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |

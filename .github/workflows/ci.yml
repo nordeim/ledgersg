@@ -5,7 +5,7 @@
 # This pipeline institutionalizes the "SQL-First" mandate by:
 # 1. Manually initializing PostgreSQL with database_schema.sql (not migrations)
 # 2. Running pytest with --no-migrations and --reuse-db flags
-# 3. Validating the backend suite (1047 tests, P33 — +11 the currency-truth gates: the Peppol amount-currencyID thread, the reports denomination, the account-balance currency) against the true production schema; the unified closed-class ruff gate (P30+P31+P32/CFG-M3: production + tests)
+# 3. Validating the backend suite (1073 tests, P34 — +26 the P34 gates: the credit-note Peppol truth [the full PINT-SG credit note + the type-aware validator dispatch + the three-namespace XSD restructure] + the ISO-4217 currency-input vocabulary) against the true production schema; the unified closed-class ruff gate (P30+P31+P32/CFG-M3: production + tests)
 # 4. Running the always-green no-backend e2e subset (P18/CFG-L1)
 #
 # Version: 1.2.1 (P19: the ci-summary gate now includes security-scan)

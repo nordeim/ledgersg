@@ -8,10 +8,10 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 64 / P33):
-- Backend: pytest 1047 passed / 0 failed / 5 skipped (1052 collected)
-  (+11: the currency-truth gates — 6 Peppol amount-currencyID, 3
-  reports denomination, 2 account-balance currency)
+Current truth (all gates executed and green, session 66 / P34):
+- Backend: pytest 1073 passed / 0 failed / 5 skipped (1078 collected)
+  (+26: the P34 gates — 11 credit-note Peppol, 10 currency-vocabulary/org,
+  5 banking serializer)
 - Backend lint: the closed ruff classes at **0** across the WHOLE tree
   (the P30 production closure + the P31 extension + the P32 set:
   W291/W293 whitespace, I001 import order, F401 unused imports,
@@ -20,7 +20,7 @@ Current truth (all gates executed and green, session 64 / P33):
   tests 379 → 158 → 73 [the honest re-measured baseline; the P31
   report's 157 under-counted by the W605 the P32 sprint closed];
   `make lint-mechanical` + the CI step gate the extended class set
-  over production + tests)
+  over production + tests — unchanged by P34: no lint class touched)
 - Frontend: vitest 698/698 (85 files, on vitest 4.1.12 — the P23
   advisory closure), coverage green at the RAISED per-glob ratchets
   (the P29 honest-ratchet completion: lib 73/54/78/75, hooks
@@ -29,7 +29,30 @@ Current truth (all gates executed and green, session 64 / P33):
   63/63/58/62, plus the NEW src/shared tier 73/62/76/73 — the P20
   tier set had missed the shared primitives), tsc --noEmit 0 errors,
   whole-tree eslint **0 errors / 0 warnings**,
-  npm audit **0 across dev+prod**
+  npm audit **0 across dev+prod** (the web tree untouched by P34)
+- P34 headline: the credit-note Peppol truth — a TRIPLE defect, all
+  reproduced (generate_credit_note_xml emitted header-only UBL while
+  the mapper supplies parties/totals/lines for every document type;
+  the transmission service validated the CreditNote root against the
+  INVOICE XSD, which a CreditNote can never pass — every real
+  credit-note transmission was doomed to FAILED; the CreditNote XSD
+  carried the Invoice-2 targetNamespace copy-paste artefact) PLUS the
+  mid-sprint discovery the TDD RED gate caught: the generated INVOICE
+  also failed its own XSD — the single-file XSDs declared the cbc/cac
+  children as LOCAL elements in each root's target namespace and never
+  declared the amount attributes (currencyID/unitCode/schemeID) at
+  all, so the validation layer was DECORATIVE for both paths. Both
+  XSDs restructured into the true three-namespace UBL shape (NEW
+  ubl-CommonBasicComponents-2.xsd + NEW
+  ubl-CommonAggregateComponents-2.xsd + both root XSDs as ref-based
+  sequencers); the generated invoice AND credit note now validate
+  clean (is_valid=True, 0 errors — verified live on real demo
+  documents). Plus the ISO-4217 currency-input truth: the shared
+  common/currency.py active-code allowlist on the five input surfaces
+  (org create/PATCH base_currency, bank-account create currency,
+  payment receive/make currency — a typo like "XYZ"/"SGE" or a
+  2-char "US" on the create path is now the typed 400 field
+  error; a lower-case "usd" normalizes to "USD")
 - P33 headline: the currency-truth closure — the Peppol amount
   currencyID thread (XMLGeneratorService hardcoded currencyID="SGD"
   on all 11 amount elements while the mapper flows the document's own
@@ -2200,3 +2223,40 @@ site, "what does the DATA say?" The Peppol mapper's
 `tax_currency: "SGD"` survives that question (IRAS GST is accounted in
 SGD regardless of the document currency — the statutory posture);
 the amount-level currencyIDs did not.
+
+## 2026-11-28 P34 Sprint — New Patterns & Lessons (session 66)
+
+### Three Stacked Blind Spots On One Path Hide Each Other's Silence
+The credit-note Peppol path had THREE tests touching it, and all three
+were structurally incapable of seeing the defect: the generator test
+only asserted the method EXISTS (`hasattr(XMLGeneratorService,
+"generate_credit_note_xml")`), the validation test deliberately did not
+assert `is_valid` (its own comment said "validation may have schema
+errors but service works"), and the transmission tests MOCKED the
+validation service entirely. Individually each looks defensible — an
+existence test, a tolerant test, a mocked unit test. Stacked on the one
+path they form a complete blind spot: the hollow generator, the wrong
+validator wiring and the broken XSD namespace were all invisible. The
+lesson: when auditing a path, list EVERY test that touches it and ask
+per test "what would this test see if the path were COMPLETELY
+broken?" — if the answer is "nothing", the path has no tests, whatever
+the count says. The P34 fix strengthens all three layers (the
+existence test's file now carries the full-structure + acceptance
+gates; the tolerant test now asserts `is_valid=True` with a
+lines-carrying fixture; the dispatch is pinned at the seam).
+
+### A Validator The Suite Never Satisfies Is Decorative — Prove It Accepts Its Own Producer
+The deeper P34 discovery: the generated INVOICE also failed its own
+XSD — the custom single-file schemas declared the cbc/cac children as
+LOCAL elements in each root's target namespace (the generator
+correctly emits them in the real cbc/cac namespaces) and never
+declared the amount attributes at all. No test ever validated the
+generator's actual output, so the layer passed CI while rejecting
+everything it was supposed to accept — on the real transmission path
+every document would have been marked FAILED before reaching the
+access point. The lesson generalises the P33 fixture lesson: for every
+validator, keep ONE gate that feeds it its own producer's real output
+and asserts acceptance (`test_X_validator_accepts_generated_Y`). A
+validator only ever seeing hand-built fixtures (or nothing) is a
+rubber stamp; the producer-validator round-trip gate is the cheap
+permanent proof that the two ends of the seam agree.
