@@ -80,8 +80,10 @@ class BankTransactionImportSerializer(serializers.Serializer):
 
         try:
             bank_account = BankAccount.objects.get(id=value, org_id=org_id)
-        except BankAccount.DoesNotExist:
-            raise serializers.ValidationError(_("Bank account not found in this organisation."))
+        except BankAccount.DoesNotExist as exc:
+            raise serializers.ValidationError(
+                _("Bank account not found in this organisation.")
+            ) from exc
 
         if not bank_account.is_active:
             raise serializers.ValidationError(_("Bank account is not active."))
@@ -108,10 +110,10 @@ class BankTransactionImportSerializer(serializers.Serializer):
 
             try:
                 money(txn["amount"])
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as exc:
                 raise serializers.ValidationError(
                     _("Transaction {}: Invalid amount '{}'.").format(i + 1, txn["amount"])
-                )
+                ) from exc
 
         return value
 
@@ -134,8 +136,8 @@ class BankTransactionReconcileSerializer(serializers.Serializer):
 
         try:
             payment = Payment.objects.get(id=value, org_id=org_id)
-        except Payment.DoesNotExist:
-            raise serializers.ValidationError(_("Payment not found in this organisation."))
+        except Payment.DoesNotExist as exc:
+            raise serializers.ValidationError(_("Payment not found in this organisation.")) from exc
 
         if payment.is_voided:
             raise serializers.ValidationError(_("Cannot reconcile to a voided payment."))
@@ -165,8 +167,8 @@ class BankTransactionMatchSerializer(serializers.Serializer):
 
         try:
             payment = Payment.objects.get(id=value, org_id=org_id)
-        except Payment.DoesNotExist:
-            raise serializers.ValidationError(_("Payment not found in this organisation."))
+        except Payment.DoesNotExist as exc:
+            raise serializers.ValidationError(_("Payment not found in this organisation.")) from exc
 
         if payment.is_voided:
             raise serializers.ValidationError(_("Cannot match to a voided payment."))

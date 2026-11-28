@@ -99,8 +99,8 @@ class ReconciliationService:
         """
         try:
             return BankTransaction.objects.get(id=transaction_id, org_id=org_id)
-        except BankTransaction.DoesNotExist:
-            raise ResourceNotFound(f"Bank transaction {transaction_id} not found")
+        except BankTransaction.DoesNotExist as exc:
+            raise ResourceNotFound(f"Bank transaction {transaction_id} not found") from exc
 
     @staticmethod
     @transaction.atomic()
@@ -160,7 +160,7 @@ class ReconciliationService:
             try:
                 decoded_file = raw_bytes.decode("latin-1")
             except Exception as e:
-                raise ValidationError(f"Could not decode file: {e}")
+                raise ValidationError(f"Could not decode file: {e}") from None
 
         reader = csv.DictReader(io.StringIO(decoded_file))
 
@@ -360,16 +360,16 @@ class ReconciliationService:
                 .select_related("bank_account")
                 .get(id=transaction_id, org_id=org_id)
             )
-        except BankTransaction.DoesNotExist:
-            raise ResourceNotFound(f"Bank transaction {transaction_id} not found")
+        except BankTransaction.DoesNotExist as exc:
+            raise ResourceNotFound(f"Bank transaction {transaction_id} not found") from exc
 
         if transaction_obj.is_reconciled:
             raise ValidationError("Transaction is already reconciled.")
 
         try:
             payment = Payment.objects.select_for_update().get(id=payment_id, org_id=org_id)
-        except Payment.DoesNotExist:
-            raise ResourceNotFound(f"Payment {payment_id} not found")
+        except Payment.DoesNotExist as exc:
+            raise ResourceNotFound(f"Payment {payment_id} not found") from exc
 
         if payment.is_voided:
             raise ValidationError("Cannot reconcile to a voided payment.")

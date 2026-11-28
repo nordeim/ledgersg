@@ -261,8 +261,8 @@ class AccountBalanceView(APIView):
                 "balance": str(balance),
                 "as_of_date": date_to.isoformat() if date_to else timezone.localdate().isoformat(),
             }
-        except Account.DoesNotExist:
-            raise ResourceNotFound(f"Account {account_id} not found")
+        except Account.DoesNotExist as exc:
+            raise ResourceNotFound(f"Account {account_id} not found") from exc
 
         return Response(account_info)
 

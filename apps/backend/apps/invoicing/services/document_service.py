@@ -181,8 +181,8 @@ class DocumentService:
                 )
                 .get(id=document_id, org_id=org_id)
             )
-        except InvoiceDocument.DoesNotExist:
-            raise ResourceNotFound(f"Document {document_id} not found")
+        except InvoiceDocument.DoesNotExist as exc:
+            raise ResourceNotFound(f"Document {document_id} not found") from exc
 
     @staticmethod
     def create_document(
@@ -223,8 +223,8 @@ class DocumentService:
         # Get contact
         try:
             contact = Contact.objects.get(id=contact_id, org_id=org_id)
-        except Contact.DoesNotExist:
-            raise ResourceNotFound(f"Contact {contact_id} not found")
+        except Contact.DoesNotExist as exc:
+            raise ResourceNotFound(f"Contact {contact_id} not found") from exc
 
         # P14/H-5: only a GST-registered organisation may charge GST, and
         # only within its registration window. The line-level rate is
@@ -354,8 +354,8 @@ class DocumentService:
                 document = InvoiceDocument.objects.select_for_update().get(
                     id=document_id, org_id=org_id
                 )
-            except InvoiceDocument.DoesNotExist:
-                raise ResourceNotFound(f"Document {document_id} not found")
+            except InvoiceDocument.DoesNotExist as exc:
+                raise ResourceNotFound(f"Document {document_id} not found") from exc
 
             if document.status != "DRAFT":
                 raise ValidationError("Can only add lines to DRAFT documents.")
@@ -363,8 +363,8 @@ class DocumentService:
             # Validate account
             try:
                 account = Account.objects.get(id=account_id, org_id=org_id)
-            except Account.DoesNotExist:
-                raise ResourceNotFound(f"Account {account_id} not found")
+            except Account.DoesNotExist as exc:
+                raise ResourceNotFound(f"Account {account_id} not found") from exc
 
             # Get next line number
             last_line = document.lines.order_by("-line_number").first()
@@ -435,13 +435,13 @@ class DocumentService:
                     is_bcrs_deposit=is_bcrs_deposit,
                     **kwargs,
                 )
-            except IntegrityError:
+            except IntegrityError as exc:
                 # An interleaved write beat us to the computed line_number —
                 # the typed contract, never an untyped 500.
                 raise ValidationError(
                     "The document changed while the line was being added "
                     "(concurrent line numbering) — reload and retry."
-                )
+                ) from exc
 
             # Recalculate document totals
             DocumentService._recalculate_totals(document)
@@ -474,8 +474,8 @@ class DocumentService:
                 document = InvoiceDocument.objects.select_for_update().get(
                     id=document_id, org_id=org_id
                 )
-            except InvoiceDocument.DoesNotExist:
-                raise ResourceNotFound(f"Document {document_id} not found")
+            except InvoiceDocument.DoesNotExist as exc:
+                raise ResourceNotFound(f"Document {document_id} not found") from exc
 
             if document.status != "DRAFT":
                 raise ValidationError("Can only remove lines from DRAFT documents.")
@@ -483,8 +483,8 @@ class DocumentService:
             try:
                 line = InvoiceLine.objects.get(id=line_id, document=document)
                 line.delete()
-            except InvoiceLine.DoesNotExist:
-                raise ResourceNotFound(f"Line {line_id} not found")
+            except InvoiceLine.DoesNotExist as exc:
+                raise ResourceNotFound(f"Line {line_id} not found") from exc
 
             # Recalculate totals
             DocumentService._recalculate_totals(document)
@@ -516,8 +516,8 @@ class DocumentService:
                 document = InvoiceDocument.objects.select_for_update().get(
                     id=document_id, org_id=org_id
                 )
-            except InvoiceDocument.DoesNotExist:
-                raise ResourceNotFound(f"Document {document_id} not found")
+            except InvoiceDocument.DoesNotExist as exc:
+                raise ResourceNotFound(f"Document {document_id} not found") from exc
 
             # Validate transition — POST-LOCK against the current status
             valid_transitions = STATUS_TRANSITIONS.get(document.status, [])
@@ -574,11 +574,11 @@ class DocumentService:
                     )
                 try:
                     void_user = AppUser.objects.get(id=user_id)
-                except AppUser.DoesNotExist:
+                except AppUser.DoesNotExist as exc:
                     raise ValidationError(
                         f"User {user_id} does not exist — the reversing "
                         "journal entry needs a valid poster."
-                    )
+                    ) from exc
                 return DocumentService.void_document(
                     org_id, document.id, user=void_user, reason="Voided via status transition"
                 )
@@ -769,10 +769,10 @@ class DocumentService:
                 original = InvoiceDocument.objects.select_for_update().get(
                     id=related_document_id, org_id=org_id
                 )
-            except InvoiceDocument.DoesNotExist:
+            except InvoiceDocument.DoesNotExist as exc:
                 raise ResourceNotFound(
                     f"Original document {related_document_id} not found in this organisation."
-                )
+                ) from exc
 
             original_prefix = "SALES" if document_type == "SALES_CREDIT_NOTE" else "PURCHASE"
             if not original.document_type.startswith(original_prefix):
@@ -941,11 +941,11 @@ class DocumentService:
                     end_date__gte=document.issue_date,
                     is_open=True,
                 )
-            except FiscalPeriod.DoesNotExist:
+            except FiscalPeriod.DoesNotExist as exc:
                 raise ValidationError(
                     "No open fiscal period found for the invoice date. "
                     "Please open the fiscal period or change the invoice date."
-                )
+                ) from exc
 
             # Update document status
             document.status = "APPROVED"
@@ -1041,11 +1041,11 @@ class DocumentService:
                         end_date__gte=document.issue_date,
                         is_open=True,
                     )
-                except FiscalPeriod.DoesNotExist:
+                except FiscalPeriod.DoesNotExist as exc:
                     raise ValidationError(
                         "No open fiscal period found for the invoice date. "
                         "Cannot void invoice in a closed period."
-                    )
+                    ) from exc
 
             # Update document status (C-02: persist void_reason — the DB
             # CHECK chk_void_reason requires it whenever voided_at is set)

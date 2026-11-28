@@ -48,7 +48,7 @@ def money(value: Union[str, int, float, Decimal]) -> Decimal:
             ctx.traps[InvalidOperation] = True
             converted = Decimal(str(value))
     except (InvalidOperation, ValueError) as e:
-        raise ValueError(f"Cannot convert {value!r} to money: {e}")
+        raise ValueError(f"Cannot convert {value!r} to money: {e}") from None
 
     # P16/BE-M2: NaN and Infinity parse cleanly out of Decimal() and
     # quantize() propagates NaN without raising — a non-finite value that
@@ -90,7 +90,7 @@ def display_money(value: Union[str, int, float, Decimal]) -> str:
     try:
         decimal_value = Decimal(str(value))
     except (InvalidOperation, ValueError) as e:
-        raise ValueError(f"Cannot format {value!r}: {e}")
+        raise ValueError(f"Cannot format {value!r}: {e}") from None
 
     # P19/BE-D2: mirror money()'s finite gate — NaN propagates through
     # quantize() and would render the literal string "NaN" to a user
@@ -106,7 +106,7 @@ def display_money(value: Union[str, int, float, Decimal]) -> str:
             ctx.rounding = ROUND_HALF_UP
             return str(decimal_value.quantize(DISPLAY_PLACES))
     except (InvalidOperation, ValueError) as e:
-        raise ValueError(f"Cannot format {value!r}: {e}")
+        raise ValueError(f"Cannot format {value!r}: {e}") from None
 
 
 def sum_money(values: Iterable[Union[str, int, Decimal]]) -> Decimal:

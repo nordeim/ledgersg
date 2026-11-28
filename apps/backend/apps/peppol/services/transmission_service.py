@@ -152,13 +152,13 @@ class TransmissionService:
         # Get invoice and organization
         try:
             invoice = InvoiceDocument.objects.get(id=invoice_id)
-        except InvoiceDocument.DoesNotExist:
-            raise ValueError(f"Invoice {invoice_id} not found")
+        except InvoiceDocument.DoesNotExist as exc:
+            raise ValueError(f"Invoice {invoice_id} not found") from exc
 
         try:
             org = Organisation.objects.get(id=org_id)
-        except Organisation.DoesNotExist:
-            raise ValueError(f"Organization {org_id} not found")
+        except Organisation.DoesNotExist as exc:
+            raise ValueError(f"Organization {org_id} not found") from exc
 
         # Check Peppol configuration
         settings = OrganisationPeppolSettings.objects.filter(org_id=org_id).first()
@@ -365,8 +365,8 @@ class TransmissionService:
         # Get existing log
         try:
             log = PeppolTransmissionLog.objects.get(id=transmission_log_id)
-        except PeppolTransmissionLog.DoesNotExist:
-            raise ValueError(f"Transmission log {transmission_log_id} not found")
+        except PeppolTransmissionLog.DoesNotExist as exc:
+            raise ValueError(f"Transmission log {transmission_log_id} not found") from exc
 
         # Check if retryable
         if log.status not in ["FAILED", "REJECTED"]:
@@ -390,13 +390,13 @@ class TransmissionService:
         # Get invoice
         try:
             invoice = InvoiceDocument.objects.get(id=log.document_id)
-        except InvoiceDocument.DoesNotExist:
-            raise ValueError(f"Invoice {log.document_id} not found")
+        except InvoiceDocument.DoesNotExist as exc:
+            raise ValueError(f"Invoice {log.document_id} not found") from exc
 
         try:
             org = Organisation.objects.get(id=log.org_id)
-        except Organisation.DoesNotExist:
-            raise ValueError(f"Organization {log.org_id} not found")
+        except Organisation.DoesNotExist as exc:
+            raise ValueError(f"Organization {log.org_id} not found") from exc
 
         # Increment attempt counter
         log.attempt_number += 1

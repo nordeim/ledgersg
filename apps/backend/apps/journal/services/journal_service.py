@@ -155,8 +155,8 @@ class JournalService:
                     )
                 ).get(id=entry_id, org_id=org_id)
             )
-        except JournalEntry.DoesNotExist:
-            raise ResourceNotFound(f"Journal entry {entry_id} not found")
+        except JournalEntry.DoesNotExist as exc:
+            raise ResourceNotFound(f"Journal entry {entry_id} not found") from exc
 
     @staticmethod
     def create_entry(
@@ -288,8 +288,8 @@ class JournalService:
                     account = Account.objects.select_for_update().get(
                         id=account_id, org_id=org_id
                     )
-                except Account.DoesNotExist:
-                    raise ResourceNotFound(f"Account {account_id} not found")
+                except Account.DoesNotExist as exc:
+                    raise ResourceNotFound(f"Account {account_id} not found") from exc
 
                 # P18/BE-M3: header accounts are groupings, not posting
                 # targets (the schema's documented intent — "cannot post
@@ -528,8 +528,8 @@ class JournalService:
                 original = JournalEntry.objects.select_for_update().get(
                     id=original_entry_id, org_id=org_id
                 )
-            except JournalEntry.DoesNotExist:
-                raise ResourceNotFound(f"Journal entry {original_entry_id} not found")
+            except JournalEntry.DoesNotExist as exc:
+                raise ResourceNotFound(f"Journal entry {original_entry_id} not found") from exc
             if original.is_reversed:
                 raise ValidationError(
                     f"Journal entry {original.entry_number} is already reversed; "
@@ -748,8 +748,8 @@ class JournalService:
             if not period.is_open:
                 raise ValidationError(f"Fiscal period '{period.label}' is closed.")
             return period
-        except FiscalPeriod.DoesNotExist:
-            raise ResourceNotFound(f"Fiscal period {period_id} not found")
+        except FiscalPeriod.DoesNotExist as exc:
+            raise ResourceNotFound(f"Fiscal period {period_id} not found") from exc
 
     @staticmethod
     def _resolve_control_account(

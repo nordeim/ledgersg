@@ -56,7 +56,7 @@ def send_invoice_email_task(
         }
     except Exception as exc:
         logger.error(f"Error sending invoice email {document_id}: {exc}")
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
 
 
 def _send_invoice_email(org_id, document_id, recipients, cc=None, bcc=None):

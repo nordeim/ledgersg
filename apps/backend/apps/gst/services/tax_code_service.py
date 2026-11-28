@@ -183,8 +183,8 @@ class TaxCodeService:
         from django.db.models import Q
         try:
             return TaxCode.objects.get(Q(id=tax_code_id) & (Q(org_id=org_id) | Q(org_id__isnull=True)))
-        except TaxCode.DoesNotExist:
-            raise ResourceNotFound(f"Tax code {tax_code_id} not found")
+        except TaxCode.DoesNotExist as exc:
+            raise ResourceNotFound(f"Tax code {tax_code_id} not found") from exc
 
     @staticmethod
     def is_effective(tax_code: TaxCode, on_date: date) -> bool:

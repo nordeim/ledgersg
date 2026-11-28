@@ -54,8 +54,8 @@ class BankAccountService:
         if gl_account_id:
             try:
                 gl_account = Account.objects.get(id=gl_account_id.id, org_id=org_id)
-            except Account.DoesNotExist:
-                raise ValidationError("GL account not found in this organisation.")
+            except Account.DoesNotExist as exc:
+                raise ValidationError("GL account not found in this organisation.") from exc
         else:
             # P7/F-5: the schema (bank_account.gl_account_id UUID NOT NULL) and
             # the API serializer both require a GL account — the service is
@@ -159,8 +159,8 @@ class BankAccountService:
         """
         try:
             return BankAccount.objects.get(id=account_id, org_id=org_id)
-        except BankAccount.DoesNotExist:
-            raise ResourceNotFound(f"Bank account {account_id} not found")
+        except BankAccount.DoesNotExist as exc:
+            raise ResourceNotFound(f"Bank account {account_id} not found") from exc
 
     @staticmethod
     def _get_locked(org_id: UUID, account_id: UUID) -> BankAccount:
@@ -172,8 +172,8 @@ class BankAccountService:
             return BankAccount.objects.select_for_update().get(
                 id=account_id, org_id=org_id
             )
-        except BankAccount.DoesNotExist:
-            raise ResourceNotFound(f"Bank account {account_id} not found")
+        except BankAccount.DoesNotExist as exc:
+            raise ResourceNotFound(f"Bank account {account_id} not found") from exc
 
     @staticmethod
     @transaction.atomic()

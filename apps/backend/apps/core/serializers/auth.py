@@ -25,7 +25,7 @@ class RegisterSerializer(serializers.Serializer):
         try:
             validate_password(value)
         except ValidationError as e:
-            raise serializers.ValidationError(e.messages)
+            raise serializers.ValidationError(e.messages) from e
         return value
 
 
@@ -72,5 +72,5 @@ class ChangePasswordSerializer(serializers.Serializer):
         try:
             validate_password(value)
         except ValidationError as e:
-            raise serializers.ValidationError(e.messages)
+            raise serializers.ValidationError(e.messages) from e
         return value

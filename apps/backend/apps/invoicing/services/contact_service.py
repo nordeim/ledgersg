@@ -84,8 +84,8 @@ class ContactService:
         """
         try:
             return Contact.objects.get(id=contact_id, org_id=org_id)
-        except Contact.DoesNotExist:
-            raise ResourceNotFound(f"Contact {contact_id} not found")
+        except Contact.DoesNotExist as exc:
+            raise ResourceNotFound(f"Contact {contact_id} not found") from exc
 
     @staticmethod
     def create_contact(

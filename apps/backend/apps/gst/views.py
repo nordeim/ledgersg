@@ -72,8 +72,8 @@ class TaxCodeListCreateView(APIView):
         if effective_on:
             try:
                 effective_on_date = date_type.fromisoformat(effective_on)
-            except ValueError:
-                raise ValidationError("effective_on must be an ISO date (YYYY-MM-DD).")
+            except ValueError as exc:
+                raise ValidationError("effective_on must be an ISO date (YYYY-MM-DD).") from exc
 
 
         tax_codes = TaxCodeService.list_tax_codes(
@@ -404,12 +404,12 @@ class GSTReturnFileView(APIView):
             for k, v in data["boxes"].items():
                 try:
                     parsed = Decimal(str(v))
-                except (ArithmeticError, TypeError, ValueError):
+                except (ArithmeticError, TypeError, ValueError) as exc:
                     from rest_framework.exceptions import ValidationError as DRFValidationError
 
                     raise DRFValidationError(
                         {"boxes": f"Box {k} must be a finite number (got {v!r})"}
-                    )
+                    ) from exc
                 if not parsed.is_finite():
                     from rest_framework.exceptions import ValidationError as DRFValidationError
 

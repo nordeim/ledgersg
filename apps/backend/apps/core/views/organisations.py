@@ -140,8 +140,8 @@ class OrganisationDetailView(APIView):
         """Get organisation by ID or raise 404."""
         try:
             return Organisation.objects.get(id=org_id)
-        except Organisation.DoesNotExist:
-            raise UnauthorizedOrgAccess("Organisation not found")
+        except Organisation.DoesNotExist as exc:
+            raise UnauthorizedOrgAccess("Organisation not found") from exc
 
     def _check_permission(self, request, permission: str) -> bool:
         """Check if user has specific permission."""
@@ -195,8 +195,8 @@ class GSTRegistrationView(APIView):
         """Get organisation by ID or raise 404."""
         try:
             return Organisation.objects.get(id=org_id)
-        except Organisation.DoesNotExist:
-            raise UnauthorizedOrgAccess("Organisation not found")
+        except Organisation.DoesNotExist as exc:
+            raise UnauthorizedOrgAccess("Organisation not found") from exc
 
 
 class FiscalYearListView(APIView):
@@ -347,12 +347,12 @@ class OrganisationSettingsView(APIView):
         # hits the DB UNIQUE constraint; surface the same 400 field error.
         try:
             org.save()
-        except IntegrityError:
+        except IntegrityError as exc:
             from rest_framework import serializers
 
             raise serializers.ValidationError(
                 {"uen": "An organisation with this UEN already exists."}
-            )
+            ) from exc
         return Response(
             {
                 "message": "Settings updated successfully",

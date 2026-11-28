@@ -101,7 +101,7 @@ def transmit_peppol_invoice_task(self, transmission_log_id: str, org_id: str) ->
         if self.request.retries < self.max_retries:
             countdown = 60 * (2**self.request.retries)
             logger.info(f"Retrying due to exception in {countdown} seconds")
-            raise self.retry(exc=exc, countdown=countdown)
+            raise self.retry(exc=exc, countdown=countdown) from exc
 
         # Max retries exceeded
         return {"success": False, "message_id": None, "status": "FAILED", "error": str(exc)}
@@ -186,7 +186,7 @@ def retry_failed_transmission_task(self, transmission_log_id: str, org_id: str) 
 
         if self.request.retries < self.max_retries:
             countdown = 60 * (2**self.request.retries)
-            raise self.retry(exc=exc, countdown=countdown)
+            raise self.retry(exc=exc, countdown=countdown) from exc
 
         return {"success": False, "message_id": None, "status": "FAILED", "error": str(exc)}
 

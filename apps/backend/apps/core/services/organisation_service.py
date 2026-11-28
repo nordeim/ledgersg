@@ -60,12 +60,12 @@ def create_organisation(
             base_currency=base_currency,
             **kwargs
         )
-        except IntegrityError:
+        except IntegrityError as exc:
             from rest_framework import serializers
 
             raise serializers.ValidationError(
                 {"uen": "An organisation with this UEN already exists."}
-            )
+            ) from exc
 
         # P14/C-1: set the RLS tenant context BEFORE any seeding. Under the
         # documented runtime role (ledgersg_app, non-superuser) every seed
@@ -341,12 +341,12 @@ def update_organisation(org: Organisation, **kwargs) -> Organisation:
     if applied:
         try:
             org.save()
-        except IntegrityError:
+        except IntegrityError as exc:
             from rest_framework import serializers
 
             raise serializers.ValidationError(
                 {"uen": "An organisation with this UEN already exists."}
-            )
+            ) from exc
     return org
 
 

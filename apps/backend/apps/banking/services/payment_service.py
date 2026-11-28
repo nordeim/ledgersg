@@ -297,8 +297,8 @@ class PaymentService:
             return Payment.objects.select_related(
                 "contact", "bank_account"
             ).get(id=payment_id, org_id=org_id)
-        except Payment.DoesNotExist:
-            raise ResourceNotFound(f"Payment {payment_id} not found")
+        except Payment.DoesNotExist as exc:
+            raise ResourceNotFound(f"Payment {payment_id} not found") from exc
 
 
     @staticmethod
@@ -355,8 +355,8 @@ class PaymentService:
         # allocate() lock; ResourceNotFound keeps the not-found contract.
         try:
             payment = Payment.objects.select_for_update().get(id=payment_id, org_id=org_id)
-        except Payment.DoesNotExist:
-            raise ResourceNotFound(f"Payment {payment_id} not found")
+        except Payment.DoesNotExist as exc:
+            raise ResourceNotFound(f"Payment {payment_id} not found") from exc
 
         if payment.is_voided:
             raise ValidationError("Payment is already voided.")
@@ -372,8 +372,10 @@ class PaymentService:
                     raise ValidationError(
                         f"Cannot void payment in closed fiscal period ({fiscal_period.label})."
                     )
-            except FiscalPeriod.DoesNotExist:
-                raise ValidationError("No fiscal period found for payment date. Cannot void.")
+            except FiscalPeriod.DoesNotExist as exc:
+                raise ValidationError(
+                    "No fiscal period found for payment date. Cannot void."
+                ) from exc
 
             # P5/H-2: a voided payment must not stay in the ledger — mirror
             # DocumentService.void_document's reversal (corrections are
@@ -724,18 +726,18 @@ class PaymentService:
         # state before any mutation.
         try:
             allocation_ref = PaymentAllocation.objects.get(id=allocation_id, org_id=org_id)
-        except PaymentAllocation.DoesNotExist:
-            raise ResourceNotFound(f"Allocation {allocation_id} not found")
+        except PaymentAllocation.DoesNotExist as exc:
+            raise ResourceNotFound(f"Allocation {allocation_id} not found") from exc
 
         payment = Payment.objects.select_for_update().get(id=allocation_ref.payment_id)
         try:
             allocation = PaymentAllocation.objects.select_for_update().get(
                 id=allocation_id, org_id=org_id
             )
-        except PaymentAllocation.DoesNotExist:
+        except PaymentAllocation.DoesNotExist as exc:
             # Deleted between the unlocked id read and the lock — a
             # concurrent unallocate won; the typed contract holds.
-            raise ResourceNotFound(f"Allocation {allocation_id} not found")
+            raise ResourceNotFound(f"Allocation {allocation_id} not found") from exc
         document = InvoiceDocument.objects.select_for_update().get(
             id=allocation_ref.document_id
         )

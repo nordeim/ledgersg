@@ -137,8 +137,8 @@ class AccountService:
         """
         try:
             return Account.objects.get(id=account_id, org_id=org_id)
-        except Account.DoesNotExist:
-            raise ResourceNotFound(f"Account {account_id} not found")
+        except Account.DoesNotExist as exc:
+            raise ResourceNotFound(f"Account {account_id} not found") from exc
 
     @staticmethod
     def get_account_by_code(org_id: UUID, code: str) -> Account | None:
@@ -228,8 +228,8 @@ class AccountService:
                     raise ValidationError(
                         f"Parent account must be of the same category ({parent_category})."
                     )
-            except Account.DoesNotExist:
-                raise ValidationError("Parent account not found.")
+            except Account.DoesNotExist as exc:
+                raise ValidationError("Parent account not found.") from exc
 
         # Validate hierarchy depth (max 3 levels)
         if parent:

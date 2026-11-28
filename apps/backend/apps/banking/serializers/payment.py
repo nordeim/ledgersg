@@ -81,8 +81,10 @@ class PaymentAllocationInputSerializer(serializers.Serializer):
 
         try:
             document = InvoiceDocument.objects.get(id=value, org_id=org_id)
-        except InvoiceDocument.DoesNotExist:
-            raise serializers.ValidationError(_("Document not found in this organisation."))
+        except InvoiceDocument.DoesNotExist as exc:
+            raise serializers.ValidationError(
+                _("Document not found in this organisation.")
+            ) from exc
 
         # P14/H-2: the allocation-eligible set — a PARTIALLY_PAID invoice
         # MUST accept its next instalment (the pre-P14 APPROVED-only check
@@ -154,8 +156,8 @@ class PaymentReceiveSerializer(serializers.Serializer):
 
         try:
             contact = Contact.objects.get(id=value, org_id=org_id)
-        except Contact.DoesNotExist:
-            raise serializers.ValidationError(_("Contact not found in this organisation."))
+        except Contact.DoesNotExist as exc:
+            raise serializers.ValidationError(_("Contact not found in this organisation.")) from exc
 
         if not contact.is_customer:
             raise serializers.ValidationError(
@@ -171,8 +173,10 @@ class PaymentReceiveSerializer(serializers.Serializer):
 
         try:
             bank_account = BankAccount.objects.get(id=value, org_id=org_id)
-        except BankAccount.DoesNotExist:
-            raise serializers.ValidationError(_("Bank account not found in this organisation."))
+        except BankAccount.DoesNotExist as exc:
+            raise serializers.ValidationError(
+                _("Bank account not found in this organisation.")
+            ) from exc
 
         if not bank_account.is_active:
             raise serializers.ValidationError(_("Bank account is not active."))
@@ -252,8 +256,8 @@ class PaymentMakeSerializer(serializers.Serializer):
 
         try:
             contact = Contact.objects.get(id=value, org_id=org_id)
-        except Contact.DoesNotExist:
-            raise serializers.ValidationError(_("Contact not found in this organisation."))
+        except Contact.DoesNotExist as exc:
+            raise serializers.ValidationError(_("Contact not found in this organisation.")) from exc
 
         if not contact.is_supplier:
             raise serializers.ValidationError(_("Contact must be a supplier for payments made."))
@@ -267,8 +271,10 @@ class PaymentMakeSerializer(serializers.Serializer):
 
         try:
             bank_account = BankAccount.objects.get(id=value, org_id=org_id)
-        except BankAccount.DoesNotExist:
-            raise serializers.ValidationError(_("Bank account not found in this organisation."))
+        except BankAccount.DoesNotExist as exc:
+            raise serializers.ValidationError(
+                _("Bank account not found in this organisation.")
+            ) from exc
 
         if not bank_account.is_active:
             raise serializers.ValidationError(_("Bank account is not active."))

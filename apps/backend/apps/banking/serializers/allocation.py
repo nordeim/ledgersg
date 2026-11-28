@@ -75,8 +75,8 @@ class BulkAllocationSerializer(serializers.Serializer):
 
         try:
             payment = Payment.objects.get(id=value, org_id=org_id)
-        except Payment.DoesNotExist:
-            raise serializers.ValidationError(_("Payment not found in this organisation."))
+        except Payment.DoesNotExist as exc:
+            raise serializers.ValidationError(_("Payment not found in this organisation.")) from exc
 
         if payment.is_voided:
             raise serializers.ValidationError(_("Cannot allocate a voided payment."))
@@ -100,10 +100,10 @@ class BulkAllocationSerializer(serializers.Serializer):
 
             try:
                 amount = money(alloc["allocated_amount"])
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as exc:
                 raise serializers.ValidationError(
                     _("Invalid allocated_amount: {}").format(alloc.get("allocated_amount"))
-                )
+                ) from exc
 
             if amount <= Decimal("0"):
                 raise serializers.ValidationError(_("Allocated amount must be positive."))
@@ -141,10 +141,10 @@ class BulkAllocationSerializer(serializers.Serializer):
                     id=alloc["document_id"],
                     org_id=org_id,
                 )
-            except InvoiceDocument.DoesNotExist:
+            except InvoiceDocument.DoesNotExist as exc:
                 raise serializers.ValidationError(
                     _("Document {} not found.").format(alloc["document_id"])
-                )
+                ) from exc
 
             if document.status not in ALLOCATABLE_STATUSES:
                 raise serializers.ValidationError(

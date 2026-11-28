@@ -137,8 +137,10 @@ class BankAccountCreateSerializer(serializers.ModelSerializer):
 
         try:
             account = Account.objects.get(id=value.id, org_id=org_id)
-        except Account.DoesNotExist:
-            raise serializers.ValidationError(_("GL account not found in this organisation."))
+        except Account.DoesNotExist as exc:
+            raise serializers.ValidationError(
+                _("GL account not found in this organisation.")
+            ) from exc
 
         account_type_name = account.account_type.upper() if account.account_type else ""
         if not account_type_name and account.account_type_ref:
