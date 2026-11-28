@@ -5,24 +5,25 @@ Business logic for bank statement imports and reconciliation.
 SEC-001 Remediation: All operations validated and logged.
 """
 
-from uuid import UUID, uuid4
-from typing import List, Optional, Dict, Any
+import csv
+import io
+from datetime import date
 from decimal import Decimal
-from datetime import date, datetime
+from typing import Any, Dict, List, Optional
+from uuid import UUID, uuid4
+
 from django.db import transaction
 from django.db.models import QuerySet
 from django.utils import timezone
-import csv
-import io
 
 from apps.core.models import (
-    BankTransaction,
-    BankAccount,
-    Payment,
     AuditEventLog,
+    BankAccount,
+    BankTransaction,
+    Payment,
 )
-from common.exceptions import ValidationError, ResourceNotFound, DuplicateResource
 from common.decimal_utils import money
+from common.exceptions import ResourceNotFound, ValidationError
 
 
 class ReconciliationService:
@@ -176,7 +177,7 @@ class ReconciliationService:
             try:
                 # Normalize keys to lowercase for easier lookup
                 row_lower = {k.lower().strip(): v for k, v in row.items() if k}
-                
+
                 transaction_date = row_lower.get("transaction_date") or row_lower.get("date")
                 if not transaction_date:
                     errors.append(f"Row {row_num}: Missing transaction_date")
@@ -347,9 +348,17 @@ class ReconciliationService:
         # the caller (suggest_matches filtered candidates, nothing
         # guarded the write), so P could be matched to A AND B — the
         # bank rec double-counts it.
+        # P30/BE-M2: select_related("bank_account") — the response
+        # serializer walks bank_account.account_name; the row rides the
+        # locked fetch (one JOIN, never a separate walk). The FOR UPDATE
+        # extends to the joined bank_account row: a reference row no
+        # sibling path locks after transactions (concurrent reconciles
+        # on the same account acquire it first, consistently).
         try:
-            transaction_obj = BankTransaction.objects.select_for_update().get(
-                id=transaction_id, org_id=org_id
+            transaction_obj = (
+                BankTransaction.objects.select_for_update()
+                .select_related("bank_account")
+                .get(id=transaction_id, org_id=org_id)
             )
         except BankTransaction.DoesNotExist:
             raise ResourceNotFound(f"Bank transaction {transaction_id} not found")
@@ -429,8 +438,12 @@ class ReconciliationService:
         # flipped flags, and bulk-updated the payment with no locks, so a
         # concurrent reconcile() could re-set is_reconciled=True between
         # the read and the bulk update, leaving the flags contradictory.
+        # P30/BE-M2: select_related("bank_account") — the response
+        # serializer walks bank_account.account_name; the row rides the
+        # locked fetch (the same contract reconcile() carries).
         transaction_obj = (
             BankTransaction.objects.select_for_update()
+            .select_related("bank_account")
             .filter(org_id=org_id, id=transaction_id)
             .first()
         )
