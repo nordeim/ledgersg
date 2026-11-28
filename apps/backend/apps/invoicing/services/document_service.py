@@ -22,7 +22,7 @@ from django.utils import timezone
 from weasyprint import HTML
 
 from apps.core.models import Account, Contact, InvoiceDocument, InvoiceLine, Organisation, TaxCode
-from django.db.models import QuerySet
+from django.db.models import Prefetch, QuerySet
 from apps.gst.services import GSTCalculationService, TaxCodeService
 from common.decimal_utils import money, sum_money
 from common.exceptions import ResourceNotFound, ValidationError
@@ -161,7 +161,26 @@ class DocumentService:
             InvoiceDocument instance
         """
         try:
-            return InvoiceDocument.objects.get(id=document_id, org_id=org_id)
+            # P29/BE-H1: the detail seam fetches the related rows in a
+            # bounded, line-count-independent set — the contact rides
+            # the document SELECT (select_related) and the lines arrive
+            # in ONE joined SELECT carrying account + tax_code (the
+            # pre-P29 plain .get() walked both FKs on every line:
+            # a 5-line detail paid 14 queries where 3 would do).
+            # No order_by on the prefetch — the related manager's
+            # default order is the serialized-line contract.
+            return (
+                InvoiceDocument.objects.select_related("contact")
+                .prefetch_related(
+                    Prefetch(
+                        "lines",
+                        queryset=InvoiceLine.objects.select_related(
+                            "account", "tax_code"
+                        ),
+                    )
+                )
+                .get(id=document_id, org_id=org_id)
+            )
         except InvoiceDocument.DoesNotExist:
             raise ResourceNotFound(f"Document {document_id} not found")
 

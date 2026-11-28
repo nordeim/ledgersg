@@ -20,6 +20,7 @@ from typing import Any
 from uuid import UUID
 
 from django.db import connection, transaction
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from apps.core.models import Account, FiscalPeriod, InvoiceDocument, JournalEntry, JournalLine
@@ -139,7 +140,21 @@ class JournalService:
             JournalEntry instance
         """
         try:
-            return JournalEntry.objects.get(id=entry_id, org_id=org_id)
+            # P29/BE-H1: the detail seam prefetches the lines with their
+            # accounts in ONE joined SELECT — the pre-P29 plain .get()
+            # walked the account FK on every line when the detail
+            # serializer read account_code/account_name (a 5-line entry
+            # paid 7-8 queries where 2-3 would do). No order_by on the
+            # prefetch — the related manager's default order is the
+            # serialized-line contract.
+            return (
+                JournalEntry.objects.prefetch_related(
+                    Prefetch(
+                        "lines",
+                        queryset=JournalLine.objects.select_related("account"),
+                    )
+                ).get(id=entry_id, org_id=org_id)
+            )
         except JournalEntry.DoesNotExist:
             raise ResourceNotFound(f"Journal entry {entry_id} not found")
 

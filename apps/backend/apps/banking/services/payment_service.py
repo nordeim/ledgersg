@@ -290,7 +290,14 @@ class PaymentService:
             ResourceNotFound: If not found
         """
         try:
-            return Payment.objects.get(id=payment_id, org_id=org_id)
+            # P29/BE-H1: the detail seam joins the related rows — the
+            # pre-P29 plain .get() left the serializer walking contact
+            # and bank_account as two extra per-row SELECTs on every
+            # serialisation (the detail GET, the create/void/make/
+            # receive responses).
+            return Payment.objects.select_related(
+                "contact", "bank_account"
+            ).get(id=payment_id, org_id=org_id)
         except Payment.DoesNotExist:
             raise ResourceNotFound(f"Payment {payment_id} not found")
 
