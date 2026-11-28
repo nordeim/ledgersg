@@ -14,6 +14,7 @@ FIELD ALIGNMENT (SQL Schema v1.0.2):
 - source_id: UUID - matches journal.entry.source_id
 """
 
+from contextlib import suppress
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -251,14 +252,14 @@ class JournalService:
             from django.core.exceptions import ValidationError as _DjangoVE
 
             for _pre_id in sorted(
-                {str(l.get("account_id")) for l in lines if l.get("account_id")}
+                {str(line.get("account_id")) for line in lines if line.get("account_id")}
             ):
-                try:
+                # P32/BE-P32-H1: the deliberate pass-through (the
+                # per-line gates below produce the typed errors).
+                with suppress(Account.DoesNotExist, ValueError, TypeError, _DjangoVE):
                     Account.objects.select_for_update().only("id").get(
                         id=_pre_id, org_id=org_id
                     )
-                except (Account.DoesNotExist, ValueError, TypeError, _DjangoVE):
-                    pass
 
             entry_number = JournalService._get_next_entry_number(org_id)
 
@@ -335,7 +336,7 @@ class JournalService:
             from django.core.cache import cache as _cache
 
             _touched_ids = sorted(
-                {str(l.get("account_id")) for l in lines if l.get("account_id")}
+                {str(line.get("account_id")) for line in lines if line.get("account_id")}
             )
 
             def _invalidate_balance_cache(touched=_touched_ids) -> None:
@@ -633,9 +634,9 @@ class JournalService:
         totals = lines.aggregate(total_debits=Sum("debit"), total_credits=Sum("credit"))
 
         debits = totals["total_debits"] or Decimal("0.00")
-        credits = totals["total_credits"] or Decimal("0.00")
+        credit_total = totals["total_credits"] or Decimal("0.00")
 
-        return debits - credits
+        return debits - credit_total
 
     @staticmethod
     def get_trial_balance(org_id: UUID, date_to: date | None = None) -> list[dict[str, Any]]:
@@ -672,8 +673,8 @@ class JournalService:
                 continue  # accounts with no journal activity are not on the TB
 
             debits = row["total_debits"] or Decimal("0.00")
-            credits = row["total_credits"] or Decimal("0.00")
-            balance = debits - credits
+            credit_total = row["total_credits"] or Decimal("0.00")
+            balance = debits - credit_total
 
             result.append(
                 {
@@ -682,7 +683,7 @@ class JournalService:
                     "account_name": account.name,
                     "account_type": account.account_type,
                     "total_debits": str(debits),
-                    "total_credits": str(credits),
+                    "total_credits": str(credit_total),
                     "balance": str(balance),
                 }
             )

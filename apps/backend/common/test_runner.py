@@ -24,7 +24,7 @@ class SchemaTestRunner(DiscoverRunner):
                 # Load the full SQL schema
                 schema_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database_schema.sql')
                 if os.path.exists(schema_path):
-                    with open(schema_path, 'r') as f:
+                    with open(schema_path) as f:
                         sql = f.read()
                         # Execute the SQL. Note: this might be slow for large schemas.
                         cursor.execute(sql)

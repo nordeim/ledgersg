@@ -21,14 +21,14 @@ class TestXMLValidationService:
         from apps.peppol.services.xml_validation_service import XMLValidationService
 
         assert hasattr(XMLValidationService, "validate_invoice_xml")
-        assert callable(getattr(XMLValidationService, "validate_invoice_xml"))
+        assert callable(XMLValidationService.validate_invoice_xml)
 
     def test_service_has_validate_credit_note_method(self):
         """Test that service has validate_credit_note_xml method."""
         from apps.peppol.services.xml_validation_service import XMLValidationService
 
         assert hasattr(XMLValidationService, "validate_credit_note_xml")
-        assert callable(getattr(XMLValidationService, "validate_credit_note_xml"))
+        assert callable(XMLValidationService.validate_credit_note_xml)
 
     def test_validate_well_formed_invoice_xml(self):
         """Test that valid Invoice XML passes validation."""

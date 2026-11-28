@@ -124,8 +124,20 @@ class TestFinancialReportsP8:
         revenue = _account(org, "4000", "Sales", "REVENUE", "REVENUE")
         rent = _account(org, "6100", "Rent", "EXPENSE", "EXPENSE_ADMIN")
 
-        _entry(org, user, 1, [(cash, D("109.0000"), D("0.0000")), (revenue, D("0.0000"), D("109.0000"))])
-        _entry(org, user, 2, [(rent, D("30.0000"), D("0.0000")), (cash, D("0.0000"), D("30.0000"))])
+        _entry(
+            org, user, 1,
+            [
+                (cash, decimal_of("109.0000"), decimal_of("0.0000")),
+                (revenue, decimal_of("0.0000"), decimal_of("109.0000")),
+            ],
+        )
+        _entry(
+            org, user, 2,
+            [
+                (rent, decimal_of("30.0000"), decimal_of("0.0000")),
+                (cash, decimal_of("0.0000"), decimal_of("30.0000")),
+            ],
+        )
         return user, org, cash, revenue, rent
 
     def test_trial_balance_returns_real_rows(self):
@@ -206,5 +218,5 @@ class TestFinancialReportsP8:
         assert response.status_code in (401, 403)
 
 
-def D(x: str) -> Decimal:
+def decimal_of(x: str) -> Decimal:
     return Decimal(x)

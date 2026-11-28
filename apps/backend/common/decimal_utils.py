@@ -320,10 +320,7 @@ class Money:
         return Money(result.quantize(MONEY_PLACES))
 
     def __truediv__(self, other) -> "Money":
-        if isinstance(other, Money):
-            divisor = other._value
-        else:
-            divisor = money(other)
+        divisor = other._value if isinstance(other, Money) else money(other)
         if divisor == Decimal("0"):
             raise ZeroDivisionError("Cannot divide by zero")
         result = self._value / divisor

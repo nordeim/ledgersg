@@ -79,8 +79,17 @@ class TestTransmitPeppolInvoiceTask:
             assert result is not None
             assert mock_log.status == "DELIVERED"
 
+    @pytest.mark.django_db
     def test_transmit_task_failure_triggers_retry(self):
-        """Test that task retries on failure."""
+        """Test that task retries on failure.
+
+        P32/BE-P32-H1 (the B017 closure): the blind pytest.raises(Exception)
+        had been swallowing pytest-django's db-blocker RuntimeError — the
+        test passed without EVER reaching the simulated failure (the
+        tenant-context cursor needs the django_db mark). With the mark +
+        the specific exception class, the retry contract is finally what
+        this test proves.
+        """
         from apps.peppol.services.transmission_service import TransmissionService
         from apps.peppol.tasks import transmit_peppol_invoice_task
 
@@ -90,11 +99,17 @@ class TestTransmitPeppolInvoiceTask:
             log_id = str(uuid4())
             org_id = str(uuid4())
 
-            # Simulate failure
-            mock_execute.side_effect = Exception("Network error")
+            # Simulate failure (P32/BE-P32-H1: a SPECIFIC class — the
+            # eager+propagates retry re-raises the original, so a blind
+            # pytest.raises(Exception) would also swallow programming
+            # errors; this tightening lets those fail loudly)
+            class _NetworkError(Exception):
+                pass
 
-            # Task should raise exception for retry
-            with pytest.raises(Exception):
+            mock_execute.side_effect = _NetworkError("Network error")
+
+            # Task should raise the retried exception for the caller
+            with pytest.raises(_NetworkError):
                 transmit_peppol_invoice_task(log_id, org_id)
 
 
@@ -127,7 +142,7 @@ class TestRetryFailedTransmissionTask:
             mock_log.status = "DELIVERED"
             mock_retry.return_value = mock_log
 
-            result = retry_failed_transmission_task(transmission_log_id, org_id)
+            retry_failed_transmission_task(transmission_log_id, org_id)
 
             mock_retry.assert_called_once_with(transmission_log_id)
 

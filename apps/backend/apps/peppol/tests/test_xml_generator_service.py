@@ -22,21 +22,21 @@ class TestXMLGeneratorService:
         from apps.peppol.services.xml_generator_service import XMLGeneratorService
 
         assert hasattr(XMLGeneratorService, "generate_invoice_xml")
-        assert callable(getattr(XMLGeneratorService, "generate_invoice_xml"))
+        assert callable(XMLGeneratorService.generate_invoice_xml)
 
     def test_service_has_generate_credit_note_method(self):
         """Test that service has generate_credit_note_xml method."""
         from apps.peppol.services.xml_generator_service import XMLGeneratorService
 
         assert hasattr(XMLGeneratorService, "generate_credit_note_xml")
-        assert callable(getattr(XMLGeneratorService, "generate_credit_note_xml"))
+        assert callable(XMLGeneratorService.generate_credit_note_xml)
 
     def test_service_has_calculate_hash_method(self):
         """Test that service has calculate_xml_hash method."""
         from apps.peppol.services.xml_generator_service import XMLGeneratorService
 
         assert hasattr(XMLGeneratorService, "calculate_xml_hash")
-        assert callable(getattr(XMLGeneratorService, "calculate_xml_hash"))
+        assert callable(XMLGeneratorService.calculate_xml_hash)
 
     def test_service_has_namespace_constants(self):
         """Test that service defines UBL namespaces."""

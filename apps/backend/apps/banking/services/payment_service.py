@@ -393,15 +393,15 @@ class PaymentService:
             if not JournalService._get_fiscal_period(org_id, reversal_date):
                 reversal_date = original_entry.entry_date
 
-            reversal = JournalService.create_reversal(
+            # P32/BE-P32-H1: the reversal binding was dead (never read —
+            # the void path needs only the side effect); the call stays.
+            JournalService.create_reversal(
                 org_id=org_id,
                 original_entry_id=payment.journal_entry_id,
                 reversal_date=reversal_date,
                 reason=f"Void of payment {payment.payment_number}: {reason}",
                 user_id=user_id,
             )
-        else:
-            reversal = None
 
         # P5/H-2: a voided payment no longer represents money — release its
         # allocations and recompute each document's amount_paid/status.

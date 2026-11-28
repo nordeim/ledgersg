@@ -316,4 +316,6 @@ class AccountSearchView(APIView):
 
 
 # Import at end to avoid circular imports
-from django.db import models
+from django.db import (  # noqa: E402 — deliberate end-of-file import (Django circular-avoidance)
+    models,  # noqa: E402 — the deliberate end-of-file import (Django circular-avoidance)
+)

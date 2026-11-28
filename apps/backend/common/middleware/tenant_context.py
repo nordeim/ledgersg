@@ -163,11 +163,7 @@ class TenantContextMiddleware:
             "/api/v1/auth/",
             "/api/v1/organisations/",
         ]
-        for prefix in skip_prefixes:
-            if path.startswith(prefix):
-                return False
-
-        return True
+        return not any(path.startswith(prefix) for prefix in skip_prefixes)
 
     def _extract_org_id(self, path: str) -> uuid.UUID | None:
         """

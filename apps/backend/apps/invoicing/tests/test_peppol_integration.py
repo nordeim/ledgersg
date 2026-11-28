@@ -53,7 +53,7 @@ class TestInvoiceApprovalPeppolIntegration:
                 status="PENDING",
                 access_point_provider="Storecove",
             )
-            task = mock_task.delay(str(log.id), str(uuid4()))
+            mock_task.delay(str(log.id), str(uuid4()))
 
             # Verify
             assert log is not None

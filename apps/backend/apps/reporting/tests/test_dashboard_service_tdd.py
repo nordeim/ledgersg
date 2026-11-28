@@ -489,7 +489,7 @@ class TestGSTCalculations:
         - Only approved/posted documents contribute to GST
         """
         # Create draft invoice (should not affect GST)
-        draft_invoice = InvoiceDocument.objects.create(
+        InvoiceDocument.objects.create(
             id=uuid4(),
             org=test_org,
             document_type="SALES_INVOICE",
@@ -1430,7 +1430,7 @@ class TestEdgeCases:
         - Respects fiscal_period.is_open flag
         """
         # Create closed fiscal period
-        closed_period = FiscalPeriod.objects.create(
+        FiscalPeriod.objects.create(
             id=uuid4(),
             org=test_org,
             fiscal_year=test_fiscal_year,

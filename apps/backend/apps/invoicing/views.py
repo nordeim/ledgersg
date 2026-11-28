@@ -500,11 +500,17 @@ class DocumentSummaryView(APIView):
         """Get document summary."""
 
         # Get counts by status
+        # P32/BE-P32-H1: the loop variable was named `status`, shadowing
+        # the module-level `from rest_framework import status` — harmless
+        # today (no status-module use after the loop) but a live trap for
+        # any future `status.HTTP_xxx` added to this method.
         status_counts = {}
-        for status, _ in InvoiceDocument.STATUS_CHOICES:
-            count = InvoiceDocument.objects.filter(org_id=org_id, status=status).count()
+        for status_value, _ in InvoiceDocument.STATUS_CHOICES:
+            count = InvoiceDocument.objects.filter(
+                org_id=org_id, status=status_value
+            ).count()
             if count > 0:
-                status_counts[status] = count
+                status_counts[status_value] = count
 
         # Get counts by type (A-2: the model vocabulary is DOCUMENT_TYPES —
         # the previous DOCUMENT_TYPE_CHOICES reference was a phantom attribute)

@@ -7,6 +7,7 @@ SEC-001 Remediation: All operations validated and logged.
 
 import csv
 import io
+from contextlib import suppress
 from datetime import date
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -252,18 +253,16 @@ class ReconciliationService:
                 value_date = None
                 value_date_str = row_lower.get("value_date")
                 if value_date_str:
-                    try:
+                    # P32/BE-P32-H1: the best-effort parse (the column is
+                    # optional in bank exports; the None default stands).
+                    with suppress(ValueError):
                         value_date = dt.strptime(value_date_str.strip(), "%Y-%m-%d").date()
-                    except ValueError:
-                        pass
 
                 running_balance = None
                 running_balance_str = row_lower.get("running_balance") or row_lower.get("balance")
                 if running_balance_str:
-                    try:
+                    with suppress(ValueError):
                         running_balance = money(running_balance_str.replace(",", "").strip())
-                    except ValueError:
-                        pass
 
                 # P20/BE-H2: the per-row savepoint — a DB-level row error
                 # (the exact class the P19/BE-M4 fix closed for

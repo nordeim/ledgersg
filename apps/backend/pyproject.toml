@@ -106,6 +106,21 @@ known-first-party = ["apps", "common", "config"]
 # suppressed HERE and only here; the per-file-ignores block is the
 # single documented place for that contract.
 "config/settings/*.py" = ["F403", "F405"]
+# P32/BE-P32-H1: the F5 conditional-aggregation query's S608 is a
+# verified false positive — the f-string interpolates only the %s
+# placeholder list built from the module-constant posting_types tuple;
+# every value flows through the params list (no user input reaches the
+# SQL text). The diagnostic anchors mid-string (the LIKE '%%' segment),
+# beyond a noqa comment's reach — this block is its documented home.
+"apps/gst/services/calculation_service.py" = ["S608"]
+# P32/BE-P32-M2: test fixtures use literal passwords BY DESIGN (they
+# seed throwaway users against the test DB — they are not secrets), and
+# the p11 boot gate asserts the LOG_DIR override with its own fixed
+# /tmp literal (the expected-value pair, not an insecure write). The
+# ratchet still SELECTS these classes: a hardcoded password or insecure
+# temp path introduced in PRODUCTION code fails the gate — the
+# allowance is scoped to the test trees only.
+"**/tests/**" = ["S105", "S106", "S108"]
 
 [tool.mypy]
 python_version = "3.12"

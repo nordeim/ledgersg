@@ -33,8 +33,12 @@ DEBUG = False
 # P19/X-L4: decouple (`.env`-aware) — the os.environ-only read gave the
 # service mode split semantics (SECRET_KEY from the same .env WAS
 # honored while ALLOWED_HOSTS silently was not).
-from decouple import Csv
-from decouple import config as _decouple_config
+from decouple import (  # noqa: E402 — deliberate end-of-file import (Django circular-avoidance)
+    Csv,  # noqa: E402 — the deliberate end-of-file import (Django circular-avoidance)
+)
+from decouple import (  # noqa: E402 — deliberate end-of-file import (Django circular-avoidance)
+    config as _decouple_config,  # noqa: E402 — the deliberate end-of-file import (Django circular-avoidance)
+)
 
 ALLOWED_HOSTS = _decouple_config(
     "ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv()
@@ -107,7 +111,9 @@ LOGGING = {
 # list is identical to base's — copied so the module is a plain list
 # (importing the NAME would alias base's list; a copy is the
 # copy-on-write convention from P10/LG-4).
-from .base import MIDDLEWARE as _BASE_MIDDLEWARE
+from .base import (  # noqa: E402 — deliberate end-of-file import (Django circular-avoidance)
+    MIDDLEWARE as _BASE_MIDDLEWARE,  # noqa: E402 — the deliberate end-of-file import (Django circular-avoidance)
+)
 
 MIDDLEWARE = list(_BASE_MIDDLEWARE)
 

@@ -16,8 +16,10 @@ from django.contrib.auth.hashers import make_password
 
 pytestmark = pytest.mark.django_db
 
-from apps.banking.services import BankAccountService
-from apps.core.models import (
+from apps.banking.services import (  # noqa: E402 — deliberate end-of-file import (Django circular-avoidance)
+    BankAccountService,  # noqa: E402 — the deliberate end-of-file import (Django circular-avoidance)
+)
+from apps.core.models import (  # noqa: E402 — the deliberate end-of-file import (Django circular-avoidance)
     Account,
     AppUser,
     AuditEventLog,
@@ -26,7 +28,11 @@ from apps.core.models import (
     Role,
     UserOrganisation,
 )
-from common.exceptions import DuplicateResource, ResourceNotFound, ValidationError
+from common.exceptions import (  # noqa: E402 — the deliberate end-of-file import (Django circular-avoidance)
+    DuplicateResource,
+    ResourceNotFound,
+    ValidationError,
+)
 
 
 @pytest.fixture

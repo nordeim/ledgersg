@@ -388,4 +388,6 @@ def toggle_gst_registration(
 
 
 # Need to import here to avoid circular dependency
-from django.utils import timezone
+from django.utils import (  # noqa: E402 — deliberate end-of-file import (Django circular-avoidance)
+    timezone,  # noqa: E402 — the deliberate end-of-file import (Django circular-avoidance)
+)

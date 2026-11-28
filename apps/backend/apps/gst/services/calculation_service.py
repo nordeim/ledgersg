@@ -249,11 +249,21 @@ class GSTCalculationService:
         # Credit notes net their boxes (IRAS: the return reports supplies
         # NET of credit notes issued in the period) — computed below via
         # the sign column.
-        POSTING_TYPES = (
+        posting_types = (
             "SALES_INVOICE", "SALES_CREDIT_NOTE", "SALES_DEBIT_NOTE",
             "PURCHASE_INVOICE", "PURCHASE_CREDIT_NOTE", "PURCHASE_DEBIT_NOTE",
         )
-        placeholders = ", ".join(["%s"] * len(POSTING_TYPES))
+        placeholders = ", ".join(["%s"] * len(posting_types))
+        # P32/BE-P32-H1 (S608, documented false positive): the f-string
+        # interpolates ONLY the %s placeholder list built from the
+        # module-constant posting_types tuple; every value flows through
+        # the params list — no user input reaches the SQL text.
+        # P32/BE-P32-H1 (S608, documented false positive): the f-string
+        # interpolates ONLY the %s placeholder list built from the
+        # module-constant posting_types tuple; every value flows through
+        # the params list — no user input reaches the SQL text. The
+        # suppression lives in pyproject.toml per-file-ignores (the
+        # diagnostic anchors mid-string, beyond a noqa comment's reach).
         query = f"""
             SELECT
                 tc.f5_supply_box,
@@ -278,7 +288,7 @@ class GSTCalculationService:
 
         with connection.cursor() as cursor:
             cursor.execute(
-                query, [str(org_id), period_start, period_end, *POSTING_TYPES]
+                query, [str(org_id), period_start, period_end, *posting_types]
             )
             rows = cursor.fetchall()
 

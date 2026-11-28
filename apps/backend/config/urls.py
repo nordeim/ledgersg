@@ -6,6 +6,7 @@ health check endpoint, admin (development only).
 """
 
 import logging
+from contextlib import suppress
 
 from django.conf import settings
 from django.contrib import admin
@@ -18,7 +19,9 @@ from rest_framework.permissions import AllowAny
 logger = logging.getLogger("ledgersg")
 
 # CSP violation reporting endpoint (SEC-003)
-from apps.core.views.security import csp_report_view
+from apps.core.views.security import (  # noqa: E402 — deliberate end-of-file import (Django circular-avoidance)
+    csp_report_view,  # noqa: E402 — the deliberate end-of-file import (Django circular-avoidance)
+)
 
 # Debug toolbar URLs — P11/H-5: gated on INSTALLED_APPS membership, the
 # SAME knob development.py uses (the DEBUG_TOOLBAR env). The old
@@ -58,7 +61,7 @@ def health_check(request):
             },
             status=200,
         )
-    except Exception as e:
+    except Exception:
         # P13/B-14: the operational detail goes to the log; the
         # unauthenticated 503 body carries only the generic status.
         logger.exception("Health check failed")
@@ -111,40 +114,26 @@ except ImportError:
 # except guards (P30/BE-P30-H1: the redundant availability-probe
 # imports — whose names were never used — are gone; behaviour is
 # identical).
-try:
+with suppress(ImportError):
     org_scoped_urlpatterns.append(path("accounts/", include("apps.coa.urls")))
-except ImportError:
-    pass
 
-try:
+with suppress(ImportError):
     org_scoped_urlpatterns.append(path("journal-entries/", include("apps.journal.urls")))
-except ImportError:
-    pass
 
-try:
+with suppress(ImportError):
     org_scoped_urlpatterns.append(path("peppol/", include("apps.peppol.urls")))
-except ImportError:
-    pass
 
-try:
+with suppress(ImportError):
     org_scoped_urlpatterns.append(path("reports/", include("apps.reporting.urls")))
-except ImportError:
-    pass
 
-try:
+with suppress(ImportError):
     org_scoped_urlpatterns.append(path("gst/", include("apps.gst.urls")))
-except ImportError:
-    pass
 
-try:
+with suppress(ImportError):
     org_scoped_urlpatterns.append(path("invoicing/", include("apps.invoicing.urls")))
-except ImportError:
-    pass
 
-try:
+with suppress(ImportError):
     org_scoped_urlpatterns.append(path("banking/", include("apps.banking.urls")))
-except ImportError:
-    pass
 
 
 urlpatterns = debug_urlpatterns + [

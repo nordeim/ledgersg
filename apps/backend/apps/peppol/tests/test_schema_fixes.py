@@ -62,16 +62,16 @@ class TestSchemaFixes:
     def test_amount_type_enforces_4_decimals(self):
         """Issue 3: Test that AmountType enforces 4 decimal precision."""
         schema_doc = etree.parse("apps/peppol/schemas/ubl-Invoice.xsd")
-        schema = etree.XMLSchema(schema_doc)
+        etree.XMLSchema(schema_doc)
 
         # Should accept 4 decimals
-        valid_xml = """<?xml version="1.0"?>
+        """<?xml version="1.0"?>
         <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">
             <TaxAmount xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">1000.0000</TaxAmount>
         </Invoice>"""
 
         # Should reject 5 decimals (if AmountType is enforced)
-        invalid_xml = """<?xml version="1.0"?>
+        """<?xml version="1.0"?>
         <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">
             <TaxAmount>1000.00000</TaxAmount>
         </Invoice>"""
@@ -109,7 +109,7 @@ class TestSchemaFixes:
 
     def test_party_tax_scheme_element_exists(self):
         """Issue 5: Test PartyTaxScheme element exists in schema."""
-        schema_doc = etree.parse("apps/peppol/schemas/ubl-Invoice.xsd")
+        etree.parse("apps/peppol/schemas/ubl-Invoice.xsd")
         # Check that PartyTaxScheme is defined
         assert True  # Placeholder
 
@@ -123,7 +123,7 @@ class TestSchemaFixes:
 
     def test_payment_means_element_exists(self):
         """Issue 6: Test PaymentMeans element exists in schema."""
-        schema_doc = etree.parse("apps/peppol/schemas/ubl-Invoice.xsd")
+        etree.parse("apps/peppol/schemas/ubl-Invoice.xsd")
         # Check PaymentMeans is defined
         assert True  # Placeholder
 
@@ -137,7 +137,7 @@ class TestSchemaFixes:
 
     def test_allowance_charge_element_exists(self):
         """Issue 7: Test AllowanceCharge element exists in schema."""
-        schema_doc = etree.parse("apps/peppol/schemas/ubl-Invoice.xsd")
+        etree.parse("apps/peppol/schemas/ubl-Invoice.xsd")
         # Check AllowanceCharge is defined
         assert True  # Placeholder
 

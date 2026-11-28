@@ -526,7 +526,8 @@ class DocumentService:
                     f"Cannot transition from '{document.status}' to '{new_status}'. "
                     f"Valid transitions: {', '.join(valid_transitions) or 'none'}"
                 )
-            old_status = document.status
+            # P32/BE-P32-H1: the old_status binding was dead (a refactor
+            # leftover — nothing consumed the pre-transition snapshot).
             document.status = new_status
 
             # P14/H-3: APPROVE posts and VOID reverses into the ledger —
@@ -934,8 +935,10 @@ class DocumentService:
                 )
 
             # Verify fiscal period is open
+            # P32/BE-P32-H1: the fiscal_period binding was dead (the
+            # membership check is the point — the guard-query get).
             try:
-                fiscal_period = FiscalPeriod.objects.get(
+                FiscalPeriod.objects.get(
                     org_id=org_id,
                     start_date__lte=document.issue_date,
                     end_date__gte=document.issue_date,

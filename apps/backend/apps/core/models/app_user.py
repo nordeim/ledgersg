@@ -108,4 +108,6 @@ class AppUser(AbstractBaseUser, BaseModel):
 
 
 # Import here to avoid circular dependency
-from .organisation import Organisation
+from .organisation import (  # noqa: E402 — deliberate end-of-file import (Django circular-avoidance)
+    Organisation,  # noqa: E402 — the deliberate end-of-file import (Django circular-avoidance)
+)

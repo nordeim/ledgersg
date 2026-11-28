@@ -22,7 +22,7 @@ class TestXMLMappingService:
         from apps.peppol.services.xml_mapping_service import XMLMappingService
 
         assert hasattr(XMLMappingService, "map_invoice_to_ubl")
-        assert callable(getattr(XMLMappingService, "map_invoice_to_ubl"))
+        assert callable(XMLMappingService.map_invoice_to_ubl)
 
     def test_service_has_tax_category_mapping(self):
         """Test that service has tax category mapping."""

@@ -91,8 +91,8 @@ class PaymentAllocationInputSerializer(serializers.Serializer):
         # made instalments impossible through the API: the invoice could
         # never reach PAID), and SENT/OVERDUE are billed documents awaiting
         # money. DRAFT/VOID are never allocatable.
-        ALLOCATABLE_STATUSES = ("APPROVED", "SENT", "PARTIALLY_PAID", "OVERDUE")
-        if document.status not in ALLOCATABLE_STATUSES:
+        allocatable_statuses = ("APPROVED", "SENT", "PARTIALLY_PAID", "OVERDUE")
+        if document.status not in allocatable_statuses:
             raise serializers.ValidationError(
                 _(
                     "Document must be APPROVED, SENT, PARTIALLY_PAID or OVERDUE "

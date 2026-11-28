@@ -384,7 +384,7 @@ class TestDashboardCacheWithData:
         )
 
         # Create revenue account
-        revenue_account = Account.objects.create(
+        Account.objects.create(
             org=cache_test_org,
             code="4000",
             name="Sales Revenue",
@@ -394,7 +394,7 @@ class TestDashboardCacheWithData:
         )
 
         # Create invoice
-        invoice = InvoiceDocument.objects.create(
+        InvoiceDocument.objects.create(
             org=cache_test_org,
             document_type="SALES_INVOICE",
             document_number="INV-00001",
