@@ -17,6 +17,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.core.models import Account, BankAccount
+from common.currency import normalize_currency_code
 
 
 def _mask_paynow_id(paynow_type, paynow_id):
@@ -119,9 +120,14 @@ class BankAccountCreateSerializer(serializers.ModelSerializer):
         return value.strip()
 
     def validate_currency(self, value):
-        if not value or len(value) != 3:
-            raise serializers.ValidationError(_("Currency must be a 3-letter code."))
-        return value.upper()
+        # P34/BE-P34-M1: the shared ISO-4217 vocabulary — the pre-P34
+        # check (len == 3) accepted any 3-char typo.
+        normalized = normalize_currency_code(value)
+        if normalized is None:
+            raise serializers.ValidationError(
+                _("Currency must be an active ISO-4217 code (e.g. SGD, USD, EUR).")
+            )
+        return normalized
 
     def validate_opening_balance(self, value):
         if value is None:

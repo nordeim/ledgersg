@@ -221,20 +221,29 @@ class TransmissionService:
         # Step 1: Map invoice to UBL structure
         ubl_data = self.mapping_service.map_invoice_to_ubl(invoice)
 
-        # Step 2: Generate XML
+        # Step 2: Generate XML — P34/BE-P34-H1(b): the VALIDATOR dispatches
+        # by document type exactly as the generator always has. The
+        # pre-P34 code validated the CreditNote root against the INVOICE
+        # XSD (validate_invoice_xml) — a CreditNote document can never
+        # pass it, so every real credit-note transmission was marked
+        # FAILED before reaching the access point.
         if invoice.document_type == "SALES_CREDIT_NOTE":
             xml_payload = self.generator_service.generate_credit_note_xml(ubl_data)
+            validation_result = self.validation_service.validate_credit_note_xml(
+                xml_payload
+            )
         else:
             xml_payload = self.generator_service.generate_invoice_xml(ubl_data)
+            validation_result = self.validation_service.validate_invoice_xml(
+                xml_payload
+            )
 
         # Calculate hash for audit
         xml_hash = self.generator_service.calculate_xml_hash(xml_payload)
         log.xml_payload_hash = xml_hash
         log.save()
 
-        # Step 3: Validate XML
-        validation_result = self.validation_service.validate_invoice_xml(xml_payload)
-
+        # Step 3: the validation result from the type-aware dispatch above
         if not validation_result.get("is_valid", False):
             # P10/M-4: read the keys the validator actually writes
             # (schema_errors / schematron_errors) — the old "errors" read

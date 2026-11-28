@@ -30,15 +30,21 @@ class TestSchemaFixes:
     # ========================================================================
 
     def test_customization_id_is_required_in_schema(self):
-        """Issue 2: Test that CustomizationID is mandatory (minOccurs=1)."""
+        """Issue 2: Test that CustomizationID is mandatory (minOccurs=1).
+
+        P34: the fixture uses the real three-namespace UBL shape (the
+        pre-P34 no-prefix fixture failed for the namespace reason, not
+        the missing element).
+        """
         schema_doc = etree.parse("apps/peppol/schemas/ubl-Invoice.xsd")
         schema = etree.XMLSchema(schema_doc)
 
         # XML without CustomizationID should fail validation
         invalid_xml = """<?xml version="1.0"?>
-        <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">
-            <ID>INV-001</ID>
-            <IssueDate>2026-03-09</IssueDate>
+        <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+                 xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+            <cbc:ID>INV-001</cbc:ID>
+            <cbc:IssueDate>2026-03-09</cbc:IssueDate>
         </Invoice>"""
 
         xml_doc = etree.fromstring(invalid_xml)

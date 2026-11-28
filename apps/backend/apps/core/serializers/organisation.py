@@ -15,6 +15,7 @@ from apps.core.models import (
     UserOrganisation,
 )
 from apps.core.validators import validate_gst_reg_number, validate_uen
+from common.currency import normalize_currency_code
 
 
 def ensure_uen_available(uen, exclude_org=None):
@@ -69,13 +70,26 @@ class OrganisationCreateSerializer(serializers.Serializer):
     gst_reg_number = serializers.CharField(max_length=20, required=False, allow_blank=True)
     gst_reg_date = serializers.DateField(required=False, allow_null=True)
     fy_start_month = serializers.IntegerField(min_value=1, max_value=12, default=1)
-    base_currency = serializers.CharField(max_length=3, default="SGD")
+    # P34/BE-P34-M1: the ISO-4217 vocabulary — the pre-P34 field checked
+    # only max_length, so a 2-char "US" or a typo like "XYZ" reached the
+    # database and propagated into the P33 currency-truth surfaces.
+    base_currency = serializers.CharField(min_length=3, max_length=3, default="SGD")
     # P7/F-3: no `address` here — the Organisation model has address_line_1/2,
     # city, postal_code, country (declaring a phantom field crashed
     # Organisation.objects.create(**kwargs) with a TypeError -> 500; the
     # PATCH path fixed the same lie in P6/F-10).
     contact_email = serializers.EmailField(required=False, allow_blank=True)
     contact_phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
+
+    def validate_base_currency(self, value):
+        """P34/BE-P34-M1: an active ISO-4217 code, case-normalised."""
+        normalized = normalize_currency_code(value)
+        if normalized is None:
+            raise serializers.ValidationError(
+                "base_currency must be an active ISO-4217 currency code "
+                "(e.g. SGD, USD, EUR)."
+            )
+        return normalized
 
     def validate(self, data):
         """Validate GST registration fields + identity-number formats."""
@@ -368,6 +382,16 @@ class OrganisationUpdateSerializer(serializers.Serializer):
     base_currency = serializers.CharField(min_length=3, max_length=3, required=False)
     peppol_participant_id = serializers.CharField(max_length=64, required=False, allow_blank=True)
     invoicenow_enabled = serializers.BooleanField(required=False)
+
+    def validate_base_currency(self, value):
+        """P34/BE-P34-M1: an active ISO-4217 code, case-normalised."""
+        normalized = normalize_currency_code(value)
+        if normalized is None:
+            raise serializers.ValidationError(
+                "base_currency must be an active ISO-4217 currency code "
+                "(e.g. SGD, USD, EUR)."
+            )
+        return normalized
 
     def validate(self, data):
         """P17/BE-M3: the detail PATCH normalizes + format-validates the

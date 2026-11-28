@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+           xmlns="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+           elementFormDefault="qualified"
+           version="2.1">
+
+    <xs:annotation>
+        <xs:documentation>
+            UBL 2.1 Common Basic Components - LedgerSG PINT-SG Compliant
+            Version: 1.0.0 (2026-11-28)
+            P34/BE-P34-H1(c): extracted from the single-file Invoice/CreditNote
+            XSDs whose local-element declarations could never validate the
+            generator's real UBL output (the basic components live in THIS
+            namespace, and the amount attributes currencyID/unitCode/schemeID
+            were never declared at all — the validation layer was decorative).
+            The elements mirror the subset the generator emits plus the
+            optional PINT-SG surface the previous schemas carried.
+        </xs:documentation>
+    </xs:annotation>
+
+    <!-- ============ SIMPLE TYPES ============ -->
+
+    <!-- Monetary amount with 4 decimal precision (IRAS requirement) -->
+    <xs:simpleType name="AmountType">
+        <xs:restriction base="xs:decimal">
+            <xs:totalDigits value="14"/>
+            <xs:fractionDigits value="4"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Tax category ID (PINT-SG codes) -->
+    <xs:simpleType name="TaxCategoryIDType">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="S"/>
+            <xs:enumeration value="Z"/>
+            <xs:enumeration value="E"/>
+            <xs:enumeration value="O"/>
+            <xs:enumeration value="K"/>
+            <xs:enumeration value="NG"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Payment means code (Singapore PayNow support) -->
+    <xs:simpleType name="PaymentMeansCodeType">
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="10"/>
+            <xs:enumeration value="30"/>
+            <xs:enumeration value="42"/>
+            <xs:enumeration value="47"/>
+            <xs:enumeration value="48"/>
+            <xs:enumeration value="49"/>
+            <xs:enumeration value="58"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- ============ DOCUMENT HEADER ELEMENTS ============ -->
+
+    <xs:element name="UBLVersionID" type="xs:string"/>
+    <xs:element name="CustomizationID" type="xs:string"/>
+    <xs:element name="ProfileID" type="xs:string"/>
+    <xs:element name="ID">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="xs:string">
+                    <xs:attribute name="schemeID" type="xs:string"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="IssueDate" type="xs:date"/>
+    <xs:element name="DueDate" type="xs:date"/>
+    <xs:element name="InvoiceTypeCode" type="xs:string"/>
+    <xs:element name="CreditNoteTypeCode" type="xs:string"/>
+    <xs:element name="DocumentCurrencyCode" type="xs:string"/>
+    <xs:element name="TaxCurrencyCode" type="xs:string"/>
+
+    <!-- ============ AMOUNT ELEMENTS (currencyID required — PINT-SG) ============ -->
+
+    <xs:element name="TaxAmount">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="AmountType">
+                    <xs:attribute name="currencyID" type="xs:string" use="required"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="TaxableAmount">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="AmountType">
+                    <xs:attribute name="currencyID" type="xs:string" use="required"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="LineExtensionAmount">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="AmountType">
+                    <xs:attribute name="currencyID" type="xs:string" use="required"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="TaxExclusiveAmount">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="AmountType">
+                    <xs:attribute name="currencyID" type="xs:string" use="required"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="TaxInclusiveAmount">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="AmountType">
+                    <xs:attribute name="currencyID" type="xs:string" use="required"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="PayableAmount">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="AmountType">
+                    <xs:attribute name="currencyID" type="xs:string" use="required"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="PrepaidAmount">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="AmountType">
+                    <xs:attribute name="currencyID" type="xs:string" use="required"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="PayableRoundingAmount">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="AmountType">
+                    <xs:attribute name="currencyID" type="xs:string" use="required"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="PriceAmount">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="AmountType">
+                    <xs:attribute name="currencyID" type="xs:string" use="required"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="BaseAmount">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="AmountType">
+                    <xs:attribute name="currencyID" type="xs:string" use="required"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="ActualAmount">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="AmountType">
+                    <xs:attribute name="currencyID" type="xs:string" use="required"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- ============ QUANTITY ELEMENTS ============ -->
+
+    <xs:element name="InvoicedQuantity">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="xs:decimal">
+                    <xs:attribute name="unitCode" type="xs:string"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="CreditedQuantity">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="xs:decimal">
+                    <xs:attribute name="unitCode" type="xs:string"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="BaseQuantity">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="xs:decimal">
+                    <xs:attribute name="unitCode" type="xs:string"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="MultiplierFactorNumeric" type="xs:decimal"/>
+    <xs:element name="Percent" type="xs:decimal"/>
+
+    <!-- ============ PARTY / ADDRESS ELEMENTS ============ -->
+
+    <xs:element name="Name" type="xs:string"/>
+    <xs:element name="RegistrationName" type="xs:string"/>
+    <xs:element name="CompanyID">
+        <xs:complexType>
+            <xs:simpleContent>
+                <xs:extension base="xs:string">
+                    <xs:attribute name="schemeID" type="xs:string"/>
+                </xs:extension>
+            </xs:simpleContent>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="StreetName" type="xs:string"/>
+    <xs:element name="AdditionalStreetName" type="xs:string"/>
+    <xs:element name="CityName" type="xs:string"/>
+    <xs:element name="PostalZone" type="xs:string"/>
+    <xs:element name="IdentificationCode" type="xs:string"/>
+    <xs:element name="Telephone" type="xs:string"/>
+    <xs:element name="ElectronicMail" type="xs:string"/>
+    <xs:element name="SchemeID" type="xs:string"/>
+
+    <!-- ============ PAYMENT / MISC ELEMENTS ============ -->
+
+    <xs:element name="PaymentMeansCode" type="PaymentMeansCodeType"/>
+    <xs:element name="PaymentDueDate" type="xs:date"/>
+    <xs:element name="Note" type="xs:string"/>
+    <xs:element name="Description" type="xs:string"/>
+    <xs:element name="ChargeIndicator" type="xs:boolean"/>
+    <xs:element name="AllowanceChargeReason" type="xs:string"/>
+    <xs:element name="TaxExemptionReason" type="xs:string"/>
+
+</xs:schema>

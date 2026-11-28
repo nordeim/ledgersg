@@ -116,6 +116,12 @@ class XMLGeneratorService:
         """
         Generate UBL 2.1 CreditNote XML from mapped data.
 
+        P34/BE-P34-H1(a): the full PINT-SG structure — the pre-P34
+        generator emitted header-only UBL while the mapper already
+        supplies the parties, payment terms, tax totals, monetary totals
+        and lines for every document type; a transmitted credit note
+        carried no parties, no amounts and no lines.
+
         Args:
             mapped_data: Dictionary from XMLMappingService
 
@@ -137,6 +143,8 @@ class XMLGeneratorService:
         self._add_element(credit_note, "ProfileID", mapped_data.get("profile_id"))
         self._add_element(credit_note, "ID", mapped_data.get("document_id"))
         self._add_element(credit_note, "IssueDate", mapped_data.get("issue_date"))
+        if mapped_data.get("due_date"):
+            self._add_element(credit_note, "DueDate", mapped_data["due_date"])
 
         # Document type code (381 = Credit Note)
         self._add_element(credit_note, "CreditNoteTypeCode", "381")
@@ -144,6 +152,45 @@ class XMLGeneratorService:
         # Currency
         self._add_element(credit_note, "DocumentCurrencyCode", mapped_data.get("currency"))
         self._add_element(credit_note, "TaxCurrencyCode", mapped_data.get("tax_currency"))
+
+        # P34 carries the P33 currency truth: every amount element's
+        # currencyID carries the DOCUMENT currency, never a hardcoded
+        # denomination.
+        currency = mapped_data.get("currency") or "SGD"
+
+        # Supplier (AccountingSupplierParty)
+        if mapped_data.get("supplier"):
+            supplier_party = self._create_supplier_party(mapped_data["supplier"])
+            credit_note.append(supplier_party)
+
+        # Customer (AccountingCustomerParty)
+        if mapped_data.get("customer"):
+            customer_party = self._create_customer_party(mapped_data["customer"])
+            credit_note.append(customer_party)
+
+        # Payment Terms
+        if mapped_data.get("payment_terms"):
+            payment_terms = self._create_payment_terms(mapped_data["payment_terms"])
+            credit_note.append(payment_terms)
+
+        # Tax Totals
+        if mapped_data.get("tax_totals"):
+            tax_total = self._create_tax_total(mapped_data["tax_totals"], currency)
+            credit_note.append(tax_total)
+
+        # Monetary Totals
+        if mapped_data.get("monetary_totals"):
+            monetary_total = self._create_monetary_total(
+                mapped_data["monetary_totals"], currency
+            )
+            credit_note.append(monetary_total)
+
+        # Credit Note Lines — the UBL 2.1 CreditNoteLine (CreditedQuantity),
+        # never an InvoiceLine
+        if mapped_data.get("lines"):
+            for line_data in mapped_data["lines"]:
+                line = self._create_credit_note_line(line_data, currency)
+                credit_note.append(line)
 
         # Generate XML string
         xml_string = etree.tostring(
@@ -452,6 +499,55 @@ class XMLGeneratorService:
 
         # Invoiced quantity
         quantity = etree.SubElement(line, f"{{{self.NAMESPACE_CBC}}}InvoicedQuantity")
+        quantity.set("unitCode", line_data.get("unit_code", "EA"))
+        quantity.text = line_data.get("quantity", "1")
+
+        # Line extension amount
+        ext_amount = etree.SubElement(line, f"{{{self.NAMESPACE_CBC}}}LineExtensionAmount")
+        ext_amount.set("currencyID", currency)
+        ext_amount.text = line_data.get("line_extension_amount", "0.00")
+
+        # Item
+        item = etree.SubElement(line, f"{{{self.NAMESPACE_CAC}}}Item")
+
+        # Description
+        if line_data.get("description"):
+            desc = etree.SubElement(item, f"{{{self.NAMESPACE_CBC}}}Description")
+            desc.text = line_data["description"]
+
+        # Price
+        price = etree.SubElement(line, f"{{{self.NAMESPACE_CAC}}}Price")
+        price_amount = etree.SubElement(price, f"{{{self.NAMESPACE_CBC}}}PriceAmount")
+        price_amount.set("currencyID", currency)
+        price_amount.text = line_data.get("unit_price", "0.00")
+
+        return line
+
+    def _create_credit_note_line(self, line_data: dict[str, Any], currency: str) -> etree.Element:
+        """
+        Create CreditNoteLine element (the UBL 2.1 credit-note line).
+
+        P34/BE-P34-H1(a): mirrors _create_invoice_line's shape with the
+        credit-note element names — cac:CreditNoteLine carrying
+        cbc:CreditedQuantity (never InvoicedQuantity; real Peppol access
+        points validate against the OASIS UBL 2.1 CreditNote schema).
+
+        Args:
+            line_data: Line dictionary from mapped data
+            currency: the document's currency (the P33 truth — every
+                amount's currencyID carries it)
+
+        Returns:
+            CreditNoteLine element
+        """
+        line = etree.Element(f"{{{self.NAMESPACE_CAC}}}CreditNoteLine")
+
+        # Line ID
+        line_id = etree.SubElement(line, f"{{{self.NAMESPACE_CBC}}}ID")
+        line_id.text = line_data.get("line_id", "1")
+
+        # Credited quantity (the credit-note analog of InvoicedQuantity)
+        quantity = etree.SubElement(line, f"{{{self.NAMESPACE_CBC}}}CreditedQuantity")
         quantity.set("unitCode", line_data.get("unit_code", "EA"))
         quantity.text = line_data.get("quantity", "1")
 

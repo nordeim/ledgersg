@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.core.models import BankAccount, Contact, InvoiceDocument, Payment
+from common.currency import normalize_currency_code
 from common.decimal_utils import money
 
 
@@ -145,9 +146,14 @@ class PaymentReceiveSerializer(serializers.Serializer):
     allocations = PaymentAllocationInputSerializer(many=True, required=False)
 
     def validate_currency(self, value):
-        if not value or len(value) != 3:
-            raise serializers.ValidationError(_("Currency must be a 3-letter code."))
-        return value.upper()
+        # P34/BE-P34-M1: the shared ISO-4217 vocabulary — the pre-P34
+        # check (len == 3) accepted any 3-char typo.
+        normalized = normalize_currency_code(value)
+        if normalized is None:
+            raise serializers.ValidationError(
+                _("Currency must be an active ISO-4217 code (e.g. SGD, USD, EUR).")
+            )
+        return normalized
 
     def validate_contact_id(self, value):
         org_id = self.context.get("org_id")
@@ -245,9 +251,14 @@ class PaymentMakeSerializer(serializers.Serializer):
     allocations = PaymentAllocationInputSerializer(many=True, required=False)
 
     def validate_currency(self, value):
-        if not value or len(value) != 3:
-            raise serializers.ValidationError(_("Currency must be a 3-letter code."))
-        return value.upper()
+        # P34/BE-P34-M1: the shared ISO-4217 vocabulary — the pre-P34
+        # check (len == 3) accepted any 3-char typo.
+        normalized = normalize_currency_code(value)
+        if normalized is None:
+            raise serializers.ValidationError(
+                _("Currency must be an active ISO-4217 code (e.g. SGD, USD, EUR).")
+            )
+        return normalized
 
     def validate_contact_id(self, value):
         org_id = self.context.get("org_id")

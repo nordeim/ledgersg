@@ -139,7 +139,12 @@ class TestXMLValidationService:
         assert "schema_errors" in result
 
     def test_validate_credit_note_well_formed(self):
-        """Test that valid CreditNote XML passes validation."""
+        """Test that valid CreditNote XML passes validation.
+
+        P34: strengthened from the deliberate "keys exist" weakness (the
+        documented-weakness comment retired) — the credit-note generator
+        now emits the full structure and the CreditNote XSD accepts it.
+        """
         from apps.peppol.services.xml_generator_service import XMLGeneratorService
         from apps.peppol.services.xml_validation_service import XMLValidationService
 
@@ -150,13 +155,19 @@ class TestXMLValidationService:
             "profile_id": "urn:peppol:pint:billing-1@sg-1",
             "document_id": "CN-001",
             "issue_date": "2026-03-09",
+            "due_date": "2026-04-09",
             "document_type": "CREDIT_NOTE",
             "currency": "SGD",
             "tax_currency": "SGD",
             "supplier": {"name": "Test", "uen": "202312345A", "address": {"country": "SG"}},
             "customer": {"name": "Test", "uen": "202398765B", "address": {"country": "SG"}},
-            "payment_terms": {},
-            "tax_totals": {"tax_categories": [], "total_tax_amount": "0.00"},
+            "payment_terms": {"payment_due_date": "2026-04-09"},
+            "tax_totals": {
+                "tax_categories": [
+                    {"category": "S", "rate": 0.09, "taxable_amount": "0.00", "tax_amount": "0.00"}
+                ],
+                "total_tax_amount": "0.00",
+            },
             "monetary_totals": {
                 "line_extension_amount": "0.00",
                 "tax_exclusive_amount": "0.00",
@@ -164,7 +175,16 @@ class TestXMLValidationService:
                 "payable_amount": "0.00",
                 "prepaid_amount": "0.00",
             },
-            "lines": [],
+            "lines": [
+                {
+                    "line_id": "1",
+                    "quantity": "1",
+                    "unit_code": "EA",
+                    "line_extension_amount": "0.00",
+                    "description": "Credited service",
+                    "unit_price": "0.00",
+                }
+            ],
         }
 
         xml_string = generator.generate_credit_note_xml(mapped_data)
@@ -172,11 +192,12 @@ class TestXMLValidationService:
         validator = XMLValidationService()
         result = validator.validate_credit_note_xml(xml_string)
 
-        # With minimal schemas, validation may have schema errors but service works
-        # Check that document type is detected and validation was attempted
         assert result["document_type"] == "CREDIT_NOTE"
-        assert "is_valid" in result
-        assert "schema_errors" in result
+        assert result["is_valid"] is True, (
+            f"the generated credit note must pass the CreditNote XSD — "
+            f"schema_errors: {result['schema_errors']}"
+        )
+        assert result["schema_errors"] == []
 
     def test_validate_invalid_xml_syntax(self):
         """Test that invalid XML syntax is caught."""
