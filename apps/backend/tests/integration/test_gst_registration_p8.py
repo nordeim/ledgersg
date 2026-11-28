@@ -7,8 +7,9 @@ this view has no PATCH; its mutating verbs are POST (register) and DELETE
 register/deregister the organisation for GST post-P7.
 """
 
-import pytest
 from datetime import date
+
+import pytest
 from rest_framework import status
 
 from apps.core.models import Role, UserOrganisation

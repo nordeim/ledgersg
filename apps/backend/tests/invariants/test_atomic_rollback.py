@@ -280,8 +280,8 @@ def test_submil_imbalance_is_typed_400_not_commit_500(
     (0.0005) but outside the DB trigger's (0.0001) must be rejected by the
     SERVICE with a typed 400, not blow up at COMMIT.
     """
-    from common.exceptions import ValidationError as LedgerValidationError
     from apps.journal.services import JournalService
+    from common.exceptions import ValidationError as LedgerValidationError
 
     ar_account = test_accounts["1200"]
     revenue_account = test_accounts["4000"]

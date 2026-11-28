@@ -8,14 +8,20 @@ document types only (quotes/POs excluded, converted quotes count once) and
 nets credit notes instead of adding them.
 """
 
-import pytest
 from datetime import date, timedelta
 from decimal import Decimal
 
-from apps.core.models import Contact, InvoiceDocument, JournalLine, DocumentSequence, FiscalYear, FiscalPeriod
-from apps.invoicing.services import DocumentService
-from apps.journal.services import JournalService
+import pytest
+
+from apps.core.models import (
+    Contact,
+    DocumentSequence,
+    FiscalPeriod,
+    FiscalYear,
+    JournalLine,
+)
 from apps.gst.services.calculation_service import GSTCalculationService
+from apps.invoicing.services import DocumentService
 
 
 @pytest.fixture

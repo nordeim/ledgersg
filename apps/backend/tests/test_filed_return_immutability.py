@@ -10,16 +10,14 @@ The statutory record of what was submitted to IRAS must be immutable:
 - corrections go through the amendment flow, never silent recompute
 """
 
-import uuid
 from datetime import date
 from decimal import Decimal
 
 import pytest
 
-from common.exceptions import ValidationError as LedgerSGValidationError
-
 from apps.core.models import GSTReturn
 from apps.gst.services import GSTReturnService
+from common.exceptions import ValidationError as LedgerSGValidationError
 
 
 @pytest.fixture

@@ -24,11 +24,11 @@ BE-L5: suggest_matches() N+1s payment.contact.name (no
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
 from tests.integration.test_payment_allocation_contract_p14 import (  # noqa: F401
     payment_fixture,
 )
-
-import pytest
 
 
 def _auth(client, user):

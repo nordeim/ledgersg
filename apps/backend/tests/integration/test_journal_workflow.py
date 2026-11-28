@@ -5,9 +5,10 @@ Tests double-entry accounting including balance validation and reversals.
 Updated for SQL schema field alignment (source_type, narration, source_id).
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
+
+import pytest
 from rest_framework import status
 
 from apps.core.models import JournalEntry, JournalLine

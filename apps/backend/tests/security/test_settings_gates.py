@@ -201,10 +201,11 @@ def test_wrap_response_exceptions_map_to_status_codes():
     """A LedgerSGException raised inside a wrapped view must produce its
     mapped status code (not an unhandled 500) — end-to-end through DRF
     dispatch with the custom exception handler active."""
+    from rest_framework.permissions import AllowAny
     from rest_framework.test import APIRequestFactory
     from rest_framework.views import APIView
-    from rest_framework.permissions import AllowAny
-    from common.exceptions import UnauthorizedOrgAccess, PeppolTransmissionError
+
+    from common.exceptions import PeppolTransmissionError, UnauthorizedOrgAccess
 
     class ExplodingView(APIView):
         authentication_classes = []
@@ -237,8 +238,8 @@ def _load_service_settings(monkeypatch, secret, hosts=None):
     importing service first executes it against the stale cached base
     module and raises before the new env is in effect.
     """
-    import sys
     import importlib
+    import sys
 
     monkeypatch.setenv("SECRET_KEY", secret)
     if hosts is not None:
@@ -350,9 +351,9 @@ def test_admin_route_is_gated_off_in_testing_and_production(monkeypatch):
     import importlib
     import sys
 
-    from django.conf import settings as dj_settings
-    from django.urls import resolve, Resolver404
     import pytest
+    from django.conf import settings as dj_settings
+    from django.urls import Resolver404, resolve
 
     # The URLconf reads ENABLE_ADMIN at import time — reload it for each
     # posture under test (the settings-gate pattern of this module).

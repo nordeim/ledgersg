@@ -11,7 +11,6 @@ OrganisationDetailView.patch correctly requires can_manage_org.
 import pytest
 from rest_framework import status
 
-from apps.core.models import Role, UserOrganisation
 from tests.integration.test_document_status_view_p7 import (
     _limited_client,
     _make_limited_member,

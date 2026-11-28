@@ -4,29 +4,26 @@ pytest configuration for LedgerSG backend.
 Fixtures and utilities for integration testing.
 """
 
-import pytest
 import uuid
-from decimal import Decimal
 from datetime import date, timedelta
-from typing import Generator
+from decimal import Decimal
 
-from django.test import Client
+import pytest
 from django.contrib.auth.hashers import make_password
 from rest_framework.test import APIClient
 
 # Import models
 from apps.core.models import (
+    Account,
     AppUser,
+    FiscalPeriod,
+    FiscalYear,
+    InvoiceDocument,
     Organisation,
     Role,
-    UserOrganisation,
-    FiscalYear,
-    FiscalPeriod,
     TaxCode,
-    Account,
-    InvoiceDocument,
+    UserOrganisation,
 )
-
 
 # =============================================================================
 # Fixtures

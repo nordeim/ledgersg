@@ -30,7 +30,6 @@ class TestVoidLocksPaymentRowP17:
         from unittest.mock import patch
 
         from apps.core.models import Payment
-        from common.exceptions import ValidationError as ServiceValidationError
 
         fx = payment_fixture
         payment = _receive(fx["org"], fx["user"], fx["bank"], fx["contact"], Decimal("10.00"))
@@ -86,9 +85,10 @@ class TestCeleryTenantContextP17:
     ):
         from unittest.mock import patch
 
-        from tests.conftest import create_test_contact, create_test_invoice
-        from apps.invoicing.tasks import send_invoice_email_task
         from django.db import connection
+
+        from apps.invoicing.tasks import send_invoice_email_task
+        from tests.conftest import create_test_contact, create_test_invoice
 
         org = test_organisation
         contact = create_test_contact(org, is_customer=True)
@@ -121,9 +121,10 @@ class TestCeleryTenantContextP17:
     ):
         from unittest.mock import patch
 
-        from apps.peppol.tasks import transmit_peppol_invoice_task
-        from apps.peppol.models import PeppolTransmissionLog
         from django.db import connection
+
+        from apps.peppol.models import PeppolTransmissionLog
+        from apps.peppol.tasks import transmit_peppol_invoice_task
         from tests.conftest import create_test_contact, create_test_invoice
 
         org = test_organisation
@@ -159,11 +160,12 @@ class TestCeleryTenantContextP17:
         """The production failure mode, reproduced for real: as the
         non-superuser runtime role, tenant rows are invisible without the
         GUC and visible inside tenant_context()."""
+        import uuid as uuid_mod
+
         import psycopg
         from django.conf import settings as dj_settings
 
         from apps.core.models import Contact, Organisation
-        import uuid as uuid_mod
 
         org = Organisation.objects.create(
             name=f"P17 RLS probe {uuid_mod.uuid4().hex[:6]}",
@@ -236,7 +238,6 @@ class TestExchangeRatePrecisionP17:
         rate before storage AND before the FX math (a 1.000000-unit rate
         drifts base amounts deterministically). The rate must round-trip
         exactly; only the MONETARY products are 4-dp."""
-        from apps.core.models import Payment
 
         fx = payment_fixture
         payment = _receive_with_rate(
@@ -272,9 +273,9 @@ class TestListQueryPlansP17:
 
     @pytest.mark.django_db
     def test_payment_list_is_select_related(self, payment_fixture):
-        from django.test.utils import CaptureQueriesContext
         from django.db import connection
-        from apps.core.models import Payment
+        from django.test.utils import CaptureQueriesContext
+
 
         fx = payment_fixture
         for i in range(3):
@@ -297,10 +298,11 @@ class TestListQueryPlansP17:
 
     @pytest.mark.django_db
     def test_document_list_is_select_related(self, payment_fixture):
-        from django.test.utils import CaptureQueriesContext
         from django.db import connection
-        from tests.conftest import create_test_invoice
+        from django.test.utils import CaptureQueriesContext
+
         from apps.invoicing.services import DocumentService
+        from tests.conftest import create_test_invoice
 
         fx = payment_fixture
         for i in range(3):
@@ -323,11 +325,13 @@ class TestListQueryPlansP17:
 
     @pytest.mark.django_db
     def test_bank_transaction_list_is_select_related(self, payment_fixture):
-        from django.test.utils import CaptureQueriesContext
-        from django.db import connection
         from datetime import date as d
-        from apps.core.models import BankTransaction
+
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
         from apps.banking.services import ReconciliationService
+        from apps.core.models import BankTransaction
 
         fx = payment_fixture
         for i in range(3):
@@ -361,6 +365,7 @@ class TestMembershipCacheNegativeP17:
         (there is no invalidation surface; positive-only caching bounds
         the damage to the documented B-9 window)."""
         from django.core.cache import cache
+
         from common.middleware.tenant_context import TenantContextMiddleware
 
         cache.clear()

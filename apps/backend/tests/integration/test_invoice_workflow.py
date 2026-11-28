@@ -5,12 +5,11 @@ Tests end-to-end invoice lifecycle:
   Create Invoice → Add Lines → Calculate GST → Approve → Journal Posted
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
-from rest_framework import status
+from decimal import Decimal
 
-from apps.core.models import InvoiceDocument, InvoiceLine, JournalEntry
+import pytest
+from rest_framework import status
 
 
 @pytest.mark.django_db
@@ -128,7 +127,7 @@ def test_invoice_workflow_approval_creates_journal(auth_client, test_organisatio
 def test_invoice_status_transitions(auth_client, test_organisation, test_user, test_accounts, test_tax_codes, test_fiscal_period):
     """Test valid and invalid status transitions."""
     from apps.core.models import Contact
-    from apps.invoicing.services import DocumentService, STATUS_TRANSITIONS
+    from apps.invoicing.services import DocumentService
 
     contact = Contact.objects.create(
         org=test_organisation,

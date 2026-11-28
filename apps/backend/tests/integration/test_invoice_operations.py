@@ -14,11 +14,10 @@ These tests expect the endpoints to exist and return appropriate responses.
 TDD: Tests will fail initially, then pass once implementation is complete.
 """
 
+from uuid import uuid4
+
 import pytest
-from uuid import UUID, uuid4
-from django.urls import reverse
 from rest_framework.test import APIClient
-from rest_framework import status
 
 
 @pytest.mark.django_db
@@ -90,8 +89,8 @@ class TestInvoiceOperationsBusinessLogic:
         - A journal entry should be created and linked
         - Entry should balance (debits = credits)
         """
-        from apps.invoicing.services import DocumentService
         from apps.core.models import JournalEntry
+        from apps.invoicing.services import DocumentService
 
         document = DocumentService.approve_document(
             test_organisation.id, period_invoice_with_lines.id, test_user
@@ -116,8 +115,8 @@ class TestInvoiceOperationsBusinessLogic:
         - Reversal journal entries should be created
         - Void reason should be recorded
         """
-        from apps.invoicing.services import DocumentService
         from apps.core.models import JournalEntry
+        from apps.invoicing.services import DocumentService
 
         document = DocumentService.approve_document(
             test_organisation.id, period_invoice_with_lines.id, test_user
@@ -151,7 +150,6 @@ class TestInvoiceOperationsBusinessLogic:
         'PAID_PARTIAL' literal made this state impossible to void.
         """
         from apps.invoicing.services import DocumentService
-        from apps.core.models import InvoiceDocument
 
         document = DocumentService.approve_document(
             test_organisation.id, period_invoice_with_lines.id, test_user
@@ -255,6 +253,7 @@ class TestInvoiceOperationsBusinessLogic:
         - Cannot approve an already approved invoice
         """
         import pytest as _pytest
+
         from apps.invoicing.services import DocumentService
 
         document = DocumentService.approve_document(
@@ -278,10 +277,11 @@ def period_invoice_with_lines(test_organisation, test_accounts, test_tax_codes, 
     """A DRAFT sales invoice with two lines dated inside the open fiscal period."""
     from datetime import date
     from decimal import Decimal
-    from apps.core.models import InvoiceDocument, InvoiceLine
-    from tests.conftest import create_test_contact
     from unittest.mock import patch
+
+    from apps.core.models import InvoiceDocument, InvoiceLine
     from apps.invoicing.services import DocumentService
+    from tests.conftest import create_test_contact
 
     contact = create_test_contact(test_organisation)
     with patch.object(DocumentService, "_get_next_document_number", return_value="INV-00001"):

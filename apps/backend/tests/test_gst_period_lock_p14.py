@@ -10,24 +10,22 @@ Corrections go through the amendment flow / post-filing voluntary
 disclosure, never silent back-posting.
 """
 
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
-import uuid
 
 import pytest
 
-from common.exceptions import ValidationError
 from apps.core.models import (
-    Contact,
+    DocumentSequence,
     FiscalPeriod,
-    FiscalYear,
     GSTReturn,
     InvoiceDocument,
-    DocumentSequence,
 )
 from apps.gst.services import GSTReturnService
 from apps.invoicing.services import DocumentService
 from apps.journal.services import JournalService
+from common.exceptions import ValidationError
 from tests.conftest import create_test_contact
 
 
@@ -233,7 +231,6 @@ class TestPaymentVoidLockP16:
         self, test_organisation, test_user, test_accounts, test_tax_codes,
         test_fiscal_period,
     ):
-        from datetime import timedelta
 
         from apps.banking.services import PaymentService
         from apps.core.models import BankAccount, GSTReturn

@@ -4,15 +4,15 @@ Test rate limiting for authentication and banking endpoints.
 SEC-002 Remediation: Security tests for rate limit enforcement.
 """
 
-import pytest
 import uuid
+
+import pytest
 from django.contrib.auth.hashers import make_password
 from django.test import override_settings
-from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework.test import APIClient
 
-from apps.core.models import AppUser, Organisation, UserOrganisation, Role, BankAccount
-
+from apps.core.models import AppUser, BankAccount, Organisation, Role, UserOrganisation
 
 pytestmark = pytest.mark.django_db
 

@@ -13,7 +13,6 @@ load_dtd=False, huge_tree=False) must reject all of these WITHOUT
 file/network access, while valid UBL still validates.
 """
 
-from pathlib import Path
 
 from apps.peppol.services.xml_validation_service import XMLValidationService
 

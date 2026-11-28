@@ -8,9 +8,10 @@ PARTIALLY_PAID) could be set with no payment record at all. The bare CharField
 also accepted arbitrary strings.
 """
 
-import pytest
 from datetime import date
 from decimal import Decimal
+
+import pytest
 from rest_framework import status
 
 from apps.core.models import Contact, InvoiceDocument, Role, UserOrganisation

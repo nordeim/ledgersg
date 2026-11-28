@@ -10,15 +10,13 @@ its registration date (until deregistration): a tax code with rate > 0
 on a line is refused otherwise.
 """
 
-import uuid
 from datetime import date
-from decimal import Decimal
 
 import pytest
 
-from common.exceptions import ValidationError
-from apps.core.models import Contact, InvoiceDocument, InvoiceLine, DocumentSequence, Organisation
+from apps.core.models import DocumentSequence
 from apps.invoicing.services import DocumentService
+from common.exceptions import ValidationError
 from tests.conftest import create_test_contact
 
 

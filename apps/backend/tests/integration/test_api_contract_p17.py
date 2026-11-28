@@ -22,14 +22,12 @@ from decimal import Decimal
 
 import pytest
 from rest_framework import status
-from rest_framework.test import APIClient
 
 from apps.core.models import (
     BankAccount,
     BankTransaction,
     DocumentSequence,
     GSTReturn,
-    Payment,
 )
 from tests.conftest import create_test_contact, create_test_invoice
 

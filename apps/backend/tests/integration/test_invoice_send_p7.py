@@ -7,11 +7,11 @@ API had already returned success. The view must normalize a single string
 to a one-element list and reject non-email strings with a 400.
 """
 
-import pytest
 from datetime import date
 from decimal import Decimal
 from unittest.mock import patch
 
+import pytest
 from rest_framework import status
 
 from apps.core.models import Contact, InvoiceDocument

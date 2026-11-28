@@ -4,8 +4,9 @@ Integration tests for GST Calculation.
 Tests IRAS-compliant GST calculations including BCRS exemption.
 """
 
-import pytest
 from decimal import Decimal
+
+import pytest
 from rest_framework import status
 
 
@@ -168,7 +169,6 @@ def test_gst_iras_compliance_validation(auth_client, test_organisation):
 def test_gst_f5_generation(auth_client, test_organisation, test_fiscal_period, test_accounts, test_tax_codes):
     """Test F5 form generation."""
     from apps.core.models import GSTReturn
-    from apps.gst.services import GSTReturnService
 
     # Create a GST return period - using correct field names per model
     gst_return = GSTReturn.objects.create(

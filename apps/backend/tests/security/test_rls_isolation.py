@@ -7,7 +7,7 @@ Tests that users can only access data from their own organisation.
 import pytest
 from rest_framework import status
 
-from apps.core.models import Organisation, AppUser, Account
+from apps.core.models import Account, Organisation
 
 
 @pytest.mark.django_db
@@ -67,7 +67,6 @@ def test_rls_accounts_isolation(auth_client, test_organisation, test_user):
 @pytest.mark.django_db
 def test_rls_middleware_sets_context(auth_client, test_organisation):
     """Test that RLS middleware sets the tenant context."""
-    from common.middleware.tenant_context import get_current_org_id
 
     # Make a request to org-scoped endpoint
     url = f"/api/v1/{test_organisation.id}/"

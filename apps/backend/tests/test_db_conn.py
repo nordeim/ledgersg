@@ -1,7 +1,9 @@
-import psycopg
 import os
 import sys
 from pathlib import Path
+
+import psycopg
+
 
 def load_env(file_path=".env"):
     """
@@ -61,27 +63,27 @@ def test_database_connection():
             f"port={db_port} "
             f"connect_timeout=5"
         )
-        
+
         print("🔄 Attempting connection...")
-        
+
         with psycopg.connect(conn_info) as conn:
             # Connection metadata
             status = conn.info.status
             print(f"✅ Status   : {status} (CONNECTION_OK)")
-            
+
             with conn.cursor() as cur:
                 # 1. Server Version
                 cur.execute("SELECT version();")
                 version = cur.fetchone()[0]
                 print(f"🛡️  Server   : {version.split(',')[0]}")
-                
+
                 # 2. Session Info
                 cur.execute("SELECT current_database(), current_user, inet_client_addr(), inet_server_addr();")
                 db_actual, user_actual, client_addr, server_addr = cur.fetchone()
                 print(f"📁 Database : {db_actual}")
                 print(f"👤 Auth User: {user_actual}")
                 print(f"🌐 Topology : Client({client_addr or 'local'}) -> Server({server_addr or 'local'})")
-                
+
                 # 3. Latency Check
                 cur.execute("SELECT now();")
                 db_time = cur.fetchone()[0]

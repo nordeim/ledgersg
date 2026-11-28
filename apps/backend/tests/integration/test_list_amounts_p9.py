@@ -5,9 +5,10 @@ amount_paid/amount_due per row; the list serializer stopped at
 total_incl, so a UI could not show what is left to settle without
 fetching every document's detail.
 """
-import pytest
 from datetime import date
 from decimal import Decimal
+
+import pytest
 from rest_framework import status
 
 from apps.core.models import Contact, InvoiceDocument

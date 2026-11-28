@@ -1,5 +1,7 @@
-import docker
 import sys
+
+import docker
+
 # pip install psycopg2-binary
 
 def check_postgres_health(container_name="ledgersg_db"):
@@ -9,11 +11,11 @@ def check_postgres_health(container_name="ledgersg_db"):
         # Access the State/Health/Status attribute
         health = container.attrs.get("State", {}).get("Health", {}).get("Status", "no healthcheck")
         status = container.status  # e.g., 'running'
-        
+
         print(f"Container: {container_name}")
         print(f"Status:    {status}")
         print(f"Health:    {health}")
-        
+
         if health == "healthy":
             return True
         return False

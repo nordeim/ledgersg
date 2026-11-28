@@ -42,14 +42,14 @@ BE-L1 (the audit's NULL-transmitted_at cleanup finding) was INVALIDATED
     audit's assumption is recorded here so the finding is not re-raised.
 """
 
-from datetime import date, timedelta
-from uuid import uuid4
+from datetime import date
 from decimal import Decimal
 from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
 
-from apps.core.models import GSTReturn, InvoiceDocument, InvoiceLine
+from apps.core.models import GSTReturn, InvoiceLine
 from apps.gst.services import GSTReturnService
 from apps.invoicing.services import DocumentService
 from common.exceptions import ValidationError as ServiceValidationError
@@ -256,8 +256,8 @@ class TestArchiveAccountCacheGateP19:
         (get_trial_balance filters is_active=True)."""
         from django.core.cache import cache
 
-        from apps.core.models import Account
         from apps.coa.services import AccountService
+        from apps.core.models import Account
         from apps.journal.services import JournalService
 
         # A custom (non-system) account — system accounts are refused

@@ -17,13 +17,13 @@ SQL Valid source_type values:
 - YEAR_END, OPENING_BALANCE, REVERSAL
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
 from uuid import UUID
 
+import pytest
+
 from apps.journal.services import JournalService
-from apps.core.models import JournalEntry, JournalLine
 from common.exceptions import ValidationError
 
 

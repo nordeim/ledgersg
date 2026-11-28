@@ -4,18 +4,18 @@ TDD Test for RLS Context Middleware Fix
 Tests to verify RLS context is properly set for authenticated requests.
 """
 
-import pytest
-import uuid
 import json
-from unittest.mock import Mock, patch
-from django.test import RequestFactory, TestCase
-from django.http import HttpResponse
-from django.db import connection
+from unittest.mock import Mock
+
+import pytest
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.http import HttpResponse
+from django.test import RequestFactory
 from django.utils import timezone
 
+from apps.core.models import Organisation, Role, UserOrganisation
 from common.middleware.tenant_context import TenantContextMiddleware
-from apps.core.models import Organisation, UserOrganisation, Role
 
 User = get_user_model()
 

@@ -16,14 +16,12 @@ ledgersg_app the seeds otherwise violate the RLS WITH CHECK (the
 """
 
 import uuid
-from datetime import date
 
 import pytest
 from django.db import connection
 
-from apps.core.models import Account, Contact, Organisation
+from apps.core.models import Account, UserOrganisation
 from apps.core.services.organisation_service import create_organisation
-from apps.core.models import AppUser, UserOrganisation
 
 # Tables documented as GLOBAL (no org_id — shared reference data): the
 # conformance gate must not demand RLS on them.

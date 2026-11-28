@@ -17,17 +17,15 @@ check-letter algorithm is not a published spec; guessing one would
 reject valid numbers — registered as a P15 decision).
 """
 
-import uuid
 from datetime import date
 
 import pytest
 from rest_framework import serializers as drf_serializers
 
+from apps.core.validators import validate_gst_reg_number, validate_uen
 from apps.invoicing.serializers import InvoiceDocumentCreateSerializer
 from apps.invoicing.services.contact_service import ContactService
-from apps.core.validators import validate_uen, validate_gst_reg_number
 from tests.conftest import create_test_contact
-
 
 # ── M-4: the document create contract ────────────────────────────────────
 

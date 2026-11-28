@@ -9,9 +9,10 @@ payment allocations, and the generic status endpoint silently defaulted a
 filler reason while the dedicated /void/ required one.
 """
 
-import pytest
 from datetime import date
 from decimal import Decimal
+
+import pytest
 from rest_framework import status
 
 from apps.core.models import Contact, InvoiceDocument, PaymentAllocation

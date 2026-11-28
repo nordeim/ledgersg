@@ -7,14 +7,14 @@ Tests cover:
 3. JWT token claims with default_org_id
 """
 
-import pytest
 import uuid
+
+import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.utils import timezone
 
 from apps.core.models import AppUser, Organisation, Role, UserOrganisation
-
 
 pytestmark = pytest.mark.integration
 

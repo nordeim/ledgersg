@@ -59,10 +59,8 @@ class TestPaymentRowLockP16:
         import uuid as uuid_mod
         from unittest.mock import patch
 
-        from apps.core.models import BankAccount
         from apps.banking.serializers import PaymentReceiveSerializer
-        from apps.core.models import Payment
-        from apps.core.models import DocumentSequence
+        from apps.core.models import BankAccount, DocumentSequence, Payment
 
         org = test_organisation
         for doc_type, prefix in [
@@ -209,7 +207,6 @@ class TestNoDuplicatePaymentAuditRowsP16:
         manual AuditEventLog row duplicated it. Count rows for THIS payment
         only (the actor scoping lesson, P11)."""
         fx = payment_fixture
-        from apps.core.models import Payment
 
         payment = _receive(fx["org"], fx["user"], fx["bank"], fx["contact"], Decimal("10.00"))
         # The trigger's action vocabulary is TG_OP (INSERT/UPDATE/DELETE);

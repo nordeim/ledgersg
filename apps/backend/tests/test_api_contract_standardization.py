@@ -4,12 +4,14 @@ TDD Suite for API Contract Standardization.
 Verifies that all list/collection endpoints return {"results": [...], "count": n}.
 """
 
-import pytest
-import uuid
-from rest_framework import status
-from apps.core.models import Account, BankAccount, BankTransaction
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
+
+import pytest
+from rest_framework import status
+
+from apps.core.models import Account, BankAccount, BankTransaction
+
 
 @pytest.mark.django_db
 class TestAPIContractStandardization:
@@ -90,7 +92,7 @@ class TestAPIContractStandardization:
 
     def test_bank_transaction_suggest_matches_contract(self, auth_client, test_organisation):
         """GET /api/v1/{org_id}/banking/bank-transactions/{id}/suggest-matches/ - Should use 'results' and 'count'."""
-        
+
         # Create a COA account for the bank account
         gl_acc = Account.objects.create(
             org=test_organisation,
@@ -98,7 +100,7 @@ class TestAPIContractStandardization:
             name="Bank GL Account",
             account_type="ASSET_CURRENT"
         )
-        
+
         bank_acc = BankAccount.objects.create(
             org=test_organisation,
             account_name="Test Bank",
@@ -116,7 +118,7 @@ class TestAPIContractStandardization:
             amount=Decimal("100.00"),
             description="Test Tx"
         )
-        
+
         response = auth_client.get(f"/api/v1/{test_organisation.id}/banking/bank-transactions/{tx.id}/suggest-matches/")
         assert response.status_code == status.HTTP_200_OK
         assert "results" in response.data

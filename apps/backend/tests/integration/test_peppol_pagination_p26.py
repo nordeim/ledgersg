@@ -21,9 +21,9 @@ This file pins the additive contract:
 - The counters stay within a `?status=` filter (the current semantics).
 """
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from rest_framework import status

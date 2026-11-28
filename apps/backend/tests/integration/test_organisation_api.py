@@ -4,11 +4,11 @@ Integration tests for Organisation API endpoints.
 Tests organisation CRUD, GST registration, fiscal years, and summary.
 """
 
+
 import pytest
-from datetime import date
 from rest_framework import status
 
-from apps.core.models import Organisation, FiscalYear, FiscalPeriod, Account, Role
+from apps.core.models import Account, FiscalPeriod, FiscalYear, Organisation
 
 
 @pytest.mark.django_db
@@ -88,6 +88,7 @@ def test_get_organisation_detail_not_member(auth_client):
     """Test getting org details when not a member fails."""
     # Create org without adding user
     import uuid
+
     from apps.core.models import Organisation
     other_org = Organisation.objects.create(
         name="Other Org",

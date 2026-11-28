@@ -5,7 +5,6 @@ Tests: register, login, logout, refresh, profile, change-password
 """
 
 import pytest
-from django.urls import reverse
 from rest_framework import status
 
 from apps.core.models import AppUser
@@ -236,9 +235,9 @@ def test_change_password_unauthenticated(api_client):
 @pytest.mark.django_db
 def test_token_expiration(api_client, test_user):
     """Test that expired tokens are rejected."""
-    import time
-    from rest_framework_simplejwt.tokens import AccessToken
     from datetime import datetime, timedelta
+
+    from rest_framework_simplejwt.tokens import AccessToken
 
     # Create a token that's already expired
     token = AccessToken.for_user(test_user)

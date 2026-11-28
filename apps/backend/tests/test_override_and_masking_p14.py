@@ -14,17 +14,17 @@ identifiers — masked by default on read (S*****67A), and a masked echo
 (containing '*') cannot be persisted back through the write path.
 """
 
+import uuid
 from datetime import date
 from decimal import Decimal
-import uuid
 
 import pytest
 
-from common.exceptions import ValidationError
-from apps.core.models import GSTReturn, BankAccount, Contact, InvoiceDocument
-from apps.gst.services import GSTReturnService
-from apps.gst.serializers import GSTReturnFileSerializer
 from apps.banking.serializers.bank_account import BankAccountSerializer
+from apps.core.models import BankAccount, GSTReturn
+from apps.gst.serializers import GSTReturnFileSerializer
+from apps.gst.services import GSTReturnService
+from common.exceptions import ValidationError
 from tests.conftest import create_test_contact
 
 

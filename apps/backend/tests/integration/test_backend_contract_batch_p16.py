@@ -19,13 +19,8 @@ BE-L7 (B11): the org-create path stores the NORMALIZED UEN (upper),
 """
 
 from datetime import date
-from decimal import Decimal
 
 import pytest
-
-from apps.core.models import InvoiceDocument
-from tests.conftest import create_test_contact
-
 
 # =============================================================================
 # B5 — the line-total bound

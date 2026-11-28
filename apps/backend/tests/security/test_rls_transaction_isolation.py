@@ -13,14 +13,13 @@ autocommit semantics as production) and assert the session variable is live
 
 import uuid
 
-import pytest
-from django.test import RequestFactory, TransactionTestCase
-from django.http import HttpResponse
 from django.db import connection
+from django.http import HttpResponse
+from django.test import RequestFactory, TransactionTestCase
 from django.utils import timezone
 
+from apps.core.models import AppUser, Organisation, Role, UserOrganisation
 from common.middleware.tenant_context import TenantContextMiddleware
-from apps.core.models import Organisation, UserOrganisation, Role, AppUser
 
 
 def _make_role(org):
@@ -163,9 +162,9 @@ class TestRLSTransactionScoping(TransactionTestCase):
         no context set it must return none.
         """
         import psycopg
+        from django.conf import settings
 
         from apps.core.models import Contact
-        from django.conf import settings
 
         org_b = _make_org("RLS Org C")
         self._orgs.append(org_b)

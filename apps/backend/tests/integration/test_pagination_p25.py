@@ -22,7 +22,7 @@ I3: the empty-string params (`?limit=&offset=`) and the full absolute
 
 from datetime import date
 from decimal import Decimal
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from rest_framework import status

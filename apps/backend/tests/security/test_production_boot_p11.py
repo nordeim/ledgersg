@@ -18,8 +18,6 @@ import copy
 import importlib
 import sys
 
-import pytest
-
 STRONG_KEY = "a" * 64
 
 

@@ -16,7 +16,6 @@ BE-L4: create_return_periods' .exists()-then-create dedup raced the
 """
 
 from datetime import date
-from decimal import Decimal
 
 import pytest
 
