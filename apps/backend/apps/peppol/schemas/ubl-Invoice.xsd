@@ -44,6 +44,9 @@
             <xs:element ref="cbc:IssueDate" minOccurs="1"/>
             <xs:element ref="cbc:DueDate" minOccurs="0"/>
             <xs:element ref="cbc:InvoiceTypeCode" minOccurs="1"/>
+            <!-- P37/BE-P37-L1: the document note (BT-22) — the guarded
+                 emission mirrors the credit-note path. -->
+            <xs:element ref="cbc:Note" minOccurs="0"/>
             <xs:element ref="cbc:DocumentCurrencyCode" minOccurs="1"/>
             <xs:element ref="cbc:TaxCurrencyCode" minOccurs="0"/>
 

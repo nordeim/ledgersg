@@ -159,6 +159,9 @@ class TestXMLValidationService:
             "document_type": "CREDIT_NOTE",
             "currency": "SGD",
             "tax_currency": "SGD",
+            # P37/BE-P37-H1: the honest mapper shape (BR-SG-07 requires
+            # the reference on every CreditNote root).
+            "billing_reference": {"id": "INV-001", "issue_date": "2026-03-01"},
             "supplier": {"name": "Test", "uen": "202312345A", "address": {"country": "SG"}},
             "customer": {"name": "Test", "uen": "202398765B", "address": {"country": "SG"}},
             "payment_terms": {"payment_due_date": "2026-04-09"},

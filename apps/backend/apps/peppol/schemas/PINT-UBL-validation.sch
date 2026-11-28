@@ -181,5 +181,31 @@
     </rule>
 
   </pattern>
+
+  <!-- P37: the REFERENCE pattern - the original-invoice reference truth.
+       The DB layer REQUIRES related_document_id for every credit note
+       (P14/H-4, quoting the IRAS rule "A credit note must show the number
+       and date of the original tax invoice"); the IRAS e-Tax Guide on the
+       GST InvoiceNow requirement s11.6 says the business "should indicate
+       the number and date of the original invoice ... when submitting
+       credit note data to IRAS". The PINT syntax carries it as
+       cac:BillingReference/cac:InvoiceDocumentReference (cbc:ID 1..1 +
+       cbc:IssueDate 0..1). The pre-P37 generator emitted NO reference -
+       the transmitted credit note could not be matched to the invoice it
+       corrects. BR-SG-07 pins the presence floor; it is CreditNote-scoped
+       (an Invoice root never carries the element). Sound because the
+       service layer enforces the FK unconditionally on both credit-note
+       types - the rule can never false-reject a document this system
+       creates. -->
+  <pattern id="PINT-SG-REFERENCE">
+
+    <rule context="ublcn:CreditNote">
+      <assert test="cac:BillingReference/cac:InvoiceDocumentReference/cbc:ID"
+              role="PINT-SG-BR-SG-07">
+        BR-SG-07: A CreditNote must carry the original invoice reference (cac:BillingReference/cac:InvoiceDocumentReference/cbc:ID)
+      </assert>
+    </rule>
+
+  </pattern>
 </schema>
 

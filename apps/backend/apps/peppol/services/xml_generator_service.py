@@ -77,6 +77,12 @@ class XMLGeneratorService:
         # Document type code (380 = Invoice)
         self._add_element(invoice, "InvoiceTypeCode", "380")
 
+        # P37/BE-P37-L1: the document's notes ride as cbc:Note (BT-22) —
+        # the guarded emission keeps every notes-empty document's bytes
+        # exact.
+        if mapped_data.get("note"):
+            self._add_element(invoice, "Note", mapped_data["note"])
+
         # Currency
         self._add_element(invoice, "DocumentCurrencyCode", mapped_data.get("currency"))
         # P36/BE-P36-H2: TaxCurrencyCode exists to declare a DIFFERENT tax
@@ -171,6 +177,11 @@ class XMLGeneratorService:
         # Document type code (381 = Credit Note)
         self._add_element(credit_note, "CreditNoteTypeCode", "381")
 
+        # P37/BE-P37-L1: the reason note (BR-111-GST-SG expects a taxable
+        # credit note to carry one) — guarded, identical to the invoice path.
+        if mapped_data.get("note"):
+            self._add_element(credit_note, "Note", mapped_data["note"])
+
         # Currency
         self._add_element(credit_note, "DocumentCurrencyCode", mapped_data.get("currency"))
         # P36/BE-P36-H2: the same guarded emission on the credit-note path.
@@ -178,10 +189,20 @@ class XMLGeneratorService:
         if tax_currency and tax_currency != (mapped_data.get("currency") or "SGD"):
             self._add_element(credit_note, "TaxCurrencyCode", tax_currency)
 
-        # P34 carries the P33 currency truth: every amount element's
-        # currencyID carries the DOCUMENT currency, never a hardcoded
-        # denomination.
+        # P33/BE-P33-H1: every amount element's currencyID carries the
+        # DOCUMENT currency, never a hardcoded denomination.
         currency = mapped_data.get("currency") or "SGD"
+
+        # P37/BE-P37-H1: the original-invoice reference (the UBL position —
+        # BillingReference precedes the parties). The DB layer requires
+        # related_document_id for every credit note (P14/H-4), so a
+        # service-created document always carries it; the guarded emission
+        # keeps hand-built payloads reference-free.
+        if mapped_data.get("billing_reference"):
+            billing_reference = self._create_billing_reference(
+                mapped_data["billing_reference"]
+            )
+            credit_note.append(billing_reference)
 
         # Supplier (AccountingSupplierParty)
         if mapped_data.get("supplier"):
@@ -403,6 +424,32 @@ class XMLGeneratorService:
             due_date.text = payment_data["payment_due_date"]
 
         return terms
+
+    def _create_billing_reference(self, reference_data: dict[str, Any]) -> etree.Element:
+        """P37/BE-P37-H1 — create the BillingReference element (IBG-03).
+
+        The PINT credit-note shape: cac:BillingReference →
+        cac:InvoiceDocumentReference → cbc:ID (the preceding invoice
+        number, IBT-025) + cbc:IssueDate (IBT-026, optional).
+
+        Args:
+            reference_data: {"id": <original number>, "issue_date": <iso>}
+
+        Returns:
+            The cac:BillingReference element.
+        """
+        reference = etree.Element(f"{{{self.NAMESPACE_CAC}}}BillingReference")
+        document_reference = etree.SubElement(
+            reference, f"{{{self.NAMESPACE_CAC}}}InvoiceDocumentReference"
+        )
+        document_id = etree.SubElement(document_reference, f"{{{self.NAMESPACE_CBC}}}ID")
+        document_id.text = reference_data.get("id")
+        if reference_data.get("issue_date"):
+            issue_date = etree.SubElement(
+                document_reference, f"{{{self.NAMESPACE_CBC}}}IssueDate"
+            )
+            issue_date.text = reference_data["issue_date"]
+        return reference
 
     def _create_tax_total(self, tax_data: Dict[str, Any], currency: str) -> etree.Element:
         """

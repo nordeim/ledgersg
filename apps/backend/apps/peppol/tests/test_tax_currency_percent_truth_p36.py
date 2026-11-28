@@ -208,9 +208,12 @@ def _usd_invoice():
         total_incl = Decimal("1090.00")
         gst_total = Decimal("90.00")
         amount_paid = Decimal("0.00")
+        notes = ""
         org = _Org()
         contact = _Contact()
         lines = _Lines()
+        related_document_id = None
+        related_document = None
 
     return _Invoice()
 

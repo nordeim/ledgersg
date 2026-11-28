@@ -156,6 +156,27 @@
         </xs:complexType>
     </xs:element>
 
+    <!-- P37/BE-P37-H1: the original-invoice reference (IBG-03, the PINT
+         credit-note preceding-invoice group): BillingReference ->
+         InvoiceDocumentReference (1..1 within the group when present) ->
+         cbc:ID (IBT-025, 1..1) + cbc:IssueDate (IBT-026, 0..1). -->
+    <xs:element name="BillingReference">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="InvoiceDocumentReference" minOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="InvoiceDocumentReference">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element ref="cbc:ID" minOccurs="1"/>
+                <xs:element ref="cbc:IssueDate" minOccurs="0"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
     <xs:element name="AllowanceCharge">
         <xs:complexType>
             <xs:sequence>

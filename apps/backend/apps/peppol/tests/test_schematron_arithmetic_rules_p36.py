@@ -146,6 +146,10 @@ class TestArithmeticRulesWired:
         mapped = _sgd_invoice_mapped_data()
         mapped["document_id"] = "CN-SGD-P36"
         mapped["document_type"] = "CREDIT_NOTE"
+        # P37/BE-P37-H1: the honest mapper shape (BR-SG-07 requires the
+        # reference on every CreditNote root).
+        mapped["billing_reference"] = {"id": "INV-SGD-P36",
+                                       "issue_date": "2026-11-01"}
         result = _validate_credit_note(_generate_credit_note_xml(mapped))
         assert result["schema_errors"] == []
         assert result["schematron_errors"] == []

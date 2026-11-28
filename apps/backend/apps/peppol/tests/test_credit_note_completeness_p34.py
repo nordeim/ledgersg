@@ -43,6 +43,10 @@ def _usd_credit_note_mapped_data() -> dict:
         "document_type": "CREDIT_NOTE",
         "currency": "USD",
         "tax_currency": "SGD",
+        # P37/BE-P37-H1: the honest mapper shape — every credit note the
+        # service creates carries the original-invoice reference (P14/H-4);
+        # BR-SG-07 pins its presence on the CreditNote root.
+        "billing_reference": {"id": "INV-USD-001", "issue_date": "2026-11-01"},
         "supplier": {
             "name": "USD Supplier Pte Ltd",
             "uen": "202312345A",

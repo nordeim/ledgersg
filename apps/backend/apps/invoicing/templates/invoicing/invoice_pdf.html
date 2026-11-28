@@ -98,6 +98,8 @@
         <div class="document-type">
             {% if document.document_type == 'SALES_INVOICE' and org.gst_registered %}
                 TAX INVOICE
+            {% elif document.document_type == 'SALES_CREDIT_NOTE' or document.document_type == 'PURCHASE_CREDIT_NOTE' %}
+                CREDIT NOTE
             {% else %}
                 {{ document.document_type }}
             {% endif %}
@@ -128,6 +130,13 @@
                 {% if document.due_date %}
                 <div class="label" style="margin-top: 10pt;">Due Date</div>
                 <div>{{ document.due_date }}</div>
+                {% endif %}
+                {% if related_document %}
+                {# P37/BE-P37-H1: the IRAS requirement - a credit note must #}
+                {# show the number and date of the original tax invoice. #}
+                <div class="label" style="margin-top: 10pt;">Original Invoice</div>
+                <div>{{ related_document.document_number }}
+                    {% if related_document.issue_date %}&middot; {{ related_document.issue_date|date:"Y-m-d" }}{% endif %}</div>
                 {% endif %}
             </td>
         </tr>

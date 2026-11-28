@@ -66,13 +66,27 @@ class XMLMappingService:
             "currency": invoice.currency or "SGD",
             # P36/BE-P36-H2: the tax currency is the DOCUMENT currency — the
             # tax is computed from the same line amounts (never a divergent
-            # denomination). The pre-P36 hardcode ("SGD") emitted
-            # TaxCurrencyCode=SGD beside DocumentCurrencyCode=USD and
-            # currencyID="USD" amounts on every non-SGD document — the
-            # P33 hazard class, masked by the USD fixture itself carrying
-            # "SGD". The generator omits the element when equal (the UBL
-            # semantic: it exists to declare a DIFFERENT tax currency).
+            # denomination). The generator omits the element when equal (the
+            # UBL semantic: it exists to declare a DIFFERENT tax currency).
             "tax_currency": invoice.currency or "SGD",
+            # P37/BE-P37-L1: the document's notes ride as cbc:Note (the
+            # BT-22 analog; the PINT-SG BR-111-GST-SG warning expects a
+            # taxable credit note to carry a reason note). The guarded
+            # emission — an empty notes field emits nothing, so every
+            # notes-empty document keeps its exact bytes.
+            "note": (invoice.notes or "").strip() or None,
+            # P37/BE-P37-H1: the original-invoice reference — the DB layer
+            # REQUIRES related_document_id for every credit note (P14/H-4,
+            # quoting the IRAS rule "A credit note must show the number and
+            # date of the original tax invoice"); the IRAS InvoiceNow e-Tax
+            # Guide §11.6 says the business "should indicate the number and
+            # date of the original invoice… when submitting credit note data
+            # to IRAS". The pre-P37 mapper dropped the reference entirely —
+            # the transmitted credit note could not be matched to the
+            # invoice it corrects.
+            "billing_reference": XMLMappingService._map_billing_reference(
+                invoice
+            ),
             # Supplier (AccountingSupplierParty)
             "supplier": XMLMappingService._map_supplier(org),
             # Customer (AccountingCustomerParty)
@@ -91,6 +105,37 @@ class XMLMappingService:
             },
             # Invoice Lines
             "lines": [XMLMappingService._map_line(line) for line in invoice.lines.all()],
+        }
+
+    @staticmethod
+    def _map_billing_reference(invoice) -> dict[str, Any] | None:
+        """P37/BE-P37-H1 — the original-invoice reference (IBG-03).
+
+        Maps the DB's related_document into the PINT BillingReference
+        shape: the preceding invoice number (IBT-025) and its issue date
+        (IBT-026). The service layer enforces related_document_id for
+        every credit note (P14/H-4 — the IRAS "number and date of the
+        original tax invoice" rule), so a credit note created through
+        DocumentService always carries it; the guarded None return keeps
+        invoices (and hand-built payloads) reference-free.
+
+        Args:
+            invoice: InvoiceDocument instance
+
+        Returns:
+            {"id": <original document_number>, "issue_date": <iso date>}
+            or None when no related document is set.
+        """
+        if not invoice.related_document_id:
+            return None
+        original = invoice.related_document
+        if original is None:
+            return None
+        return {
+            "id": original.document_number,
+            "issue_date": (
+                original.issue_date.isoformat() if original.issue_date else None
+            ),
         }
 
     @staticmethod

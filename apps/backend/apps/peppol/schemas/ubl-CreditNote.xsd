@@ -45,8 +45,19 @@
             <xs:element ref="cbc:IssueDate" minOccurs="1"/>
             <xs:element ref="cbc:DueDate" minOccurs="0"/>
             <xs:element ref="cbc:CreditNoteTypeCode" minOccurs="1"/>
+            <!-- P37/BE-P37-L1: the reason note (BT-22) — the guarded
+                 emission (at most one; the repo's data model carries a
+                 single notes field). -->
+            <xs:element ref="cbc:Note" minOccurs="0"/>
             <xs:element ref="cbc:DocumentCurrencyCode" minOccurs="1"/>
             <xs:element ref="cbc:TaxCurrencyCode" minOccurs="0"/>
+
+            <!-- P37/BE-P37-H1: the original-invoice reference (the UBL
+                 position — after the cbc header block, before the parties).
+                 The service layer enforces related_document_id for every
+                 credit note (P14/H-4), so a service-created document always
+                 carries it; minOccurs=0 keeps hand-built payloads valid. -->
+            <xs:element ref="cac:BillingReference" minOccurs="0"/>
 
             <!-- Payment means -->
             <xs:element ref="cac:PaymentMeans" minOccurs="0" maxOccurs="unbounded"/>

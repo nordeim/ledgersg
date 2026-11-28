@@ -96,6 +96,9 @@ def _usd_credit_note_mapped_data() -> dict:
     data = _usd_invoice_mapped_data()
     data["document_id"] = "CN-USD-001"
     data["document_type"] = "CREDIT_NOTE"
+    # P37/BE-P37-H1: the honest mapper shape (BR-SG-07 requires the
+    # reference on every CreditNote root).
+    data["billing_reference"] = {"id": "INV-USD-001", "issue_date": "2026-11-01"}
     return data
 
 

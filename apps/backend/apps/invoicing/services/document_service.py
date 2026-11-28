@@ -1115,11 +1115,21 @@ class DocumentService:
         contact = document.contact
         lines = document.lines.all().order_by("line_number")
 
+        # P37/BE-P37-H1: the credit-note reference block — the IRAS
+        # requirement ("a credit note must show the number and date of the
+        # original tax invoice"). The read is type-gated so invoice PDFs
+        # keep their exact query count (the P29 discipline); the DB layer
+        # guarantees the FK on every credit note (P14/H-4).
+        related_document = None
+        if document.document_type in ("SALES_CREDIT_NOTE", "PURCHASE_CREDIT_NOTE"):
+            related_document = document.related_document
+
         return {
             "document": document,
             "org": org,
             "contact": contact,
             "lines": lines,
+            "related_document": related_document,
             "generated_at": timezone.now(),
         }
 
