@@ -14,7 +14,7 @@ asserts the constant.
 
 from typing import Any, Dict, List  # noqa: UP006 — Dict matches the codebase idiom
 
-from lxml import etree
+from lxml import etree, isoschematron
 
 # P14/X-1: the parser policy (the knobs, asserted by the configuration gate —
 # lxml.etree.XMLParser does not expose its construction flags for reading).
@@ -37,11 +37,13 @@ class XMLValidationService:
     # Schema file paths (relative to Django project root)
     INVOICE_SCHEMA_PATH = "apps/peppol/schemas/ubl-Invoice.xsd"
     CREDIT_NOTE_SCHEMA_PATH = "apps/peppol/schemas/ubl-CreditNote.xsd"
+    SCHEMATRON_SCHEMA_PATH = "apps/peppol/schemas/PINT-UBL-validation.sch"
 
     def __init__(self):
         """Initialize with schema loading."""
         self._invoice_schema = None
         self._credit_note_schema = None
+        self._schematron_schema = None
         self._load_schemas()
 
     @staticmethod
@@ -71,6 +73,20 @@ class XMLValidationService:
         except Exception:
             # Schema loading failed
             pass
+
+        # Load the Schematron business-rule schema (P35/BE-P35-H1(b))
+        try:
+            sch_doc = etree.parse(
+                self.SCHEMATRON_SCHEMA_PATH, self._hardened_parser()
+            )
+            self._schematron_schema = isoschematron.Schematron(
+                sch_doc, store_report=True
+            )
+        except Exception:
+            # Load failure -> the fail-closed posture in
+            # _validate_schematron reports it, never silence (the P9/S-3
+            # contract mirrored one layer up).
+            self._schematron_schema = None
 
     def _parse_xml(self, xml_string: str):
         """
@@ -206,8 +222,18 @@ class XMLValidationService:
         # Validate against XSD
         result["schema_errors"] = self._validate_xsd(xml_doc, self._invoice_schema)
 
-        # Set is_valid based on errors
-        result["is_valid"] = len(result["schema_errors"]) == 0
+        # P35/BE-P35-H1(b): the business-rule layer — the cross-element
+        # truths the XSD cannot express (the amount-currencyID consistency
+        # sweep, the currency-code shape, the presence floors).
+        result["schematron_errors"] = self._validate_schematron(xml_doc)
+
+        # Set is_valid based on BOTH error lists: a document that passes
+        # the XSD but fails a business rule is NOT valid — the transmission
+        # must not send it.
+        result["is_valid"] = (
+            len(result["schema_errors"]) == 0
+            and len(result["schematron_errors"]) == 0
+        )
 
         return result
 
@@ -256,21 +282,68 @@ class XMLValidationService:
         # Validate against XSD
         result["schema_errors"] = self._validate_xsd(xml_doc, self._credit_note_schema)
 
-        # Set is_valid based on errors
-        result["is_valid"] = len(result["schema_errors"]) == 0
+        # P35/BE-P35-H1(b): the business-rule layer on the credit-note path
+        # too — the same Schematron rules cover both roots.
+        result["schematron_errors"] = self._validate_schematron(xml_doc)
+
+        result["is_valid"] = (
+            len(result["schema_errors"]) == 0
+            and len(result["schematron_errors"]) == 0
+        )
 
         return result
 
     def _validate_schematron(self, xml_doc: etree.Element) -> List[Dict[str, Any]]:
         """
-        Placeholder for Schematron validation.
+        Validate the PINT-SG business rules (P35/BE-P35-H1).
+
+        The layer ABOVE the XSD: the cross-element truths a structural
+        schema cannot express — every amount's currencyID must equal the
+        document's DocumentCurrencyCode (the P33 truth), the currency
+        code's shape, the presence floors. Pre-P35 this method was a
+        never-called placeholder returning [] and the .sch artefact was
+        unparseable (wrong namespace + an unsupported xslt2 binding).
 
         Args:
             xml_doc: Parsed XML document
 
         Returns:
-            List of Schematron errors (empty for now)
+            List of Schematron error dictionaries (message + location)
         """
-        # Schematron validation would require additional setup
-        # This is a placeholder for future implementation
-        return []
+        if self._schematron_schema is None:
+            # The P9/S-3 posture mirrored one layer up: a .sch that failed
+            # to load must never validate silently — refuse to pass the
+            # document, exactly as a failed XSD load does.
+            return [
+                {
+                    "message": (
+                        "Schematron schema could not be loaded — business-rule "
+                        "validation unavailable; refusing to pass the document."
+                    ),
+                    "location": "/",
+                }
+            ]
+
+        errors: list[dict[str, Any]] = []
+        try:
+            is_valid = self._schematron_schema.validate(xml_doc)
+            if not is_valid:
+                svrl_ns = "http://purl.oclc.org/dsdl/svrl"
+                report = self._schematron_schema.validation_report
+                for failed_assert in report.iter(f"{{{svrl_ns}}}failed-assert"):
+                    message = "".join(failed_assert.itertext()).strip()
+                    errors.append(
+                        {
+                            "message": message,
+                            "location": failed_assert.get("location") or "/",
+                        }
+                    )
+        except Exception as e:
+            errors.append(
+                {
+                    "message": f"Schematron validation error: {e}",
+                    "location": "/",
+                }
+            )
+
+        return errors

@@ -22,6 +22,27 @@ from apps.peppol.services.xml_mapping_service import XMLMappingService
 from apps.peppol.services.xml_validation_service import XMLValidationService
 
 
+def _format_validation_error_messages(errors) -> str:
+    """Join validation errors into one message, tolerant of both shapes.
+
+    P35/BE-P35-H2: the real validator returns a list of DICTS
+    ({"message": ..., "line": ..., "column": ...} for XSD errors,
+    {"message": ..., "location": ...} for Schematron errors) while the
+    historical mocks and the legacy "errors" key carried plain strings —
+    "; ".join() on the dict shape raised TypeError, and the outer
+    except converted a VALIDATION_ERROR into an INTERNAL_ERROR carrying
+    the Python error string. The formatter accepts dicts (joining their
+    message values), strings, and mixed lists.
+    """
+    parts: list[str] = []
+    for error in errors:
+        if isinstance(error, dict):
+            parts.append(str(error.get("message", error)))
+        else:
+            parts.append(str(error))
+    return "; ".join(parts)
+
+
 class TransmissionService:
     """
     Service for orchestrating Peppol invoice transmission.
@@ -250,6 +271,10 @@ class TransmissionService:
             # surfaced every XSD failure as "Unknown validation error",
             # hiding the real detail (and the P9/S-3 fail-closed message).
             # "errors" stays as a legacy fallback for older mock shapes.
+            # P35/BE-P35-H2: the join goes through the shape-tolerant
+            # formatter — the raw "; ".join() raised TypeError on the
+            # real dict shape, converting VALIDATION_ERROR into an
+            # INTERNAL_ERROR carrying the Python error string.
             errors = (
                 validation_result.get("schema_errors")
                 or validation_result.get("schematron_errors")
@@ -258,7 +283,7 @@ class TransmissionService:
             )
             return TransmissionResult.failure(
                 error_code="VALIDATION_ERROR",
-                error_message="; ".join(errors),
+                error_message=_format_validation_error_messages(errors),
                 status=self._get_status_for_error("VALIDATION_ERROR"),
             )
 

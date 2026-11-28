@@ -275,13 +275,62 @@ class TestXMLValidationService:
         assert result["document_type"] == "INVOICE"
 
     def test_validate_returns_schematron_errors(self):
-        """Test that Schematron validation errors are returned."""
+        """Test that Schematron validation errors are returned.
+
+        P35/BE-P35-H1(c): the pre-P35 body was vacuous
+        (`assert hasattr(...) or True` — always true), pinning nothing on
+        the axis. The business-rule layer is wired now: a clean generated
+        document reports an empty list, a currency-tampered document
+        reports the BR-SG-06 rule.
+        """
+        from apps.peppol.services.xml_generator_service import XMLGeneratorService
         from apps.peppol.services.xml_validation_service import XMLValidationService
 
+        generator = XMLGeneratorService()
         validator = XMLValidationService()
 
-        # Check that schematron_errors key exists
-        assert hasattr(validator, "_validate_schematron") or True  # Method may not exist yet
+        mapped_data = {
+            "ubl_version": "2.1",
+            "customization_id": "urn:peppol:pint:billing-1@sg-1",
+            "profile_id": "urn:peppol:pint:billing-1@sg-1",
+            "document_id": "INV-SCH-001",
+            "issue_date": "2026-11-28",
+            "currency": "SGD",
+            "tax_currency": "SGD",
+            "supplier": {"name": "Test Org", "uen": "202312345A"},
+            "customer": {"name": "Test Contact"},
+            "tax_totals": {"tax_categories": [], "total_tax_amount": "0.00"},
+            "monetary_totals": {
+                "line_extension_amount": "10.00",
+                "tax_exclusive_amount": "10.00",
+                "tax_inclusive_amount": "10.00",
+                "payable_amount": "10.00",
+            },
+            "lines": [
+                {
+                    "line_id": "1",
+                    "quantity": "1",
+                    "unit_code": "EA",
+                    "line_extension_amount": "10.00",
+                    "unit_price": "10.00",
+                }
+            ],
+        }
+
+        xml_string = generator.generate_invoice_xml(mapped_data)
+        result = validator.validate_invoice_xml(xml_string)
+        assert result["schematron_errors"] == []
+
+        # One amount's currencyID tampered -> the business rule fires
+        tampered = xml_string.replace('currencyID="SGD"', 'currencyID="USD"', 1)
+        result2 = validator.validate_invoice_xml(tampered)
+        assert result2["schematron_errors"], "the tampered document must report"
+        joined = " ".join(
+            e.get("message", "") if isinstance(e, dict) else str(e)
+            for e in result2["schematron_errors"]
+        )
+        assert "BR-SG-06" in joined
+        assert result2["is_valid"] is False
 
     def test_service_loads_schemas(self):
         """Test that service loads schemas in __init__."""
