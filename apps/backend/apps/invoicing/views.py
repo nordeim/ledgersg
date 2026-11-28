@@ -95,6 +95,9 @@ class ContactListCreateView(APIView):
         )
 
         # P24/BE-M1: the additive pagination contract.
+        # P28/BE-H1: the count is the SQL COUNT(*) — the pre-P28
+        # len(contacts) materialised the full filtered set per page; the
+        # queryset slice below renders SQL LIMIT/OFFSET.
         from common.pagination import page_envelope, parse_limit_offset
 
         limit, offset = parse_limit_offset(request)
@@ -104,7 +107,7 @@ class ContactListCreateView(APIView):
         )
         if limit is None:
             return Response({"results": serializer.data, "count": len(serializer.data)})
-        return page_envelope(request, limit, offset, serializer.data, len(contacts))
+        return page_envelope(request, limit, offset, serializer.data, contacts.count())
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:
@@ -219,6 +222,9 @@ class InvoiceDocumentListCreateView(APIView):
         )
 
         # P24/BE-M1: the additive pagination contract.
+        # P28/BE-H1: the count is the SQL COUNT(*) — the pre-P28
+        # len(documents) materialised the full filtered set per page;
+        # the queryset slice below renders SQL LIMIT/OFFSET.
         from common.pagination import page_envelope, parse_limit_offset
 
         limit, offset = parse_limit_offset(request)
@@ -228,7 +234,7 @@ class InvoiceDocumentListCreateView(APIView):
         )
         if limit is None:
             return Response({"results": serializer.data, "count": len(serializer.data)})
-        return page_envelope(request, limit, offset, serializer.data, len(documents))
+        return page_envelope(request, limit, offset, serializer.data, documents.count())
 
     @wrap_response
     def post(self, request, org_id: str) -> Response:

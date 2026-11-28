@@ -10,6 +10,7 @@ from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from datetime import date
 from django.db import transaction, connection
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from apps.core.models import (
@@ -219,7 +220,7 @@ class PaymentService:
         date_to: Optional[date] = None,
         is_reconciled: Optional[bool] = None,
         is_voided: Optional[bool] = None,
-    ) -> List[Payment]:
+    ) -> QuerySet[Payment]:
         """
         List payments with optional filters.
 
@@ -234,7 +235,10 @@ class PaymentService:
             is_voided: Filter by void status
 
         Returns:
-            List of Payment instances
+            Lazy Payment queryset (P28/BE-H1: the LAZY queryset — the
+            view counts via .count() and pages at the SQL level; the
+            pre-P28 list() materialisation fetched the entire filtered
+            set on every page)
         """
         # P17/BE-M7: the serializer traverses contact + bank_account per
         # row — select_related keeps the list O(1) queries instead of 1+2N.
@@ -266,7 +270,9 @@ class PaymentService:
         # P24/I1: the id tiebreaker — same-date payments tie, and Postgres
         # tie order is not stable across executions (a paginated page
         # boundary could skip or duplicate a row).
-        return list(queryset.order_by("-payment_date", "-created_at", "-id"))
+        # P28/BE-H1: returned LAZY — evaluate inside the request (the
+        # RLS tenant context holds there).
+        return queryset.order_by("-payment_date", "-created_at", "-id")
 
     @staticmethod
     def get(org_id: UUID, payment_id: UUID) -> Payment:

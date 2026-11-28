@@ -22,6 +22,7 @@ from django.utils import timezone
 from weasyprint import HTML
 
 from apps.core.models import Account, Contact, InvoiceDocument, InvoiceLine, Organisation, TaxCode
+from django.db.models import QuerySet
 from apps.gst.services import GSTCalculationService, TaxCodeService
 from common.decimal_utils import money, sum_money
 from common.exceptions import ResourceNotFound, ValidationError
@@ -100,7 +101,7 @@ class DocumentService:
         date_from: date | None = None,
         date_to: date | None = None,
         search: str | None = None,
-    ) -> list[InvoiceDocument]:
+    ) -> QuerySet[InvoiceDocument]:
         """
         List invoice documents.
 
@@ -114,7 +115,10 @@ class DocumentService:
             search: Search document number
 
         Returns:
-            List of InvoiceDocument instances
+            Lazy InvoiceDocument queryset (P28/BE-H1: the LAZY queryset
+            — the view counts via .count() and pages at the SQL level;
+            the pre-P28 list() materialisation fetched the entire
+            filtered set on every page)
         """
         queryset = InvoiceDocument.objects.filter(org_id=org_id)
 
@@ -138,10 +142,10 @@ class DocumentService:
 
         # P17/BE-M7: the list serializer reads contact.name per row —
         # select_related keeps the list O(1) queries.
-        return list(
-            queryset.select_related("contact").order_by(
-                "-issue_date", "-document_number"
-            )
+        # P28/BE-H1: returned LAZY — evaluate inside the request (the
+        # RLS tenant context holds there).
+        return queryset.select_related("contact").order_by(
+            "-issue_date", "-document_number"
         )
 
     @staticmethod

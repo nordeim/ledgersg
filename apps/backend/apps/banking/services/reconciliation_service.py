@@ -10,6 +10,7 @@ from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from datetime import date, datetime
 from django.db import transaction
+from django.db.models import QuerySet
 from django.utils import timezone
 import csv
 import io
@@ -35,7 +36,7 @@ class ReconciliationService:
         date_to: Optional[date] = None,
         is_reconciled: Optional[bool] = None,
         unreconciled_only: bool = False,
-    ) -> List[BankTransaction]:
+    ) -> QuerySet[BankTransaction]:
         """
         List bank transactions with optional filters.
 
@@ -48,7 +49,10 @@ class ReconciliationService:
             unreconciled_only: Show only unreconciled transactions
 
         Returns:
-            List of BankTransaction instances
+            Lazy BankTransaction queryset (P28/BE-H1: the LAZY queryset
+            — the view counts via .count() and pages at the SQL level;
+            the pre-P28 list() materialisation fetched the entire
+            filtered set on every page)
         """
         # P17/BE-M7: the serializer reads bank_account.account_name per
         # row — select_related keeps the list O(1) queries.
@@ -73,7 +77,9 @@ class ReconciliationService:
 
         # P24/I1: the id tiebreaker (same rationale as the payments list
         # — a paginated page boundary must not skip or duplicate a row).
-        return list(queryset.order_by("-transaction_date", "-created_at", "-id"))
+        # P28/BE-H1: returned LAZY — evaluate inside the request (the
+        # RLS tenant context holds there).
+        return queryset.order_by("-transaction_date", "-created_at", "-id")
 
     @staticmethod
     def get_transaction(org_id: UUID, transaction_id: UUID) -> BankTransaction:

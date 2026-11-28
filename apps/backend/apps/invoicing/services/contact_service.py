@@ -8,9 +8,11 @@ Manages customers and suppliers including:
 - Customer/Supplier categorization
 """
 
-from typing import Optional, List
+from typing import Optional
 from uuid import UUID
 from datetime import date, timedelta
+
+from django.db.models import QuerySet
 
 from apps.core.models import Contact
 from common.exceptions import ValidationError, DuplicateResource, ResourceNotFound
@@ -26,7 +28,7 @@ class ContactService:
         is_supplier: Optional[bool] = None,
         is_active: Optional[bool] = None,
         search: Optional[str] = None
-    ) -> List[Contact]:
+    ) -> QuerySet[Contact]:
         """
         List contacts for an organisation.
         
@@ -38,7 +40,10 @@ class ContactService:
             search: Search in name, email, UEN
             
         Returns:
-            List of Contact instances
+            Lazy Contact queryset (P28/BE-H1: the LAZY queryset — the
+            view counts via .count() and pages at the SQL level; the
+            pre-P28 list() materialisation fetched the entire filtered
+            set on every page)
         """
         queryset = Contact.objects.filter(org_id=org_id)
         
@@ -62,7 +67,9 @@ class ContactService:
         # P24/I1: the id tiebreaker — Postgres tie order is not stable
         # across executions, so a paginated page boundary could skip or
         # duplicate a same-name row.
-        return list(queryset.order_by("name", "id"))
+        # P28/BE-H1: returned LAZY — evaluate inside the request (the
+        # RLS tenant context holds there).
+        return queryset.order_by("name", "id")
     
     @staticmethod
     def get_contact(org_id: UUID, contact_id: UUID) -> Contact:
