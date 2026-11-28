@@ -2234,3 +2234,90 @@ incompatibility; the membership-cache window; the P20-era FE-M2/M3
 designs; CI hardening (the mypy gate — 1491 errors); the
 version-story reconciliation — the P21–P35 deferred registers carry
 forward unchanged.
+
+---
+
+## Session 72 — P37 Sprint: the credit-note reference truth (2026-11-28)
+
+**Base:** `a7ce0c10` (main — post-P36 + the session-71 log). **Plan:**
+`docs/REMEDIATION_PLAN_2026-11-28_P37.md`. **Report:**
+`docs/REMEDIATION_2026-11-28_P37_REPORT.md`.
+
+### What was audited
+
+The full P36 baseline reproduced exactly first (backend 1114P/0F/5S ·
+vitest 698/698 · tsc/eslint 0 · e2e 43/43 · rls 13/13 · mobile-nav
+17/17 — the forty-second settlement — the translate probe PASS · ruff
+148/73 · lint-mechanical exit 0 · npm audit 0; the environment survived
+the recycle: PG 17 + Redis 8 + the venv + node_modules, the dev servers
+reaped and restarted in-invocation). The P36 slice re-verified clean in
+source. The fresh axis: the presentation-layer sweep of the credit-note
+path P34 built.
+
+**BE-P37-H1: the credit-note original-invoice reference gap (the
+headline, reproduced via live probe).** The DB layer REQUIRES
+related_document_id for every credit note (P14/H-4, quoting the IRAS
+rule "A credit note must show the number and date of the original tax
+invoice"); the IRAS InvoiceNow e-Tax Guide §11.6 says the business
+"should indicate the number and date of the original invoice… when
+submitting credit note data to IRAS"; the Peppol PINT credit-note
+syntax carries it as cac:BillingReference/cac:InvoiceDocumentReference
+(cbc:ID 1..1 + cbc:IssueDate 0..1 — verified on docs.peppol.eu) — but
+the live probe on the real demo credit note (CN-00001 → INV-00001,
+2026-01-01) measured **BillingReference elements: 0; occurrences of the
+original invoice number in the XML: 0**, and the PDF template carried
+no reference block with the raw enum leaking as the heading
+("SALES_CREDIT_NOTE").
+
+**BE-P37-L1: the reason-note gap.** No `cbc:Note` emission on either
+path (the mapper dropped `notes` entirely; BR-111-GST-SG expects a
+taxable credit note to carry a reason note).
+
+**0 Critical / 1 High / 1 Low.**
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-P37-H1 | the mapper's `_map_billing_reference` (the FK-gated IBG-03 shape: number + issue date); the generator's `_create_billing_reference` (the UBL position, before the supplier party); the CAC + CreditNote XSD declarations; **BR-SG-07** in the `.sch` (CreditNote-scoped presence floor — sound because the service layer enforces the FK unconditionally); the PDF's "Original Invoice" block + the CREDIT NOTE heading (the raw enum retired) with the type-gated context entry (invoice PDFs keep their exact query count, the P29 discipline) | 16 NEW gates across three specs + the live round-trip: the real demo credit note carries the reference and validates clean; the reference-stripped control fails with BR-SG-07 named |
+| BE-P37-L1 | the guarded `cbc:Note` emission on BOTH paths (at most one — the data model carries a single notes field; the XSDs mirror the emitter's truth) with byte-stability for notes-empty documents | 4 NEW gates + the live invoice control (notes='' → no Note element, byte-identical to the P36 emission) |
+| X-fixtures | the 4 mapped-data credit-note fixtures gain the `billing_reference` key (the honest mapper shape, the P36 USD-fixture precedent); the P36 mapper mock completed to the mapper's real reads (`notes`, `related_document_id`, `related_document`) | the P34/P35/P36 suites green unchanged |
+| X-docs | the truth pass (README badge 1875 + the P37 milestone, CLAUDE 2.38.0, AGENTS header + 1 new lesson [the data-layer-guarantee-vs-presentation-layer-truth class], SKILL 2.24.0, PAD 3.27.0, DEPLOYMENT header, the API guide v3.10.0 + the P37 addendum, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful (zero new env readers) |
+
+### Final gate (all verified, executed)
+
+backend **1134P/0F/5S** (+20) · vitest **698/698 (85 files)** · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · **e2e:full 43P/0F/0S** ·
+**rls_smoke 13/13 as `ledgersg_app`** · **mobile-nav 17/17** (the
+forty-third settlement) · the `translate` probe re-PASS · **npm audit
+0 across dev+prod** · build:server green + **prod-CSP 5/5** · ruff
+production **148** / tests **73** (unchanged — no lint class touched;
+the two draft UP006s on the new signatures fixed before commit) ·
+schema v1.2.2 (no DDL). 8 DOM-verified screenshots (248-255). The live
+contract re-verification: the real demo credit note (CN-00001)
+round-trips mapper → generator → validator carrying the BillingReference
+(INV-00001 + 2026-01-01) and validates clean (is_valid=True, schema=0,
+schematron=0); the reference-stripped control fails with BR-SG-07
+named; the invoice XML on a real document is byte-identical to the P36
+bytes (no BillingReference, no Note — the guarded omissions); the
+credit-note PDF renders the reference block + the heading.
+
+### Deferred (registered, not dropped)
+
+The ruff semantic batch — **148 production findings** (unchanged: the
+UP typing batch ×105 [the mypy-gate conversation stays the registered
+precondition], E501 ×38 + the format axis at 160 files, S110 ×4, N818
+×1); the tests/-tree residual — **73 findings** (E501 ×73 only);
+**NEW: the `unit_code` modeling gap** (the mapper hardcodes "EA" —
+document_line carries no unit column; register for its own sprint if
+per-line units ever matter); **NEW: the Invoice-path BillingReference
+declaration** (the Invoice XSD does not declare it — the invoice path
+never emits it; register for the future feature); BR-CO-11/12/18 (each
+with its registered precondition); the `/accounts/search/`
+limit-contract migration; the capped-default flip; the audit-log INSERT
+policy (DDL); BE-L3/BE-L4 locking; the CSV errors[] strings;
+dead-letter design; UEN checksum; the NULL-context SELECT tradeoff;
+H-05b models; PaymentsTab prefill; the TanStack incompatibility; the
+membership-cache window; the P20-era FE-M2/M3 designs; CI hardening
+(the mypy gate — 1491 errors); the version-story reconciliation — the
+P21–P36 deferred registers carry forward unchanged.

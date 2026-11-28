@@ -8,9 +8,10 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 70 / P36):
-- Backend: pytest 1114 passed / 0 failed / 5 skipped (1119 collected)
-  (+25: the P36 gates — 13 Schematron arithmetic rules, 12
+Current truth (all gates executed and green, session 72 / P37):
+- Backend: pytest 1134 passed / 0 failed / 5 skipped (1139 collected)
+  (+20: the P37 gates — the credit-note reference truth + the reason
+  note; +25: the P36 gates — 13 Schematron arithmetic rules, 12
   tax-currency/Percent)
 - Backend lint: the closed ruff classes at **0** across the WHOLE tree
   (the P30 production closure + the P31 extension + the P32 set:
@@ -2343,3 +2344,23 @@ mask the very class it tests. The cheap probe: for every hardcoded
 3-letter currency literal in the transmission path, grep it and ask
 "what does this become on a non-SGD document?" — P36 found exactly one
 answer that was still "SGD".
+
+### A Data-Layer Guarantee Is Not A Presentation-Layer Truth
+The P37 headline: the service layer has refused a credit note without
+related_document_id since P14 — the IRAS rule quoted in its own
+docstring ("A credit note must show the number and date of the original
+tax invoice") — yet the transmitted XML named no invoice (the live
+probe on the real demo credit note measured 0 BillingReference elements,
+0 occurrences of the original number) and the PDF showed none. The
+defect class: a guarantee enforced at the data layer silently masquer-
+ading as a guarantee the DOCUMENT carries — the FK exists, the
+validation passes, the receiver cannot match the credit note to the
+invoice it corrects. The lesson: for every required relationship the
+schema/service enforces, walk the FULL presentation path and ask "where
+does this surface?" — every emitted artefact (the XML, the PDF, the
+API response) either carries it or there is a gap; and the validation
+layer can pin it (BR-SG-07 is sound exactly BECAUSE the service layer
+enforces the FK — the rule can never false-reject a document this
+system creates). The corollary: when a surface renders a document type,
+check the TYPE's own labelling (the raw "SALES_CREDIT_NOTE" enum
+leaking as the PDF heading was the same bug wearing a costume).

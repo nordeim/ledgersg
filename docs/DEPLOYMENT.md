@@ -6,16 +6,17 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-28, session 70 / P36) re-verified the guide against the current
+(2026-11-28, session 72 / P37) re-verified the guide against the current
 codebase on the live sandbox — the standing environment (rootless PG 17
 with both databases + the v1.2.2 schema + the demo substrate, Redis 8,
 the backend venv, the web tree, the web dev server; the backend dev
 servers reaped by the sandbox recycle, restarted in-invocation) was
 verified end-to-end this session: `manage.py check` green
-(the documented W001), the §7 suite green **1114P/0F/5S (+25 the P36
-gates: the BR-CO arithmetic rules + the tax-currency/Percent truth;
-carrying the P35 Schematron business-rule layer + the P34 three-namespace
-XSD restructure)**, the live e2e 43/43, the RLS smoke 13/13 as
+(the documented W001), the §7 suite green **1134P/0F/5S (+20 the P37
+gates: the credit-note reference truth [the BillingReference wiring +
+BR-SG-07 + the PDF presentation + the cbc:Note reason note]; carrying
+the P36 BR-CO arithmetic rules + the P35 Schematron business-rule layer
++ the P34 three-namespace XSD restructure)**, the live e2e 43/43, the RLS smoke 13/13 as
 `ledgersg_app`, the mobile-nav probe 17/17 + the translate probe PASS,
 `make lint-mechanical` green (the closed ruff classes at 0 across the
 whole tree), `build:server` + the prod-CSP smoke 5/5, and the Peppol
