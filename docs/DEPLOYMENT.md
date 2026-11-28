@@ -6,22 +6,26 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-28, session 59 / P31) re-verified the guide against the current
-codebase on the live sandbox (rootless PG 17 + Redis per §3/§5, backend
-1034P/0F/5S (+4 — the P31 exception-chaining gates), the closed ruff
-classes at 0 across the WHOLE tree (the P30 production closure + the
-P31 B904/tests-tree extension — `make lint-mechanical` / the CI step),
+(2026-11-28, session 62 / P32) re-verified the guide against the current
+codebase on the live sandbox (rootless PG 17 + Redis per §3/§5 — the
+cluster RECOVERED this session after the sandbox recycle damaged the
+data directory's empty structural subdirectories; the databases, all
+schemas and the three roles survived intact, backend
+1036P/0F/5S (+2 — the P32 conftest fixture-resolution gates), the
+closed ruff classes at 0 across the WHOLE tree (the P30 production
+closure + the P31 B904/tests-tree extension + the P32 dead-code/shadow/
+suppress set — `make lint-mechanical` / the CI step),
 vitest 698/698
 (85 files, on vitest 4.1.12 — the P23 advisory closure; the P28
 dependency closure: npm audit 0 across dev+prod), typecheck 0 errors,
 whole-tree eslint 0 errors / 0 warnings, build:server green, the
 production-CSP smoke 5/5, live e2e 43P/0F/0S (43 specs), the runtime-role
 smoke 13/13 as `ledgersg_app`, the mobile-nav probe 17/17 — the
-thirty-first consecutive settlement, P31 (the dedicated `translate`
-probe re-PASS: 7 mid-flight samples); the session-59 headline: the B904
-exception-chaining closure (66 raise-inside-except sites chain
-explicitly — 62 `from exc`, 4 `from None`; the response bytes
-byte-identical — see `docs/REMEDIATION_2026-11-28_P31_REPORT.md`) +
+thirty-third consecutive settlement, P32 (the dedicated `translate`
+probe re-PASS: 7 mid-flight samples); the session-62 headline: the
+dead-code & shadow-fragility closure + the tests-tree residual (the
+F811 fixture class closed architecturally via the integration conftest
+placement — see `docs/REMEDIATION_2026-11-28_P32_REPORT.md`) +
 the tests-tree mechanical extension (221 findings closed) + the unified
 closed-class ratchet; the session-57 headline: the ruff
 mechanical closure (650 production findings closed — the mechanical

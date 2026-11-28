@@ -8,15 +8,18 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 59 / P31):
-- Backend: pytest 1034 passed / 0 failed / 5 skipped (1039 collected)
-  (+4: the exception-chaining __cause__/__suppress_context__ gates)
+Current truth (all gates executed and green, session 62 / P32):
+- Backend: pytest 1036 passed / 0 failed / 5 skipped (1041 collected)
+  (+2: the conftest fixture-resolution gates)
 - Backend lint: the closed ruff classes at **0** across the WHOLE tree
-  (the P30 production closure + the P31 extension: W291/W293 whitespace,
-  I001 import order, F401 unused imports, F403/F405 the settings star
-  imports, B904 exception chaining — production 277 → 211, tests
-  379 → 157; `make lint-mechanical` + the CI step gate the unified
-  class set over production + tests)
+  (the P30 production closure + the P31 extension + the P32 set:
+  W291/W293 whitespace, I001 import order, F401 unused imports,
+  F403/F405 the settings star imports, B904 exception chaining, the
+  dead-code/shadow/name/suppress classes — production 277 → 211 → 148,
+  tests 379 → 158 → 73 [the honest re-measured baseline; the P31
+  report's 157 under-counted by the W605 the P32 sprint closed];
+  `make lint-mechanical` + the CI step gate the extended class set
+  over production + tests)
 - Frontend: vitest 698/698 (85 files, on vitest 4.1.12 — the P23
   advisory closure), coverage green at the RAISED per-glob ratchets
   (the P29 honest-ratchet completion: lib 73/54/78/75, hooks
@@ -26,6 +29,19 @@ Current truth (all gates executed and green, session 59 / P31):
   tier set had missed the shared primitives), tsc --noEmit 0 errors,
   whole-tree eslint **0 errors / 0 warnings**,
   npm audit **0 across dev+prod**
+- P32 headline: the dead-code & shadow-fragility closure + the
+  tests-tree residual — the 3 dead service-seam bindings retired
+  (void's never-read `reversal`, transition's `old_status`, approve's
+  guard-query `fiscal_period`), the F402 `status` shadow renamed in
+  DocumentSummaryView, the journal E741/A001 renames, the SIM105 ×10
+  suppress conversions, the B017 tightening that exposed a
+  vacuously-passing retry test (the blind assert swallowed the
+  db-blocker RuntimeError), the S608/E402 documented suppressions;
+  the F811 fixture class closed architecturally (payment_fixture →
+  tests/integration/conftest.py, the 7 cross-module import blocks
+  deleted, a NEW no-import resolution spec pinning the contract);
+  production ruff 211 → 148, tests 158 → 73; the extended closed-class
+  ratchet (+25 classes) in `make lint-mechanical` + CI
 - P30 headline: the ruff mechanical closure — the registered
   928-finding production batch's mechanical classes closed 650 → 0
   (whitespace ×378, import order ×122, unused imports ×121 across 51
@@ -2113,3 +2129,31 @@ generalises the P30 __init__.py re-export review: before autofixing
 F401 in ANY new tree, classify the imported names by whether the
 import itself is the behaviour; when in doubt, the suite is the
 arbiter, not the linter.
+
+### An Incomplete Builtin-Shadow Rename Binds To The Builtin — Silently
+The P32 A001 rename (`credits` → `credit_total` in journal_service's
+trial balance) was applied to the local bindings but one dict VALUE
+still read `str(credits)`. No NameError fired — `credits` resolved to
+Python's BUILTIN easter-egg object (the `credits()` about-text), whose
+str() landed in the API payload and blew the downstream Decimal()
+parse with ConversionSyntax. The rename of a builtin-shadowing name
+must be COMPLETE (grep every use in the function, not just the
+bindings ruff flagged), and the failure mode is a DATA corruption
+disguised as a parse error, never a crash at the rename site. The
+full suite — not the linter's clean bill — is the arbiter; the three
+trial-balance tests caught it within one run.
+
+### A Cross-Module Fixture Import Is A Missing Conftest — Close It Architecturally
+The 26 F811s were all one pattern: `payment_fixture` defined in a
+sibling test module, imported by 7 files purely so pytest could
+resolve it, with every consuming test's PARAMETER then shadowing the
+import. The suppression temptation (26 noqas) would have hidden the
+real defect — the fixture's availability depended on an implementation
+detail of another test file. The conftest placement is pytest's own
+resolution model: the fixture moved verbatim to
+tests/integration/conftest.py, the 7 import blocks were DELETED (simpler
+files), and a NEW spec pins the contract by using the fixture with NO
+import — RED on the base tree (fixture not found), GREEN after the
+move. When a lint class traces back to a workaround for missing
+infrastructure, fix the infrastructure; the findings close as a side
+effect.

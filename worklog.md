@@ -1804,3 +1804,83 @@ prefill; the TanStack incompatibility; the membership-cache window; the
 P20-era FE-M2/M3 designs; CI hardening (the mypy gate — 1491 errors);
 the version-story reconciliation; the P21–P30 deferred registers
 carried forward unchanged.
+
+## Session 62 — P32 Sprint (2026-11-28)
+
+The workspace had been reset (fresh clone); the environment needed
+real recovery: the sandbox recycle damaged the rootless PG 17 data
+directory (the empty structural subdirectories were gone) — recovered
+by recreating them, the databases/schemas/roles intact; the web
+node_modules rebuilt with npm ci after the interrupted first install
+corrupted two native binaries (the vitest "Bus error" root cause).
+All documented baselines reproduced EXACTLY before any change: backend
+1034P/0F/5S, vitest 698/698, tsc 0, eslint 0E/0W, e2e 43/43
+first-run, rls 13/13, mobile-nav 17/17 (the thirty-second settlement),
+the translate probe PASS, npm audit 0, build:server + prod-CSP 5/5,
+make lint-mechanical 0, the production ruff count 211 exact, the tests
+count 158 (the honest re-measured baseline — the P31 report's 157
+under-counted by the W605 this sprint closed). The mobile-nav focus
+settled: working, no Tailwind v4 bug.
+
+### The audits (Mode C)
+
+**0 Critical / 1 High / 2 Medium / 1 Low.** BE-P32-H1 (the headline):
+the production dead-code/shadow/suppress batch — the 3 dead
+service-seam bindings (void's never-read reversal, transition's
+old_status, approve's guard-query fiscal_period), the F402 live
+fragility (DocumentSummaryView.get's loop variable shadowing the DRF
+status module), the journal E741/A001 renames, the SIM105 x10
+suppress conversions, the B009/B017/B905/N806/N802/SIM108/SIM110/UP015
+hardening, the S608 false positive (documented via per-file-ignores)
+and the E402 x13 deliberate end-of-file imports (noqa). BE-P32-M2:
+the tests-tree residual — the F811 x26 fixture class (the
+cross-module import-is-the-side-effect pattern; closed
+architecturally via the conftest placement) + the mechanical
+remainder + the S105/S106/S108 per-file-ignores contract.
+CFG-P32-M3: the ratchet extension. Two hidden defects surfaced and
+fixed during execution: the incomplete A001 rename (one dict value
+still read str(credits) — resolved to Python's BUILTIN credits
+easter-egg object, str()'d into the trial-balance payload and blew
+the downstream Decimal() parse with ConversionSyntax, NOT a NameError;
+caught by the 3 trial-balance tests within one run) and the B017
+vacuous test (the blind pytest.raises(Exception) swallowed
+pytest-django's db-blocker RuntimeError — the retry test had never
+reached its simulated failure; now django_db-marked + specific-class).
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-P32-H1 | the dead-code/shadow/suppress closure: the 3 service seams, the F402 rename, the journal renames (completed — the builtin-binding lesson), the SIM105 x10, the small hardening classes, the S608/E402 documented suppressions | production ruff 211 → 148; `ruff --select` per class → 0; the full suite green; the live contracts re-verified byte-stable (the not-found 404, the typed-400s, the summary endpoint 200) |
+| BE-P32-M2 | the tests-tree residual: the F811 conftest placement (payment_fixture → tests/integration/conftest.py, the 7 import blocks deleted, the no-import resolution spec RED→GREEN) + the mechanical remainder + the per-file-ignores contract | tests 158 → 73; the full 1036-test suite green (every existing consumer proves the resolution) |
+| CFG-P32-M3 | the extended ratchet: `make lint-mechanical` + the CI step gate the P30/P31 set + 25 newly closed classes over production + tests | make exit 0 locally; the recipe line byte-verified to carry its TAB; the ci.yml YAML valid |
+| X-docs | the truth pass (README badge 1777 + the P32 milestone, CLAUDE 2.33.0, AGENTS header + the P32 headline + 2 new lessons [the incomplete-builtin-shadow-rename lesson; the cross-module-fixture-import-is-a-missing-conftest lesson], SKILL 2.19.0, PAD 3.22.0, DEPLOYMENT header + the PG-recovery note, the API guide re-verification note — no API changes, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful |
+
+### Final gate (all verified, executed)
+
+backend **1036P/0F/5S** (+2) · vitest **698/698 (85 files)** · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · **e2e:full 43P/0F/0S** ·
+**rls_smoke 13/13 as `ledgersg_app`** · **mobile-nav 17/17** (the
+thirty-third settlement) · the `translate` probe re-PASS · **npm audit 0
+across dev+prod** · build:server green + **prod-CSP 5/5** · the
+extended closed-class ruff ratchet (production 211 → 148, tests
+158 → 73) · schema v1.2.2 (no DDL). 8 DOM-verified screenshots
+(208-215, the reports trial-balance tab — the headline surface — +
+the reports P&L, the invoices list, the ledger, the banking payments
+tab, the dashboard, the mobile drawer closed/open).
+
+### Deferred (registered, not dropped)
+
+The ruff semantic batch — now **148 production findings** (the UP
+typing batch ×105, E501 ×38 + the format axis at 160 files, S110 ×4
+the fail-closed designs, N818 ×1); the tests/-tree residual — **73
+findings** (E501 ×73 only — the SIM105 conversion closed the
+tests-tree S110 with it); the `/accounts/search/` limit-contract
+migration (verified again: capped + typed, no frontend
+consumer); the capped-default flip; the audit-log INSERT policy (DDL);
+BE-L3/BE-L4 locking; the CSV errors[] strings; dead-letter design; UEN
+checksum; the NULL-context SELECT tradeoff; H-05b models; PaymentsTab
+prefill; the TanStack incompatibility; the membership-cache window; the
+P20-era FE-M2/M3 designs; CI hardening (the mypy gate — 1491 errors);
+the version-story reconciliation; the P21–P31 deferred registers
+carried forward unchanged.
