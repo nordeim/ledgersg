@@ -1,0 +1,58 @@
+# LedgerSG — Remediation Report (P30 Sprint: The Ruff Mechanical Closure + The Fourth-Surface Walk Completion + The Mechanical-Class Lint Ratchet)
+
+**Date:** 2026-11-28 (session 57)
+**Base commit:** `5a31ff9c` (main — post-P29 + the session-56/57 logs)
+**Plan:** `docs/REMEDIATION_PLAN_2026-11-28_P30.md` (validated against the codebase before execution — every anchor hand-verified; the baseline reproduced ALL documented gates exactly this session, including the live e2e 43/43 on the first run)
+**Method:** TDD (RED → GREEN → full gate) for every behavioural change; the mechanical lint batch verified by per-phase diffs + the full test matrix + the live contract re-verification; `skills/` excluded from all checks/tests/compilation; no schema changes (v1.2.2 carries forward); no frontend component changes (the web tree is untouched).
+
+---
+
+## 1. Verification Ledger (executed evidence)
+
+| Gate | Result | Confidence |
+|---|---|---|
+| Baseline reproduction (pre-change) | backend **1028P/0F/5S** (29.81s) · vitest **698/698 (85 files)** (106.80s) · tsc 0 · whole-tree eslint **0E/0W** (from `apps/web`) · live `test:e2e:full` **43/43 (2m20s, deterministic, first run)** · `rls_smoke.py` **13/13 as `ledgersg_app`** · `mobile-nav-audit.js` **17/17** (the twenty-eighth settlement) · the dedicated Tailwind v4 `translate` probe (`scripts/translate-probe-session53.js`): **PASS** (7 mid-flight samples) · `npm audit` **0 across dev+prod** | Verified |
+| The environment | rootless PG 17 on :5432 live, Redis on :6379, the dev stack (:8000 health 200, :8001 health 200, :3000 `next dev`) — **no repair required this session** (note: this session's sandbox reaps backgrounded processes at the shell-call boundary — the backends were run per-gate through a start→gate→teardown helper; every live gate below ran against the remediated code) | Verified |
+| The named focus — the mobile-nav verdict | **WORKING as expected; NO remaining TailwindCSS v4 bug on this surface** (the twenty-eighth pre-change settlement + the twenty-ninth post-change settlement; the `translate` probe re-PASS both times) | Verified |
+| RED: the query-count spec on base code | NEW `tests/integration/test_reconcile_query_counts_p30.py` (2 gates): **both failed for exactly the right reason** — the assertion output shows the single-table `FOR UPDATE` bank-transaction fetch (the bank_account row rode its own walk during serialization) on BOTH the reconcile and the unreconcile paths | Verified |
+| GREEN: the M2 fix | `ReconciliationService.reconcile` + `unreconcile` locked fetches → `.select_for_update().select_related("bank_account")` (the FK is non-nullable — INNER JOIN + FOR UPDATE legal; the joined reference-row lock verified benign) — **2/2 GREEN** | Verified |
+| The ruff mechanical closure | the four classes at **0** on the production tree (`ruff check --select W291,W293,I001,F401,F403,F405 apps/ common/ config/` → "All checks passed!"); the whole-tree count **928 → 277**. Per class: W291/W293 378 → 0 (282 safe-fixed; the 96 docstring-internal ones reviewed line-by-line via `git diff` before the `--unsafe-fixes` apply — every change verified docstring/comment-only); I001 122 → 0 (plus 4 re-sorts after the F401 edits); F401 121 → 0 (118 safe-fixed; the 3 `config/urls.py` availability-probe imports DROPPED — `include()` raises the same `ImportError` inside the same `try`, behaviour-identical); F403/F405 29 → 0 via `[tool.ruff.lint.per-file-ignores]` (the Django split-settings pass-through contract, documented at the config). One ride-along: the `contact_service` docstring `\d` escape (a pre-existing SyntaxWarning on every boot — verified pre-existing on the stashed base, now clean) | Verified |
+| The Django boot + system check | `django.setup()` boots (25 apps); `manage.py check` reports only the pre-existing `django_ratelimit.W001` (identical on the stashed base); no SyntaxWarning | Verified |
+| The full backend suite | **1030 passed / 0 failed / 5 skipped (29.64s)** — the 1028 existing pins hold unchanged; +2 the new query-count gates | Verified |
+| The full web matrix | vitest **698/698 (85 files)** · tsc 0 · whole-tree eslint **0E/0W** · live `test:e2e:full` **43/43 (2.3m)** · `build:server` green · `prod-csp-smoke.js` **5/5** · `npm audit` **0 across dev+prod** (web tree untouched) | Verified |
+| The live gates | `rls_smoke` **13/13 as `ledgersg_app`** (against the restarted :8001 RLS instance) · `mobile-nav-audit.js` **17/17** (the twenty-ninth settlement) · the `translate` probe re-PASS | Verified |
+| The live API contract re-verification | the bank-transactions list envelope `?limit=2` → **count 7 + 2 rows + bank_account_name present**; the **reconcile round-trip on live rows**: unreconcile 200 (`is_reconciled=false`, `bank_account_name` present, `matched_payment=null`) → re-reconcile 200 (`is_reconciled=true`, `matched_payment` restored) — the payloads byte-identical, the substrate state restored | Verified |
+| The mechanical-class ratchet | `make lint-mechanical` exit 0 (run with the venv on PATH); the same command added as the CI `backend-tests` step (ruff==0.15.2 already a dev dependency); the ci.yml YAML validated | Verified |
+| Screenshots | 8 captures (`192-199_*_session57.png`), md5-unique, DOM-truth-asserted per surface (the banking transactions tab — the P30 headline surface — + the payments tab, the invoices list/detail, the ledger, the dashboard, the mobile drawer closed/open) + non-blank pixel-verified (variance 562.2–935.8, threshold 30; `scripts/verify-screenshots-session57.py`) | Verified |
+| The `.env.example`s | the config-readers sweep re-run (corrected pattern): 17 backend settings vars, all documented; `DJANGO_SETTINGS_MODULE` documented as process-env; the web tree reads exactly `NEXT_PUBLIC_API_URL` + `NEXT_OUTPUT_MODE` — **truthful, no changes required** (no new env vars this sprint) | Verified |
+
+## 2. What changed (2 service seams + 1 spec file + ~119-file mechanical batch + 4 config files, no schema, no frontend components)
+
+1. **`apps/backend/apps/banking/services/reconciliation_service.py`** — `reconcile` + `unreconcile` locked fetches gain `.select_related("bank_account")` (the P30 comments record the contract + the lock-scope note).
+2. **Tests:** NEW `tests/integration/test_reconcile_query_counts_p30.py` (2 gates, the `CaptureQueriesContext` pattern: the locked fetch carries the JOIN, no separate bank_account walk, the payload counter-pins).
+3. **The mechanical batch (119 files)** — whitespace (378), import order (126 incl. the re-sorts), unused imports (121, incl. the 3 dropped availability-probe imports in `config/urls.py`), the `contact_service` docstring escape ride-along; **`pyproject.toml`** gains the per-file-ignores block (the settings star-import contract); **`Makefile`** gains `lint-mechanical` (+ the help lines); **`.github/workflows/ci.yml`** gains the Mechanical Lint Gate step; the header counts roll forward.
+4. **Docs:** README (badge 1771, the status rows, the P30 milestone), CLAUDE 2.31.0, AGENTS (the header truth block + 3 new P30 lessons), SKILL 2.17.0, PAD 3.20.0, DEPLOYMENT (the header re-verification), the API guide (the P30 re-verification note — no API changes).
+5. **Scripts:** `scripts/capture-screenshots-session57.js` (the 8-shot capture), `scripts/verify-screenshots-session57.py` (the pixel verification).
+
+## 3. The closure verdict (the headline)
+
+**`ruff check --fix` is now SAFE on this tree — the register's blind-fix trap is defused.** The registered 928-finding production batch had sat deferred for nine sprints precisely because the 26 F405 star-import usages made a blind autofix unsafe; a future agent running `ruff --fix` could have stripped names the split-settings pass-through must keep flowing. This sprint closed the mechanical classes **650 → 0** with the trap documented in the ONE place it belongs (the per-file-ignores block with its rationale), reviewed the 121 unused imports file-by-file (spot-verified genuine: `os` in both settings modules, `CanManageCoA` in coa/views — an import that read as a permission contract that did not exist —, the placeholder urls' `path`), and pinned the closed classes at 0 with a gate that runs in CI (`make lint-mechanical` + the same command in `backend-tests`). The 277 semantic findings stay honestly registered (B904 raise-from ×66, the UP typing batch ×109, E501 ×39 + the `make format` axis at 80 files, F841/E402/…). The M2 completion carries the P29 class to the last surface: a reconcile or unreconcile response now costs one joined fetch, not a fetch plus a walk — invisible to every response test (the bytes are identical), pinned by the query-count gates, and re-verified live with a round-trip that restored the substrate.
+
+## 4. Audit of recent changes (Mode C, static + executed)
+
+- The P29 slice re-audited this session (hand-verified in source): the three service gets carry the bounded-fetch contracts, the P29 spec file, the raised ratchets — **0 new findings**.
+- The same-class sweep one seam deeper: every serializer nested-`source=` walk is covered by a carrying queryset (the bank-transaction LIST, the allocations); the report paths are single grouped queries (trial balance, P&L/BS, aged, F5 raw SQL); the write-path per-row ORM calls are deliberate bounded locking designs (`create_entry`'s sorted pre-lock, `allocate`'s sorted document pre-lock); the dashboard is cached aggregates. The reconcile/unreconcile responses were the ONE remaining walk — fixed this sprint.
+- The named focus — the mobile-nav verdict (twenty-eighth/twenty-ninth settlements): **working as expected; no remaining Tailwind v4 bug**.
+- The standing test-suite task (vitest + playwright configs): verified IN PLACE and current — this sprint adds the backend query-count specs to the same suites.
+- `npm audit`: **0 across dev+prod** (re-verified). `mypy --strict`: 1491 errors (the registered convenience tool, NOT a gate — untouched). The tests/ tree: 379 findings (F811×27, F821×2 string-annotation nits, …) — registered follow-up.
+
+## 5. Remaining / deferred (explicit, registered in the plan's §4)
+
+The ruff semantic batch — now **277 production findings** (was 928): B904×66 (raise-from chaining — a reviewed sprint of its own), UP045/UP006/UP007/UP035×109 (typing modernization; leans on a mypy gate that itself carries 1491 errors), E501×39 + `ruff format` (80 files would reformat — the `make format` axis), F841×16, E402×12 (the deliberate end-of-file circular-avoidance imports), SIM105×7, B009×6, S110×4 (the verified fail-closed XSD loads), A001/E741/N806×6, B017/B905/F402/N802×4. The tests/-tree lint batch (379 findings incl. F811×27 + the conftest F821 string-annotation nits). The `/accounts/search/` limit-contract migration (verified again: capped + typed; no frontend consumer); the capped-default flip; the audit-log INSERT policy (DDL); BE-L3 config-class locking; BE-L4 Peppol log-state locking; CSV errors[] raw strings; dead-letter design; UEN checksum; NULL-context SELECT tradeoff; H-05b models; PaymentsTab prefill; TanStack incompatibility; the membership-cache window; the P20-era FE-M2/M3 designs; CI hardening (the mypy gate); the version-story reconciliation — the P21–P29 deferred registers carry forward unchanged.
+
+## 6. Confidence labels
+
+- **Verified:** every row in §1 (executed and observed in this session, on this tree — including the RED→GREEN transitions, the per-class closure counts, the full matrix on the remediated code, and the live round-trip contracts).
+- **Reasoned:** the no-regression claim for untouched surfaces (the full matrix green; `git status` shows only the intended files).
+- **Assumed:** none material.
+- **Unverifiable here:** none.

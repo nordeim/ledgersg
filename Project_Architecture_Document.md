@@ -1,8 +1,9 @@
 # LedgerSG — Project Architecture Document (PAD)
 
 > **Single Source of Truth for Developers and Coding Agents**
-> **Version**: 3.19.0
+> **Version**: 3.20.0
 > **Last Updated**: 2026-11-28
+> **P30 note**: the ruff mechanical closure + the fourth-surface walk completion — the registered 928-finding production batch's mechanical classes closed 650 → 0 (whitespace ×378, import order ×122, unused imports ×121 across 51 files, the Django split-settings star imports ×29 documented via per-file-ignores — the pass-through contract; `ruff check --fix` now SAFE); the reconcile/unreconcile responses now JOIN bank_account instead of walking it (byte-identical payloads, 2 new query-count gates + the live round-trip); the mechanical-class lint ratchet (`make lint-mechanical` + the CI step) — see `docs/REMEDIATION_PLAN_2026-11-28_P30.md`.
 > **P29 note**: the detail-view N+1 closure — the three detail seams (document detail, journal entry detail, payment detail) fetched their row with a plain `.get()` while the serializers walked the related FKs per line / per related object (a 5-line invoice detail paid 14 queries where 3 would do, across 8 serialising call sites incl. the PDF context); now the contact rides the document SELECT, the lines arrive in ONE joined SELECT carrying account + tax_code, the payment joins its related rows — byte-identical payloads, pinned by 3 new query-count gates; plus the per-glob coverage-ratchet raise (all five tiers at their measured floors — the hooks branches floor sat 15 points below the truth — and the NEW src/shared tier, closing the P20 blind spot) — see `docs/REMEDIATION_PLAN_2026-11-28_P29.md`.
 > **P28 note**: the SQL-level push-down for the service-driven lists — the four services (contacts, documents [invoices AND quotes], payments, bank transactions) returned materialised Python lists and the views Python-sliced + `len()`-counted, so every 20-row page fetched the ENTIRE filtered set (the P24 envelope paged the response, not the query); now lazy querysets + SQL COUNT(*) + SQL LIMIT/OFFSET, byte-identical envelopes, pinned by 4 new query-level gates; plus the honest coverage-ratchet raise (71/60/68/71 → 73/62/70/73 at the measured floor) and the dev-tier dependency closure (npm audit 0 across dev+prod) — see `docs/REMEDIATION_PLAN_2026-11-28_P28.md`.
 > **P27 note**: the pagination state-machine truth — the search-debounce MOUNT-run reset race closed (a page change clicked inside the ~600ms window silently reverted to the cached page 1 — no refetch, no feedback; proven by e2e trace; the page restart now fires only on a debounced VALUE CHANGE), the org-switch offset reset extended to all five P26-paginated surfaces (the P25/FE-L3 render-time pattern), and the banking filter-change offset reset (the filters-prop identity compare + the stable NO_FILTERS default) — 12 new real-hook vitest gates; no backend changes — see `docs/REMEDIATION_PLAN_2026-11-28_P27.md`.
@@ -49,22 +50,22 @@
 
 **LedgerSG** is a production-grade, double-entry accounting platform purpose-built for Singapore SMBs. It eliminates the complexity of IRAS compliance through a "SQL-First" design philosophy and a distinctive "Illuminated Carbon" neo-brutalist UI.
 
-### Key Metrics (P29, 2026-11-28)
+### Key Metrics (P30, 2026-11-28)
 | Metric | Value | Details |
 |--------|-------|---------|
-| **Test Coverage** | **1,769 Tests Passing** | 1028 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
+| **Test Coverage** | **1,771 Tests Passing** | 1030 Backend + 698 Frontend unit + 43 e2e (11 always + 32 backend-gated; 43/43 live-green, deterministic, incl. the fresh-DB first-run proof) + the 13-step runtime-role smoke |
 | **API Surface** | **~86 Leaf Endpoints** | RESTful, JSON-API compliant (mount-counting yields "90+"); every LIST endpoint returns the unified `{results, count}` envelope (P21) with the additive `?limit=&offset=` pagination + next/previous + total-count (P24) |
 | **Security** | **Defense-in-Depth** | CSP (env-aware, P13-consolidated), Rate Limiting, RLS, 4-Layer Auth |
 | **Database** | **7 Schemas** | 29 Tables + 1 View (+2 token-blacklist), Row-Level Security Enforced |
-| **Lint Register** | **ESLint 0 errors / 0 warnings (src+e2e) · ruff ~1307 whole-tree (~928 production)** | ESLint clean since P19; the ruff mechanical batch is the registered deferred debt (P29 re-measured); the P28 dependency closure — npm audit **0 across dev+prod** |
+| **Lint Register** | **ESLint 0 errors / 0 warnings (src+e2e) · ruff mechanical classes 0 (production tree)** | ESLint clean since P19; the P30 closure (650 mechanical findings closed; `make lint-mechanical` + the CI step pin them at 0); the 277 semantic findings + the tests-tree batch stay registered; npm audit **0 across dev+prod** |
 
 ### Test Breakdown
 | Suite | Tests | Pass Rate | Framework | Status |
 |-------|-------|-----------|-----------|--------|
 | **Frontend Unit** | 698 (85 files) | 100% | Vitest + RTL (on vitest 4.1.12 — the P23 advisory closure) | ✅ Passing |
-| **Backend (pytest)** | 1028 passed / 5 skipped (1033 collected) | 100% of run | pytest | ✅ Passing |
+| **Backend (pytest)** | 1030 passed / 5 skipped (1035 collected) | 100% of run | pytest | ✅ Passing |
 | **E2E (Playwright)** | 43 (11 always + 32 backend-gated) | 100% live | Playwright | ✅ Passing |
-| **Total Passing** | **1,769** | — | Mixed | ✅ Verified |
+| **Total Passing** | **1,771** | — | Mixed | ✅ Verified |
 
 ---
 

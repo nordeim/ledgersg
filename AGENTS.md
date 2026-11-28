@@ -8,9 +8,15 @@ live numbers. The detailed sections between this header and the P0-patterns
 appendix are HISTORICAL — written 2026-03-08; treat their counts as
 superseded.)
 
-Current truth (all gates executed and green, session 55 / P29):
-- Backend: pytest 1028 passed / 0 failed / 5 skipped (1033 collected)
-  (+3: the detail-query-count gates)
+Current truth (all gates executed and green, session 57 / P30):
+- Backend: pytest 1030 passed / 0 failed / 5 skipped (1035 collected)
+  (+2: the reconcile/unreconcile query-count gates)
+- Backend lint: the ruff mechanical classes at **0** on the production
+  tree (the P30 closure: W291/W293 whitespace, I001 import order, F401
+  unused imports, F403/F405 the settings star imports — 650 findings
+  closed, `ruff check --fix` now SAFE; the 277 semantic findings stay
+  registered; `make lint-mechanical` + the CI step pin the closed
+  classes at 0)
 - Frontend: vitest 698/698 (85 files, on vitest 4.1.12 — the P23
   advisory closure), coverage green at the RAISED per-glob ratchets
   (the P29 honest-ratchet completion: lib 73/54/78/75, hooks
@@ -20,6 +26,17 @@ Current truth (all gates executed and green, session 55 / P29):
   tier set had missed the shared primitives), tsc --noEmit 0 errors,
   whole-tree eslint **0 errors / 0 warnings**,
   npm audit **0 across dev+prod**
+- P30 headline: the ruff mechanical closure — the registered
+  928-finding production batch's mechanical classes closed 650 → 0
+  (whitespace ×378, import order ×122, unused imports ×121 across 51
+  files, the Django split-settings star imports ×29 documented via
+  per-file-ignores — the pass-through contract); the register's
+  blind-`--fix` trap defused. Plus the fourth-surface walk completion:
+  reconcile()/unreconcile() responses now JOIN bank_account instead of
+  walking it (the locked fetches chain select_related; byte-identical
+  payloads, pinned by query-count gates + the live round-trip); and
+  the mechanical-class lint ratchet (`make lint-mechanical` + the CI
+  step — a gate nobody runs is a rubber stamp)
 - P29 headline: the detail-view N+1 closure — the three detail seams
   (document detail, journal entry detail, payment detail) fetched
   their row with a plain `.objects.get(...)` while the serializers
@@ -1860,6 +1877,41 @@ Empiricism downgraded the finding from "bug" to "hardening" — and the
 render-time reset (the React prev-state pattern) makes the guarantee
 explicit instead of timing-emergent. Write the real-hook test BEFORE
 concluding a timing-interior bug exists.
+
+## 2026-11-28 P30 Sprint — New Patterns & Lessons (session 57)
+
+### A Star Import Can Be A Contract — Suppress With Rationale, Never Convert
+The Django split-settings idiom (`from .base import *` in
+development/production/testing.py) is a PASS-THROUGH CONTRACT: the star
+is the mechanism that flows every base setting — and every FUTURE base
+addition — into the derived modules. Ruff's F403/F405 flags it, and the
+"clean" fix (explicit imports) would silently DROP future base
+additions: the exact drift class this repo registers as a lesson. The
+honest fix is `[tool.ruff.lint.per-file-ignores]` with the rationale in
+a comment at the config — ONE documented place, not 29 scattered
+noqa sites. When a linter flags an idiom, ask what the idiom is FOR
+before removing it; the flag describes the mechanism, not the intent.
+
+### The Hidden-Fix Tier Deserves Line-Level Review
+Ruff's safe/unsafe fix split earned its keep on the whitespace batch:
+378 W291/W293 findings, of which 96 were "hidden" (unsafe) because
+they sat INSIDE docstrings — where whitespace is string content, not
+code style. The batch applied the safe 282 first, then reviewed the
+hidden 96 line-by-line (`git diff` + the docstring-context check)
+before the `--unsafe-fixes` apply. Blind-fixing the whole class would
+have rewritten string bytes sight-unseen. The rule: `--fix` for the
+safe tier, `git diff` review for the hidden tier, and never
+`--unsafe-fixes` as a first move on a class you haven't sampled.
+
+### An Edit Tool Can Break A Makefile — Verify Tab-Sensitive Formats Byte-Level
+A mid-sprint Makefile edit came back with every recipe tab normalised
+to spaces (make: "missing separator") — the edit layer's display
+form silently replaced the byte that make's grammar requires. The same
+class as the P10 "corrupted YAML" scare: verify surprising failures
+byte-level (`cat -A`) BEFORE remediating, and for tab-sensitive formats
+(Makefiles, some YAML) apply edits through a scripted write that
+asserts the byte survived. Also: a make target name cannot contain a
+colon (`lint:mechanical` parses as a target pattern) — hyphenate.
 
 ## 2026-11-28 P29 Sprint — New Patterns & Lessons (session 55)
 

@@ -1678,3 +1678,64 @@ TanStack incompatibility; the membership-cache window; the P20-era
 FE-M2/M3 designs; CI hardening; the version-story reconciliation;
 the P21/P23/P24/P25/P26/P27/P28 deferred registers carried forward
 unchanged.
+
+## Session 58 — P30 Sprint (2026-11-28)
+
+The workspace refreshed to `5a31ff9c` (the session-57 log the only delta);
+the environment intact (PG 17, Redis, both backends, next dev — no repair).
+All 9 documented baselines reproduced EXACTLY before any change: backend
+1028P/0F/5S, vitest 698/698, tsc 0, eslint 0E/0W, e2e 43/43 first-run,
+rls 13/13, mobile-nav 17/17 (the twenty-eighth settlement), the translate
+probe PASS, npm audit 0. The mobile-nav focus settled: working, no
+Tailwind v4 bug.
+
+### The audits (Mode C)
+
+**0 Critical / 1 High / 2 Medium / 1 Low.** BE-P30-H1 (the headline):
+the registered ruff mechanical batch — 928 production findings, 650 in
+the mechanical classes (W291/W293 ×378, I001 ×122, F401 ×121 across 51
+files, F403/F405 the settings star imports ×29), spot-verified genuine;
+the register's blind-`--fix` trap (the F405 star-import usages) the
+core harm. BE-P30-M2: the reconcile/unreconcile responses walked
+bank_account on a plain locked fetch — the ONE remaining P29-class walk
+(the surface's mutation responses ARE its serialising consumers; no
+detail GET exists). CFG-P30-M3: `make lint` gates nothing (no ruff step
+in CI). The read/write/report-path sweeps otherwise clean (the report
+paths single grouped queries; the write-path per-row calls deliberate
+bounded locking).
+
+### What shipped
+
+| Area | The fix | The evidence |
+|---|---|---|
+| BE-P30-H1 | the mechanical closure 650 → 0: whitespace (282 safe + 96 docstring-internal reviewed line-by-line), import order (126), unused imports (118 safe + 3 dropped availability probes), the per-file-ignores block for the settings star imports (the pass-through contract documented at the config), the docstring-escape ride-along | the four classes at 0 (`ruff check --select W291,W293,I001,F401,F403,F405 apps common config` → pass); the whole tree 928 → 277; the Django boot + system check clean; the full suite green |
+| BE-P30-M2 | the reconcile/unreconcile locked fetches chain `.select_for_update().select_related("bank_account")` | RED 2 (the single-table FOR UPDATE fetch proven) → GREEN 2; the live round-trip (unreconcile → re-reconcile, the substrate restored) |
+| CFG-P30-M3 | `make lint-mechanical` + the same command as the CI backend-tests step | `make lint-mechanical` exit 0; the ci.yml YAML valid; ruff already a dev dependency |
+| X-docs | the truth pass (README badge 1771 + the P30 milestone, CLAUDE 2.31.0, AGENTS header + 3 new P30 lessons [the star-import contract; the hidden-fix tier review; the Makefile tab byte-check], SKILL 2.17.0, PAD 3.20.0, DEPLOYMENT header, the API guide re-verification note — no API changes, ci.yml) | each count re-measured after the gates; the `.env.example`s re-verified truthful |
+
+### Final gate (all verified, executed)
+
+backend **1030P/0F/5S** (+2) · vitest **698/698 (85 files)** · tsc 0 ·
+whole-tree eslint **0 errors / 0 warnings** · **e2e:full 43P/0F/0S** ·
+**rls_smoke 13/13 as `ledgersg_app`** · **mobile-nav 17/17** (the
+twenty-ninth settlement) · the `translate` probe re-PASS · **npm audit 0
+across dev+prod** · build:server green + **prod-CSP 5/5** · the ruff
+mechanical classes at 0, gated in CI · schema v1.2.2 (no DDL). 8
+DOM-verified screenshots (192-199, the banking transactions tab — the
+headline surface — + the payments tab, the invoices list/detail, the
+ledger, the dashboard, the mobile drawer closed/open).
+
+### Deferred (registered, not dropped)
+
+The ruff semantic batch — now **277 production findings** (B904 ×66, the
+UP typing batch ×109, E501 ×39 + the format axis at 80 files, F841 ×16,
+E402 ×12, …); the tests/-tree lint batch (379 findings incl. F811 ×27 +
+the conftest F821 string-annotation nits); the `/accounts/search/`
+limit-contract migration (verified again: capped + typed, no frontend
+consumer); the capped-default flip; the audit-log INSERT policy (DDL);
+BE-L3/BE-L4 locking; the CSV errors[] strings; dead-letter design; UEN
+checksum; the NULL-context SELECT tradeoff; H-05b models; PaymentsTab
+prefill; the TanStack incompatibility; the membership-cache window; the
+P20-era FE-M2/M3 designs; CI hardening (the mypy gate — 1491 errors);
+the version-story reconciliation; the P21–P29 deferred registers
+carried forward unchanged.

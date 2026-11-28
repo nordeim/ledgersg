@@ -6,20 +6,24 @@ one PostgreSQL database plus one Redis: a Django 6 REST API (`apps/backend`),
 a Next.js 16 web app (`apps/web`), PostgreSQL 16+ with a hand-written SQL
 schema (the source of truth — Django migrations are permanently disabled),
 and Redis (the Django cache AND the Celery broker). This revision
-(2026-11-28, session 55 / P29) re-verified the guide against the current
+(2026-11-28, session 57 / P30) re-verified the guide against the current
 codebase on the live sandbox (rootless PG 17 + Redis per §3/§5, backend
-1028P/0F/5S (+3 — the P29 detail-query-count gates), vitest 698/698
+1030P/0F/5S (+2 — the P30 reconcile/unreconcile query-count gates), the
+ruff mechanical classes at 0 on the production tree (the P30 closure —
+`make lint-mechanical` / the CI step), vitest 698/698
 (85 files, on vitest 4.1.12 — the P23 advisory closure; the P28
 dependency closure: npm audit 0 across dev+prod), typecheck 0 errors,
 whole-tree eslint 0 errors / 0 warnings, build:server green, the
 production-CSP smoke 5/5, live e2e 43P/0F/0S (43 specs), the runtime-role
 smoke 13/13 as `ledgersg_app`, the mobile-nav probe 17/17 — the
-twenty-seventh consecutive settlement, P29 (the dedicated `translate`
-probe re-PASS: 7 mid-flight samples); the session-55 headline: the
-detail-view N+1 closure (the three detail seams — document detail,
-journal entry detail, payment detail — now fetch their related rows in
-bounded, line-count-independent queries; the payloads byte-identical —
-see `docs/REMEDIATION_2026-11-28_P29_REPORT.md`); the session-53
+twenty-ninth consecutive settlement, P30 (the dedicated `translate`
+probe re-PASS: 7 mid-flight samples); the session-57 headline: the ruff
+mechanical closure (650 production findings closed — the mechanical
+classes pinned at 0 by `make lint-mechanical` + the CI step; `ruff
+check --fix` now SAFE) + the fourth-surface walk completion (the
+reconcile/unreconcile responses JOIN bank_account — byte-identical
+payloads — see `docs/REMEDIATION_2026-11-28_P30_REPORT.md`); the
+session-55
 headline: the SQL-level push-down (the four service-driven lists —
 contacts, documents, payments, bank transactions — now fetch only the
 requested page via SQL LIMIT/OFFSET and count via SQL COUNT(*), the
@@ -269,7 +273,7 @@ python manage.py check     # 0 errors (1 known django_ratelimit W001)
 export DB_NAME=test_ledgersg_dev DB_USER=ledgersg DB_PASSWORD=ledgersg_secret_to_change \
        DB_HOST=127.0.0.1 DB_PORT=5432
 pytest --reuse-db --no-migrations -q
-# expected (post-2026-11-28 P29): 1028 passed, 0 failed, 5 skipped
+# expected (post-2026-11-28 P30): 1030 passed, 0 failed, 5 skipped
 # (P26 added the Peppol transmission-log pagination gates; the P24-era suite was
 #  re-verified 969P on a fresh clone — the role `ledgersg_app` must
 #  still carry the schema's dev default password
